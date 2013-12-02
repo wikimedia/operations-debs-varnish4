@@ -234,6 +234,7 @@ cnt_prepresp(struct sess *sp)
 		AZ(sp->obj);
 		sp->restarts++;
 		sp->director = NULL;
+		sp->wrk->vfp = NULL;
 		sp->wrk->h_content_length = NULL;
 		http_Setup(sp->wrk->bereq, NULL);
 		http_Setup(sp->wrk->beresp, NULL);
@@ -1077,7 +1078,9 @@ DOT	lookup2 [
 DOT		shape=diamond
 DOT		label="obj.f.pass ?"
 DOT	]
-DOT	hash -> lookup [label="hash",style=bold,color=green]
+DOT	hash -> lookup [style=bold,color=green]
+DOT	hash -> pipe [style=bold,color=orange]
+DOT	hash -> pass2 [style=bold,color=red]
 DOT	lookup -> lookup2 [label="yes",style=bold,color=green]
 DOT }
 DOT lookup2 -> hit [label="no", style=bold,color=green]
@@ -1364,11 +1367,11 @@ DOT		label="vcl_recv()|req."
 DOT	]
 DOT }
 DOT RESTART -> recv
-DOT recv -> pipe [label="pipe",style=bold,color=orange]
-DOT recv -> pass2 [label="pass",style=bold,color=red]
+DOT recv -> hash [label="lookup",style=bold,color=green]
+DOT recv -> hash [label="pass",style=bold,color=red]
+DOT recv -> hash [label="pipe",style=bold,color=orange]
 DOT recv -> err_recv [label="error"]
 DOT err_recv [label="ERROR",shape=plaintext]
-DOT recv -> hash [label="lookup",style=bold,color=green]
  */
 
 static int
@@ -1471,9 +1474,12 @@ DOT start -> recv [style=bold,color=green]
 static int
 cnt_start(struct sess *sp)
 {
-	uint16_t done;
+	uint16_t err_code;
 	char *p;
-	const char *r = "HTTP/1.1 100 Continue\r\n\r\n";
+	const char *r_100 = "HTTP/1.1 100 Continue\r\n\r\n";
+	const char *r_400 = "HTTP/1.1 400 Bad Request\r\n\r\n";
+	const char *r_413 = "HTTP/1.1 413 Request Entity Too Large\r\n\r\n";
+	const char *r_417 = "HTTP/1.1 417 Expectation Failed\r\n\r\n";
 
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 	AZ(sp->restarts);
@@ -1496,10 +1502,14 @@ cnt_start(struct sess *sp)
 	sp->wrk->vcl = NULL;
 
 	http_Setup(sp->http, sp->ws);
-	done = http_DissectRequest(sp);
+	err_code = http_DissectRequest(sp);
 
 	/* If we could not even parse the request, just close */
-	if (done == 400) {
+	if (err_code == 400)
+		(void)write(sp->fd, r_400, strlen(r_400));
+	else if (err_code == 413)
+		(void)write(sp->fd, r_413, strlen(r_413));
+	if (err_code != 0) {
 		sp->step = STP_DONE;
 		vca_close_session(sp, "junk");
 		return (0);
@@ -1511,12 +1521,6 @@ cnt_start(struct sess *sp)
 	/* Catch original request, before modification */
 	HTTP_Copy(sp->http0, sp->http);
 
-	if (done != 0) {
-		sp->err_code = done;
-		sp->step = STP_ERROR;
-		return (0);
-	}
-
 	sp->doclose = http_DoConnection(sp->http);
 
 	/* XXX: Handle TRACE & OPTIONS of Max-Forwards = 0 */
@@ -1526,13 +1530,14 @@ cnt_start(struct sess *sp)
 	 */
 	if (http_GetHdr(sp->http, H_Expect, &p)) {
 		if (strcasecmp(p, "100-continue")) {
-			sp->err_code = 417;
-			sp->step = STP_ERROR;
+			(void)write(sp->fd, r_417, strlen(r_417));
+			sp->step = STP_DONE;
+			vca_close_session(sp, "junk");
 			return (0);
 		}
 
 		/* XXX: Don't bother with write failures for now */
-		(void)write(sp->fd, r, strlen(r));
+		(void)write(sp->fd, r_100, strlen(r_100));
 		/* XXX: When we do ESI includes, this is not removed
 		 * XXX: because we use http0 as our basis.  Believed
 		 * XXX: safe, but potentially confusing.

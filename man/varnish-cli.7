@@ -67,7 +67,7 @@ that service. Please see varnishd(1) for details.
 .SS Syntax
 .sp
 Commands are usually terminated with a newline. Long command can be
-entered using sh style \fIhere documents\fP. The format of here\-documents
+entered using sh style \fIhere documents\fP\&. The format of here\-documents
 is:
 .INDENT 0.0
 .INDENT 3.5
@@ -83,11 +83,11 @@ word
 .UNINDENT
 .sp
 \fIword\fP can be any continuous string choosen to make sure it doesn\(aqt
-appear naturally in the following \fIhere document\fP.
+appear naturally in the following \fIhere document\fP\&.
 .sp
 When using the here document style of input there are no restrictions
 on lenght. When using newline\-terminated commands maximum lenght is
-limited by the varnishd parameter \fIcli_buffer\fP.
+limited by the varnishd parameter \fIcli_buffer\fP\&.
 .sp
 When commands are newline terminated they get \fItokenized\fP before
 parsing so if you have significant spaces enclose your strings in
