@@ -1,8 +1,8 @@
-varnish (3.0.5-1) UNRELEASED; urgency=low
+varnish (3.0.5-1) unstable; urgency=low
 
   * Imported upstream version 3.0.5
 
- -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 02 Dec 2013 14:53:54 +0100
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 02 Dec 2013 15:06:11 +0100
 
 varnish (3.0.4-2) unstable; urgency=low
 
