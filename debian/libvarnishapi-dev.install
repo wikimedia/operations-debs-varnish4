@@ -1,3 +1,6 @@
 usr/include
+usr/share/aclocal
+usr/share/varnish/include
+usr/share/varnish/vmodtool.py
 /usr/lib/*/libvarnishapi.so
 /usr/lib/*/pkgconfig/*.pc
