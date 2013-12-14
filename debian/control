@@ -74,7 +74,7 @@ Description: shared libraries for Varnish
 Package: libvarnishapi-dev
 Section: libdevel
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libvarnishapi1 (= ${binary:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, libvarnishapi1 (= ${binary:Version}), python
 Provides: libvarnish-dev
 Conflicts: libvarnish-dev
 Description: development files for Varnish
