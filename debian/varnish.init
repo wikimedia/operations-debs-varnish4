@@ -73,6 +73,15 @@ stop_varnishd() {
     else
         log_end_msg 1
     fi
+
+    if test -r $PIDFILE; then
+        read -r PID < $PIDFILE
+        if test ! -d /proc/$PID ; then
+            # stale pidfile
+            unset PID
+            rm -f $PIDFILE
+        fi
+    fi
 }
 
 reload_varnishd() {
