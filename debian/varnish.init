@@ -85,7 +85,9 @@ reload_varnishd() {
 }
 
 status_varnishd() {
-    status_of_proc -p "${PIDFILE}" "${DAEMON}" "${NAME}"
+    start-stop-daemon \
+        --status --quiet --pidfile $PIDFILE \
+        --exec $DAEMON
     exit $?
 }
 
