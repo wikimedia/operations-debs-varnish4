@@ -89,6 +89,11 @@ status_varnishd() {
     exit $?
 }
 
+configtest() {
+    $DAEMON ${DAEMON_OPTS} -C -n /tmp > /dev/null && echo "Syntax ok"
+}
+
+
 case "$1" in
     start)
         case "${START:-}" in
@@ -113,8 +118,11 @@ case "$1" in
         $0 stop
         $0 start
         ;;
+    configtest)
+        configtest
+        ;;
     *)
-        log_success_msg "Usage: $0 {start|stop|restart|reload|force-reload}"
+        log_success_msg "Usage: $0 {start|stop|restart|reload|force-reload|configtest}"
         exit 1
         ;;
 esac
