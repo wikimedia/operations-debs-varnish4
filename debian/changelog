@@ -1,3 +1,21 @@
+varnish (3.0.5-2) unstable; urgency=medium
+
+  [ Mattia Rizzolo ]
+  * debian/varnish.init: Add a configtest action.
+    Thanks to Samuele Giovanni Tonon (Closes: #740002) (LP: #1284095)
+
+  [ Stig Sandbeck Mathisen ]
+  * debian/varnish.service: Test configuration before starting, add reload
+
+  [ Jonathan Davies ]
+  * debian/varnish.init: Use start-stop-daemon for status
+  * debian/varnish.init: Remove PID file on stop (Closes: #661602)
+
+  [ Martin Pitt ]
+  * Add missing "needs-root" test restriction to fix autopkgtest
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 24 Mar 2014 21:37:23 +0100
+
 varnish (3.0.5-1) unstable; urgency=low
 
   * Imported upstream version 3.0.5
