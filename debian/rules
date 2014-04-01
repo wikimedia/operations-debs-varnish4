@@ -32,9 +32,8 @@ override_dh_auto_configure:
 
 override_dh_auto_install:
 	dh_auto_install -a
-	@ # Activate the default backend
-	sed -i '/backend default {/,/}/ s/^#[[:space:]]//'  \
-		$(CURDIR)/debian/tmp/etc/varnish/default.vcl
+	install -d debian/tmp/etc/varnish
+	install -T -m 0644 etc/example.vcl debian/tmp/etc/varnish/default.vcl
 	@ # Remove .la files
 	@ # (See http://wiki.debian.org/ReleaseGoals/LAFileRemoval)
 	find $(CURDIR)/debian/ -name \*.la -delete
