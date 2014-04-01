@@ -26,7 +26,7 @@ Build-Depends:
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-varnish/pkg-varnish.git;a=summary
 Vcs-Git: git://anonscm.debian.org/pkg-varnish/pkg-varnish.git
 Homepage: http://varnish-cache.org/
-Standards-Version: 3.9.4
+Standards-Version: 3.9.5
 XS-Testsuite: autopkgtest
 
 Package: varnish
