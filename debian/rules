@@ -2,9 +2,8 @@
 
 DH_VERBOSE=1
 
-# List of architectures that lack the *_2POW definitions in varnish,
-# which is needed by jemalloc
-DISABLE_JEMALLOC_ARCH_LIST := hppa s390 sparc m68k
+# List of architectures where jemalloc is not available
+DISABLE_JEMALLOC_ARCH_LIST := hppa m68k
 
 # Explicitly initialize a variable to select architecture, unless it has been
 # defined before.  This is compared against the DISABLE_*_LIST variables later
