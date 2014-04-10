@@ -2,7 +2,7 @@ varnishtest "ESI ability to stitch gzip files together"
 
 
 server s1 {
-	rxreq 
+	rxreq
 	expect req.http.accept-encoding == gzip
 	txresp -gzipbody {
 		<esi:remove>
@@ -14,19 +14,17 @@ server s1 {
 	}
 } -start
 
-varnish v1 -arg "-p sess_workspace=131072 -p thread_pool_stack=262144" -vcl+backend {
+varnish v1 -arg "-p thread_pool_stack=262144" -vcl+backend {
 	sub vcl_recv {
 		set req.esi = true;
 	}
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
 	}
-} -start 
+} -start
 
-varnish v1 -cliok "param.set esi_syntax 0xc"
+varnish v1 -cliok "param.set debug +esi_chop"
 varnish v1 -cliok "param.set http_gzip_support true"
-varnish v1 -cliok "param.set gzip_tmp_space 1"
-varnish v1 -cliok "param.set gzip_window 8"
 varnish v1 -cliok "param.set gzip_memlevel 1"
 
 client c1 {

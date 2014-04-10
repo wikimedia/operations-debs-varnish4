@@ -13,9 +13,10 @@ server s1 {
 	txresp -body "foobar"
 } -start
 
-varnish v1 -vcl+backend { 
-	sub vcl_fetch {
-		return(hit_for_pass);
+varnish v1 -vcl+backend {
+	sub vcl_backend_response {
+		set beresp.do_stream = false;
+		set beresp.uncacheable = true;
 	}
 } -start
 
@@ -23,7 +24,7 @@ client c1 {
 	txreq -url "/foo"
 	rxresp
 	expect resp.status == 200
-	expect resp.http.content-length == 12
+	expect resp.bodylen == 12
 	expect resp.http.x-varnish == "1001"
 } -start
 sema r1 sync 2
@@ -31,8 +32,8 @@ client c2 {
 	txreq -url "/foo"
 	rxresp
 	expect resp.status == 200
-	expect resp.http.content-length == 6
-	expect resp.http.x-varnish == "1002"
+	expect resp.bodylen == 6
+	expect resp.http.x-varnish == "1004"
 } -run
 
 client c1 -wait

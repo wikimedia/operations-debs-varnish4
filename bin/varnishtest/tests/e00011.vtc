@@ -1,26 +1,26 @@
 varnishtest "Make sure that PASS'ed ESI requests use GET for includes"
 
 server s1 {
-	rxreq 
-	expect req.request == POST
+	rxreq
+	expect req.method == POST
 	expect req.url == /foobar
 	txresp -body {<HTML>
 		FOO
 		<esi:include src="/bar"/>
 	}
 	rxreq
-	expect req.request == GET
+	expect req.method == GET
 	txresp -hdr "Set-Cookie: Foo=bar" -body {<HTML>
 		BAR
 	}
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
+	sub vcl_backend_response {
+		set beresp.uncacheable = true;
 		set beresp.do_esi = true;
-		return(hit_for_pass);
 	}
-} -start 
+} -start
 
 client c1 {
 	txreq -req POST -url /foobar -body {

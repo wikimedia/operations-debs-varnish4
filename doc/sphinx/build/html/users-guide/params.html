@@ -1,0 +1,136 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Parameters &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Starting and running Varnish" href="running.html" />
+    <link rel="next" title="Sizing your cache" href="sizing-your-cache.html" />
+    <link rel="prev" title="Storage backends" href="storage-backends.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="sizing-your-cache.html" title="Sizing your cache"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="storage-backends.html" title="Storage backends"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
+          <li><a href="running.html" accesskey="U">Starting and running Varnish</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="parameters">
+<h1>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h1>
+<p>Varnish Cache comes with a set of parameters that affects behaviour and
+performance. Most of these parameters can be set on the Varnish
+command line (through <cite>varnishadm</cite>) using the <tt class="docutils literal"><span class="pre">param.set</span></tt> keyword.</p>
+<p>Some parameters can, for security purposes be read only using the '-r'
+command line switch to <cite>varnishd</cite>.</p>
+<p>We don't recommend that you tweak parameters unless you're sure of what
+you're doing. We've worked hard to make the defaults sane and Varnish
+should be able to handle most workloads with the default settings.</p>
+<p>For a complete listing of all the parameters and a short descriptions
+type <tt class="docutils literal"><span class="pre">param.show</span></tt> in the CLI. To inspect a certain parameter and get
+a somewhat longer description on what it does and what the default is
+type <tt class="docutils literal"><span class="pre">param.show</span></tt> and the name of the parameter, like this:</p>
+<div class="highlight-python"><pre>varnish&gt; param.show shortlived
+200
+shortlived                  10.000000 [s]
+                            Default is 10.0
+                            Objects created with TTL shorter than this are
+                            always put in transient storage.</pre>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="storage-backends.html"
+                        title="previous chapter">Storage backends</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="sizing-your-cache.html"
+                        title="next chapter">Sizing your cache</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/users-guide/params.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="sizing-your-cache.html" title="Sizing your cache"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="storage-backends.html" title="Storage backends"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
+          <li><a href="running.html" >Starting and running Varnish</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

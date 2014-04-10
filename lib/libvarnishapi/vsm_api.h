@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2011 Varnish Software AS
+ * Copyright (c) 2006-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -28,39 +28,34 @@
  *
  */
 
-/* Parameters */
-#define			SLEEP_USEC	(50*1000)
-#define			TIMEOUT_USEC	(5*1000*1000)
+#include <vdef.h>
 
 struct vsc;
+struct vsb;
 
 struct VSM_data {
 	unsigned		magic;
 #define VSM_MAGIC		0x6e3bd69b
 
-	VSM_diag_f		*diag;
-	void			*priv;
+	struct vsb		*diag;
 
-	char			*n_opt;
+	char			*name;
 	char			*fname;
-
+	int			N_opt;
 
 	struct stat		fstat;
 
 	int			vsm_fd;
-	struct VSM_head		*VSM_head;
-	void			*vsm_end;
-	unsigned		alloc_seq;
+	struct VSM_head		*head;
+	char			*b;
+	char			*e;
 
-	/* Stuff relating the stats fields start here */
+	uint64_t		age_ok;
+	double			t_ok;
 
 	struct vsc		*vsc;
-	struct vsl		*vsl;
 };
 
-struct VSM_chunk *VSM_find_alloc(struct VSM_data *vd, const char *class,
-    const char *type, const char *ident);
-
+int vsm_diag(struct VSM_data *vd, const char *fmt, ...)
+    __printflike(2, 3);
 void VSC_Delete(struct VSM_data *vd);
-void VSL_Delete(struct VSM_data *vd);
-void VSL_Open_CallBack(struct VSM_data *vd);

@@ -1,35 +1,24 @@
-varnishtest "Test restart in vcl_error"
+varnishtest "Test restart in vcl_synth"
 
 server s1 {
-        rxreq 
-        txresp 
+        rxreq
+        txresp
 } -start
 
-server s2 {
-} -start
-
-varnish v1 -vcl { 
-	backend bad { 
-		.host = "${s2_addr}";
-		.port = "${s2_port}";
-	}
-	backend good { 
-		.host = "${s1_addr}";
-		.port = "${s1_port}";
-	}
+varnish v1 -vcl+backend {
 	sub vcl_recv {
-		if (req.restarts > 0) {
-			set req.backend = good;
+		if (req.restarts == 0) {
+			return (synth(701, "FOO"));
 		}
 	}
-	sub vcl_error { 
-		if (req.restarts < 1) { 
-			return (restart); 
-		} else { 
-			set obj.status = 201; 
+	sub vcl_synth {
+		if (req.restarts < 1) {
+			return (restart);
+		} else {
+			set resp.status = 201;
 		}
 	 }
- } -start 
+ } -start
 
 client c1 {
         txreq -url "/"

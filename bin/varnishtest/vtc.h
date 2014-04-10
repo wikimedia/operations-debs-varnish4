@@ -27,15 +27,21 @@
  *
  */
 
+#include <errno.h>
 #include <limits.h>
 #include <signal.h>
+#include <stdint.h>
 #include <pthread.h>
 #ifdef HAVE_PTHREAD_NP_H
 #include <pthread_np.h>
 #endif
-#include "vqueue.h"
 
-struct vsb;
+#include "miniobj.h"
+#include "vas.h"
+#include "vdef.h"
+#include "vqueue.h"
+#include "vsb.h"
+
 struct vtclog;
 struct cmds;
 
@@ -57,10 +63,12 @@ cmd_f cmd_server;
 cmd_f cmd_client;
 cmd_f cmd_varnish;
 cmd_f cmd_sema;
+cmd_f cmd_logexp;
 
 extern volatile sig_atomic_t vtc_error; /* Error, bail out */
 extern int vtc_stop;		/* Abandon current test, no error */
 extern pthread_t	vtc_thread;
+extern int iflg;
 
 void init_sema(void);
 
@@ -71,7 +79,8 @@ void cmd_server_genvcl(struct vsb *vsb);
 void vtc_loginit(char *buf, unsigned buflen);
 struct vtclog *vtc_logopen(const char *id);
 void vtc_logclose(struct vtclog *vl);
-void vtc_log(struct vtclog *vl, int lvl, const char *fmt, ...);
+void vtc_log(struct vtclog *vl, int lvl, const char *fmt, ...)
+    __printflike(3, 4);
 void vtc_dump(struct vtclog *vl, int lvl, const char *pfx,
     const char *str, int len);
 void vtc_hexdump(struct vtclog *vl, int lvl, const char *pfx,
@@ -82,7 +91,9 @@ int exec_file(const char *fn, const char *script, const char *tmpdir,
 
 void macro_undef(struct vtclog *vl, const char *instance, const char *name);
 void macro_def(struct vtclog *vl, const char *instance, const char *name,
-    const char *fmt, ...);
+    const char *fmt, ...)
+    __printflike(4, 5);
 struct vsb *macro_expand(struct vtclog *vl, const char *text);
 
-void extmacro_def(const char *name, const char *fmt, ...);
+void extmacro_def(const char *name, const char *fmt, ...)
+    __printflike(2, 3);

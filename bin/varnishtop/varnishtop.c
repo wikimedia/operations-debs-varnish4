@@ -1,10 +1,11 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2011 Varnish Software AS
+ * Copyright (c) 2006-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
  * Author: Dag-Erling Smørgrav <des@des.no>
+ * Author: Guillaume Quintard <guillaume.quintard@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,21 +36,23 @@
 #include <ctype.h>
 #include <curses.h>
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
-#include "vqueue.h"
-
+#include "vapi/vsm.h"
+#include "vapi/vsl.h"
+#include "vapi/voptget.h"
+#include "vas.h"
+#include "vcs.h"
+#include "vtree.h"
 #include "vsb.h"
-
-#include "libvarnish.h"
-#include "vsl.h"
-#include "varnishapi.h"
+#include "vut.h"
 
 #if 0
 #define AC(x) assert((x) != ERR)
@@ -57,16 +60,24 @@
 #define AC(x) x
 #endif
 
+static const char progname[] = "varnishtop";
+static float period = 60; /* seconds */
+static int end_of_file = 0;
+
 struct top {
 	uint8_t			tag;
 	char			*rec_data;
 	int			clen;
 	unsigned		hash;
-	VTAILQ_ENTRY(top)	list;
+	VRB_ENTRY(top)		entry;
 	double			count;
 };
 
-static VTAILQ_HEAD(tophead, top) top_head = VTAILQ_HEAD_INITIALIZER(top_head);
+static int
+top_cmp(const struct top *tp, const struct top *tp2);
+
+static VRB_HEAD(top_tree, top) top_tree_head = VRB_INITIALIZER(&top_tree_head);
+VRB_PROTOTYPE(top_tree, top, entry, top_cmp);
 
 static unsigned ntop;
 
@@ -78,79 +89,101 @@ static int f_flag = 0;
 
 static unsigned maxfieldlen = 0;
 
+VRB_GENERATE(top_tree, top, entry, top_cmp);
+
 static int
-accumulate(void *priv, enum VSL_tag_e tag, unsigned fd, unsigned len,
-    unsigned spec, const char *ptr, uint64_t bm)
+top_cmp(const struct top *tp, const struct top *tp2)
 {
-	struct top *tp, *tp2;
-	const char *q;
+	if (tp->count == tp2->count || tp->count == 0.0) {
+		if (tp->hash != tp2->hash)
+			return (tp->hash - tp2->hash);
+		if (tp->tag != tp2->tag)
+			return (tp->tag - tp2->tag);
+		if (tp->clen != tp2->clen)
+			return (tp->clen - tp2->clen);
+		else
+			return (memcmp(tp->rec_data, tp2->rec_data, tp->clen));
+	} else {
+		if (tp->count > tp2->count)
+			return -1;
+		else
+			return 1;
+	}
+}
+
+
+static int __match_proto__(VSLQ_dispatch_f)
+accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
+	void *priv)
+{
+	struct top *tp, t;
+	char *rd;
 	unsigned int u;
-	int i;
+	unsigned tag;
+	const char *b, *e, *p;
+	unsigned len;
+	struct VSL_transaction *tr;
 
 	(void)priv;
-	(void)fd;
-	(void)spec;
-	(void)bm;
-	// fprintf(stderr, "%p %08x %08x\n", p, p[0], p[1]);
 
-	u = 0;
-	q = ptr;
-	for (i = 0; i < len; i++, q++) {
-		if (f_flag && (*q == ':' || isspace(*q))) {
-			len = q - ptr;
-			break;
+	for (tr = pt[0]; tr != NULL; tr = *++pt) {
+		while ((1 == VSL_Next(tr->c))) {
+			if (!VSL_Match(vsl, tr->c))
+				continue;
+			tag = VSL_TAG(tr->c->rec.ptr);
+			b = VSL_CDATA(tr->c->rec.ptr);
+			e = b + VSL_LEN(tr->c->rec.ptr);
+			u = 0;
+			for (p = b; p <= e; p++) {
+				if (*p == '\0')
+					break;
+				if (f_flag && (*p == ':' || isspace(*p)))
+					break;
+				u += *p;
+			}
+			len = p - b;
+			if (len == 0)
+				continue;
+
+			t.hash = u;
+			t.tag = tag;
+			t.clen = len;
+			t.count = 0;
+			rd = calloc(len+1, 1);
+			AN(rd);
+			memcpy(rd, VSL_CDATA(tr->c->rec.ptr), len);
+			rd[len] = '\0';
+			t.rec_data = rd;
+
+			AZ(pthread_mutex_lock(&mtx));
+			tp = VRB_FIND(top_tree, &top_tree_head, &t);
+			if (tp) {
+				VRB_REMOVE(top_tree, &top_tree_head, tp);
+				tp->count += 1.0;
+				/* Reinsert to rebalance */
+				VRB_INSERT(top_tree, &top_tree_head, tp);
+				free(rd);
+			} else {
+				ntop++;
+				tp = calloc(sizeof *tp, 1);
+				assert(tp != NULL);
+				tp->hash = u;
+				tp->count = 1.0;
+				tp->clen = len;
+				tp->tag = tag;
+				tp->rec_data = rd;
+				VRB_INSERT(top_tree, &top_tree_head, tp);
+			}
+			AZ(pthread_mutex_unlock(&mtx));
+
 		}
-		u += *q;
 	}
-
-	AZ(pthread_mutex_lock(&mtx));
-	VTAILQ_FOREACH(tp, &top_head, list) {
-		if (tp->hash != u)
-			continue;
-		if (tp->tag != tag)
-			continue;
-		if (tp->clen != len)
-			continue;
-		if (memcmp(ptr, tp->rec_data, len))
-			continue;
-		tp->count += 1.0;
-		break;
-	}
-	if (tp == NULL) {
-		ntop++;
-		tp = calloc(sizeof *tp, 1);
-		assert(tp != NULL);
-		tp->rec_data = calloc(len + 1, 1);
-		assert(tp->rec_data != NULL);
-		tp->hash = u;
-		tp->count = 1.0;
-		tp->clen = len;
-		tp->tag = tag;
-		memcpy(tp->rec_data, ptr, len);
-		tp->rec_data[len] = '\0';
-		VTAILQ_INSERT_TAIL(&top_head, tp, list);
-	}
-	while (1) {
-		tp2 = VTAILQ_PREV(tp, tophead, list);
-		if (tp2 == NULL || tp2->count >= tp->count)
-			break;
-		VTAILQ_REMOVE(&top_head, tp2, list);
-		VTAILQ_INSERT_AFTER(&top_head, tp, tp2, list);
-	}
-	while (1) {
-		tp2 = VTAILQ_NEXT(tp, list);
-		if (tp2 == NULL || tp2->count <= tp->count)
-			break;
-		VTAILQ_REMOVE(&top_head, tp2, list);
-		VTAILQ_INSERT_BEFORE(tp, tp2, list);
-	}
-	AZ(pthread_mutex_unlock(&mtx));
 
 	return (0);
 }
 
 static void
-update(const struct VSM_data *vd, int period)
+update(int p)
 {
 	struct top *tp, *tp2;
 	int l, len;
@@ -165,25 +198,33 @@ update(const struct VSM_data *vd, int period)
 	last = now;
 
 	l = 1;
-	if (n < period)
+	if (n < p)
 		n++;
 	AC(erase());
-	AC(mvprintw(0, 0, "%*s", COLS - 1, VSM_Name(vd)));
+	if (end_of_file)
+		AC(mvprintw(0, COLS - 1 - strlen(VUT.name) - 5, "%s (EOF)",
+			VUT.name));
+	else
+		AC(mvprintw(0, COLS - 1 - strlen(VUT.name), "%s", VUT.name));
 	AC(mvprintw(0, 0, "list length %u", ntop));
-	VTAILQ_FOREACH_SAFE(tp, &top_head, list, tp2) {
+	for (tp = VRB_MIN(top_tree, &top_tree_head); tp != NULL; tp = tp2) {
+		tp2 = VRB_NEXT(top_tree, &top_tree_head, tp);
+
 		if (++l < LINES) {
 			len = tp->clen;
 			if (len > COLS - 20)
 				len = COLS - 20;
 			AC(mvprintw(l, 0, "%9.2f %-*.*s %*.*s\n",
-			    tp->count, maxfieldlen, maxfieldlen,
-			    VSL_tags[tp->tag],
-			    len, len, tp->rec_data));
+				tp->count, maxfieldlen, maxfieldlen,
+				VSL_tags[tp->tag],
+				len, len, tp->rec_data));
 			t = tp->count;
 		}
+		if (end_of_file)
+			continue;
 		tp->count += (1.0/3.0 - tp->count) / (double)n;
 		if (tp->count * 10 < t || l > LINES * 10) {
-			VTAILQ_REMOVE(&top_head, tp, list);
+			VRB_REMOVE(top_tree, &top_tree_head, tp);
 			free(tp->rec_data);
 			free(tp);
 			ntop--;
@@ -193,38 +234,16 @@ update(const struct VSM_data *vd, int period)
 }
 
 static void *
-accumulate_thread(void *arg)
+do_curses(void *arg)
 {
-	struct VSM_data *vd = arg;
 	int i;
 
-	for (;;) {
-
-		i = VSL_Dispatch(vd, accumulate, NULL);
-		if (i < 0)
-			break;
-		if (i == 0)
-			usleep(50000);
-	}
-	return (arg);
-}
-
-static void
-do_curses(struct VSM_data *vd, int period)
-{
-	pthread_t thr;
-	int i;
-
+	(void)arg;
 	for (i = 0; i < 256; i++) {
 		if (VSL_tags[i] == NULL)
 			continue;
 		if (maxfieldlen < strlen(VSL_tags[i]))
 			maxfieldlen = strlen(VSL_tags[i]);
-	}
-
-	if (pthread_create(&thr, NULL, accumulate_thread, vd) != 0) {
-		fprintf(stderr, "pthread_create(): %s\n", strerror(errno));
-		exit(1);
 	}
 
 	(void)initscr();
@@ -236,7 +255,7 @@ do_curses(struct VSM_data *vd, int period)
 	AC(erase());
 	for (;;) {
 		AZ(pthread_mutex_lock(&mtx));
-		update(vd, period);
+		update(period);
 		AZ(pthread_mutex_unlock(&mtx));
 
 		timeout(1000);
@@ -253,103 +272,103 @@ do_curses(struct VSM_data *vd, int period)
 			AC(redrawwin(stdscr));
 			AC(refresh());
 			break;
-		case '\003': /* Ctrl-C */
-			AZ(raise(SIGINT));
-			break;
 		case '\032': /* Ctrl-Z */
 			AC(endwin());
 			AZ(raise(SIGTSTP));
 			break;
+		case '\003': /* Ctrl-C */
 		case '\021': /* Ctrl-Q */
 		case 'Q':
 		case 'q':
+			AZ(raise(SIGINT));
 			AC(endwin());
-			return;
+			return NULL;
 		default:
 			AC(beep());
 			break;
 		}
 	}
+	return NULL;
+
 }
 
 static void
 dump(void)
 {
 	struct top *tp, *tp2;
-
-	VTAILQ_FOREACH_SAFE(tp, &top_head, list, tp2) {
+	for (tp = VRB_MIN(top_tree, &top_tree_head); tp != NULL; tp = tp2) {
+		tp2 = VRB_NEXT(top_tree, &top_tree_head, tp);
 		if (tp->count <= 1.0)
 			break;
 		printf("%9.2f %s %*.*s\n",
-		    tp->count, VSL_tags[tp->tag],
-		    tp->clen, tp->clen, tp->rec_data);
+			tp->count, VSL_tags[tp->tag],
+			tp->clen, tp->clen, tp->rec_data);
 	}
 }
 
 static void
-do_once(struct VSM_data *vd)
+usage(int status)
 {
-	while (VSL_Dispatch(vd, accumulate, NULL) > 0)
-		;
-	dump();
-}
+	const char **opt;
 
-static void
-usage(void)
-{
-	fprintf(stderr,
-	    "usage: varnishtop %s [-1fV] [-n varnish_name]\n", VSL_USAGE);
-	exit(1);
+	fprintf(stderr, "Usage: %s <options>\n\n", progname);
+	fprintf(stderr, "Options:\n");
+	for (opt = vopt_usage; *opt != NULL; opt +=2)
+		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
+	exit(status);
 }
 
 int
 main(int argc, char **argv)
 {
-	struct VSM_data *vd;
 	int o, once = 0;
-	float period = 60; /* seconds */
+	pthread_t thr;
 
-	vd = VSM_New();
-	VSL_Setup(vd);
+	VUT_Init(progname);
 
-	while ((o = getopt(argc, argv, VSL_ARGS "1fVp:")) != -1) {
+	while ((o = getopt(argc, argv, vopt_optstring)) != -1) {
 		switch (o) {
 		case '1':
-			AN(VSL_Arg(vd, 'd', NULL));
+			VUT_Arg('d', NULL);
 			once = 1;
 			break;
 		case 'f':
 			f_flag = 1;
 			break;
+		case 'h':
+			/* Usage help */
+			usage(0);
 		case 'p':
 			errno = 0;
 			period = strtol(optarg, NULL, 0);
 			if (errno != 0)  {
-				fprintf(stderr, "Syntax error, %s is not a number", optarg);
+				fprintf(stderr,
+				    "Syntax error, %s is not a number", optarg);
 				exit(1);
 			}
 			break;
-		case 'V':
-			VCS_Message("varnishtop");
-			exit(0);
-		case 'm':
-			fprintf(stderr, "-m is not supported\n");
-			exit(1);
 		default:
-			if (VSL_Arg(vd, o, optarg) > 0)
-				break;
-			usage();
+			if (!VUT_Arg(o, optarg))
+				usage(1);
 		}
 	}
 
-	if (VSL_Open(vd, 1))
-		exit (1);
-
-	if (once) {
-		VSL_NonBlocking(vd, 1);
-		do_once(vd);
-	} else {
-		do_curses(vd, period);
+	VUT_Setup();
+	if (!once) {
+		if (pthread_create(&thr, NULL, do_curses, NULL) != 0) {
+			fprintf(stderr, "pthread_create(): %s\n",
+			    strerror(errno));
+			exit(1);
+		}
 	}
+	VUT.dispatch_f = &accumulate;
+	VUT.dispatch_priv = NULL;
+	VUT_Main();
+	end_of_file = 1;
+	if (once)
+		dump();
+	else
+		pthread_join(thr, NULL);
+	VUT_Fini();
 	exit(0);
 }

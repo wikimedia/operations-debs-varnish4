@@ -14,7 +14,7 @@ varnishtest "ESI spanning storage bits"
 # NB!    7 Debug        c "d%0a%09"
 
 server s1 {
-	rxreq 
+	rxreq
 	expect req.url == "/foo/bar"
 	send "HTTP/1.1 200 Ok\n"
 	send "Connection: close\n"
@@ -31,8 +31,8 @@ server s1 {
 	}
 } -start
 
-varnish v1 -storage "-smalloc,2m" -vcl+backend {
-	sub vcl_fetch {
+varnish v1 -arg "-smalloc,2m" -vcl+backend {
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
 	}
 } -start

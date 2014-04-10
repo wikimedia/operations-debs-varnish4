@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2011 Varnish Software AS
+ * Copyright (c) 2010-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -27,4 +27,12 @@
  *
  */
 
-void do_curses(struct VSM_data *vd, const struct VSC_C_main *VSC_C_main, int delay);
+#include <stdint.h>
+
+#include "vapi/vsm.h"
+#include "vapi/vsc.h"
+
+#include "vas.h"
+#include "vcs.h"
+
+void do_curses(struct VSM_data *vd, int delay);

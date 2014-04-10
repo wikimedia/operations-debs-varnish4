@@ -1,0 +1,21 @@
+/*
+ * NB:  This file is machine generated, DO NOT EDIT!
+ *
+ * Edit and run generate.py instead
+ */
+/*lint -save -e525 -e539 */
+VCC_TYPE(BACKEND)
+VCC_TYPE(BLOB)
+VCC_TYPE(BOOL)
+VCC_TYPE(BYTES)
+VCC_TYPE(DURATION)
+VCC_TYPE(ENUM)
+VCC_TYPE(HEADER)
+VCC_TYPE(INT)
+VCC_TYPE(IP)
+VCC_TYPE(REAL)
+VCC_TYPE(STRING)
+VCC_TYPE(STRING_LIST)
+VCC_TYPE(TIME)
+VCC_TYPE(VOID)
+/*lint -restore */

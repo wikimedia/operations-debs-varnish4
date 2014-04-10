@@ -1,0 +1,275 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>varnishlog &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="The Varnish Reference Manual" href="index.html" />
+    <link rel="next" title="varnishncsa" href="varnishncsa.html" />
+    <link rel="prev" title="varnishhist" href="varnishhist.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="varnishncsa.html" title="varnishncsa"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="varnishhist.html" title="varnishhist"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="varnishlog">
+<span id="ref-varnishlog"></span><h1>varnishlog<a class="headerlink" href="#varnishlog" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="display-varnish-logs">
+<h2>Display Varnish logs<a class="headerlink" href="#display-varnish-logs" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="synopsis">
+<h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
+<p>varnishlog [-a] [-b] [-B] [-c] [-C] [-d] [-D] [-g &lt;session|request|vxid|raw&gt;] [-h] [-i taglist] [-I &lt;[taglist:]regex&gt;] [-L limit] [-n name] [-N filename] [-P file] [-q query] [-r filename] [-T seconds] [-v] [-V] [-w filename] [-x taglist] [-X &lt;[taglist:]regex&gt;] &lt;query expression&gt;</p>
+</div>
+<div class="section" id="options">
+<h3>OPTIONS<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
+<p>The following options are available:</p>
+<table class="docutils option-list" frame="void" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-a</span></kbd></td>
+<td>When writing output to a file, append to it rather than overwrite it.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-b</span></kbd></td>
+<td>Only display transactions and log records coming from backend communication.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-B</span></kbd></td>
+<td>Output binary data suitable for reading with -r.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-c</span></kbd></td>
+<td>Only display transactions and log records coming from client communication.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-C</span></kbd></td>
+<td>Do all regular expression and string matching caseless.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-d</span></kbd></td>
+<td>Start processing log records at the head of the log instead of the tail.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-D</span></kbd></td>
+<td>Daemonize.</td></tr>
+<tr><td class="option-group" colspan="2">
+<kbd><span class="option">-g <var>&lt;session|request|vxid|raw&gt;</var></span></kbd></td>
+</tr>
+<tr><td>&nbsp;</td><td>The grouping of the log records. The default is to group by vxid.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-h</span></kbd></td>
+<td>Print program usage and exit</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-i <var>taglist</var></span></kbd></td>
+<td><p class="first">Include log records of these tags in output. Taglist is a comma-separated list of tag globs. Multiple -i options may be given.</p>
+<p class="last">If a tag include option is the first of any tag selection options, all tags are first marked excluded.</p>
+</td></tr>
+<tr><td class="option-group" colspan="2">
+<kbd><span class="option">-I <var>&lt;[taglist:]regex&gt;</var></span></kbd></td>
+</tr>
+<tr><td>&nbsp;</td><td><p class="first">Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent.</p>
+<p class="last">If a tag include option is the first of any tag selection options, all tags are first marked excluded.</p>
+</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-L <var>limit</var></span></kbd></td>
+<td>Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-n <var>name</var></span></kbd></td>
+<td>Specify the name of the varnishd instance to get logs from. If -n is not specified, the host name is used.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-N <var>filename</var></span></kbd></td>
+<td>Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-P <var>file</var></span></kbd></td>
+<td>Write the process' PID to the specified file.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-q <var>query</var></span></kbd></td>
+<td>Specifies the VSL query to use.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-r <var>filename</var></span></kbd></td>
+<td>Read log in binary file format from this file.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-T <var>seconds</var></span></kbd></td>
+<td>Sets the transaction timeout in seconds. This defines the maximum number of seconds elapsed between a Begin tag and the End tag. If the timeout expires, a warning record is synthesized and the transaction is force completed. Defaults to 120 seconds.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-v</span></kbd></td>
+<td>Use verbose output on record set printing, giving the VXID on every log line. Without this option, the VXID will only be given on the header of that transaction.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-V</span></kbd></td>
+<td>Print version information and exit.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-w <var>filename</var></span></kbd></td>
+<td>Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP the file will be reopened allowing the old one to be rotated away.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-x <var>taglist</var></span></kbd></td>
+<td>Exclude log records of these tags in output. Taglist is a comma-separated list of tag globs. Multiple -x options may be given.</td></tr>
+<tr><td class="option-group" colspan="2">
+<kbd><span class="option">-X <var>&lt;[taglist:]regex&gt;</var></span></kbd></td>
+</tr>
+<tr><td>&nbsp;</td><td>Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-k <var>num</var></span></kbd></td>
+<td><p class="first">Only show the first num log transactions (or log records
+in -g raw mode)</p>
+<p class="last">XXX: Not yet implemented</p>
+</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-s <var>num</var></span></kbd></td>
+<td><p class="first">Skip the first num log transactions (or log records if
+in -g raw mode)</p>
+<p class="last">XXX: Not yet implemented</p>
+</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="signals">
+<h3>SIGNALS<a class="headerlink" href="#signals" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">SIGHUP</p>
+<p>Rotate the log file (see -w option)</p>
+</li>
+<li><p class="first">SIGUSR1</p>
+<p>Flush any outstanding transactions</p>
+</li>
+</ul>
+</div>
+<div class="section" id="see-also">
+<h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>varnishd(1)</li>
+<li>varnishhist(1)</li>
+<li>varnishncsa(1)</li>
+<li>varnishstat(1)</li>
+<li>varnishtop(1)</li>
+<li>vsl(7)</li>
+<li>vsl-query(7)</li>
+</ul>
+</div>
+<div class="section" id="history">
+<h3>HISTORY<a class="headerlink" href="#history" title="Permalink to this headline">¶</a></h3>
+<p>The varnishlog utility was developed by Poul-Henning Kamp
+&lt;<a class="reference external" href="mailto:phk&#37;&#52;&#48;phk&#46;freebsd&#46;dk">phk<span>&#64;</span>phk<span>&#46;</span>freebsd<span>&#46;</span>dk</a>&gt; in cooperation with Verdens Gang AS and
+Varnish Software AS. This manual page was initially written by Dag-Erling
+Smørgrav, and later updated by Per Buer and Martin Blix Grydeland.</p>
+</div>
+<div class="section" id="copyright">
+<h3>COPYRIGHT<a class="headerlink" href="#copyright" title="Permalink to this headline">¶</a></h3>
+<p>This document is licensed under the same licence as Varnish
+itself. See LICENCE for details.</p>
+<ul class="simple">
+<li>Copyright (c) 2006 Verdens Gang AS</li>
+<li>Copyright (c) 2006-2014 Varnish Software AS</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">varnishlog</a><ul>
+<li><a class="reference internal" href="#display-varnish-logs">Display Varnish logs</a><ul>
+<li><a class="reference internal" href="#synopsis">SYNOPSIS</a></li>
+<li><a class="reference internal" href="#options">OPTIONS</a></li>
+<li><a class="reference internal" href="#signals">SIGNALS</a></li>
+<li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
+<li><a class="reference internal" href="#history">HISTORY</a></li>
+<li><a class="reference internal" href="#copyright">COPYRIGHT</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="varnishhist.html"
+                        title="previous chapter">varnishhist</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="varnishncsa.html"
+                        title="next chapter">varnishncsa</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/reference/varnishlog.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="varnishncsa.html" title="varnishncsa"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="varnishhist.html" title="varnishhist"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

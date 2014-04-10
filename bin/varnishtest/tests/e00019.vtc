@@ -1,7 +1,7 @@
 varnishtest "Push corners in new ESI parser"
 
 server s1 {
-	rxreq 
+	rxreq
 	txresp -nolen -hdr "Transfer-encoding: chunked"
 	chunked {<1></esi:comment foo><1>}
 	chunked {<2><esi:comment / ><esi:comment doo><2>}
@@ -22,23 +22,34 @@ server s1 {
 	chunked {<esi:comment/>}
 
 	chunkedlen 0
+} -start
 
+# The included object gets served from a different backend.
+# This is to avoid a race between when a backend connection
+# gets put up for reuse because of background fetches in
+# Varnish 4
+server s2 {
 	rxreq
 	expect req.url == "bar/foo"
 	txresp -body {<INCL>}
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
-		if (req.url == "bar") {
+	sub vcl_backend_fetch {
+		if (bereq.url != "bar") {
+			set bereq.backend = s2;
+		}
+	}
+
+	sub vcl_backend_response {
+		if (bereq.url == "bar") {
 			set beresp.do_esi = true;
 		}
 	}
-} -start 
+} -start
 
-varnish v1 -cliok "param.set esi_syntax 8" 
-
-varnish v1 -cliok "param.set diag_bitmap 0x10000"
+varnish v1 -cliok "param.set debug +esi_chop"
+varnish v1 -cliok "param.set debug +syncvsl"
 
 client c1 {
 	txreq  -url bar

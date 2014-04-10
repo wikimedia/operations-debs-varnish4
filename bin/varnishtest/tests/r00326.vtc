@@ -1,20 +1,20 @@
 varnishtest "No zerolength verbatim before <esi:include...>"
 
 server s1 {
-	rxreq 
+	rxreq
 	txresp -body {<esi:include src="/foo"/><esi:include src="/foo"/>}
-	rxreq 
+	rxreq
 	txresp -body "FOO\n"
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
 	}
 } -start
 
 client c1 {
-	txreq 
+	txreq
 	rxresp
 	expect resp.status == 200
 	expect resp.bodylen == 8

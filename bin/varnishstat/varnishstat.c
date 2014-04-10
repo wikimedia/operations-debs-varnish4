@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2011 Varnish Software AS
+ * Copyright (c) 2006-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -41,10 +41,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "libvarnish.h"
-#include "vsc.h"
-#include "varnishapi.h"
 #include "varnishstat.h"
+
 
 /*--------------------------------------------------------------------*/
 
@@ -52,20 +50,24 @@ static int
 do_xml_cb(void *priv, const struct VSC_point * const pt)
 {
 	uint64_t val;
+	const struct VSC_section *sec;
 
 	(void)priv;
-	assert(!strcmp(pt->fmt, "uint64_t"));
+	if (pt == NULL)
+		return (0);
+	assert(!strcmp(pt->desc->fmt, "uint64_t"));
 	val = *(const volatile uint64_t*)pt->ptr;
+	sec = pt->section;
 
 	printf("\t<stat>\n");
-	if (strcmp(pt->class, ""))
-		printf("\t\t<type>%s</type>\n", pt->class);
-	if (strcmp(pt->ident, ""))
-		printf("\t\t<ident>%s</ident>\n", pt->ident);
-	printf("\t\t<name>%s</name>\n", pt->name);
-	printf("\t\t<value>%ju</value>\n", val);
-	printf("\t\t<flag>%c</flag>\n", pt->flag);
-	printf("\t\t<description>%s</description>\n", pt->desc);
+	if (strcmp(sec->fantom->type, ""))
+		printf("\t\t<type>%s</type>\n", sec->fantom->type);
+	if (strcmp(sec->fantom->ident, ""))
+		printf("\t\t<ident>%s</ident>\n", sec->fantom->ident);
+	printf("\t\t<name>%s</name>\n", pt->desc->name);
+	printf("\t\t<value>%ju</value>\n", (uintmax_t)val);
+	printf("\t\t<flag>%c</flag>\n", pt->desc->flag);
+	printf("\t\t<description>%s</description>\n", pt->desc->sdesc);
 	printf("\t</stat>\n");
 	return (0);
 }
@@ -80,7 +82,7 @@ do_xml(struct VSM_data *vd)
 	now = time(NULL);
 	(void)strftime(time_stamp, 20, "%Y-%m-%dT%H:%M:%S", localtime(&now));
 	printf("<varnishstat timestamp=\"%s\">\n", time_stamp);
-	(void)VSC_Iter(vd, do_xml_cb, NULL);
+	(void)VSC_Iter(vd, NULL, do_xml_cb, NULL);
 	printf("</varnishstat>\n");
 }
 
@@ -92,29 +94,35 @@ do_json_cb(void *priv, const struct VSC_point * const pt)
 {
 	uint64_t val;
 	int *jp;
+	const struct VSC_section *sec;
+
+	if (pt == NULL)
+		return (0);
 
 	jp = priv;
-
-	assert(!strcmp(pt->fmt, "uint64_t"));
+	assert(!strcmp(pt->desc->fmt, "uint64_t"));
 	val = *(const volatile uint64_t*)pt->ptr;
+	sec = pt->section;
 
 	if (*jp) *jp = 0; else printf(",\n");
 
 	printf("\t\"");
 	/* build the JSON key name.  */
-	if (pt->class[0])
-		printf("%s.", pt->class);
-	if (pt->ident[0])
-		printf("%s.", pt->ident);
-	printf("%s\": {", pt->name);
+	if (sec->fantom->type[0])
+		printf("%s.", sec->fantom->type);
+	if (sec->fantom->ident[0])
+		printf("%s.", sec->fantom->ident);
+	printf("%s\": {", pt->desc->name);
 
-	if (strcmp(pt->class, "")) printf("\"type\": \"%s\", ",  pt->class);
-	if (strcmp(pt->ident, "")) printf("\"ident\": \"%s\", ", pt->ident);
+	if (strcmp(sec->fantom->type, "")) printf("\"type\": \"%s\", ",
+	    sec->fantom->type);
+	if (strcmp(sec->fantom->ident, "")) printf("\"ident\": \"%s\", ",
+	    sec->fantom->ident);
 
-	printf("\"value\": %ju, ", val);
+	printf("\"value\": %ju, ", (uintmax_t)val);
 
-	printf("\"flag\": \"%c\", ", pt->flag);
-	printf("\"description\": \"%s\"", pt->desc);
+	printf("\"flag\": \"%c\", ", pt->desc->flag);
+	printf("\"description\": \"%s\"", pt->desc->sdesc);
 	printf("}");
 
 	if (*jp) printf("\n");
@@ -135,7 +143,7 @@ do_json(struct VSM_data *vd)
 
 	(void)strftime(time_stamp, 20, "%Y-%m-%dT%H:%M:%S", localtime(&now));
 	printf("\t\"timestamp\": \"%s\",\n", time_stamp);
-	(void)VSC_Iter(vd, do_json_cb, &jp);
+	(void)VSC_Iter(vd, NULL, do_json_cb, &jp);
 	printf("\n}\n");
 	fflush(stdout);
 }
@@ -154,23 +162,29 @@ do_once_cb(void *priv, const struct VSC_point * const pt)
 	struct once_priv *op;
 	uint64_t val;
 	int i;
+	const struct VSC_section *sec;
 
+	if (pt == NULL)
+		return (0);
 	op = priv;
-	assert(!strcmp(pt->fmt, "uint64_t"));
+	assert(!strcmp(pt->desc->fmt, "uint64_t"));
 	val = *(const volatile uint64_t*)pt->ptr;
+	sec = pt->section;
 	i = 0;
-	if (strcmp(pt->class, ""))
-		i += printf("%s.", pt->class);
-	if (strcmp(pt->ident, ""))
-		i += printf("%s.", pt->ident);
-	i += printf("%s", pt->name);
-	if (i > op->pad)
+	if (strcmp(sec->fantom->type, ""))
+		i += printf("%s.", sec->fantom->type);
+	if (strcmp(sec->fantom->ident, ""))
+		i += printf("%s.", sec->fantom->ident);
+	i += printf("%s", pt->desc->name);
+	if (i >= op->pad)
 		op->pad = i + 1;
 	printf("%*.*s", op->pad - i, op->pad - i, "");
-	if (pt->flag == 'a')
-		printf("%12ju %12.2f %s\n", val, val / op->up, pt->desc);
+	if (pt->desc->flag == 'a' || pt->desc->flag == 'c')
+		printf("%12ju %12.2f %s\n",
+		    (uintmax_t)val, val / op->up, pt->desc->sdesc);
 	else
-		printf("%12ju %12s %s\n", val, ".  ", pt->desc);
+		printf("%12ju %12s %s\n",
+		    (uintmax_t)val, ".  ", pt->desc->sdesc);
 	return (0);
 }
 
@@ -180,10 +194,11 @@ do_once(struct VSM_data *vd, const struct VSC_C_main *VSC_C_main)
 	struct once_priv op;
 
 	memset(&op, 0, sizeof op);
-	op.up = VSC_C_main->uptime;
+	if (VSC_C_main != NULL)
+		op.up = VSC_C_main->uptime;
 	op.pad = 18;
 
-	(void)VSC_Iter(vd, do_once_cb, &op);
+	(void)VSC_Iter(vd, NULL, do_once_cb, &op);
 }
 
 /*--------------------------------------------------------------------*/
@@ -192,17 +207,23 @@ static int
 do_list_cb(void *priv, const struct VSC_point * const pt)
 {
 	int i;
+	const struct VSC_section * sec;
 
 	(void)priv;
+
+	if (pt == NULL)
+		return (0);
+
+	sec = pt->section;
 	i = 0;
-	if (strcmp(pt->class, ""))
-		i += fprintf(stderr, "%s.", pt->class);
-	if (strcmp(pt->ident, ""))
-		i += fprintf(stderr, "%s.", pt->ident);
-	i += fprintf(stderr, "%s", pt->name);
+	if (strcmp(sec->fantom->type, ""))
+		i += fprintf(stderr, "%s.", sec->fantom->type);
+	if (strcmp(sec->fantom->ident, ""))
+		i += fprintf(stderr, "%s.", sec->fantom->ident);
+	i += fprintf(stderr, "%s", pt->desc->name);
 	if (i < 30)
 		fprintf(stderr, "%*s", i - 30, "");
-	fprintf(stderr, " %s\n", pt->desc);
+	fprintf(stderr, " %s\n", pt->desc->sdesc);
 	return (0);
 }
 
@@ -213,7 +234,7 @@ list_fields(struct VSM_data *vd)
 	fprintf(stderr, "Field name                     Description\n");
 	fprintf(stderr, "----------                     -----------\n");
 
-	(void)VSC_Iter(vd, do_list_cb, NULL);
+	(void)VSC_Iter(vd, NULL, do_list_cb, NULL);
 }
 
 /*--------------------------------------------------------------------*/
@@ -227,8 +248,7 @@ usage(void)
 	    VSC_n_USAGE " "
 	    "[-w delay]\n");
 	fprintf(stderr, FMT, "-1", "Print the statistics to stdout.");
-	fprintf(stderr, FMT, "-f field_list",
-	    "Comma separated list of fields to display. ");
+	fprintf(stderr, FMT, "-f field_list", "Field inclusion glob");
 	fprintf(stderr, FMT, "",
 	    "If it starts with '^' it is used as an exclusion list");
 	fprintf(stderr, FMT, "-l",
@@ -237,7 +257,9 @@ usage(void)
 	    "The varnishd instance to get logs from");
 	fprintf(stderr, FMT, "-V", "Display the version number and exit");
 	fprintf(stderr, FMT, "-w delay",
-	    "Wait delay seconds between updates.  Default is 1 second. Can also be be used with -1, -x or -j for repeated output.");
+	    "Wait delay seconds between updates."
+	    "  Default is 1 second."
+	    " Can also be be used with -1, -x or -j for repeated output.");
 	fprintf(stderr, FMT, "-x",
 	    "Print statistics to stdout as XML.");
 	fprintf(stderr, FMT, "-j",
@@ -251,11 +273,9 @@ main(int argc, char * const *argv)
 {
 	int c;
 	struct VSM_data *vd;
-	const struct VSC_C_main *VSC_C_main;
-	int delay = 1, once = 0, xml = 0, json = 0, do_repeat = 0;
+	int delay = 1, once = 0, xml = 0, json = 0, do_repeat = 0, f_list = 0;
 
 	vd = VSM_New();
-	VSC_Setup(vd);
 
 	while ((c = getopt(argc, argv, VSC_ARGS "1f:lVw:xjt:")) != -1) {
 		switch (c) {
@@ -263,10 +283,8 @@ main(int argc, char * const *argv)
 			once = 1;
 			break;
 		case 'l':
-			if (VSC_Open(vd, 1))
-				exit(1);
-			list_fields(vd);
-			exit(0);
+			f_list = 1;
+			break;
 		case 'V':
 			VCS_Message("varnishstat");
 			exit(0);
@@ -283,17 +301,17 @@ main(int argc, char * const *argv)
 		default:
 			if (VSC_Arg(vd, c, optarg) > 0)
 				break;
+			fprintf(stderr, "%s\n", VSM_Error(vd));
 			usage();
 		}
 	}
 
-	if (VSC_Open(vd, 1))
+	if (VSM_Open(vd)) {
+		fprintf(stderr, "%s\n", VSM_Error(vd));
 		exit(1);
-
-	VSC_C_main = VSC_Main(vd);
-
-	if (!(xml || json || once)) {
-		do_curses(vd, VSC_C_main, delay);
+	}
+	if (!(xml || json || once || f_list)) {
+		do_curses(vd, delay);
 		exit(0);
 	}
 
@@ -303,7 +321,9 @@ main(int argc, char * const *argv)
 		else if (json)
 			do_json(vd);
 		else if (once)
-			do_once(vd, VSC_C_main);
+			do_once(vd, VSC_Main(vd, NULL));
+		else if (f_list)
+			list_fields(vd);
 		else {
 			assert(0);
 		}
@@ -313,6 +333,6 @@ main(int argc, char * const *argv)
 		printf("\n");
 
 		sleep(delay);
-	} 
+	}
 	exit(0);
 }

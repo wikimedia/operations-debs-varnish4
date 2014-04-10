@@ -1,7 +1,9 @@
 varnishtest "Test vmod_dir param"
 
+feature topbuild
+
 server s1 {
-	rxreq 
+	rxreq
 	txresp -hdr "foo: bAr" -hdr "bar: fOo" -bodylen 4
 } -start
 
@@ -21,11 +23,11 @@ client c1 {
 	txreq -url "/bar"
 	rxresp
 	expect resp.status == 200
-	expect resp.http.content-length == "4"
+	expect resp.bodylen == "4"
 	expect resp.http.foo == "BAR"
 	expect resp.http.bar == "foo"
 } -run
 
-varnish v1 -badvcl {
+varnish v1 -errvcl {Expected 'from path ...'} {
 	import std to;
 }

@@ -6,7 +6,7 @@ server s1 {
 		<esi:include src="/foo">
 		<esi:include src="/bar">
 		<esi:include src="/barf">
-	} 
+	}
 
 	rxreq
 	expect req.url == "/foo"
@@ -24,7 +24,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
 	}
 } -start

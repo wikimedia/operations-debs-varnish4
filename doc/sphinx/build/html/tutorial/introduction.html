@@ -1,0 +1,189 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>The fundamentals of web proxy caching with Varnish &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="The Varnish Tutorial" href="index.html" />
+    <link rel="next" title="Starting Varnish" href="starting_varnish.html" />
+    <link rel="prev" title="The Varnish Tutorial" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="starting_varnish.html" title="Starting Varnish"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="The Varnish Tutorial"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Varnish Tutorial</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-fundamentals-of-web-proxy-caching-with-varnish">
+<span id="tutorial-intro"></span><h1>The fundamentals of web proxy caching with Varnish<a class="headerlink" href="#the-fundamentals-of-web-proxy-caching-with-varnish" title="Permalink to this headline">¶</a></h1>
+<p>Varnish is a caching HTTP reverse proxy. It recieves requests from
+clients and tries to answer them from the cache. If Varnish cannot answer
+the request from the cache it will forward the request to the backend,
+fetch the response, store it in the cache and deliver it to the client.</p>
+<p>When Varnish has a cached response ready it is typically delivered in
+a matter of microseconds, two orders of magnitude faster than your
+typical backend server, so you want to make sure to have Varnish answer
+as many of the requests as possible directly from the cache.</p>
+<p>Varnish decides whether it can store the content or not based on the response
+it gets back from the backend. The backend can instruct Varnish to cache the
+content with the HTTP response header <cite>Cache-Control</cite>. There are a few
+conditions where Varnish will not cache, the most common one being the use of
+cookies. Since cookies indicates a client-specific web object, Varnish will by
+default not cache it.</p>
+<p>This behaviour as most of Varnish functionality can be changed using policies
+written in the Varnish Configuration Language (VCL). See
+<a class="reference internal" href="../users-guide/index.html#users-guide-index"><em>The Varnish Users Guide</em></a> for more information on how to do that.</p>
+<div class="section" id="performance">
+<h2>Performance<a class="headerlink" href="#performance" title="Permalink to this headline">¶</a></h2>
+<p>Varnish has a modern architecture and is written with performance in
+mind.  It is usually bound by the speed of the network, effectively
+turning performance into a non-issue. You get to focus on how your web
+application work and you can allow yourself, to some degree, to care
+less about performance and scalability.</p>
+</div>
+<div class="section" id="flexibility">
+<h2>Flexibility<a class="headerlink" href="#flexibility" title="Permalink to this headline">¶</a></h2>
+<p>One of the key features of Varnish Cache, in addition to its
+performance, is the flexibility of its configuration language,
+VCL. VCL enables you to write policies on how incoming requests should
+be handled.</p>
+<p>In such a policy you can decide what content you want to serve, from
+where you want to get the content and how the request or response
+should be altered.</p>
+</div>
+</div>
+<div class="section" id="supported-platforms">
+<h1>Supported platforms<a class="headerlink" href="#supported-platforms" title="Permalink to this headline">¶</a></h1>
+<p>Varnish is written to run on modern versions of Linux and FreeBSD and
+the best experience is had on those platforms. Thanks to our
+contributors it also runs on NetBSD, OpenBSD, OS X and various
+Solaris-descendants like Oracle Solaris, OmniOS and SmartOS.</p>
+</div>
+<div class="section" id="about-the-varnish-development-process">
+<h1>About the Varnish development process<a class="headerlink" href="#about-the-varnish-development-process" title="Permalink to this headline">¶</a></h1>
+<p>Varnish is a community driven project. The development is overseen by
+the Varnish Governing Board which currently consist of Poul-Henning
+Kamp (Architect), Rogier Mulhuijzen (Fastly) and Kristian Lyngstøl
+(Varnish Software).</p>
+<p>Please see <a class="reference external" href="https://www.varnish-cache.org/trac/wiki/Contributing">https://www.varnish-cache.org/trac/wiki/Contributing</a> as
+a starting point if you would like to contribute to Varnish.</p>
+</div>
+<div class="section" id="getting-in-touch">
+<h1>Getting in touch<a class="headerlink" href="#getting-in-touch" title="Permalink to this headline">¶</a></h1>
+<p>You can get in touch with us trough many channels. For real time chat
+you can reach us on IRC trough the server irc.linpro.net on the
+#varnish and #varnish-hacking channels.
+The are two mailing lists available. One for user questions and one
+for development discussions. See <a class="reference external" href="https://www.varnish-cache.org/mailinglist">https://www.varnish-cache.org/mailinglist</a> for
+information and signup.  There is also a web forum on the same site.</p>
+<p>Now that you have a vague idea on what Varnish Cache is, let see if we
+can get it up and running.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">The fundamentals of web proxy caching with Varnish</a><ul>
+<li><a class="reference internal" href="#performance">Performance</a></li>
+<li><a class="reference internal" href="#flexibility">Flexibility</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#supported-platforms">Supported platforms</a></li>
+<li><a class="reference internal" href="#about-the-varnish-development-process">About the Varnish development process</a></li>
+<li><a class="reference internal" href="#getting-in-touch">Getting in touch</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">The Varnish Tutorial</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="starting_varnish.html"
+                        title="next chapter">Starting Varnish</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/tutorial/introduction.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="starting_varnish.html" title="Starting Varnish"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="The Varnish Tutorial"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Tutorial</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

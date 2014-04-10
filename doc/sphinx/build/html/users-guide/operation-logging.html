@@ -1,0 +1,172 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Logging in Varnish &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Reporting and statistics" href="report.html" />
+    <link rel="next" title="Statistics" href="operation-statistics.html" />
+    <link rel="prev" title="Reporting and statistics" href="report.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="operation-statistics.html" title="Statistics"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="report.html" title="Reporting and statistics"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
+          <li><a href="report.html" accesskey="U">Reporting and statistics</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="logging-in-varnish">
+<span id="users-guide-logging"></span><h1>Logging in Varnish<a class="headerlink" href="#logging-in-varnish" title="Permalink to this headline">¶</a></h1>
+<p>One of the really nice features in Varnish is the way logging
+works. Instead of logging to a normal log file Varnish logs to a shared
+memory segment, called the VSL - the Varnish Shared Log. When the end
+of the segment is reached we start over, overwriting old data.</p>
+<p>This is much, much faster than logging to a file and it doesn't
+require disk space. Besides it gives you much, much more information
+when you need it.</p>
+<p>The flip side is that if you forget to have a program actually write the
+logs to disk they will be overwritten.</p>
+<p><cite>varnishlog</cite> is one of the programs you can use to look at what Varnish
+is logging. <cite>varnishlog</cite> gives you the raw logs, everything that is
+written to the logs. There are other clients that can access the logs as well, we'll show you
+these later.</p>
+<p>In the terminal window you started Varnish now type <tt class="docutils literal"><span class="pre">varnishlog</span></tt> and
+press enter.</p>
+<p>You'll see lines like these scrolling slowly by.:</p>
+<div class="highlight-python"><pre>0 CLI          - Rd ping
+0 CLI          - Wr 200 PONG 1273698726 1.0</pre>
+</div>
+<p>These is the Varnish master process checking up on the caching process
+to see that everything is OK.</p>
+<p>Now go to the browser and reload the page displaying your web
+app.
+.. XXX:Doesn't this require a setup of a running varnishd and a web application being cached? benc</p>
+<p>You'll see lines like these.:</p>
+<div class="highlight-python"><pre>11 SessionOpen  c 127.0.0.1 58912 0.0.0.0:8080
+11 ReqStart     c 127.0.0.1 58912 595005213
+11 RxRequest    c GET
+11 RxURL        c /
+11 RxProtocol   c HTTP/1.1
+11 RxHeader     c Host: localhost:8080
+11 RxHeader     c Connection: keep-alive</pre>
+</div>
+<p>The first column is an arbitrary number, it identifies the
+session. Lines with the same number are coming from the same session
+and are being handled by the same thread. The second column is the
+<em>tag</em> of the log message. All log entries are tagged with a tag
+indicating what sort of activity is being logged. Tags starting with
+'Rx' indicate Varnish is recieving data and 'Tx' indicates sending data.</p>
+<p>The third column tell us whether this is is data coming or going to
+the client ('c') or to/from the backend ('b'). The forth column is the
+data being logged.</p>
+<p>Now, you can filter quite a bit with <cite>varnishlog</cite>. The basic options we think you
+want to know are:</p>
+<dl class="docutils">
+<dt>'-b'</dt>
+<dd>Only show log lines from traffic going between Varnish and the backend
+servers. This will be useful when we want to optimize cache hit rates.</dd>
+<dt>'-c'</dt>
+<dd>Same as '-b' but for client side traffic.</dd>
+<dt>'-m <a class="reference external" href="tag:regex">tag:regex</a>'</dt>
+<dd>Only list transactions where the tag matches a regular expression. If
+it matches you will get the whole transaction.</dd>
+</dl>
+<p>For more information on this topic please see <a class="reference internal" href="../reference/varnishlog.html#ref-varnishlog"><em>varnishlog</em></a>.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="report.html"
+                        title="previous chapter">Reporting and statistics</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="operation-statistics.html"
+                        title="next chapter">Statistics</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/users-guide/operation-logging.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="operation-statistics.html" title="Statistics"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="report.html" title="Reporting and statistics"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
+          <li><a href="report.html" >Reporting and statistics</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

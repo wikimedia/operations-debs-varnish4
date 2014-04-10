@@ -58,13 +58,6 @@
 	    "\tReturns the TTL, size and checksum of the object.",	\
 	1, 1
 
-#define CLI_BAN_URL							\
-	"ban.url",							\
-	"ban.url <regexp>",						\
-	"\tAll objects where the urls matches regexp will be "		\
-	    "marked obsolete.",						\
-	1, 1
-
 #define CLI_BAN								\
 	"ban",								\
 	"ban <field> <operator> <arg> [&& <field> <oper> <arg>]...",	\
@@ -199,6 +192,7 @@ enum VCLI_status_e {
 	CLIS_PARAM	= 106,
 	CLIS_AUTH	= 107,
 	CLIS_OK		= 200,
+	CLIS_TRUNCATED	= 201,
 	CLIS_CANT	= 300,
 	CLIS_COMMS	= 400,
 	CLIS_CLOSE	= 500

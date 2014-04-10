@@ -8,6 +8,8 @@ server s1 {
 
 varnish v1 -vcl {
 
+	import ${vmod_std};
+
 	probe foo {
 		.url = "/";
 		.timeout = 1s;
@@ -25,10 +27,10 @@ varnish v1 -vcl {
 	}
 
 	sub vcl_recv {
-		if (req.backend.healthy) {
-			error 200 "Backend healthy";
+		if (std.healthy(default)) {
+			return(synth(200,"Backend healthy"));
 		} else {
-			error 500 "Backend sick";
+			return(synth(500,"Backend sick"));
 		}
 	}
 } -start

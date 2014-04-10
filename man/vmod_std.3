@@ -1,0 +1,288 @@
+.\" Man page generated from reStructeredText.
+.
+.TH VMOD_STD 3 "" "" ""
+.SH NAME
+vmod_std \- Varnish Standard Module
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.sp
+import std [from "path"] ;
+.SH DESCRIPTION
+.sp
+Vmod_std contains basic functions which are part and parcel of Varnish,
+but which for reasons of architecture fit better in a VMOD.
+.sp
+One particular class of functions in vmod_std is the conversions functions
+which all have the form:
+.sp
+.nf
+.ft C
+TYPE type(STRING, TYPE)
+.ft P
+.fi
+.sp
+These functions attempt to convert STRING to the TYPE, and if that fails,
+they return the second argument, which must have the given TYPE.
+.SH CONTENTS
+.INDENT 0.0
+.IP \(bu 2
+VOID collect(HEADER)
+.IP \(bu 2
+DURATION duration(STRING, DURATION)
+.IP \(bu 2
+STRING fileread(PRIV_CALL, STRING)
+.IP \(bu 2
+BOOL healthy(BACKEND)
+.IP \(bu 2
+INT integer(STRING, INT)
+.IP \(bu 2
+IP ip(STRING, IP)
+.IP \(bu 2
+VOID log(STRING_LIST)
+.IP \(bu 2
+INT port(IP)
+.IP \(bu 2
+REAL random(REAL, REAL)
+.IP \(bu 2
+VOID set_ip_tos(INT)
+.IP \(bu 2
+VOID syslog(INT, STRING_LIST)
+.IP \(bu 2
+VOID timestamp(STRING)
+.IP \(bu 2
+STRING tolower(STRING_LIST)
+.IP \(bu 2
+STRING toupper(STRING_LIST)
+.UNINDENT
+.SS STRING toupper(STRING_LIST)
+.INDENT 0.0
+.TP
+.B Prototype
+STRING toupper(STRING_LIST)
+.TP
+.B Description
+Converts the string \fIs\fP to upper case.
+.TP
+.B Example
+set beresp.http.x\-scream = std.toupper("yes!");
+.UNINDENT
+.SS STRING tolower(STRING_LIST)
+.INDENT 0.0
+.TP
+.B Prototype
+STRING tolower(STRING_LIST)
+.TP
+.B Description
+Converts the string \fIs\fP to lower case.
+.TP
+.B Example
+set beresp.http.x\-nice = std.tolower("VerY");
+.UNINDENT
+.SS VOID set_ip_tos(INT)
+.INDENT 0.0
+.TP
+.B Prototype
+VOID set_ip_tos(INT)
+.TP
+.B Description
+Sets the Type\-of\-Service flag for the current session. Please
+note that the TOS flag is not removed by the end of the
+request so probably want to set it on every request should you
+utilize it.
+.TP
+.B Example
+.nf
+if (req.url ~ ^/slow/) {
+.in +2
+std.set_ip_tos(0x0);
+.in -2
+}
+.fi
+.sp
+.UNINDENT
+.SS REAL random(REAL, REAL)
+.INDENT 0.0
+.TP
+.B Prototype
+REAL random(REAL, REAL)
+.TP
+.B Description
+Returns a random REAL number between \fIa\fP and \fIb\fP.
+.TP
+.B Example
+set beresp.http.x\-random\-number = std.random(1, 100);
+.UNINDENT
+.SS VOID log(STRING_LIST)
+.INDENT 0.0
+.TP
+.B Prototype
+VOID log(STRING_LIST)
+.TP
+.B Description
+Logs \fIstring\fP to the shared memory log, using VSL tag \fISLT_VCL_Log\fP.
+.TP
+.B Example
+std.log("Something fishy is going on with the vhost " + req.host);
+.UNINDENT
+.SS VOID syslog(INT, STRING_LIST)
+.INDENT 0.0
+.TP
+.B Prototype
+VOID syslog(INT, STRING_LIST)
+.TP
+.B Description
+Logs \fIstring\fP to syslog marked with \fIpriority\fP.  See your
+system\(aqs syslog.h file for the legal values of \fIpriority\fP.
+.TP
+.B Example
+std.syslog(8 + 1, "Something is wrong");
+.UNINDENT
+.SS STRING fileread(PRIV_CALL, STRING)
+.INDENT 0.0
+.TP
+.B Prototype
+STRING fileread(PRIV_CALL, STRING)
+.TP
+.B Description
+Reads a file and returns a string with the content. Please
+note that it is not recommended to send variables to this
+function the caching in the function doesn\(aqt take this into
+account. Also, files are not re\-read.
+.TP
+.B Example
+set beresp.http.x\-served\-by = std.fileread("/etc/hostname");
+.UNINDENT
+.SS VOID collect(HEADER)
+.INDENT 0.0
+.TP
+.B Prototype
+VOID collect(HEADER)
+.TP
+.B Description
+Collapses the header, joining the headers into one.
+.TP
+.B Example
+std.collect(req.http.cookie);
+This will collapse several Cookie: headers into one, long
+cookie header.
+.UNINDENT
+.SS DURATION duration(STRING, DURATION)
+.INDENT 0.0
+.TP
+.B Prototype
+DURATION duration(STRING, DURATION)
+.TP
+.B Description
+Converts the string \fIs\fP to seconds. \fIs\fP must be quantified
+with ms (milliseconds), s (seconds), m (minutes), h (hours),
+d (days) or w (weeks) units. If \fIs\fP fails to parse,
+\fIfallback\fP will be returned.
+.TP
+.B Example
+set beresp.ttl = std.duration("1w", 3600s);
+.UNINDENT
+.SS INT integer(STRING, INT)
+.INDENT 0.0
+.TP
+.B Prototype
+INT integer(STRING, INT)
+.TP
+.B Description
+Converts the string \fIs\fP to an integer.  If \fIs\fP fails to parse,
+\fIfallback\fP will be returned.
+.TP
+.B Example
+if (std.integer(beresp.http.x\-foo, 0) > 5) { ... }
+.UNINDENT
+.SS IP ip(STRING, IP)
+.INDENT 0.0
+.TP
+.B Prototype
+IP ip(STRING, IP)
+.TP
+.B Description
+Converts string \fIs\fP to the first IP number returned by
+the system library function getaddrinfo(3).  If conversion
+fails, \fIfallback\fP will be returned.
+.TP
+.B Example
+if (std.ip(req.http.X\-forwarded\-for, "0.0.0.0") ~ my_acl) { ... }
+.UNINDENT
+.SS BOOL healthy(BACKEND)
+.INDENT 0.0
+.TP
+.B Prototype
+BOOL healthy(BACKEND)
+.TP
+.B Description
+Returns true if the backend is healthy.
+.UNINDENT
+.SS INT port(IP)
+.INDENT 0.0
+.TP
+.B Prototype
+INT port(IP)
+.TP
+.B Description
+Returns the port number of an IP address.
+.UNINDENT
+.SS VOID timestamp(STRING)
+.INDENT 0.0
+.TP
+.B Prototype
+VOID timestamp(STRING)
+.TP
+.B Description
+Introduces a timestamp in the log with the current time. Uses
+the argument as the timespamp label. This is useful to time
+the execution of lengthy VCL procedures, and makes the
+timestamps inserted automatically by Varnish more accurate.
+.TP
+.B Example
+std.timestamp("curl\-request");
+.UNINDENT
+.SH SEE ALSO
+.INDENT 0.0
+.IP \(bu 2
+vcl(7)
+.IP \(bu 2
+varnishd(1)
+.UNINDENT
+.SH HISTORY
+.sp
+The Varnish standard module was released along with Varnish Cache 3.0.
+This manual page was written by Per Buer with help from Martin Blix
+Grydeland.
+.SH COPYRIGHT
+.sp
+This document is licensed under the same licence as Varnish
+itself. See LICENCE for details.
+.\" Generated by docutils manpage writer.
+.\" 
+.

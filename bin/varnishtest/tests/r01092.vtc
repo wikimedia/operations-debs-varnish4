@@ -19,10 +19,10 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
 	}
-} -start -cliok "param.set esi_syntax 4"
+} -start
 
 client c1 {
 	txreq

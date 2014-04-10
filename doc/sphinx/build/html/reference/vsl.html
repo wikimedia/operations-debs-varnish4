@@ -1,0 +1,635 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>VSL &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="The Varnish Reference Manual" href="index.html" />
+    <link rel="next" title="Varnish VSL Query Expressions" href="vsl-query.html" />
+    <link rel="prev" title="VMOD - Varnish Modules" href="vmod.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="vsl-query.html" title="Varnish VSL Query Expressions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="vmod.html" title="VMOD - Varnish Modules"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="vsl">
+<span id="reference-vsl"></span><h1>VSL<a class="headerlink" href="#vsl" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="shared-memory-logging">
+<h2>Shared Memory Logging<a class="headerlink" href="#shared-memory-logging" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="overview">
+<h3>OVERVIEW<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h3>
+<p>This document describes the format and content of all the Varnish shared memory
+logging tags. These tags are used by the varnishlog(1), varnishtop(1), etc.
+logging tools supplied with Varnish.</p>
+<div class="section" id="vsl-tags">
+<h4>VSL tags<a class="headerlink" href="#vsl-tags" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Backend - Backend selected</dt>
+<dd><p class="first">Logged when a connection is selected for handling a backend request.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d %s %s
+|  |  |
+|  |  +- Backend display name
+|  +---- VCL name
++------- Connection file descriptor</pre>
+</div>
+</dd>
+<dt>BackendClose - Backend connection closed</dt>
+<dd><p class="first">Logged when a backend connection is closed.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d %s [ %s ]
+|  |    |
+|  |    +- Optional reason
+|  +------ Backend display name
++--------- Connection file descriptor</pre>
+</div>
+</dd>
+<dt>BackendOpen - Backend connection opened</dt>
+<dd><p class="first">Logged when a new backend connection is opened.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d %s %s %s
+|  |  |  |
+|  |  |  +- Remote port
+|  |  +---- Remote address
+|  +------- Backend display name
++---------- Connection file descriptor</pre>
+</div>
+</dd>
+<dt>BackendReuse - Backend connection put up for reuse</dt>
+<dd><p class="first">Logged when a backend connection is put up for reuse by a later connection.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d %s
+|  |
+|  +- Backend display name
++---- Connection file descriptor</pre>
+</div>
+</dd>
+<dt>Backend_health - Backend health check</dt>
+<dd><p class="first">The result of a backend health probe.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s %s %s %u %u %u %f %f %s
+|  |  |  |  |  |  |  |  |
+|  |  |  |  |  |  |  |  +- Probe HTTP response
+|  |  |  |  |  |  |  +---- Average response time
+|  |  |  |  |  |  +------- Response time
+|  |  |  |  |  +---------- Probe window size
+|  |  |  |  +------------- Probe threshold level
+|  |  |  +---------------- Number of good probes in window
+|  |  +------------------- Probe window bits
+|  +---------------------- Status message
++------------------------- Backend name</pre>
+</div>
+</dd>
+<dt>Begin - Marks the start of a VXID</dt>
+<dd><p class="first">The first record of a VXID transaction.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s %d %s
+|  |  |
+|  |  +- Reason
+|  +---- Parent vxid
++------- Type ("sess", "req" or "bereq")</pre>
+</div>
+</dd>
+<dt>BereqAcct - Backend request accounting</dt>
+<dd><p class="first">Contains byte counters from backend request processing.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d %d %d %d %d %d
+|  |  |  |  |  |
+|  |  |  |  |  +- Total bytes received
+|  |  |  |  +---- Body bytes received
+|  |  |  +------- Header bytes received
+|  |  +---------- Total bytes transmitted
+|  +------------- Body bytes transmitted
++---------------- Header bytes transmitted</pre>
+</div>
+</dd>
+<dt>BereqHeader - Backend request header</dt>
+<dd><p class="first">HTTP header contents.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s: %s
+|   |
+|   +- Header value
++----- Header name</pre>
+</div>
+</dd>
+<dt>BereqMethod - Backend request method</dt>
+<dd>The HTTP request method used.</dd>
+<dt>BereqProtocol - Backend request protocol</dt>
+<dd>The HTTP protocol version information.</dd>
+<dt>BereqURL - Backend request URL</dt>
+<dd>The HTTP request URL.</dd>
+<dt>BerespHeader - Backend response header</dt>
+<dd><p class="first">HTTP header contents.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s: %s
+|   |
+|   +- Header value
++----- Header name</pre>
+</div>
+</dd>
+<dt>BerespProtocol - Backend response protocol</dt>
+<dd>The HTTP protocol version information.</dd>
+<dt>BerespResponse - Backend response response</dt>
+<dd>The HTTP response string received.</dd>
+<dt>BerespStatus - Backend response status</dt>
+<dd>The HTTP status code received.</dd>
+<dt>BogoHeader - Bogus HTTP received</dt>
+<dd>Contains the first 20 characters of received HTTP headers we could not make sense of.  Applies to both req.http and beresp.http.</dd>
+<dt>CLI - CLI communication</dt>
+<dd>CLI communication between varnishd master and child process.</dd>
+<dt>Debug - Debug messages</dt>
+<dd>Debug messages can normally be ignored, but are sometimes helpful during trouble-shooting.  Most debug messages must be explicitly enabled with parameters.</dd>
+<dt>ESI_BodyBytes - ESI body fragment byte counter</dt>
+<dd><p class="first">Contains the body byte count for this ESI body fragment. This number does not include any transfer encoding overhead.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d
+|
++- Body bytes</pre>
+</div>
+</dd>
+<dt>ESI_xmlerror - ESI parser error or warning message</dt>
+<dd>An error or warning was generated during parsing of an ESI object. The log record describes the problem encountered.</dd>
+<dt>End - Marks the end of a VXID</dt>
+<dd>The last record of a VXID transaction.</dd>
+<dt>Error - Error messages</dt>
+<dd>Error messages are stuff you probably want to know.</dd>
+<dt>ExpBan - Object evicted due to ban</dt>
+<dd>Logs the VXID when an object is banned.</dd>
+<dt>ExpKill - Object expiry event</dt>
+<dd><p class="first">Logs events related to object expiry. The events are:</p>
+<dl class="docutils">
+<dt>EXP_Rearm</dt>
+<dd>Logged when the expiry time of an object changes.</dd>
+<dt>EXP_Inbox</dt>
+<dd>Logged when the expiry thread picks an object from the inbox for processing.</dd>
+<dt>EXP_Kill</dt>
+<dd>Logged when the expiry thread kills an object from the inbox.</dd>
+<dt>EXP_When</dt>
+<dd>Logged when the expiry thread moves an object on the binheap.</dd>
+<dt>EXP_Expired</dt>
+<dd>Logged when the expiry thread expires an object.</dd>
+<dt>LRU_Cand</dt>
+<dd>Logged when an object is evaluated for LRU force expiry.</dd>
+<dt>LRU</dt>
+<dd>Logged when an object is force expired due to LRU.</dd>
+<dt>LRU_Fail</dt>
+<dd>Logged when no suitable candidate object is found for LRU force expiry.</dd>
+</dl>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>EXP_Rearm p=%p E=%f e=%f f=0x%x
+EXP_Inbox p=%p e=%f f=0x%x
+EXP_Kill p=%p e=%f f=0x%x
+EXP_When p=%p e=%f f=0x%x
+EXP_Expired x=%u t=%f
+LRU_Cand p=%p f=0x%x r=%d
+LRU x=%u
+LRU_Fail
+
+Legend:
+p=%p         Objcore pointer
+t=%f         Remaining TTL (s)
+e=%f         Expiry time (unix epoch)
+E=%f         Old expiry time (unix epoch)
+f=0x%x       Objcore flags
+r=%d         Objcore refcount
+x=%u         Object VXID</pre>
+</div>
+</dd>
+<dt>FetchError - Error while fetching object</dt>
+<dd>Logs the error message of a failed fetch operation.</dd>
+<dt>Fetch_Body - Body fetched from backend</dt>
+<dd><p class="first">Ready to fetch body from backend.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d (%s) %s
+|   |    |
+|   |    +---- 'stream' or '-'
+|   +--------- Text description of body fetch mode
++------------- Body fetch mode</pre>
+</div>
+</dd>
+<dt>Gzip - G(un)zip performed on object</dt>
+<dd><p class="first">A Gzip record is emitted for each instance of gzip or gunzip work performed. Worst case, an ESI transaction stored in gzip'ed objects but delivered gunziped, will run into many of these.</p>
+<p>The format is:</p>
+<div class="highlight-python"><pre>%c %c %c %d %d %d %d %d
+|  |  |  |  |  |  |  |
+|  |  |  |  |  |  |  +- Bit length of compressed data
+|  |  |  |  |  |  +---- Bit location of 'last' bit
+|  |  |  |  |  +------- Bit location of first deflate block
+|  |  |  |  +---------- Bytes output
+|  |  |  +------------- Bytes input
+|  |  +---------------- 'E': ESI, '-': Plain object
+|  +------------------- 'F': Fetch, 'D': Deliver
++---------------------- 'G': Gzip, 'U': Gunzip, 'u': Gunzip-test</pre>
+</div>
+<p>Examples:</p>
+<div class="last highlight-python"><pre>U F E 182 159 80 80 1392
+G F E 159 173 80 1304 1314</pre>
+</div>
+</dd>
+<dt>Hash - Value added to hash</dt>
+<dd><p class="first">This value was added to the object lookup hash.</p>
+<p class="last">NB: This log record is masked by default.</p>
+</dd>
+<dt>Hit - Hit object in cache</dt>
+<dd>Object looked up in cache. Shows the VXID of the object.</dd>
+<dt>HitPass - Hit for pass object in cache.</dt>
+<dd>Hit-for-pass object looked up in cache. Shows the VXID of the hit-for-pass object.</dd>
+<dt>HttpGarbage - Unparseable HTTP request</dt>
+<dd>Logs the content of unparseable HTTP requests.</dd>
+<dt>Length - Size of object body</dt>
+<dd>Logs the size of a fetch object body.</dd>
+<dt>Link - Links to a child VXID</dt>
+<dd><p class="first">Links this VXID to any child VXID it initiates.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s %d %s
+|  |  |
+|  |  +- Reason
+|  +---- Child vxid
++------- Child type ("req" or "bereq")</pre>
+</div>
+</dd>
+<dt>LostHeader - Failed attempt to set HTTP header</dt>
+<dd>Logs the header name of a failed HTTP header operation due to resource exhaustion or configured limits.</dd>
+<dt>ObjHeader - Object  header</dt>
+<dd><p class="first">HTTP header contents.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s: %s
+|   |
+|   +- Header value
++----- Header name</pre>
+</div>
+</dd>
+<dt>ObjProtocol - Object  protocol</dt>
+<dd>The HTTP protocol version information.</dd>
+<dt>ObjResponse - Object  response</dt>
+<dd>The HTTP response string received.</dd>
+<dt>ObjStatus - Object  status</dt>
+<dd>The HTTP status code received.</dd>
+<dt>PipeAcct - Pipe byte counts</dt>
+<dd><p class="first">Contains byte counters for pipe sessions.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d %d %d %d
+|  |  |  |
+|  |  |  +------- Piped bytes to client
+|  |  +---------- Piped bytes from client
+|  +------------- Backend request headers
++---------------- Client request headers</pre>
+</div>
+</dd>
+<dt>ReqAcct - Request handling byte counts</dt>
+<dd><p class="first">Contains byte counts for the request handling. This record is not logged for ESI sub-requests, but the sub-requests' response body count is added to the main request.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%d %d %d %d %d %d
+|  |  |  |  |  |
+|  |  |  |  |  +- Total bytes transmitted
+|  |  |  |  +---- Body bytes transmitted
+|  |  |  +------- Header bytes transmitted
+|  |  +---------- Total bytes received
+|  +------------- Body bytes received
++---------------- Header bytes received</pre>
+</div>
+</dd>
+<dt>ReqHeader - Client request header</dt>
+<dd><p class="first">HTTP header contents.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s: %s
+|   |
+|   +- Header value
++----- Header name</pre>
+</div>
+</dd>
+<dt>ReqMethod - Client request method</dt>
+<dd>The HTTP request method used.</dd>
+<dt>ReqProtocol - Client request protocol</dt>
+<dd>The HTTP protocol version information.</dd>
+<dt>ReqStart - Client request start</dt>
+<dd><p class="first">Start of request processing. Logs the client IP address and port number.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s %s
+|  |
+|  +- Port number
++---- IP address</pre>
+</div>
+</dd>
+<dt>ReqURL - Client request URL</dt>
+<dd>The HTTP request URL.</dd>
+<dt>RespHeader - Client response header</dt>
+<dd><p class="first">HTTP header contents.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s: %s
+|   |
+|   +- Header value
++----- Header name</pre>
+</div>
+</dd>
+<dt>RespProtocol - Client response protocol</dt>
+<dd>The HTTP protocol version information.</dd>
+<dt>RespResponse - Client response response</dt>
+<dd>The HTTP response string received.</dd>
+<dt>RespStatus - Client response status</dt>
+<dd>The HTTP status code received.</dd>
+<dt>SessClose - Client connection closed</dt>
+<dd><p class="first">SessionClose is the last record for any client connection.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s %f
+|  |
+|  +- How long the session was open
++---- Why the connection closed</pre>
+</div>
+</dd>
+<dt>SessOpen - Client connection opened</dt>
+<dd><p class="first">The first record for a client connection, with the socket-endpoints of the connection.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s %d %s %s %s %d
+|  |  |  |  |  |
+|  |  |  |  |  +- File descriptor number
+|  |  |  |  +---- Local TCP port ('-' if !$log_local_addr)
+|  |  |  +------- Local IPv4/6 address ('-' if !$log_local_addr)
+|  |  +---------- Listen socket
+|  +------------- Client TCP socket
++---------------- Client IPv4/6 address</pre>
+</div>
+</dd>
+<dt>Storage - Where object is stored</dt>
+<dd><p class="first">Type and name of the storage backend the object is stored in.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s %s
+|  |
+|  +- Name of storage backend
++---- Type ("malloc", "file", "persistent" etc.)</pre>
+</div>
+</dd>
+<dt>TTL - TTL set on object</dt>
+<dd><p class="first">A TTL record is emitted whenever the ttl, grace or keep values for an object is set.</p>
+<p>The format is:</p>
+<div class="highlight-python"><pre>%s %d %d %d %d %d [ %d %u %u ]
+|  |  |  |  |  |    |  |  |
+|  |  |  |  |  |    |  |  +- Max-Age from Cache-Control header
+|  |  |  |  |  |    |  +---- Expires header
+|  |  |  |  |  |    +------- Date header
+|  |  |  |  |  +------------ Age (incl Age: header value)
+|  |  |  |  +--------------- Reference time for TTL
+|  |  |  +------------------ Keep
+|  |  +--------------------- Grace
+|  +------------------------ TTL
++--------------------------- "RFC" or "VCL"</pre>
+</div>
+<p>The last four fields are only present in &quot;RFC&quot; headers.</p>
+<p>Examples:</p>
+<div class="last highlight-python"><pre>RFC 19 -1 -1 1312966109 4 0 0 23
+VCL 10 -1 -1 1312966109 4
+VCL 7 -1 -1 1312966111 6
+VCL 7 120 -1 1312966111 6
+VCL 7 120 3600 1312966111 6
+VCL 12 120 3600 1312966113 8</pre>
+</div>
+</dd>
+<dt>Timestamp - Timing information</dt>
+<dd><p class="first">Contains timing information for the Varnish worker threads.</p>
+<p>Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.</p>
+<p>The format is:</p>
+<div class="last highlight-python"><pre>%s: %f %f %f
+|   |  |  |
+|   |  |  +- Time since last timestamp
+|   |  +---- Time since start of work unit
+|   +------- Absolute time of event
++----------- Event label</pre>
+</div>
+</dd>
+<dt>VCL_Error - VCL execution error message</dt>
+<dd>Logs error messages generated during VCL execution.</dd>
+<dt>VCL_Log - Log statement from VCL</dt>
+<dd>User generated log messages insert from VCL through std.log()</dd>
+<dt>VCL_acl - VSL ACL check results</dt>
+<dd>Logs VCL ACL evaluation results.</dd>
+<dt>VCL_call - VCL method called</dt>
+<dd>Logs the VCL method name when a VCL method is called.</dd>
+<dt>VCL_return - VCL method return value</dt>
+<dd>Logs the VCL method terminating statement.</dd>
+<dt>VCL_trace - VCL trace data</dt>
+<dd><p class="first">Logs VCL execution trace data.</p>
+<p>The format is:</p>
+<div class="highlight-python"><pre>%u %u.%u
+|  |  |
+|  |  +- VCL program line position
+|  +---- VCL program line number
++------- VCL trace point index</pre>
+</div>
+<p class="last">NB: This log record is masked by default.</p>
+</dd>
+<dt>VSL - VSL API warnings and error message</dt>
+<dd>Warnings and error messages genererated by the VSL API while reading the shared memory log.</dd>
+<dt>WorkThread - Logs thread start/stop events</dt>
+<dd><p class="first">Logs worker thread creation and termination events.</p>
+<p>The format is:</p>
+<div class="highlight-python"><pre>%p %s
+|  |
+|  +- [start|end]
++---- Worker struct pointer</pre>
+</div>
+<p class="last">NB: This log record is masked by default.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="timestamps">
+<h3>TIMESTAMPS<a class="headerlink" href="#timestamps" title="Permalink to this headline">¶</a></h3>
+<p>Timestamps are inserted in the log on completing certain events during
+the worker thread's task handling. The timestamps has a label showing
+which event was completed. The reported fields show the absolute time
+of the event, the time spent since the start of the task and the time
+spent since the last timestamp was logged.</p>
+<p>The timestamps logged automatically by Varnish are inserted after
+completing events that are expected to have delays (e.g. network IO or
+spending time on a waitinglist). Timestamps can also be inserted from
+VCL using the std.timestamp() method. If one is doing time consuming
+tasks in the VCL configuration, it's a good idea to log a timestamp
+after completing that task. This keeps the timing information in
+subsequent timestamps from including the time spent on the VCL event.</p>
+<div class="section" id="request-handling-timestamps">
+<h4>Request handling timestamps<a class="headerlink" href="#request-handling-timestamps" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Start</dt>
+<dd>The start of request processing (first byte received or
+restart).</dd>
+<dt>Req</dt>
+<dd>Complete client request received.</dd>
+<dt>ReqBody</dt>
+<dd>Client request body processed (discarded, cached or passed to
+the backend).</dd>
+<dt>Waitinglist</dt>
+<dd>Came off waitinglist.</dd>
+<dt>Fetch</dt>
+<dd>Fetch processing finished (completely fetched or ready for
+streaming).</dd>
+<dt>Process</dt>
+<dd>Processing finished, ready to deliver the client response.</dd>
+<dt>Resp</dt>
+<dd>Delivery of response to the client finished.</dd>
+<dt>Restart</dt>
+<dd>Client request is being restarted.</dd>
+</dl>
+</div>
+<div class="section" id="pipe-handling-timestamps">
+<h4>Pipe handling timestamps<a class="headerlink" href="#pipe-handling-timestamps" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Pipe</dt>
+<dd>Opened a pipe to the backend and forwarded the request.</dd>
+<dt>PipeSess</dt>
+<dd>The pipe session has finished.</dd>
+</dl>
+</div>
+<div class="section" id="backend-fetch-timestamps">
+<h4>Backend fetch timestamps<a class="headerlink" href="#backend-fetch-timestamps" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Start</dt>
+<dd>Start of the backend fetch processing.</dd>
+<dt>Bereq</dt>
+<dd>Backend request sent.</dd>
+<dt>Beresp</dt>
+<dd>Backend response headers received.</dd>
+<dt>BerespBody</dt>
+<dd>Backend response body received.</dd>
+<dt>Retry</dt>
+<dd>Backend request is being retried.</dd>
+<dt>Error</dt>
+<dd>Backend request failed to vcl_error.</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="history">
+<h3>HISTORY<a class="headerlink" href="#history" title="Permalink to this headline">¶</a></h3>
+<p>This document was initially written by Poul-Henning Kamp, and later updated by
+Martin Blix Grydeland.</p>
+</div>
+<div class="section" id="see-also">
+<h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>varnishlog(1)</li>
+<li>varnishhist(1)</li>
+<li>varnishncsa(1)</li>
+<li>varnishtop(1)</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">VSL</a><ul>
+<li><a class="reference internal" href="#shared-memory-logging">Shared Memory Logging</a><ul>
+<li><a class="reference internal" href="#overview">OVERVIEW</a><ul>
+<li><a class="reference internal" href="#vsl-tags">VSL tags</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#timestamps">TIMESTAMPS</a><ul>
+<li><a class="reference internal" href="#request-handling-timestamps">Request handling timestamps</a></li>
+<li><a class="reference internal" href="#pipe-handling-timestamps">Pipe handling timestamps</a></li>
+<li><a class="reference internal" href="#backend-fetch-timestamps">Backend fetch timestamps</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#history">HISTORY</a></li>
+<li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="vmod.html"
+                        title="previous chapter">VMOD - Varnish Modules</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="vsl-query.html"
+                        title="next chapter">Varnish VSL Query Expressions</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/reference/vsl.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="vsl-query.html" title="Varnish VSL Query Expressions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="vmod.html" title="VMOD - Varnish Modules"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

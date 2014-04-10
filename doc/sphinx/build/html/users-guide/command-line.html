@@ -1,0 +1,191 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Important command line arguments &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Starting and running Varnish" href="running.html" />
+    <link rel="next" title="CLI - bossing Varnish around" href="run_cli.html" />
+    <link rel="prev" title="Security first" href="run_security.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="run_cli.html" title="CLI - bossing Varnish around"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="run_security.html" title="Security first"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
+          <li><a href="running.html" accesskey="U">Starting and running Varnish</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="important-command-line-arguments">
+<span id="users-guide-command-line"></span><h1>Important command line arguments<a class="headerlink" href="#important-command-line-arguments" title="Permalink to this headline">¶</a></h1>
+<p>There a two command line arguments you have to set when starting Varnish, these are:
+* what TCP port to serve HTTP from, and
+* where the backend server can be contacted.</p>
+<p>If you have installed Varnish through using a provided operating system bound package,
+you will find the startup options here:</p>
+<ul class="simple">
+<li>Debian, Ubuntu: <cite>/etc/default/varnish</cite></li>
+<li>Red Hat, Centos: <cite>/etc/sysconfig/varnish</cite></li>
+<li>FreeBSD: <cite>/etc/rc.conf</cite> (See also: /usr/local/etc/rc.d/varnishd)</li>
+</ul>
+<div class="section" id="a-listen-address">
+<h2>'-a' <em>listen_address</em><a class="headerlink" href="#a-listen-address" title="Permalink to this headline">¶</a></h2>
+<p>The '-a' argument defines what address Varnish should listen to, and service HTTP requests from.</p>
+<p>You will most likely want to set this to &quot;:80&quot; which is the Well
+Known Port for HTTP.</p>
+<p>You can specify multiple addresses separated by a comma, and you
+can use numeric or host/service names if you like, Varnish will try
+to open and service as many of them as possible, but if none of them
+can be opened, <cite>varnishd</cite> will not start.</p>
+<p>Here are some examples:</p>
+<div class="highlight-python"><pre>-a :80
+-a localhost:80
+-a 192.168.1.100:8080
+-a '[fe80::1]:80'
+-a '0.0.0.0:8080,[::]:8081'</pre>
+</div>
+<p>If your webserver runs on the same machine, you will have to move
+it to another port number first.</p>
+</div>
+<div class="section" id="f-vcl-file-or-b-backend">
+<h2>'-f' <em>VCL-file</em> or '-b' <em>backend</em><a class="headerlink" href="#f-vcl-file-or-b-backend" title="Permalink to this headline">¶</a></h2>
+<p>Varnish needs to know where to find the HTTP server it is caching for.
+You can either specify it with the '-b' argument, or you can put it in your own VCL file, specified with the '-f' argument.</p>
+<p>Using '-b' is a quick way to get started:</p>
+<div class="highlight-python"><pre>-b localhost:81
+-b thatotherserver.example.com:80
+-b 192.168.1.2:80</pre>
+</div>
+<p>Notice that if you specify a name, it can at most resolve to one IPv4
+<em>and</em> one IPv6 address.</p>
+<p>If you go with '-f', you can start with a VCL file containing just:</p>
+<div class="highlight-python"><pre>backend default {
+        .host = "localhost:81";
+}</pre>
+</div>
+<p>which is exactly what '-b' does.</p>
+<p>In both cases the built-in VCL code is appended.</p>
+</div>
+<div class="section" id="other-options">
+<h2>Other options<a class="headerlink" href="#other-options" title="Permalink to this headline">¶</a></h2>
+<p>Varnish comes with an abundance of useful command line arguments. We recommend that you study them but not necessary use them all, but to get started, the above will be sufficient.</p>
+<p>By default Varnish will use 100 megabytes of malloc(3) storage
+for caching objects, if you want to cache more than that, you
+should look at the '-s' argument.</p>
+<p>If you run a really big site, you may want to tune the number of
+worker threads and other parameters with the '-p' argument,
+but we generally advice not to do that unless you need to.</p>
+<p>Before you go into production, you may also want to revisit the
+chapter
+<a class="reference internal" href="run_security.html#run-security"><em>Security first</em></a> to see if you need to partition administrative
+privileges.</p>
+<p>For a complete list of the command line parameters please see
+<a class="reference internal" href="../reference/varnishd.html#ref-varnishd-options"><em>OPTIONS</em></a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Important command line arguments</a><ul>
+<li><a class="reference internal" href="#a-listen-address">'-a' <em>listen_address</em></a></li>
+<li><a class="reference internal" href="#f-vcl-file-or-b-backend">'-f' <em>VCL-file</em> or '-b' <em>backend</em></a></li>
+<li><a class="reference internal" href="#other-options">Other options</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="run_security.html"
+                        title="previous chapter">Security first</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="run_cli.html"
+                        title="next chapter">CLI - bossing Varnish around</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/users-guide/command-line.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="run_cli.html" title="CLI - bossing Varnish around"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="run_security.html" title="Security first"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
+          <li><a href="running.html" >Starting and running Varnish</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -30,14 +30,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "vtc.h"
-
-#include "vqueue.h"
-#include "miniobj.h"
-#include "libvarnish.h"
 
 struct sema {
 	unsigned		magic;
@@ -67,7 +63,7 @@ sema_new(char *name, struct vtclog *vl)
 	AN(r);
 	r->name = name;
 	if (*name != 'r')
-		vtc_log(vl, 0, "Sema name must start with 'r' (%s)", *name);
+		vtc_log(vl, 0, "Sema name must start with 'r' (%s)", name);
 
 	AZ(pthread_mutex_init(&r->mtx, NULL));
 	AZ(pthread_cond_init(&r->cond, NULL));

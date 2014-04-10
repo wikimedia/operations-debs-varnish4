@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006-2009 Varnish Software AS
+ * Copyright (c) 2006-2011 Varnish Software AS
  * All rights reserved.
  *
  * Author: Tollef Fog Heen <tfheen@redpill-linpro.com>
@@ -26,11 +26,15 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
+#include <errno.h>
 #include <pcre.h>
 #include <string.h>
 
-#include "libvarnish.h"
 #include "miniobj.h"
+#include "vas.h"
+
 #include "vre.h"
 
 #if USE_PCRE_JIT

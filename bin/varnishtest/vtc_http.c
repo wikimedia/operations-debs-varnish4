@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2008-2011 Varnish Software AS
+ * Copyright (c) 2008-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -28,25 +28,21 @@
 
 #include "config.h"
 
-#include <poll.h>
-#include <stdio.h>
-#include <poll.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "libvarnish.h"
-#include "vct.h"
-#include "miniobj.h"
-#include "vsb.h"
+#include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "vtc.h"
 
+#include "vct.h"
 #include "vgz.h"
+#include "vre.h"
+#include "vtcp.h"
 
 #define MAX_HDR		50
 
@@ -139,13 +135,13 @@ synth_body(const char *len, int rnd)
 static void
 http_write(const struct http *hp, int lvl, const char *pfx)
 {
-	int l;
+	ssize_t l;
 
 	AZ(VSB_finish(hp->vsb));
 	vtc_dump(hp->vl, lvl, pfx, VSB_data(hp->vsb), VSB_len(hp->vsb));
 	l = write(hp->fd, VSB_data(hp->vsb), VSB_len(hp->vsb));
 	if (l != VSB_len(hp->vsb))
-		vtc_log(hp->vl, hp->fatal, "Write failed: (%d vs %d) %s",
+		vtc_log(hp->vl, hp->fatal, "Write failed: (%zd vs %zd) %s",
 		    l, VSB_len(hp->vsb), strerror(errno));
 }
 
@@ -180,7 +176,7 @@ cmd_var_resolve(struct http *hp, char *spec)
 {
 	char **hh, *hdr;
 
-	if (!strcmp(spec, "req.request"))
+	if (!strcmp(spec, "req.method"))
 		return(hp->req[0]);
 	if (!strcmp(spec, "req.url"))
 		return(hp->req[1]);
@@ -194,6 +190,8 @@ cmd_var_resolve(struct http *hp, char *spec)
 		return(hp->resp[2]);
 	if (!strcmp(spec, "resp.chunklen"))
 		return(hp->chunklen);
+	if (!strcmp(spec, "req.bodylen"))
+		return(hp->bodylen);
 	if (!strcmp(spec, "resp.bodylen"))
 		return(hp->bodylen);
 	if (!strcmp(spec, "resp.body"))
@@ -219,6 +217,10 @@ cmd_http_expect(CMD_ARGS)
 	const char *lhs;
 	char *cmp;
 	const char *rhs;
+	vre_t *vre;
+	const char *error;
+	int erroroffset;
+	int i, retval = -1;
 
 	(void)cmd;
 	(void)vl;
@@ -231,27 +233,40 @@ cmd_http_expect(CMD_ARGS)
 	AN(av[2]);
 	AZ(av[3]);
 	lhs = cmd_var_resolve(hp, av[0]);
+	if (lhs == NULL)
+		lhs = "<missing>";
 	cmp = av[1];
 	rhs = cmd_var_resolve(hp, av[2]);
+	if (rhs == NULL)
+		rhs = "<missing>";
 	if (!strcmp(cmp, "==")) {
-		if (strcmp(lhs, rhs))
-			vtc_log(hp->vl, 0, "EXPECT %s (%s) %s %s (%s) failed",
-			    av[0], lhs, av[1], av[2], rhs);
-		else
-			vtc_log(hp->vl, 4, "EXPECT %s (%s) %s %s (%s) match",
-			    av[0], lhs, av[1], av[2], rhs);
+		retval = strcmp(lhs, rhs) == 0;
+	} else if (!strcmp(cmp, "<")) {
+		retval = strcmp(lhs, rhs) < 0;
+	} else if (!strcmp(cmp, "<=")) {
+		retval = strcmp(lhs, rhs) <= 0;
+	} else if (!strcmp(cmp, ">=")) {
+		retval = strcmp(lhs, rhs) >= 0;
+	} else if (!strcmp(cmp, ">")) {
+		retval = strcmp(lhs, rhs) > 0;
 	} else if (!strcmp(cmp, "!=")) {
-		if (!strcmp(lhs, rhs))
-			vtc_log(hp->vl, 0, "EXPECT %s (%s) %s %s (%s) failed",
-			    av[0], lhs, av[1], av[2], rhs);
-		else
-			vtc_log(hp->vl, 4, "EXPECT %s (%s) %s %s (%s) match",
-			    av[0], lhs, av[1], av[2], rhs);
-	} else {
+		retval = strcmp(lhs, rhs) != 0;
+	} else if (!strcmp(cmp, "~") || !strcmp(cmp, "!~")) {
+		vre = VRE_compile(rhs, 0, &error, &erroroffset);
+		if (vre == NULL)
+			vtc_log(hp->vl, 0, "REGEXP error: %s (@%d) (%s)",
+			    error, erroroffset, rhs);
+		i = VRE_exec(vre, lhs, strlen(lhs), 0, 0, NULL, 0, 0);
+		retval = (i >= 0 && *cmp == '~') || (i < 0 && *cmp == '!');
+		VRE_free(&vre);
+	}
+	if (retval == -1)
 		vtc_log(hp->vl, 0,
 		    "EXPECT %s (%s) %s %s (%s) test not implemented",
 		    av[0], lhs, av[1], av[2], rhs);
-	}
+	else
+		vtc_log(hp->vl, retval ? 4 : 0, "EXPECT %s (%s) %s \"%s\" %s",
+		    av[0], lhs, cmp, rhs, retval ? "match" : "failed");
 }
 
 /**********************************************************************
@@ -283,17 +298,17 @@ http_splitheader(struct http *hp, int req)
 	hh[n++] = p;
 	while (!vct_islws(*p))
 		p++;
-	assert(!vct_iscrlf(*p));
+	assert(!vct_iscrlf(p));
 	*p++ = '\0';
 
 	/* URL/STATUS */
 	while (vct_issp(*p))		/* XXX: H space only */
 		p++;
-	assert(!vct_iscrlf(*p));
+	assert(!vct_iscrlf(p));
 	hh[n++] = p;
 	while (!vct_islws(*p))
 		p++;
-	if (vct_iscrlf(*p)) {
+	if (vct_iscrlf(p)) {
 		hh[n++] = NULL;
 		q = p;
 		p += vct_skipcrlf(p);
@@ -304,7 +319,7 @@ http_splitheader(struct http *hp, int req)
 		while (vct_issp(*p))		/* XXX: H space only */
 			p++;
 		hh[n++] = p;
-		while (!vct_iscrlf(*p))
+		while (!vct_iscrlf(p))
 			p++;
 		q = p;
 		p += vct_skipcrlf(p);
@@ -314,10 +329,10 @@ http_splitheader(struct http *hp, int req)
 
 	while (*p != '\0') {
 		assert(n < MAX_HDR);
-		if (vct_iscrlf(*p))
+		if (vct_iscrlf(p))
 			break;
 		hh[n++] = p++;
-		while (*p != '\0' && !vct_iscrlf(*p))
+		while (*p != '\0' && !vct_iscrlf(p))
 			p++;
 		q = p;
 		p += vct_skipcrlf(p);
@@ -395,7 +410,7 @@ http_rxchunk(struct http *hp)
 	bprintf(hp->chunklen, "%d", i);
 	if ((q == hp->rxbuf + l) ||
 		(*q != '\0' && !vct_islws(*q))) {
-		vtc_log(hp->vl, hp->fatal, "chunked fail %02x @ %d",
+		vtc_log(hp->vl, hp->fatal, "chunked fail %02x @ %td",
 		    *q, q - (hp->rxbuf + l));
 	}
 	assert(q != hp->rxbuf + l);
@@ -408,11 +423,11 @@ http_rxchunk(struct http *hp)
 	}
 	l = hp->prxbuf;
 	(void)http_rxchar(hp, 2, 0);
-	if(!vct_iscrlf(hp->rxbuf[l]))
+	if(!vct_iscrlf(hp->rxbuf + l))
 		vtc_log(hp->vl, hp->fatal,
 		    "Wrong chunk tail[0] = %02x",
 		    hp->rxbuf[l] & 0xff);
-	if(!vct_iscrlf(hp->rxbuf[l + 1]))
+	if(!vct_iscrlf(hp->rxbuf + l + 1))
 		vtc_log(hp->vl, hp->fatal,
 		    "Wrong chunk tail[1] = %02x",
 		    hp->rxbuf[l + 1] & 0xff);
@@ -434,6 +449,7 @@ http_swallow_body(struct http *hp, char * const *hh, int body)
 	ll = 0;
 	p = http_find_header(hh, "content-length");
 	if (p != NULL) {
+		hp->body = hp->rxbuf + hp->prxbuf;
 		l = strtoul(p, NULL, 0);
 		(void)http_rxchar(hp, l, 0);
 		vtc_dump(hp->vl, 4, "body", hp->body, l);
@@ -529,6 +545,25 @@ cmd_http_rxresp(CMD_ARGS)
 	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 }
 
+static void
+cmd_http_rxresphdrs(CMD_ARGS)
+{
+	struct http *hp;
+
+	(void)cmd;
+	(void)vl;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_CLIENT(hp, av);
+	assert(!strcmp(av[0], "rxresphdrs"));
+	av++;
+
+	for(; *av != NULL; av++)
+		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
+	http_rxhdr(hp);
+	http_splitheader(hp, 0);
+}
+
+
 /**********************************************************************
  * Ungzip rx'ed body
  */
@@ -547,13 +582,14 @@ cmd_http_gunzip_body(CMD_ARGS)
 	char *p;
 	unsigned l;
 
+	(void)av;
 	(void)cmd;
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
-	ONLY_CLIENT(hp, av);
 
 	memset(&vz, 0, sizeof vz);
 
+	AN(hp->body);
 	if (hp->body[0] != (char)0x1f || hp->body[1] != (char)0x8b)
 		vtc_log(hp->vl, hp->fatal,
 		    "Gunzip error: Body lacks gzip magics");
@@ -635,51 +671,20 @@ gzip_body(const struct http *hp, const char *txt, char **body, int *bodylen)
 }
 
 /**********************************************************************
- * Transmit a response
+ * Handle common arguments of a transmited request or response
  */
 
-static void
-cmd_http_txresp(CMD_ARGS)
+static char* const *
+http_tx_parse_args(char * const *av, struct vtclog *vl, struct http *hp,
+    char* body)
 {
-	struct http *hp;
-	const char *proto = "HTTP/1.1";
-	const char *status = "200";
-	const char *msg = "Ok";
 	int bodylen = 0;
 	char *b, *c;
-	char *body = NULL, *nullbody;
+	char *nullbody = NULL;
 	int nolen = 0;
 
-
-	(void)cmd;
 	(void)vl;
-	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
-	ONLY_SERVER(hp, av);
-	assert(!strcmp(av[0], "txresp"));
-	av++;
-
-	VSB_clear(hp->vsb);
-
-	/* send a "Content-Length: 0" header unless something else happens */
-	REPLACE(body, "");
 	nullbody = body;
-
-	for(; *av != NULL; av++) {
-		if (!strcmp(*av, "-proto")) {
-			proto = av[1];
-			av++;
-		} else if (!strcmp(*av, "-status")) {
-			status = av[1];
-			av++;
-		} else if (!strcmp(*av, "-msg")) {
-			msg = av[1];
-			av++;
-			continue;
-		} else
-			break;
-	}
-
-	VSB_printf(hp->vsb, "%s %s %s%s", proto, status, msg, nl);
 
 	for(; *av != NULL; av++) {
 		if (!strcmp(*av, "-nolen")) {
@@ -735,13 +740,62 @@ cmd_http_txresp(CMD_ARGS)
 		} else
 			break;
 	}
-	if (*av != NULL)
-		vtc_log(hp->vl, 0, "Unknown http txresp spec: %s\n", *av);
 	if (body != NULL && !nolen)
 		VSB_printf(hp->vsb, "Content-Length: %d%s", bodylen, nl);
 	VSB_cat(hp->vsb, nl);
-	if (body != NULL)
+	if (body != NULL) {
 		VSB_bcat(hp->vsb, body, bodylen);
+		free(body);
+	}
+	return (av);
+}
+
+/**********************************************************************
+ * Transmit a response
+ */
+
+static void
+cmd_http_txresp(CMD_ARGS)
+{
+	struct http *hp;
+	const char *proto = "HTTP/1.1";
+	const char *status = "200";
+	const char *msg = "Ok";
+	char* body = NULL;
+
+	(void)cmd;
+	(void)vl;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_SERVER(hp, av);
+	assert(!strcmp(av[0], "txresp"));
+	av++;
+
+	VSB_clear(hp->vsb);
+
+	for(; *av != NULL; av++) {
+		if (!strcmp(*av, "-proto")) {
+			proto = av[1];
+			av++;
+		} else if (!strcmp(*av, "-status")) {
+			status = av[1];
+			av++;
+		} else if (!strcmp(*av, "-msg")) {
+			msg = av[1];
+			av++;
+			continue;
+		} else
+			break;
+	}
+
+	VSB_printf(hp->vsb, "%s %s %s%s", proto, status, msg, nl);
+
+	/* send a "Content-Length: 0" header unless something else happens */
+	REPLACE(body, "");
+
+	av = http_tx_parse_args(av, vl, hp, body);
+	if (*av != NULL)
+		vtc_log(hp->vl, 0, "Unknown http txresp spec: %s\n", *av);
+
 	http_write(hp, 4, "txresp");
 }
 
@@ -765,20 +819,20 @@ cmd_http_rxreq(CMD_ARGS)
 		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 1);
+	hp->body = hp->rxbuf + hp->prxbuf;
 	http_swallow_body(hp, hp->req, 0);
 	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 }
 
 static void
-cmd_http_rxhdrs(CMD_ARGS)
+cmd_http_rxreqhdrs(CMD_ARGS)
 {
 	struct http *hp;
 
 	(void)cmd;
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
-	ONLY_SERVER(hp, av);
-	assert(!strcmp(av[0], "rxhdrs"));
+	assert(!strcmp(av[0], "rxreqhdrs"));
 	av++;
 
 	for(; *av != NULL; av++)
@@ -836,7 +890,6 @@ cmd_http_txreq(CMD_ARGS)
 	const char *req = "GET";
 	const char *url = "/";
 	const char *proto = "HTTP/1.1";
-	const char *body = NULL;
 
 	(void)cmd;
 	(void)vl;
@@ -861,35 +914,10 @@ cmd_http_txreq(CMD_ARGS)
 			break;
 	}
 	VSB_printf(hp->vsb, "%s %s %s%s", req, url, proto, nl);
-	for(; *av != NULL; av++) {
-		if (!strcmp(*av, "-hdr")) {
-			VSB_printf(hp->vsb, "%s%s", av[1], nl);
-			av++;
-		} else
-			break;
-	}
-	for(; *av != NULL; av++) {
-		if (!strcmp(*av, "-body")) {
-			AZ(body);
-			body = av[1];
-			av++;
-		} else if (!strcmp(*av, "-bodylen")) {
-			AZ(body);
-			body = synth_body(av[1], 0);
-			av++;
-		} else
-			break;
-	}
+
+	av = http_tx_parse_args(av, vl, hp, NULL);
 	if (*av != NULL)
 		vtc_log(hp->vl, 0, "Unknown http txreq spec: %s\n", *av);
-	if (body != NULL)
-		VSB_printf(hp->vsb, "Content-Length: %ju%s",
-		    (uintmax_t)strlen(body), nl);
-	VSB_cat(hp->vsb, nl);
-	if (body != NULL) {
-		VSB_cat(hp->vsb, body);
-		VSB_cat(hp->vsb, nl);
-	}
 	http_write(hp, 4, "txreq");
 }
 
@@ -1044,7 +1072,6 @@ cmd_http_expect_close(CMD_ARGS)
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
 	AZ(av[1]);
-	assert(hp->sfd != NULL);
 
 	vtc_log(vl, 4, "Expecting close (fd = %d)", hp->fd);
 	while (1) {
@@ -1059,7 +1086,7 @@ cmd_http_expect_close(CMD_ARGS)
 			    "Expected close: poll = %d, revents = 0x%x",
 			    i, fds[0].revents);
 		i = read(hp->fd, &c, 1);
-		if (i == 0)
+		if (VTCP_Check(i))
 			break;
 		if (i == 1 && vct_islws(c))
 			continue;
@@ -1165,12 +1192,13 @@ static const struct cmds http_cmds[] = {
 	{ "txreq",		cmd_http_txreq },
 
 	{ "rxreq",		cmd_http_rxreq },
-	{ "rxhdrs",		cmd_http_rxhdrs },
+	{ "rxreqhdrs",		cmd_http_rxreqhdrs },
 	{ "rxchunk",		cmd_http_rxchunk },
 	{ "rxbody",		cmd_http_rxbody },
 
 	{ "txresp",		cmd_http_txresp },
 	{ "rxresp",		cmd_http_rxresp },
+	{ "rxresphdrs",		cmd_http_rxresphdrs },
 	{ "gunzip",		cmd_http_gunzip_body },
 	{ "expect",		cmd_http_expect },
 	{ "send",		cmd_http_send },

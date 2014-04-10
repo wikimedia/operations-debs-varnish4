@@ -1,0 +1,160 @@
+#-
+# Copyright (c) 2013 Varnish Software AS
+# All rights reserved.
+#
+# Author: Poul-Henning Kamp <phk@FreeBSD.org>
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+
+$Module directors 3 Backend traffic directors
+
+DESCRIPTION
+===========
+
+Vmod_directors enables load balancing in Varnish. The module serves
+as an example on how one could extend the load balancing capabilities
+of Varnish.
+
+To enable load balancing you must import this vmod (directors) in your
+VCL:::
+
+  import directors;
+
+Then you define your backends. Once you have the backends declared you
+can add them to a director. This happens in executed VCL code. If you
+want to emulate the previous behavior of Varnish 3.0 you can just
+initialize the directors in vcl_init, like this:::
+
+    sub vcl_init {
+        new bar = directors.round_robin();
+        bar.add_backend(server1);
+        bar.add_backend(server2);
+    }
+
+As you can see there is nothing keeping you from manipulating the
+directors elsewhere in VCL. So, you could have VCL code that would
+add more backends to a director when a certain URL is called.
+
+Note that directors can use other directors as backends.
+
+$Object round_robin()
+
+Description
+       Create a round robin director. This director will pick backends
+       in a round robin fashion.
+Example
+       new bar = directors.round_robin();
+
+$Method VOID .add_backend(BACKEND)
+
+Description
+       Adds a backend to the director.
+Example
+       rrdir.add_backend(backend1);
+
+$Method BACKEND .backend()
+
+Description
+       Picks a backend from the director.
+Example
+       set req.backend_hint = rrdir.backend();
+
+$Object fallback()
+
+Description
+        Creates a fallback director.
+
+#	XXX: Add description of fallback director.
+
+Example
+        new foo = directors.fallback();
+
+$Method VOID .add_backend(BACKEND)
+
+Description
+       Adds a backend to the director.
+Example
+       bar.add_backend(backend1);
+
+$Method BACKEND .backend()
+
+Description
+       Picks a backend from the director.
+Example
+       set req.backend_hint = rrdir.backend();
+
+$Object random()
+
+Description
+       Adds a random director. This director chooses backend based on
+       a random number. As you add backends to the director each
+       backends gets a weight, which is used to when requests are
+       being distributed. So, a backend with a weight of 1 would get
+       more or less 1% of the traffic of a backend in the same
+       director with a weight of 100.
+Example
+       new rand_dir = directors.random();
+
+$Method VOID .add_backend(BACKEND, REAL)
+
+Description
+       Adds a backend to the director with weight.
+Example
+       bar.add_backend(backend1, 3.14);
+
+$Method BACKEND .backend()
+
+Description
+       Picks a backend from the director.
+Example
+       set req.backend_hint = rrdir.backend();
+
+$Object hash()
+
+Description
+       Creates a hash director. The hash director chooses the backend
+       based on hashing an arbitrary string. If you provide it with a
+       session cookie, you'll have the client connecting to the same
+       backend every time.
+Example
+       new hdir = directors.hash();
+
+$Method VOID .add_backend(BACKEND, REAL)
+
+Description
+	Adds a backend to the director with a certain weight.
+
+	Weight is used as in the round_robin director. Recommended value is
+	1.0 unless you have special needs.
+
+Example
+       hdir.add_backend(backend1, 1.0);
+
+$Method BACKEND .backend(STRING_LIST)
+
+Description
+       Picks a backend from the director. Use the string or list of
+       strings provided to pick the backend.
+Example
+       # pick a backend based on the cookie header from the client
+       set req.backend_hint = hdir.backend(req.http.cookie);
+

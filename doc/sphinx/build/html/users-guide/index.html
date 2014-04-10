@@ -1,0 +1,191 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>The Varnish Users Guide &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="next" title="The Big Varnish Picture" href="intro.html" />
+    <link rel="prev" title="Now what?" href="../tutorial/now_what.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="intro.html" title="The Big Varnish Picture"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../tutorial/now_what.html" title="Now what?"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-varnish-users-guide">
+<span id="users-guide-index"></span><h1>The Varnish Users Guide<a class="headerlink" href="#the-varnish-users-guide" title="Permalink to this headline">¶</a></h1>
+<p>The Varnish documentation consists of three main documents:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../tutorial/index.html#tutorial-index"><em>The Varnish Tutorial</em></a> explains the basics and gets you started with Varnish.</li>
+<li><a class="reference internal" href="#users-guide-index"><em>The Varnish Users Guide</em></a> (this document), explains how Varnish works
+and how you can use it to improve your website.</li>
+<li><a class="reference internal" href="../reference/index.html#reference-index"><em>The Varnish Reference Manual</em></a> contains hard facts and is useful for
+looking up specific questions.</li>
+</ul>
+<p>After <a class="reference internal" href="intro.html#users-intro"><em>The Big Varnish Picture</em></a>, this Users Guide is organized in sections
+following the major interfaces to Varnish as a service:</p>
+<p><a class="reference internal" href="running.html#users-running"><em>Starting and running Varnish</em></a> is about getting Varnish configured, with
+respect to storage, sockets, security and how you can control and
+communicate with Varnish once it is running.</p>
+<p><a class="reference internal" href="vcl.html#users-vcl"><em>VCL - Varnish Configuration Language</em></a> is about getting Varnish to handle the
+HTTP requests the way you want, what to cache, how to cache it,
+modifying HTTP headers etc. etc.</p>
+<p><a class="reference internal" href="report.html#users-report"><em>Reporting and statistics</em></a> explains how you can monitor what Varnish does,
+from a transactional level to aggregating statistics.</p>
+<p><a class="reference internal" href="performance.html#users-performance"><em>Varnish and Website Performance</em></a> is about tuning your website with Varnish.</p>
+<p><a class="reference internal" href="troubleshooting.html#users-trouble"><em>Troubleshooting Varnish</em></a> is for locating and fixing common issues with Varnish.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">The Big Varnish Picture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="running.html">Starting and running Varnish</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="run_security.html">Security first</a></li>
+<li class="toctree-l2"><a class="reference internal" href="command-line.html">Important command line arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="run_cli.html">CLI - bossing Varnish around</a></li>
+<li class="toctree-l2"><a class="reference internal" href="storage-backends.html">Storage backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="storage-backends.html#transient-storage">Transient Storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="params.html">Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sizing-your-cache.html">Sizing your cache</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="vcl.html">VCL - Varnish Configuration Language</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="vcl-syntax.html">VCL Syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-built-in-subs.html">Built in subroutines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-variables.html">Request and response VCL objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-actions.html">actions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-backends.html">Backend servers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-backends.html#multiple-backends">Multiple backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-backends.html#backends-and-virtual-hosts-in-varnish">Backends and virtual hosts in Varnish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-backends.html#directors">Directors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-backends.html#health-checks">Health checks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-hashing.html">Hashing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-grace.html">Misbehaving servers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-inline-c.html">Using In-line C to extend Varnish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vcl-examples.html">VCL Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devicedetection.html">Device detection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="report.html">Reporting and statistics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="operation-logging.html">Logging in Varnish</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operation-statistics.html">Statistics</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Varnish and Website Performance</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="increasing-your-hitrate.html">Achieving a high hitrate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="increasing-your-hitrate.html#cookies">Cookies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="increasing-your-hitrate.html#http-vary">HTTP Vary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purging.html">Purging and banning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="compression.html">Compression</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="esi.html">Content composition with Edge Side Includes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="esi.html#example-esi-include">Example: esi:include</a></li>
+<li class="toctree-l2"><a class="reference internal" href="esi.html#example-esi-remove-and-esi">Example: esi:remove and &lt;!--esi ... --&gt;</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="esi.html#doing-esi-on-json-and-other-non-xml-ish-content">Doing ESI on JSON and other non-XML'ish content</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting Varnish</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#when-varnish-won-t-start">When Varnish won't start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#varnish-is-crashing-panics">Varnish is crashing - panics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#varnish-is-crashing-segfaults">Varnish is crashing - segfaults</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#varnish-gives-me-guru-meditation">Varnish gives me Guru meditation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#varnish-doesn-t-cache">Varnish doesn't cache</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../tutorial/now_what.html"
+                        title="previous chapter">Now what?</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="intro.html"
+                        title="next chapter">The Big Varnish Picture</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/users-guide/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="intro.html" title="The Big Varnish Picture"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../tutorial/now_what.html" title="Now what?"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

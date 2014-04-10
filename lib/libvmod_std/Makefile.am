@@ -1,34 +1,36 @@
 #
 
-INCLUDES = -I$(top_srcdir)/include -I$(top_builddir)/include
+AM_LDFLAGS  = $(AM_LT_LDFLAGS)
 
-dist_man_MANS = vmod_std.3
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/bin/varnishd \
+	-I$(top_builddir)/include
 
 vmoddir = $(pkglibdir)/vmods
+vmod_srcdir = $(top_srcdir)/lib/libvmod_std
+vmodtool = $(top_srcdir)/lib/libvcc/vmodtool.py
 vmod_LTLIBRARIES = libvmod_std.la
 
-libvmod_std_la_LDFLAGS = -module -export-dynamic -avoid-version
+libvmod_std_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared
 
 libvmod_std_la_SOURCES = \
-	vcc_if.c \
-	vcc_if.h \
 	vmod_std.c \
 	vmod_std_fileread.c \
 	vmod_std_conversions.c
 
-vcc_if.c vcc_if.h: $(top_srcdir)/lib/libvmod_std/vmod.py $(top_srcdir)/lib/libvmod_std/vmod.vcc
-	@PYTHON@ $(top_srcdir)/lib/libvmod_std/vmod.py $(top_srcdir)/lib/libvmod_std/vmod.vcc
+nodist_libvmod_std_la_SOURCES = \
+	vcc_if.c \
+	vcc_if.h
 
-EXTRA_DIST = vmod.py vmod.vcc
+# BUILT_SOURCES is only a hack and dependency tracking does not help for the first build
+vmod_std.lo vmod_std_fileread.lo vmod_std_conversions.lo: vcc_if.h
 
-CLEANFILES = $(builddir)/vcc_if.c $(builddir)/vcc_if.h
+vcc_if.c vcc_if.h vmod_std.man.rst: $(vmodtool) $(vmod_srcdir)/vmod.vcc
+	@PYTHON@ $(vmodtool) $(vmod_srcdir)/vmod.vcc
 
-vmod_std.3: $(top_srcdir)/doc/sphinx/reference/vmod_std.rst
-if HAVE_RST2MAN
-	${RST2MAN} $? $@
-else
-	@echo "========================================"
-	@echo "You need rst2man installed to make dist"
-	@echo "========================================"
-	@false
-endif
+EXTRA_DIST = vmod.vcc
+
+CLEANFILES = $(builddir)/vcc_if.c $(builddir)/vcc_if.h \
+	$(builddir)/vmod_std.rst \
+	$(builddir)/vmod_std.man.rst

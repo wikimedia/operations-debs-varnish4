@@ -9,9 +9,9 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.http.bar = beresp.http.foo;
-		remove beresp.http.foo;
+		unset beresp.http.foo;
 	}
 } -start
 

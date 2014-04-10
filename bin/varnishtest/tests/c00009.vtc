@@ -3,7 +3,7 @@ varnishtest "Test restarts"
 server s1 {
 	rxreq
 	expect req.url == "/foo"
-	txresp -status 404 
+	txresp -status 404
 } -start
 
 server s2 {
@@ -12,17 +12,27 @@ server s2 {
 	txresp -body "foobar"
 } -start
 
-varnish v1 -vcl+backend { 
+varnish v1 -vcl+backend {
 	sub vcl_recv {
-		if (req.restarts == 0) {
-			set req.backend = s1;
+		set req.http.restarts = req.restarts;
+	}
+	sub vcl_backend_fetch {
+		if (bereq.http.restarts == "0") {
+			set bereq.backend = s1;
 		} else {
-			set req.backend = s2;
+			set bereq.backend = s2;
 		}
 	}
 
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		if (beresp.status != 200) {
+			set beresp.uncacheable = true;
+			set beresp.ttl = 0s;
+			return (deliver);
+		}
+	}
+	sub vcl_deliver {
+		if (resp.status != 200) {
 			return (restart);
 		}
 	}
@@ -32,7 +42,7 @@ client c1 {
 	txreq -url "/foo"
 	rxresp
 	expect resp.status == 200
-	expect resp.http.content-length == 6
-} 
+	expect resp.bodylen == 6
+}
 
 client c1 -run

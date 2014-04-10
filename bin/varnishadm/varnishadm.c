@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2011 Varnish Software AS
+ * Copyright (c) 2006-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Cecilie Fritzvold <cecilihf@linpro.no>
@@ -14,7 +14,7 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
@@ -29,13 +29,10 @@
 
 #include "config.h"
 
-#include <fcntl.h>
-#include <poll.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
+
+#include <stdio.h>
 
 #ifdef HAVE_EDIT_READLINE_READLINE_H
 #  include <edit/readline/readline.h>
@@ -48,10 +45,18 @@
 #  include <editline/readline.h>
 #endif
 
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "vapi/vsl.h"
+#include "vapi/vsm.h"
+#include "vas.h"
 #include "vcli.h"
-#include "cli_common.h"
-#include "libvarnish.h"
-#include "varnishapi.h"
 #include "vss.h"
 
 #define RL_EXIT(status) \
@@ -123,6 +128,7 @@ cli_sock(const char *T_arg, const char *S_arg)
 	if (status != CLIS_OK) {
 		fprintf(stderr, "Rejected %u\n%s\n", status, answer);
 		AZ(close(sock));
+		free(answer);
 		return (-1);
 	}
 	free(answer);
@@ -132,7 +138,8 @@ cli_sock(const char *T_arg, const char *S_arg)
 	if (status != CLIS_OK || strstr(answer, "PONG") == NULL) {
 		fprintf(stderr, "No pong received from server\n");
 		AZ(close(sock));
-		return(-1);
+		free(answer);
+		return (-1);
 	}
 	free(answer);
 
@@ -276,7 +283,8 @@ interactive(int sock)
 		if (fds[0].revents & POLLIN) {
 			/* Get rid of the prompt, kinda hackish */
 			u = write(1, "\r           \r", 13);
-			u = VCLI_ReadResult(fds[0].fd, &status, &answer, timeout);
+			u = VCLI_ReadResult(fds[0].fd, &status, &answer,
+			    timeout);
 			if (u) {
 				if (status == CLIS_COMMS)
 					RL_EXIT(0);
@@ -375,29 +383,39 @@ n_arg_sock(const char *n_arg)
 {
 	char *T_arg = NULL, *T_start = NULL;
 	char *S_arg = NULL;
-	struct VSM_data *vsd;
+	struct VSM_data *vsm;
 	char *p;
 	int sock;
+	struct VSM_fantom vt;
 
-	vsd = VSM_New();
-	assert(VSL_Arg(vsd, 'n', n_arg));
-	if (VSM_Open(vsd, 1)) {
-		fprintf(stderr, "Could not open shared memory\n");
+	vsm = VSM_New();
+	AN(vsm);
+	if (VSM_n_Arg(vsm, n_arg) < 0) {
+		fprintf(stderr, "%s\n", VSM_Error(vsm));
+		VSM_Delete(vsm);
 		return (-1);
 	}
-	if (T_arg == NULL) {
-		p = VSM_Find_Chunk(vsd, "Arg", "-T", "", NULL);
-		if (p == NULL)  {
-			fprintf(stderr, "No -T arg in shared memory\n");
-			return (-1);
-		}
-		T_start = T_arg = strdup(p);
+	if (VSM_Open(vsm)) {
+		fprintf(stderr, "%s\n", VSM_Error(vsm));
+		VSM_Delete(vsm);
+		return (-1);
 	}
-	if (S_arg == NULL) {
-		p = VSM_Find_Chunk(vsd, "Arg", "-S", "", NULL);
-		if (p != NULL)
-			S_arg = strdup(p);
+
+	if (!VSM_Get(vsm, &vt, "Arg", "-T", "")) {
+		fprintf(stderr, "No -T arg in shared memory\n");
+		VSM_Delete(vsm);
+		return (-1);
 	}
+	AN(vt.b);
+	T_start = T_arg = strdup(vt.b);
+
+	if (VSM_Get(vsm, &vt, "Arg", "-S", "")) {
+		AN(vt.b);
+		S_arg = strdup(vt.b);
+	}
+
+	VSM_Delete(vsm);
+
 	sock = -1;
 	while (*T_arg) {
 		p = strchr(T_arg, '\n');

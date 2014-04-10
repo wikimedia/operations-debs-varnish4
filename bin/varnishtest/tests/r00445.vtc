@@ -6,11 +6,11 @@ server s1 {
 	txresp -body {<foo><esi:include src="/bar"><bar>}
 	rxreq
 	expect req.url == "/bar"
-	txresp 
+	txresp
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
 	}
 } -start
