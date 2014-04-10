@@ -1,8 +1,19 @@
-varnish (4.0.0-1) UNRELEASED; urgency=medium
+varnish (4.0.0-1) unstable; urgency=medium
 
   * Imported Upstream version 4.0.0
+  * [f39325d] Handle changes in documentation.
+  * [adef4b7] Update libvarnishapi1 symbols list.
+  * [05f83a6] Update list of architectures where jemalloc is not available
+  * [d453e47] Use anonscm.debian.org VSC URIs
+  * [f31fa49] Declare compliance with Debian Standards-Version 3.9.5
+  * [83da9e2] Add lintian override for the generated search index
+  * [2b56109] Add a NEWS file
+  * [c729df4] Install new files needed for vmod development
+  * [bc91563] Add python dependency for libvarnishapi-dev
+  * [7679077] Install default "example.vcl" as /etc/varnish/default.vcl
+  * [336d1e9] Ignore documentation not present in varnish 4
 
- -- Stig Sandbeck Mathisen <ssm@debian.org>  Thu, 10 Apr 2014 13:48:32 +0200
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Thu, 10 Apr 2014 14:20:00 +0200
 
 varnish (3.0.5-2) unstable; urgency=medium
 
