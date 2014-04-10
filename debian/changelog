@@ -1,3 +1,9 @@
+varnish (4.0.0-1) UNRELEASED; urgency=medium
+
+  * Imported Upstream version 4.0.0
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Thu, 10 Apr 2014 13:48:32 +0200
+
 varnish (3.0.5-2) unstable; urgency=medium
 
   [ Mattia Rizzolo ]
