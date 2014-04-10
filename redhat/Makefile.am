@@ -10,4 +10,8 @@ EXTRA_DIST =			\
 	varnish.sysconfig	\
 	varnishlog.initrc	\
 	varnishncsa.initrc	\
+	varnish.params		\
+	varnish.service		\
+	varnishncsa.service	\
+	varnishlog.service	\
 	find-provides

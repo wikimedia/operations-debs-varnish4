@@ -1,0 +1,255 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Installing Varnish &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Varnish Installation" href="index.html" />
+    <link rel="next" title="Getting help" href="help.html" />
+    <link rel="prev" title="Prerequisites" href="prerequisites.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="help.html" title="Getting help"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="prerequisites.html" title="Prerequisites"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Varnish Installation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="installing-varnish">
+<span id="install-doc"></span><h1>Installing Varnish<a class="headerlink" href="#installing-varnish" title="Permalink to this headline">¶</a></h1>
+<p>With open source software, you can choose to install binary packages or compile
+it yourself from source code. To install a package or compile from source is a
+matter of personal taste. If you don't know which method to choose, we
+recommend that you read this whole section and then choose the method you feel
+most comfortable with.</p>
+<div class="section" id="source-or-packages">
+<h2>Source or packages?<a class="headerlink" href="#source-or-packages" title="Permalink to this headline">¶</a></h2>
+<p>Installing Varnish on most relevant operating systems can usually
+be done with with the specific systems package manager, typical examples
+being:</p>
+</div>
+<div class="section" id="freebsd">
+<h2>FreeBSD<a class="headerlink" href="#freebsd" title="Permalink to this headline">¶</a></h2>
+<dl class="docutils">
+<dt>Binary package:</dt>
+<dd><tt class="docutils literal"><span class="pre">pkg_add</span> <span class="pre">-r</span> <span class="pre">varnish</span></tt></dd>
+<dt>From source:</dt>
+<dd><tt class="docutils literal"><span class="pre">cd</span> <span class="pre">/usr/ports/varnish</span> <span class="pre">&amp;&amp;</span> <span class="pre">make</span> <span class="pre">install</span> <span class="pre">clean</span></tt></dd>
+</dl>
+</div>
+<div class="section" id="red-hat-centos">
+<h2>Red Hat / CentOS<a class="headerlink" href="#red-hat-centos" title="Permalink to this headline">¶</a></h2>
+<p>We try to keep the latest version available as prebuilt RPMs (el5 and el6)
+on <a class="reference external" href="http://repo.varnish-cache.org/">repo.varnish-cache.org</a>.  See the online
+<a class="reference external" href="http://www.varnish-cache.org/installation/redhat">Red Hat installation instructions</a> for more information.</p>
+<p>Varnish is included in the <a class="reference external" href="http://fedoraproject.org/wiki/EPEL">EPEL</a> repository, however due to
+incompatible syntax changes in newer versions of Varnish, only older
+versions are available.</p>
+<p>We therefore recommend that you install the latest version directly from our repository, as described above.</p>
+</div>
+<div class="section" id="debian-ubuntu">
+<h2>Debian/Ubuntu<a class="headerlink" href="#debian-ubuntu" title="Permalink to this headline">¶</a></h2>
+<p>Varnish is distributed with both Debian and Ubuntu. In order to get
+Varnish up and running type <tt class="docutils literal"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">varnish</span></tt>. Please
+note that this might not be the latest version of Varnish.  If you
+need a later version of Varnish, please follow the online installation
+instructions for <a class="reference external" href="http://www.varnish-cache.org/installation/debian">Debian</a> or <a class="reference external" href="http://www.varnish-cache.org/installation/ubuntu">Ubuntu</a>.</p>
+</div>
+</div>
+<div class="section" id="compiling-varnish-from-source">
+<h1>Compiling Varnish from source<a class="headerlink" href="#compiling-varnish-from-source" title="Permalink to this headline">¶</a></h1>
+<p>If there are no binary packages available for your system, or if you
+want to compile Varnish from source for other reasons, follow these
+steps:</p>
+<p>Download the appropriate release tarball, which you can find on
+<a class="reference external" href="http://repo.varnish-cache.org/source/">http://repo.varnish-cache.org/source/</a> .</p>
+<p>Alternatively, if you want to hack on Varnish, you should clone our
+git repository by doing.</p>
+<blockquote>
+<div><tt class="docutils literal"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">git://git.varnish-cache.org/varnish-cache</span></tt></div></blockquote>
+<div class="section" id="build-dependencies-on-debian-ubuntu">
+<h2>Build dependencies on Debian / Ubuntu<a class="headerlink" href="#build-dependencies-on-debian-ubuntu" title="Permalink to this headline">¶</a></h2>
+<p>In order to build Varnish from source you need a number of packages
+installed. On a Debian or Ubuntu system these are:</p>
+<ul class="simple">
+<li><cite>autoconf</cite></li>
+<li><cite>automake1.1</cite></li>
+<li><cite>autotools-dev</cite></li>
+<li><cite>groff-base</cite></li>
+<li><cite>make</cite></li>
+<li><cite>libedit-dev</cite></li>
+<li><cite>libncurses-dev</cite></li>
+<li><cite>libpcre3-dev</cite></li>
+<li><cite>libtool</cite></li>
+<li><cite>pkg-config</cite></li>
+<li><cite>python-docutils</cite></li>
+</ul>
+<p>If you're building from git, you also need the following:</p>
+<ul class="simple">
+<li><cite>python-sphinx</cite> (optional, if you want to build the documentation)</li>
+</ul>
+</div>
+<div class="section" id="build-dependencies-on-red-hat-centos">
+<h2>Build dependencies on Red Hat / CentOS<a class="headerlink" href="#build-dependencies-on-red-hat-centos" title="Permalink to this headline">¶</a></h2>
+<p>To build Varnish on a Red Hat or CentOS system you need the following
+packages installed:</p>
+<ul class="simple">
+<li><cite>automake</cite></li>
+<li><cite>autoconf</cite></li>
+<li><cite>groff</cite></li>
+<li><cite>libedit-devel</cite></li>
+<li><cite>libtool</cite></li>
+<li><cite>ncurses-devel</cite></li>
+<li><cite>pcre-devel</cite></li>
+<li><cite>pkgconfig</cite></li>
+<li><cite>python-docutils</cite></li>
+</ul>
+<p>If you're building from git, you also need the following:</p>
+<ul class="simple">
+<li><cite>python-sphinx</cite> (optional, if you want to build the documentation)</li>
+</ul>
+</div>
+<div class="section" id="compiling-varnish">
+<h2>Compiling Varnish<a class="headerlink" href="#compiling-varnish" title="Permalink to this headline">¶</a></h2>
+<p>The configuration will need the dependencies above satisfied. Once that is
+taken care of:</p>
+<div class="highlight-python"><pre>cd varnish-cache
+sh autogen.sh
+sh configure
+make</pre>
+</div>
+<p>The <cite>configure</cite> script takes some arguments, but more likely than not you can
+forget about that for now, almost everything in Varnish can be tweaked with run
+time parameters.</p>
+<p>Before you install, you may want to run the test suite, make a cup of
+tea while it runs, it usually takes a couple of minutes:</p>
+<div class="highlight-python"><pre>make check</pre>
+</div>
+<p>Don't worry if one or two tests fail, some of the tests are a
+bit too timing sensitive (Please tell us which so we can fix them.) but
+if a lot of them fails, and in particular if the <cite>b00000.vtc</cite> test
+fails, something is horribly wrong, and you will get nowhere without
+figuring out what.</p>
+</div>
+<div class="section" id="installing">
+<h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h2>
+<p>And finally, the true test of a brave heart: <tt class="docutils literal"><span class="pre">sudo</span> <span class="pre">make</span> <span class="pre">install</span></tt></p>
+<p>Varnish will now be installed in <cite>/usr/local</cite>. The <cite>varnishd</cite> binary is in
+<cite>/usr/local/sbin/varnishd</cite> and its default configuration will be
+<cite>/usr/local/etc/varnish/default.vcl</cite>.</p>
+<p>After successful installation you are ready to proceed to the <a class="reference internal" href="../tutorial/index.html#tutorial-index"><em>The Varnish Tutorial</em></a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Installing Varnish</a><ul>
+<li><a class="reference internal" href="#source-or-packages">Source or packages?</a></li>
+<li><a class="reference internal" href="#freebsd">FreeBSD</a></li>
+<li><a class="reference internal" href="#red-hat-centos">Red Hat / CentOS</a></li>
+<li><a class="reference internal" href="#debian-ubuntu">Debian/Ubuntu</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#compiling-varnish-from-source">Compiling Varnish from source</a><ul>
+<li><a class="reference internal" href="#build-dependencies-on-debian-ubuntu">Build dependencies on Debian / Ubuntu</a></li>
+<li><a class="reference internal" href="#build-dependencies-on-red-hat-centos">Build dependencies on Red Hat / CentOS</a></li>
+<li><a class="reference internal" href="#compiling-varnish">Compiling Varnish</a></li>
+<li><a class="reference internal" href="#installing">Installing</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="prerequisites.html"
+                        title="previous chapter">Prerequisites</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="help.html"
+                        title="next chapter">Getting help</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/installation/install.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="help.html" title="Getting help"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="prerequisites.html" title="Prerequisites"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Varnish Installation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

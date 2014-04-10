@@ -1,16 +1,28 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define to 1 if you have the `abort2' function. */
-#undef HAVE_ABORT2
+/* Define to 1 if you have accept filters */
+#undef HAVE_ACCEPT_FILTERS
 
-/* Define to 1 if you have the `backtrace' function. */
+/* Define to 1 if the backtrace function exists */
 #undef HAVE_BACKTRACE
 
 /* Define to 1 if you have the `clock_gettime' function. */
 #undef HAVE_CLOCK_GETTIME
 
-/* Define to 1 if you have the <curses.h> header file. */
+/* Define to 1 if a SysV or X/Open compatible Curses library is present */
+#undef HAVE_CURSES
+
+/* Define to 1 if library supports color (enhanced functions) */
+#undef HAVE_CURSES_COLOR
+
+/* Define to 1 if library supports X/Open Enhanced functions */
+#undef HAVE_CURSES_ENHANCED
+
+/* Define to 1 if <curses.h> is present */
 #undef HAVE_CURSES_H
+
+/* Define to 1 if library supports certain obsolete features */
+#undef HAVE_CURSES_OBSOLETE
 
 /* Define to 1 if you have the `daemon' function. */
 #undef HAVE_DAEMON
@@ -82,8 +94,23 @@
 /* Define to 1 if you have the `nanosleep' function. */
 #undef HAVE_NANOSLEEP
 
-/* Define to 1 if you have the <ncurses/curses.h> header file. */
+/* Define to 1 if the Ncurses library is present */
+#undef HAVE_NCURSES
+
+/* Define to 1 if the NcursesW library is present */
+#undef HAVE_NCURSESW
+
+/* Define to 1 if <ncursesw/curses.h> is present */
+#undef HAVE_NCURSESW_CURSES_H
+
+/* Define to 1 if <ncursesw.h> is present */
+#undef HAVE_NCURSESW_H
+
+/* Define to 1 if <ncurses/curses.h> is present */
 #undef HAVE_NCURSES_CURSES_H
+
+/* Define to 1 if <ncurses.h> is present */
+#undef HAVE_NCURSES_H
 
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #undef HAVE_NETINET_IN_H
@@ -129,9 +156,6 @@
 
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET
-
-/* Define to 1 if you have the `srandomdev' function. */
-#undef HAVE_SRANDOMDEV
 
 /* Define to 1 if you have the <stddef.h> header file. */
 #undef HAVE_STDDEF_H
@@ -190,6 +214,9 @@
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #undef HAVE_SYS_WAIT_H
 
+/* Define if OS supports TCP_KEEP* socket options */
+#undef HAVE_TCP_KEEP
+
 /* Define to 1 if you have the `timegm' function. */
 #undef HAVE_TIMEGM
 
@@ -233,9 +260,6 @@
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
-
-/* Define if SENDFILE works */
-#undef SENDFILE_WORKS
 
 /* Define if SO_RCVTIMEO works */
 #undef SO_RCVTIMEO_WORKS
@@ -282,11 +306,6 @@
 
 /* Version number of package */
 #undef VERSION
-
-/* Enable large inode numbers on Mac OS X 10.5.  */
-#ifndef _DARWIN_USE_64_BIT_INODE
-# define _DARWIN_USE_64_BIT_INODE 1
-#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS

@@ -3,13 +3,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="generator" content="Docutils 0.11: http://docutils.sourceforge.net/" />
+<meta name="generator" content="Docutils 0.8.1: http://docutils.sourceforge.net/" />
 <title></title>
 <style type="text/css">
 
 /*
 :Author: David Goodger (goodger@python.org)
-:Id: $Id: html4css1.css 7614 2013-02-21 15:55:51Z milde $
+:Id: $Id: html4css1.css 7056 2011-06-17 10:50:48Z milde $
 :Copyright: This stylesheet has been placed in the public domain.
 
 Default cascading style sheet for the HTML output of Docutils.
@@ -77,7 +77,7 @@ div.tip p.admonition-title {
 
 div.attention p.admonition-title, div.caution p.admonition-title,
 div.danger p.admonition-title, div.error p.admonition-title,
-div.warning p.admonition-title, .code .error {
+div.warning p.admonition-title {
   color: red ;
   font-weight: bold ;
   font-family: sans-serif }
@@ -249,18 +249,9 @@ pre.address {
   margin-top: 0 ;
   font: inherit }
 
-pre.literal-block, pre.doctest-block, pre.math, pre.code {
+pre.literal-block, pre.doctest-block, pre.math {
   margin-left: 2em ;
   margin-right: 2em }
-
-pre.code .ln { color: grey; } /* line numbers */
-pre.code, code { background-color: #eeeeee }
-pre.code .comment, code .comment { color: #5C6576 }
-pre.code .keyword, code .keyword { color: #3B0D06; font-weight: bold }
-pre.code .literal.string, code .literal.string { color: #0C5404 }
-pre.code .name.builtin, code .name.builtin { color: #352B84 }
-pre.code .deleted, code .deleted { background-color: #DEB0A1}
-pre.code .inserted, code .inserted { background-color: #A3D289}
 
 span.classifier {
   font-family: sans-serif ;
@@ -313,21 +304,6 @@ table.docutils th.field-name, table.docinfo th.docinfo-name {
   white-space: nowrap ;
   padding-left: 0 }
 
-/* "booktabs" style (no vertical lines) */
-table.docutils.booktabs {
-  border: 0px;
-  border-top: 2px solid;
-  border-bottom: 2px solid;
-  border-collapse: collapse;
-}
-table.docutils.booktabs * {
-  border: 0px;
-}
-table.docutils.booktabs th {
-  border-bottom: thin solid;
-  text-align: left;
-}
-
 h1 tt.docutils, h2 tt.docutils, h3 tt.docutils,
 h4 tt.docutils, h5 tt.docutils, h6 tt.docutils {
   font-size: 100% }
@@ -341,6 +317,104 @@ ul.auto-toc {
 <div class="document">
 
 
+<div class="section" id="changes-from-4-0-0-beta1-to-4-0-0-2014-04-10">
+<h1>Changes from 4.0.0 beta1 to 4.0.0 (2014-04-10)</h1>
+<p>New since 4.0.0-beta1:</p>
+<ul class="simple">
+<li>improved varnishstat documentation.</li>
+<li>In VCL, req.backend_hint is available in vcl_hit</li>
+<li>ncurses is now a dependency.</li>
+</ul>
+<div class="section" id="bugs-fixed">
+<h2>Bugs fixed</h2>
+<ul class="simple">
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1469">1469</a> - Fix build error on PPC</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1468">1468</a> - Set ttl=0 on failed objects</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1462">1462</a> - Handle duplicate ReqURL in varnishncsa.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1467">1467</a> - Fix missing clearing of oc-&gt;busyobj on HSH_Fail.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-4-0-0-tp2-to-4-0-0-beta1">
+<h1>Changes from 4.0.0 TP2 to 4.0.0 beta1</h1>
+<p>New since TP2:</p>
+<ul class="simple">
+<li>Previous always-appended code called default.vcl is now called builtin.vcl.
+The new example.vcl is recommended as a starting point for new users.</li>
+<li>vcl_error is now called vcl_synth, and does not any more mandate closing the
+client connection.</li>
+<li>New VCL function vcl_backend_error, where you can change the 503 prepared if
+all your backends are failing. This can then be cached as a regular object.</li>
+<li>Keyword &quot;remove&quot; in VCL is replaced by &quot;unset&quot;.</li>
+<li>new timestamp and accounting records in varnishlog.</li>
+<li>std.timestamp() is introduced.</li>
+<li>stored objects are now read only, meaning obj.hits now counts per objecthead
+instead. obj.lastuse saw little use and has been removed.</li>
+<li>builtin VCL now does return(pipe) for chunked POST and PUT requests.</li>
+<li>python-docutils and rst2man are now build requirements.</li>
+<li>cli_timeout is now 60 seconds to avoid slaughtering the child process in
+times of high IO load/scheduling latency.</li>
+<li>return(purge) from vcl_recv is now valid.</li>
+<li>return(hash) is now the default return action from vcl_recv.</li>
+<li>req.backend is now req.backend_hint. beresp.storage is beresp.storage_hint.</li>
+</ul>
+<div class="section" id="id5">
+<h2>Bugs fixed</h2>
+<ul class="simple">
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1460">1460</a> - tools now use the new timestamp format.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1450">1450</a> - varnishstat -l segmentation fault.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1320">1320</a> - Work around Content-Length: 0 and Content-Encoding: gzip gracefully.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1458">1458</a> - Panic on busy object.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1417">1417</a> - Handle return(abandon) in vcl_backend_response.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1455">1455</a> - vcl_pipe now sets Connection: close by default on backend requests.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1454">1454</a> - X-Forwarded-For is now done in C, before vcl_recv is run.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1436">1436</a> - Better explanation when missing an import in VCL.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1440">1440</a> - Serve ESI-includes from a different backend.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1441">1441</a> - Incorrect grouping when logging ESI subrequests.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1434">1434</a> - std.duration can now do ms/milliseconds.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1419">1419</a> - Don't put objcores on the ban list until they go non-BUSY.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1405">1405</a> - Ban lurker does not always evict all objects.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-4-0-0-tp1-to-4-0-0-tp2">
+<h1>Changes from 4.0.0 TP1 to 4.0.0 TP2</h1>
+<div class="section" id="new-since-from-4-0-0-tp1">
+<h2>New since from 4.0.0 TP1</h2>
+<ul class="simple">
+<li>New VCL_BLOB type to pass binary data between VMODs.</li>
+<li>New format for VMOD description files. (.vcc)</li>
+</ul>
+</div>
+<div class="section" id="id19">
+<h2>Bugs fixed</h2>
+<ul class="simple">
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1404">1404</a> - Don't send Content-Length on 304 Not Modified responses.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1401">1401</a> - Varnish would crash when retrying a backend fetch too many times.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1399">1399</a> - Memory get freed while in use by another thread/object</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1398">1398</a> - Fix NULL deref related to a backend we don't know any more.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1397">1397</a> - Crash on backend fetch while LRUing.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1395">1395</a> - End up in vcl_error also if fetch fails vcl_backend_response.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1391">1391</a> - Client abort and retry during a streaming fetch would make Varnish assert.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1390">1390</a> - Fix assert if the ban lurker is overtaken by new duplicate bans.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1385">1385</a> - ban lurker doesn't remove (G)one bans</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1383">1383</a> - varnishncsa logs requests for localhost regardless of host header.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1382">1382</a> - varnishncsa prints nulls as part of request string.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1381">1381</a> - Ensure vmod_director is installed</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1323">1323</a> - Add a missing boundary check for Range requests</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1268">1268</a> - shortlived parameter now uses TTL+grace+keep instead of just TTL.</li>
+<li>Fix build error on OpenBSD (TCP_KEEP)</li>
+<li>n_object wasn't being decremented correctly on object expire.</li>
+<li>Example default.vcl in distribution is now 4.0-ready.</li>
+</ul>
+</div>
+<div class="section" id="open-issues">
+<h2>Open issues</h2>
+<ul class="simple">
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1405">1405</a> - Ban lurker does not always evict all objects.</li>
+</ul>
+</div>
+</div>
 <div class="section" id="changes-from-3-0-5-rc-1-to-3-0-5">
 <h1>Changes from 3.0.5 rc 1 to 3.0.5</h1>
 <div class="section" id="varnishd">
@@ -353,7 +427,7 @@ server.ip is accessed after a client has closed the connection. <cite>Bug #1376<
 </div>
 <div class="section" id="changes-from-3-0-4-to-3-0-5-rc-1">
 <h1>Changes from 3.0.4 to 3.0.5 rc 1</h1>
-<div class="section" id="id1">
+<div class="section" id="id36">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Stop printing error messages on ESI parse errors</li>
@@ -384,7 +458,7 @@ transaction. <cite>Bug #1325</cite></li>
 </div>
 <div class="section" id="changes-from-3-0-4-rc-1-to-3-0-4">
 <h1>Changes from 3.0.4 rc 1 to 3.0.4</h1>
-<div class="section" id="id2">
+<div class="section" id="id37">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Set the waiter pipe as non-blocking and record overflows.  <cite>Bug
@@ -397,7 +471,7 @@ negatives.  CVE-2013-4090.    <cite>Bug #1312</cite></li>
 </div>
 <div class="section" id="changes-from-3-0-3-to-3-0-4-rc-1">
 <h1>Changes from 3.0.3 to 3.0.4 rc 1</h1>
-<div class="section" id="id3">
+<div class="section" id="id38">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Fix error handling when uncompressing fetched objects for ESI
@@ -411,14 +485,14 @@ processing. <cite>Bug #1184</cite></li>
 <li>Make hit-for-pass correctly prefer the transient storage.</li>
 </ul>
 </div>
-<div class="section" id="id4">
+<div class="section" id="id39">
 <h2>varnishlog</h2>
 <ul class="simple">
 <li>If -m, but neither -b or -c is given, assume both.  This filters out
 a lot of noise when -m is used to filter.  <cite>Bug #1071</cite></li>
 </ul>
 </div>
-<div class="section" id="id5">
+<div class="section" id="id40">
 <h2>varnishadm</h2>
 <ul class="simple">
 <li>Improve tab completion and require libedit/readline to build.</li>
@@ -451,7 +525,7 @@ least on i386.</li>
 </div>
 <div class="section" id="changes-from-3-0-2-to-3-0-3">
 <h1>Changes from 3.0.2 to 3.0.3</h1>
-<div class="section" id="id6">
+<div class="section" id="id41">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Fix a race on the n_sess counter. This race made varnish do excessive
@@ -507,7 +581,7 @@ many ESI includes on an object. <a class="reference external" href="http://varni
 <li>Small performance optimizations.</li>
 </ul>
 </div>
-<div class="section" id="id8">
+<div class="section" id="id43">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Support for tn in varnishncsa format strings.</li>
@@ -530,7 +604,7 @@ VCL.</li>
 <li>Add json output (-j).</li>
 </ul>
 </div>
-<div class="section" id="id9">
+<div class="section" id="id44">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates.</li>
@@ -545,7 +619,7 @@ VCL.</li>
 </div>
 <div class="section" id="changes-from-3-0-2-rc-1-to-3-0-2">
 <h1>Changes from 3.0.2 rc 1 to 3.0.2</h1>
-<div class="section" id="id10">
+<div class="section" id="id45">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Make the size of the synthetic object workspace equal to
@@ -557,14 +631,14 @@ does not have anything to do.</li>
 it will now give a syntax error.</li>
 </ul>
 </div>
-<div class="section" id="id11">
+<div class="section" id="id46">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Add default values for some fields when logging incomplete records
 and document the default values.</li>
 </ul>
 </div>
-<div class="section" id="id12">
+<div class="section" id="id47">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates</li>
@@ -574,7 +648,7 @@ and document the default values.</li>
 </div>
 <div class="section" id="changes-from-3-0-1-to-3-0-2-rc-1">
 <h1>Changes from 3.0.1 to 3.0.2 rc 1</h1>
-<div class="section" id="id13">
+<div class="section" id="id48">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Only log the first 20 bytes of extra headers to prevent overflows.</li>
@@ -602,7 +676,7 @@ bytes.  This better matches what other HTTPds have.   <a class="reference extern
 loading to fail.</li>
 </ul>
 </div>
-<div class="section" id="id14">
+<div class="section" id="id49">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Fixed crash when client was sending illegal HTTP headers.</li>
@@ -610,7 +684,7 @@ loading to fail.</li>
 fixed.</li>
 </ul>
 </div>
-<div class="section" id="id15">
+<div class="section" id="id50">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates</li>
@@ -620,7 +694,7 @@ fixed.</li>
 </div>
 <div class="section" id="changes-from-3-0-1-rc-1-to-3-0-1">
 <h1>Changes from 3.0.1 rc 1 to 3.0.1</h1>
-<div class="section" id="id16">
+<div class="section" id="id51">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Fix crash in streaming code.</li>
@@ -629,20 +703,20 @@ director.</li>
 <li>The parameter <cite>http_req_size</cite> has been reduced on 32 bit machines.</li>
 </ul>
 </div>
-<div class="section" id="id17">
+<div class="section" id="id52">
 <h2>VCL</h2>
 <ul class="simple">
 <li>Disallow error in the <cite>vcl_init</cite> and <cite>vcl_fini</cite> VCL functions.</li>
 </ul>
 </div>
-<div class="section" id="id18">
+<div class="section" id="id53">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Fixed crash when using <cite>-X</cite>.</li>
 <li>Fix error when the time to first byte was in the format string.</li>
 </ul>
 </div>
-<div class="section" id="id19">
+<div class="section" id="id54">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates</li>
@@ -651,7 +725,7 @@ director.</li>
 </div>
 <div class="section" id="changes-from-3-0-0-to-3-0-1-rc-1">
 <h1>Changes from 3.0.0 to 3.0.1 rc 1</h1>
-<div class="section" id="id20">
+<div class="section" id="id55">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Avoid sending an empty end-chunk when sending bodyless responsed.</li>
@@ -672,7 +746,7 @@ object from the same backend unless health probes were enabled.
 This has been fixed and it will now retry a different backend.</li>
 </ul>
 </div>
-<div class="section" id="id21">
+<div class="section" id="id56">
 <h2>VCL</h2>
 <ul class="simple">
 <li>Request specific variables such as <cite>client.*</cite> and <cite>server.*</cite> are now
@@ -681,7 +755,7 @@ correctly marked as not available in <cite>vcl_init</cite> and <cite>vcl_fini</c
 same line.  This now works correctly.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/948">Bug #948</a>.</li>
 </ul>
 </div>
-<div class="section" id="id22">
+<div class="section" id="id57">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Add support for logging arbitrary request and response headers.</li>
@@ -691,14 +765,14 @@ string.</li>
 <li>Report user specified format string errors better.</li>
 </ul>
 </div>
-<div class="section" id="id23">
+<div class="section" id="id58">
 <h2>varnishlog</h2>
 <ul class="simple">
 <li><cite>varnishlog -r</cite> now works correctly again and no longer opens the
 shared log file of the running Varnish.</li>
 </ul>
 </div>
-<div class="section" id="id24">
+<div class="section" id="id59">
 <h2>Other</h2>
 <ul class="simple">
 <li>Various documentation updates.</li>
@@ -712,20 +786,20 @@ all vmods against the new version of Varnish.</li>
 </div>
 <div class="section" id="changes-from-3-0-beta-2-to-3-0-0">
 <h1>Changes from 3.0 beta 2 to 3.0.0</h1>
-<div class="section" id="id25">
+<div class="section" id="id60">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Avoid sending an empty end-chunk when sending bodyless responsed.</li>
 </ul>
 </div>
-<div class="section" id="id26">
+<div class="section" id="id61">
 <h2>VCL</h2>
 <ul class="simple">
 <li>The <cite>synthetic</cite> keyword has now been properly marked as only
 available in <cite>vcl_deliver</cite>.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/936">Bug #936</a>.</li>
 </ul>
 </div>
-<div class="section" id="id27">
+<div class="section" id="id62">
 <h2>varnishadm</h2>
 <ul class="simple">
 <li>Fix crash if the secret file was unreadable.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/935">Bug #935</a>.</li>
@@ -736,7 +810,7 @@ reason.</li>
 </div>
 <div class="section" id="changes-from-3-0-beta-1-to-3-0-beta-2">
 <h1>Changes from 3.0 beta 1 to 3.0 beta 2</h1>
-<div class="section" id="id28">
+<div class="section" id="id63">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>thread_pool_min and thread_pool_max now each refer to the number of
@@ -750,7 +824,7 @@ single-threaded so we do not want to do this work there in the first
 place.  Use varnishstat instead.</li>
 </ul>
 </div>
-<div class="section" id="id29">
+<div class="section" id="id64">
 <h2>VCL</h2>
 <ul class="simple">
 <li>VCL now treats null arguments (unset headers for instance) as empty
@@ -765,7 +839,7 @@ appropriate.</li>
 backends and ACLs.</li>
 </ul>
 </div>
-<div class="section" id="id30">
+<div class="section" id="id65">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>varnishncsa now ignores piped requests, since we have no way of
@@ -792,7 +866,7 @@ to do <tt class="docutils literal"><span class="pre">ban(&quot;req.url</span> ==
 works and is recommended.</li>
 </ul>
 </div>
-<div class="section" id="id31">
+<div class="section" id="id66">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Add streaming on <tt class="docutils literal">pass</tt> and <tt class="docutils literal">miss</tt>.  This is controlled by the
@@ -878,7 +952,7 @@ transactions.  The parameter can be repeated, in which case it is
 logically and-ed together.</li>
 </ul>
 </div>
-<div class="section" id="id33">
+<div class="section" id="id68">
 <h3>varnishadm</h3>
 <ul class="simple">
 <li>varnishadm will now pick up the -S and -T arguments from the shared
@@ -889,7 +963,7 @@ shared memory log file</li>
 <li>add libedit support</li>
 </ul>
 </div>
-<div class="section" id="id34">
+<div class="section" id="id69">
 <h3>varnishstat</h3>
 <ul class="simple">
 <li>reopen shared memory log if the varnishd process is restarted.</li>
@@ -899,7 +973,7 @@ the use of <tt class="docutils literal"><span class="pre">-f</span></tt>.</li>
 <li>display per-backend health information</li>
 </ul>
 </div>
-<div class="section" id="id35">
+<div class="section" id="id70">
 <h3>varnishncsa</h3>
 <ul class="simple">
 <li>Report error if called with <tt class="docutils literal"><span class="pre">-i</span></tt> and <tt class="docutils literal"><span class="pre">-I</span></tt> as they do not make
@@ -909,7 +983,7 @@ log formats are supported, as well as some Varnish-specific ones.
 See the documentation for further information.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/712">Bug #712</a> and <a class="reference external" href="http://varnish-cache.org/trac/ticket/485">bug #485</a></li>
 </ul>
 </div>
-<div class="section" id="id36">
+<div class="section" id="id71">
 <h3>varnishtest</h3>
 <ul class="simple">
 <li>add <tt class="docutils literal"><span class="pre">-l</span></tt> and <tt class="docutils literal"><span class="pre">-L</span></tt> switches which leave <tt class="docutils literal">/tmp/vtc.*</tt> behind on
@@ -918,7 +992,7 @@ error and unconditionally respectively.</li>
 default.</li>
 </ul>
 </div>
-<div class="section" id="id37">
+<div class="section" id="id72">
 <h3>varnishtop</h3>
 <ul class="simple">
 <li>add <tt class="docutils literal"><span class="pre">-p</span> $period</tt> parameter.  The units in varnishtop were
@@ -926,7 +1000,7 @@ previously undefined, they are now in requests/period.  The default
 period is 60 seconds.</li>
 </ul>
 </div>
-<div class="section" id="id38">
+<div class="section" id="id73">
 <h3>varnishlog</h3>
 <ul class="simple">
 <li>group requests by default.  This can be turned off by using <tt class="docutils literal"><span class="pre">-O</span></tt></li>
@@ -934,14 +1008,14 @@ period is 60 seconds.</li>
 </ul>
 </div>
 </div>
-<div class="section" id="id39">
+<div class="section" id="id74">
 <h2>VMODs</h2>
 <ul class="simple">
 <li>Add a std vmod which includes a random function, log, syslog,
 fileread, collect,</li>
 </ul>
 </div>
-<div class="section" id="id40">
+<div class="section" id="id75">
 <h2>VCL</h2>
 <ul class="simple">
 <li>Change string concatenation to be done using <tt class="docutils literal">+</tt> rather than
@@ -1004,7 +1078,7 @@ directory as they are not for public consumption and have no ABI/API
 guarantees.</li>
 </ul>
 </div>
-<div class="section" id="id41">
+<div class="section" id="id76">
 <h2>Other</h2>
 <ul class="simple">
 <li>Python is now required to build</li>
@@ -1014,6 +1088,1221 @@ guarantees.</li>
 version.</li>
 <li>The documentation has been improved all over and should now be in
 much better shape than before</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-1-4-to-2-1-5">
+<h1>Changes from 2.1.4 to 2.1.5</h1>
+<div class="section" id="id77">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>On pass from vcl_recv, we did not remove the backends Content-Length
+header before adding our own. This could cause confusion for browsers
+and has been fixed.</li>
+<li>Make pass with content-length work again. An issue with regards to
+304, Content-Length and pass has been resolved.</li>
+<li>An issue relating to passed requests with If-Modified-Since headers
+has been fixed. Varnish did not recognize that the 304-response did
+not have a body.</li>
+<li>A potential lock-inversion with the ban lurker thread has been
+resolved.</li>
+<li>Several build-dependency issues relating to rst2man have been fixed.
+Varnish should now build from source without rst2man if you are using
+tar-balls.</li>
+<li>Ensure Varnish reads the expected last CRLF after chunked data from
+the backend. This allows re-use of the connection.</li>
+<li>Remove a GNU Make-ism during make dist to make BSD happier.</li>
+<li>Document the log, set, unset, return and restart statements in the
+VCL documentation.</li>
+<li>Fix an embarrassingly old bug where Varnish would run out of
+workspace when requests come in fast over a single connection,
+typically during synthetic benchmarks.</li>
+<li>Varnish will now allow If-Modified-Since requests to objects without
+a Last-Modified-header, and instead use the time the object was
+cached instead.</li>
+<li>Do not filter out Content-Range headers in pass.</li>
+<li>Require -d, -b, -f, -S or -T when starting Varnishd. In human terms,
+this means that it is legal to start varnishd without a Vcl or
+backend, but only if you have a CLI channel of some kind.</li>
+<li>Don't suppress Cache-Control headers in pass responses.</li>
+<li>Merge multi-line Cache-Control and Vary header fields. Until now, no
+browsers have needed this, but Chromium seems to find it necessary to
+spread its Cache-Control across two lines, and we get to deal with
+it.</li>
+<li>Make new-purge not touch busy objects. This fixes a potential crash
+when calling VRT_purge.</li>
+<li>If there are everal grace-able objects, pick the least expired one.</li>
+<li>Fix an issue with varnishadm -T :6082 shorthand.</li>
+<li>Add bourn-shell like &quot;here&quot; documents on the CLI. Typical usage:
+vcl.inline vcl_new &lt;&lt; 42 backend foo {...} sub vcl_recv {...} 42</li>
+<li>Add CLI version to the CLI-banner, starting with version 1.0 to mark
+here-documents.</li>
+<li>Fix a problem with the expiry thread slacking off during high load.</li>
+</ul>
+</div>
+<div class="section" id="id78">
+<h2>varnishtest</h2>
+<ul class="simple">
+<li>Remove no longer existing -L option.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-1-3-to-2-1-4">
+<h1>Changes from 2.1.3 to 2.1.4</h1>
+<div class="section" id="id79">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>An embarrasing typo in the new binary heap layout caused inflated
+obj/objcore/objhdr counts and could cause odd problems when the LRU
+expunge mechanism was invoked. This has been fixed.</li>
+<li>We now have updated documentation in the reStructuredText format.
+Manual pages and reference documentation are both built from this.</li>
+<li>We now include a DNS director which uses DNS for choosing which
+backend to route requests to. Please see the documentation for more
+details.</li>
+<li>If you restarted a request, the HTTP header X-Forwarded-For would be
+updated multiple times. This has been fixed.</li>
+<li>If a VCL contained a % sign, and the vcl.show CLI command was used,
+varnishd would crash. This has been fixed.</li>
+<li>When doing a pass operation, we would remove the Content-Length, Age
+and Proxy-Auth headers. We are no longer doing this.</li>
+<li>now has a string representation, making it easier to construct
+Expires headers in VCL.</li>
+<li>In a high traffic environment, we would sometimes reuse a file
+descriptor before flushing the logs from a worker thread to the
+shared log buffer. This would cause confusion in some of the tools.
+This has been fixed by explicitly flushing the log when a backend
+connection is closed.</li>
+<li>If the communication between the management and the child process
+gets out of sync, we have no way to recover. Previously, varnishd
+would be confused, but we now just kill the child and restart it.</li>
+<li>If the backend closes the connection on us just as we sent a request
+to it, we retry the request. This should solve some interoperability
+problems with Apache and the mpm-itk multi processing module.</li>
+<li>varnishd now only provides help output the current CLI session is
+authenticated for.</li>
+<li>If the backend does not tell us which length indication it is using,
+we now assume the resource ends EOF at.</li>
+<li>The client director now has a variable client.identity which is used
+to choose which backend should receive a given request.</li>
+<li>The Solaris port waiter has been updated, and other portability fixes
+for Solaris.</li>
+<li>There was a corner case in the close-down processing of pipes, this
+has now been fixed.</li>
+<li>Previously, if we stopped polling a backend which was sick, it never
+got marked as healthy. This has now been changed.</li>
+<li>It is now possible to specify ports as part of the .host field in
+VCL.</li>
+<li>The synthetic counters were not locked properly, and so the sms_
+counters could underflow. This has now been fixed.</li>
+<li>The value of obj.status as a string in vcl_error would not be
+correct in all cases. This has been fixed.</li>
+<li>Varnish would try to trim storage segments completely filled when
+using the malloc stevedore and the object was received chunked
+encoding. This has been fixed.</li>
+<li>If a buggy backend sends us a Vary header with two colons, we would
+previously abort. We now rather fix this up and ignore the extra
+colon.</li>
+<li>req.hash_always_miss and req.hash_ignore_busy has been added, to
+make preloading or periodically refreshing content work better.</li>
+</ul>
+</div>
+<div class="section" id="id80">
+<h2>varnishncsa</h2>
+<ul class="simple">
+<li>varnishncsa would in some cases be confused by ESI requests and
+output invalid lines. This has now been fixed.</li>
+</ul>
+</div>
+<div class="section" id="id81">
+<h2>varnishlog</h2>
+<ul class="simple">
+<li>varnishlog now allows -o and -u together.</li>
+</ul>
+</div>
+<div class="section" id="id82">
+<h2>varnishtop</h2>
+<ul class="simple">
+<li>varnishtop would crash on 32 bit architectures. This has been fixed.</li>
+</ul>
+</div>
+<div class="section" id="libvarnishapi">
+<h2>libvarnishapi</h2>
+<ul class="simple">
+<li>Regex inclusion and exclusion had problems with matching particular
+parts of the string being matched. This has been fixed.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-1-2-to-2-1-3">
+<h1>Changes from 2.1.2 to 2.1.3</h1>
+<div class="section" id="id83">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>Improve scalability of critbit.</li>
+<li>The critbit hash algorithm has now been tightened to make sure the
+tree is in a consistent state at all points, and the time we wait for
+an object to cool off after it is eligible for garbage collection has
+been tweaked.</li>
+<li>Add log command to VCL. This emits a VCL_log entry into the shared
+memory log.</li>
+<li>Only emit Length and ReqEnd log entries if we actually have an XID.
+This should get rid of some empty log lines in varnishncsa.</li>
+<li>Destroy directors in a predictable fashion, namely reverse of
+creation order.</li>
+<li>Fix bug when ESI elements spanned storage elements causing a panic.</li>
+<li>In some cases, the VCL compiler would panic instead of giving
+sensible messages. This has now been fixed.</li>
+<li>Correct an off-by-one error when the requested range exceeds the size
+of an object.</li>
+<li>Handle requests for the end of an object correctly.</li>
+<li>Allow tabulator characters in the third field of the first line of
+HTTP requests</li>
+<li>On Solaris, if the remote end sends us an RST, all system calls
+related to that socket will return EINVAL. We now handle this better.</li>
+</ul>
+</div>
+<div class="section" id="id84">
+<h2>libvarnishapi</h2>
+<ul class="simple">
+<li>The -X parameter didn't work correctly. This has been fixed.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-1-1-to-2-1-2">
+<h1>Changes from 2.1.1 to 2.1.2</h1>
+<div class="section" id="id85">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>When adding Range support for 2.1.1, we accidentially introduced a
+bug which would append garbage to objects larger than the chunk size,
+by default 128k. Browsers would do the right thing due to
+Content-Length, but some load balancers would get very confused.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-1-1-to-2-1-1">
+<h1>Changes from 2.1.1 to 2.1.1</h1>
+<div class="section" id="id86">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>The changelog in 2.1.0 included syntax errors, causing the generated
+changelog to be empty.</li>
+<li>The help text for default_grace was wrongly formatted and included a
+syntax error. This has now been fixed.</li>
+<li>varnishd now closes the file descriptor used to read the management
+secret file (from the -S parameter).</li>
+<li>The child would previously try to close every valid file descriptor,
+something which could cause problems if the file descriptor ulimit
+was set too high. We now keep track of all the file descriptors we
+open and only close up to that number.</li>
+<li>ESI was partially broken in 2.1.0 due to a bug in the rollback of
+session workspace. This has been fixed.</li>
+<li>Reject the authcommand rather than crash if there is no -S parameter
+given.</li>
+<li>Align pointers in allocated objects. This will in theory make Varnish
+a tiny bit faster at the expense of slightly more memory usage.</li>
+<li>Ensure the master process process id is updated in the shared memory
+log file after we go into the background.</li>
+<li>HEAD requests would be converted to GET requests too early, which
+affected pass and pipe. This has been fixed.</li>
+<li>Update the documentation to point out that the TTL is no longer taken
+into account to decide whether an object is cacheable or not.</li>
+<li>Add support for completely obliterating an object and all variants of
+it. Currently, this has to be done using inline C.</li>
+<li>Add experimental support for the Range header. This has to be enabled
+using the parameter http_range_support.</li>
+<li>The critbit hasher could get into a deadlock and had a race
+condition. Both those have now been fixed.</li>
+</ul>
+<p>varnishsizes
+-----------~</p>
+<ul class="simple">
+<li>varnishsizes, which is like varnishhost, but for the length of
+objects, has been added..</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-0-6-to-2-1-0">
+<h1>Changes from 2.0.6 to 2.1.0</h1>
+<div class="section" id="id87">
+<h2>varnishd</h2>
+<ul>
+<li><p class="first">Persistent storage is now experimentally supported using the
+persistent stevedore. It has the same command line arguments as the
+file stevedore.</p>
+</li>
+<li><p class="first">obj.* is now called beresp.* in vcl_fetch, and obj.* is now
+read-only.</p>
+</li>
+<li><p class="first">The regular expression engine is now PCRE instead of POSIX regular
+expressions.</p>
+</li>
+<li><p class="first">req.* is now available in vcl_deliver.</p>
+</li>
+<li><p class="first">Add saint mode where we can attempt to grace an object if we don't
+like the backend response for some reason.</p>
+<p>Related, add saintmode_threshold which is the threshold for the
+number of objects to be added to the trouble list before the backend
+is considered sick.</p>
+</li>
+<li><p class="first">Add a new hashing method called critbit. This autoscales and should
+work better on large object workloads than the classic hash. Critbit
+has been made the default hash algorithm.</p>
+</li>
+<li><p class="first">When closing connections, we experimented with sending RST to free up
+load balancers and free up threads more quickly. This caused some
+problems with NAT routers and so has been reverted for now.</p>
+</li>
+<li><p class="first">Add thread that checks objects against ban list in order to prevent
+ban list from growing forever. Note that this needs purges to be
+written so they don't depend on req.*. Enabled by setting
+ban_lurker_sleep to a nonzero value.</p>
+</li>
+<li><p class="first">The shared memory log file format was limited to maximum 64k
+simultaneous connections. This is now a 32 bit field which removes
+this limitation.</p>
+</li>
+<li><p class="first">Remove obj_workspace, this is now sized automatically.</p>
+</li>
+<li><p class="first">Rename acceptors to waiters</p>
+</li>
+<li><p class="first">vcl_prefetch has been removed. It was never fully implemented.</p>
+</li>
+<li><p class="first">Add support for authenticating CLI connections.</p>
+</li>
+<li><p class="first">Add hash director that chooses which backend to use depending on
+req.hash.</p>
+</li>
+<li><p class="first">Add client director that chooses which backend to use depending on
+the client's IP address. Note that this ignores the X-Forwarded-For
+header.</p>
+</li>
+<li><p class="first">varnishd now displays a banner by default when you connect to the
+CLI.</p>
+</li>
+<li><p class="first">Increase performance somewhat by moving statistics gathering into a
+per-worker structure that is regularly flushed to the global stats.</p>
+</li>
+<li><p class="first">Make sure we store the header and body of object together. This may
+in some cases improve performance and is needed for persistence.</p>
+</li>
+<li><p class="first">Remove client-side address accounting. It was never used for anything
+and presented a performance problem.</p>
+</li>
+<li><p class="first">Add a timestamp to bans, so you can know how old they are.</p>
+</li>
+<li><p class="first">Quite a few people got confused over the warning about not being able
+to lock the shared memory log into RAM, so stop warning about that.</p>
+</li>
+<li><p class="first">Change the default CLI timeout to 10 seconds.</p>
+</li>
+<li><p class="first">We previously forced all inserts into the cache to be GET requests.
+This has been changed to allow POST as well in order to be able to
+implement purge-on-POST semantics.</p>
+</li>
+<li><p class="first">The CLI command stats now only lists non-zero values.</p>
+</li>
+<li><p class="first">The CLI command stats now only lists non-zero values.</p>
+</li>
+<li><p class="first">Use daemon(3) from libcompat on Darwin.</p>
+</li>
+<li><p class="first">Remove vcl_discard as it causes too much complexity and never
+actually worked particularly well.</p>
+</li>
+<li><p class="first">Remove vcl_timeout as it causes too much complexity and never
+actually worked particularly well.</p>
+</li>
+<li><p class="first">Update the documentation so it refers to sess_workspace, not
+http_workspace.</p>
+</li>
+<li><p class="first">Document the -i switch to varnishd as well as the server.identity and
+server.hostname VCL variables.</p>
+</li>
+<li><p class="first">purge.hash is now deprecated and no longer shown in help listings.</p>
+</li>
+<li><p class="first">When processing ESI, replace the five mandatory XML entities when we
+encounter them.</p>
+</li>
+<li><p class="first">Add string representations of time and relative time.</p>
+</li>
+<li><p class="first">Add locking for n_vbe_conn to make it stop underflowing.</p>
+</li>
+<li><p class="first">When ESI-processing content, check for illegal XML character
+entities.</p>
+</li>
+<li><p class="first">Varnish can now connect its CLI to a remote instance when starting
+up, rather than just being connected to.</p>
+</li>
+<li><p class="first">It is no longer needed to specify the maximum number of HTTP headers
+to allow from backends. This is now a run-time parameter.</p>
+</li>
+<li><p class="first">The X-Forwarded-For header is now generated by vcl_recv rather than
+the C code.</p>
+</li>
+<li><p class="first">It is now possible to not send all CLI traffic to syslog.</p>
+</li>
+<li><p class="first">It is now possible to not send all CLI traffic to syslog.</p>
+</li>
+<li><p class="first">In the case of varnish crashing, it now outputs a identifying string
+with the OS, OS revision, architecture and storage parameters
+together with the backtrace.</p>
+</li>
+<li><p class="first">Use exponential backoff when we run out of file descriptors or
+sessions.</p>
+</li>
+<li><p class="first">Allow setting backend timeouts to zero.</p>
+</li>
+<li><p class="first">Count uptime in the shared memory log.</p>
+</li>
+<li><p class="first">Try to detect the case of two running varnishes with the same shmlog
+and storage by writing the master and child process ids to the shmlog
+and refusing to start if they are still running.</p>
+</li>
+<li><p class="first">Make sure to use EOF mode when serving ESI content to HTTP/1.0
+clients.</p>
+</li>
+<li><p class="first">Make sure we close the connection if it either sends Connection:
+close or it is a HTTP/1.0 backend that does not send Connection:
+keep-alive.</p>
+</li>
+<li><p class="first">Increase the default session workspace to 64k on 64-bit systems.</p>
+</li>
+<li><p class="first">Make the epoll waiter use level triggering, not edge triggering as
+edge triggering caused problems on very busy servers.</p>
+</li>
+<li><p class="first">Handle unforeseen client disconnections better on Solaris.</p>
+</li>
+<li><p class="first">Make session lingering apply to new sessions, not just reused
+sessions.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="id88">
+<h2>varnishstat</h2>
+<ul class="simple">
+<li>Make use of the new uptime field in the shared memory log rather than
+synthesizing it from the start time.</li>
+</ul>
+</div>
+<div class="section" id="id89">
+<h2>varnishlog</h2>
+<ul class="simple">
+<li>Exit at the end of the file when started with -d.</li>
+</ul>
+</div>
+<div class="section" id="id90">
+<h2>varnishadm</h2>
+<ul class="simple">
+<li>varnishadm can now have a timeout when trying to connect to the
+running varnishd.</li>
+<li>varnishadm now knows how to respond to the secret from a secured
+varnishd</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-0-5-to-2-0-6">
+<h1>Changes from 2.0.5 to 2.0.6</h1>
+<div class="section" id="id91">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>2.0.5 had an off-by-one error in the ESI handling causing includes to
+fail a large part of the time. This has now been fixed.</li>
+<li>Try harder to not confuse backends when sending them backend probes.
+We half-closed the connection, something some backends thought meant
+we had dropped the connection. Stop doing so, and add the capability
+for specifying the expected response code.</li>
+<li>In 2.0.5, session lingering was turned on. This caused statistics to
+not be counted often enough in some cases. This has now been fixed.</li>
+<li>Avoid triggering an assert if the other end closes the connection
+while we are lingering and waiting for another request from them.</li>
+<li>When generating backtraces, prefer the built-in backtrace function if
+such exists. This fixes a problem compiling 2.0.5 on Solaris.</li>
+<li>Make it possible to specify the per-thread stack size. This might be
+useful on 32 bit systems with their limited address space.</li>
+<li>Document the -C option to varnishd.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-0-4-to-2-0-5">
+<h1>Changes from 2.0.4 to 2.0.5</h1>
+<div class="section" id="id92">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>Handle object workspace overruns better.</li>
+<li>Allow turning off ESI processing per request by using set req.esi =
+off.</li>
+<li>Tell the kernel that we expect to use the mmap-ed file in a random
+fashion. On Linux, this turns off/down readahead and increases
+performance.</li>
+<li>Make it possible to change the maximum number of HTTP headers we
+allow by passing --with-max-header-fields=NUM rather than changing
+the code.</li>
+<li>Implement support for HTTP continuation lines.</li>
+<li>Change how connections are closed and only use SO_LINGER for orderly
+connection closure. This should hopefully make worker threads less
+prone to hangups on network problems.</li>
+<li>Handle multi-element purges correctly. Previously we ended up with
+parse errors when this was done from VCL.</li>
+<li>Handle illegal responses from the backend better by serving a 503
+page rather than panic-ing.</li>
+<li>When we run into an assertion that is not true, Varnish would
+previously dump a little bit of information about itself. Extend that
+information with a backtrace. Note that this relies on the varnish
+binary being unstripped.</li>
+<li>Add a session_max parameter that limits the maximum number of
+sessions we keep open before we start dropping new connections
+summarily.</li>
+<li>Try to consume less memory when doing ESI processing by properly
+rolling back used workspace after processing an object. This should
+make it possible to turn sess_workspace quite a bit for users with
+ESI-heavy pages.</li>
+<li>Turn on session_linger by default. Tests have shown that
+session_linger helps a fair bit with performance.</li>
+<li>Rewrite the epoll acceptor for better performance. This should lead
+to both higher processing rates and maximum number of connections on
+Linux.</li>
+<li>Add If-None-Match support, this gives significant bandwidth savings
+for users with compliant browsers.</li>
+<li>RFC2616 specifies that ETag, Content-Location, Expires, Cache-Control
+and Vary should be emitted when delivering a response with the 304
+response code.</li>
+<li>Various fixes which makes Varnish compile and work on AIX.</li>
+<li>Turn on TCP_DEFER_ACCEPT on Linux. This should make us less
+suspecible to denial of service attacks as well as give us slightly
+better performance.</li>
+<li>Add an .initial property to the backend probe specification. This is
+the number of good probes we pretend to have seen. The default is one
+less than .threshold, which means the first probe will decide if we
+consider the backend healthy.</li>
+<li>Make it possible to compare strings against other string-like
+objects, not just plain strings. This allows you to compare two
+headers, for instance.</li>
+<li>When support for restart in vcl_error was added, there was no check
+to prevent infinte recursion. This has now been fixed.</li>
+<li>Turn on purge_dups by default. This should make us consume less
+memory when there are many bans for the same pattern added.</li>
+<li>Add a new log tag called FetchError which tries to explain why we
+could not fetch an object from the backend.</li>
+<li>Change the default srcaddr_ttl to 0. It is not used by anything and
+has been removed in the development version. This will increase
+performance somewhat.</li>
+</ul>
+</div>
+<div class="section" id="id93">
+<h2>varnishtop</h2>
+<ul class="simple">
+<li>varnishtop did not handle variable-length log fields correctly. This
+is now fixed.</li>
+<li>varnishtop previously did not print the name of the tag, which made
+it very hard to understand. We now print out the tag name.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-0-3-to-2-0-4">
+<h1>Changes from 2.0.3 to 2.0.4</h1>
+<div class="section" id="id94">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>Make Varnish more portable by pulling in fixes for Solaris and
+NetBSD.</li>
+<li>Correct description of -a in the manual page.</li>
+<li>Ensure we are compiling in C99 mode.</li>
+<li>If error was called with a null reason, we would crash on Solaris.
+Make sure this no longer happens.</li>
+<li>Varnish used to crash if you asked it to use a non-existent waiter.
+This has now been fixed.</li>
+<li>Add documentation to the default VCL explaining that using
+Connection: close in vcl_close is generally a good idea.</li>
+<li>Add minimal facility for dealing with TELNET option negotiation by
+returning WONT to DO and DONT requests.</li>
+<li>If the backend is unhealthy, use a graced object if one is available.</li>
+<li>Make server.hostname and server.identity available to VCL. The latter
+can be set with the -i parameter to varnishd.</li>
+<li>Make restart available from vcl_error.</li>
+<li>Previously, only the TTL of an object was considered in whether it
+would be marked as cacheable. This has been changed to take the grace
+into consideration as well.</li>
+<li>Previously, if an included ESI fragment had a zero size, we would
+send out a zero-sized chunk which signifies end-of-transmission. We
+now ignore zero-sized chunks.</li>
+<li>We accidentially slept for far too long when we reached the maximum
+number of open file descriptors. This has been corrected and
+accept_fd_holdoff now works correctly.</li>
+<li>Previously, when ESI processing, we did not look at the full length,
+but stopped at the first NULL byte. We no longer do that, enabling
+ESI processing of binary data.</li>
+</ul>
+</div>
+<div class="section" id="id95">
+<h2>varnishtest</h2>
+<ul class="simple">
+<li>Make sure system &quot;...&quot; returns successfully to ensure test failures
+do not go unnoticed.</li>
+<li>Make it possible to send NULL bytes through the testing framework.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-0-2-to-2-0-3">
+<h1>Changes from 2.0.2 to 2.0.3</h1>
+<div class="section" id="id96">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>Handle If-Modified-Since and ESI sub-objects better, fixing a problem
+where we sometimes neglected to insert included objects.</li>
+<li>restart in vcl_hit is now supported.</li>
+<li>Setting the TTL of an object to 0 seconds would sometimes cause it to
+be delivered for up to one second - epsilon. This has been corrected
+and we should now never deliver those objects to other clients.</li>
+<li>The malloc storage backend now prints the maximum storage size, just
+like the file backend.</li>
+<li>Various small documentation bugs have been fixed.</li>
+<li>Varnish did not set a default interval for backend probes, causing it
+to poll the backend continuously. This has been corrected.</li>
+<li>Allow &quot;true&quot; and &quot;false&quot; when setting boolean parameters, in addition
+to on/off, enable/disable and yes/no.</li>
+<li>Default to always talking HTTP 1.1 with the backend.</li>
+<li>Varnish did not make sure the file it was loading was a regular file.
+This could cause Varnish to crash if it was asked to load a directory
+or other non-regular file. We now check that the file is a regular
+file before loading it.</li>
+<li>The binary heap used for expiry processing had scalability problems.
+Work around this by using stripes of a fixed size, which should make
+this scale better, particularly when starting up and having lots of
+objects.</li>
+<li>When we imported the jemalloc library into the Varnish tree, it did
+not compile without warnings. This has now been fixed.</li>
+<li>Varnish took a very long time to detect that the backend did not
+respond. To remedy this, we now have read timeouts in addition to the
+connect timeout. Both the first_byte_timeout and the
+between_bytes_timeout defaults to 60 seconds. The connect timeout
+is no longer in milliseconds, but rather in seconds.</li>
+<li>Previously, the VCL to C conversion as well as the invocation of the
+C compiler was done in the management process. This is now done in a
+separate sub-process. This prevents any bugs in the VCL compiler from
+affecting the management process.</li>
+<li>Chunked encoding headers were counted in the statistics for header
+bytes. They no longer are.</li>
+<li>ESI processed objects were not counted in the statistics for body
+bytes. They now are.</li>
+<li>It is now possible to adjust the maximum record length of log entries
+in the shmlog by tuning the shm_reclen parameter.</li>
+<li>The management parameters listed in the CLI were not sorted, which
+made it hard to find the parameter you were looking for. They are now
+sorted, which should make this easier.</li>
+<li>Add a new hashing type, &quot;critbit&quot;, which uses a lock-less tree based
+lookup algorithm. This is experimental and should not be enabled in
+production environments without proper testing.</li>
+<li>The session workspace had a default size of 8k. It is now 16k, which
+should make VCLs where many headers are processed less prone to
+panics.</li>
+<li>We have seen that people seem to be confused as to which actions in
+the different VCL functions return and which ones don't. Add a new
+syntax return(action) to make this more explicit. The old syntax is
+still supported.</li>
+<li>Varnish would return an error if any of the management IPs listed in
+the -T parameter could not be listened to. We now only return an
+error if none of them can be listened to.</li>
+<li>In the case of the backend or client giving us too many parameters,
+we used to just ignore the overflowing headers. This is problematic
+if you end up ignoreing Content-Length, Transfer-Encoding and similar
+headers. We now give out a 400 error to the client if it sends us too
+many and 503 if we get too many from the backend.</li>
+<li>We used panic if we got a too large chunked header. This behaviour
+has been changed into just failing the transaction.</li>
+<li>Varnish now supports an extended purge method where it is possible to
+do purge req.http.host ~ &quot;web1.com&quot; &amp;&amp; req.url ~ &quot;\.png&quot; and
+similar. See the documentation for details.</li>
+<li>Under heavy load, Varnish would sometimes crash when trying to update
+the per-request statistics. This has now been fixed.</li>
+<li>It is now possible to not save the hash string in the session and
+object workspace. This will save a lot of memory on sites with many
+small objects. Disabling the purge_hash parameter also disables the
+purge.hash facility.</li>
+<li>Varnish now supports !~ as a &quot;no match&quot; regular expression matcher.</li>
+<li>In some cases, you could get serialised access to &quot;pass&quot; objects. We
+now make it default to the default_ttl value; this can be overridden
+in vcl_fetch.</li>
+<li>Varnish did not check the syntax of regsub calls properly. More
+checking has been added.</li>
+<li>If the client closed the connection while Varnish was processing ESI
+elements, Varnish would crash while trying to write the object to the
+client. We now check if the client has closed the connection.</li>
+<li>The ESI parser had a bug where it would crash if an XML comment would
+span storage segments. This has been fixed.</li>
+</ul>
+<p>VCL Manual page
+--------------~</p>
+<ul class="simple">
+<li>The documentation on how capturing parentheses work was wrong. This
+has been corrected.</li>
+<li>Grace has now been documented.</li>
+</ul>
+</div>
+<div class="section" id="varnishreplay">
+<h2>varnishreplay</h2>
+<ul class="simple">
+<li>varnishreplay did not work correctly on Linux, due to a too small
+stack. This has now been fixed.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-0-1-to-2-0-2">
+<h1>Changes from 2.0.1 to 2.0.2</h1>
+<div class="section" id="id97">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>In high-load situations, when using ESI, varnishd would sometimes
+mishandle objects and crash. This has been worked around.</li>
+</ul>
+</div>
+<div class="section" id="id98">
+<h2>varnishreplay</h2>
+<ul class="simple">
+<li>varnishreplay did not work correctly on Linux, due to a too small
+stack. This has now been fixed.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-2-0-to-2-0-1">
+<h1>Changes from 2.0 to 2.0.1</h1>
+<div class="section" id="id99">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>When receiving a garbled HTTP request, varnishd would sometimes
+crash. This has been fixed.</li>
+<li>There was an off-by-one error in the ACL compilation. Now fixed.</li>
+</ul>
+<p>Red Hat spec file
+----------------~</p>
+<ul class="simple">
+<li>A typo in the spec file made the .rpm file names wrong.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-1-1-2-to-2-0">
+<h1>Changes from 1.1.2 to 2.0</h1>
+<div class="section" id="id100">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>Only look for sendfile on platforms where we know how to use it,
+which is FreeBSD for now.</li>
+<li>Make it possible to adjust the shared memory log size and bump the
+size from 8MB to 80MB.</li>
+<li>Fix up the handling of request bodies to better match what RFC2616
+mandates. This makes PUT, DELETE, OPTIONS and TRACE work in addition
+to POST.</li>
+<li>Change how backends are defined, to a constant structural defintion
+style. See <a class="reference external" href="http://varnish.projects.linpro.no/wiki/VclSyntaxChanges">http://varnish.projects.linpro.no/wiki/VclSyntaxChanges</a>
+for the details.</li>
+<li>Add directors, which wrap backends. Currently, there's a random
+director and a round-robin director.</li>
+<li>Add &quot;grace&quot;, which is for how long and object will be served, even
+after it has expired. To use this, both the object's and the
+request's grace parameter need to be set.</li>
+<li>Manual pages have been updated for new VCL syntax and varnishd
+options.</li>
+<li>Man pages and other docs have been updated.</li>
+<li>The shared memory log file is now locked in memory, so it should not
+be paged out to disk.</li>
+<li>We now handle Vary correctly, as well as Expect.</li>
+<li>ESI include support is implemented.</li>
+<li>Make it possible to limit how much memory the malloc uses.</li>
+<li>Solaris is now supported.</li>
+<li>There is now a regsuball function, which works like regsub except it
+replaces all occurences of the regex, not just the first.</li>
+<li>Backend and director declarations can have a .connect_timeout
+parameter, which tells us how long to wait for a successful
+connection.</li>
+<li>It is now possible to select the acceptor to use by changing the
+acceptor parameter.</li>
+<li>Backends can have probes associated with them, which can be checked
+with req.backend.health in VCL as well as being handled by directors
+which do load-balancing.</li>
+<li>Support larger-than-2GB files also on 32 bit hosts. Please note that
+this does not mean we can support caches bigger than 2GB, it just
+means logfiles and similar can be bigger.</li>
+<li>In some cases, we would remove the wrong header when we were
+stripping Content-Transfer-Encoding headers from a request. This has
+been fixed.</li>
+<li>Backends can have a .max_connections associated with them.</li>
+<li>On Linux, we need to set the dumpable bit on the child if we want
+core dumps. Make sure it's set.</li>
+<li>Doing purge.hash() with an empty string would cause us to dump core.
+Fixed so we don't do that any more.</li>
+<li>We ran into a problem with glibc's malloc on Linux where it seemed
+like it failed to ever give memory back to the OS, causing the system
+to swap. We have now switched to jemalloc which appears not to have
+this problem.</li>
+<li>max_restarts was never checked, so we always ended up running out of
+workspace. Now, vcl_error is called when we reach max_restarts.</li>
+</ul>
+</div>
+<div class="section" id="id101">
+<h2>varnishtest</h2>
+<ul class="simple">
+<li>varnishtest is a tool to do correctness tests of varnishd. The test
+suite is run by using make check.</li>
+</ul>
+</div>
+<div class="section" id="id102">
+<h2>varnishtop</h2>
+<ul class="simple">
+<li>We now set the field widths dynamically based on the size of the
+terminal and the name of the longest field.</li>
+</ul>
+</div>
+<div class="section" id="id103">
+<h2>varnishstat</h2>
+<ul class="simple">
+<li>varnishstat -1 now displays the uptime too.</li>
+</ul>
+</div>
+<div class="section" id="id104">
+<h2>varnishncsa</h2>
+<ul class="simple">
+<li>varnishncsa now does fflush after each write. This makes tail -f work
+correctly, as well as avoiding broken lines in the log file.</li>
+<li>It is possible to get varnishncsa to output the X-Forwarded-For
+instead of the client IP by passing -f to it.</li>
+</ul>
+<p>Build system
+-----------~</p>
+<ul class="simple">
+<li>Various sanity checks have been added to configure, it now complains
+about no ncurses or if SO_RCVTIMEO or SO_SNDTIMEO are
+non-functional. It also aborts if there's no working acceptor
+mechanism</li>
+<li>The C compiler invocation is decided by the configure script and can
+now be overridden by passing VCC_CC when running configure.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-1-1-1-to-1-1-2">
+<h1>Changes from 1.1.1 to 1.1.2</h1>
+<div class="section" id="id105">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>When switching to a new VCL configuration, a race condition exists
+which may cause Varnish to reference a backend which no longer exists
+(see <a class="reference external" href="http://varnish.projects.linpro.no/ticket/144">ticket #144</a>).
+This race condition has not been entirely eliminated, but it should
+occur less frequently.</li>
+<li>When dropping a TCP session before any requests were processed, an
+assertion would be triggered due to an uninitialized timestamp (see
+<a class="reference external" href="http://varnish.projects.linpro.no/ticket/132">ticket #132</a>). The
+timestamp is now correctly initialized.</li>
+<li>Varnish will now correctly generate a Date: header for every response
+instead of copying the one it got from the backend (see <a class="reference external" href="http://varnish.projects.linpro.no/ticket/157">ticket
+#157</a>).</li>
+<li>Comparisons in VCL which involve a non-existent string (usually a
+header which is not present in the request or object being processed)
+would cause a NULL pointer dereference; now the comparison will
+simply fail.</li>
+<li>A bug in the VCL compiler which would cause a double-free when
+processing include directives has been fixed.</li>
+<li>A resource leak in the worker thread management code has been fixed.</li>
+<li>When connecting to a backend, Varnish will usually get the address
+from a cache. When the cache is refreshed, existing connections may
+end up with a reference to an address structure which no longer
+exists, resulting in a crash. This race condition has been somewhat
+mitigated, but not entirely eliminated (see <a class="reference external" href="http://varnish.projects.linpro.no/ticket/144">ticket
+#144</a>.)</li>
+<li>Varnish will now pass the correct protocol version in pipe mode: the
+backend will get what the client sent, and vice versa.</li>
+<li>The core of the pipe mode code has been rewritten to increase
+robustness and eliminate spurious error messages when either end
+closes the connection in a manner Varnish did not anticipate.</li>
+<li>A memory leak in the backend code has been plugged.</li>
+<li>When using the kqueue acceptor, if a client shuts down the request
+side of the connection (as many clients do after sending their final
+request), it was possible for the acceptor code to receive the EOF
+event and recycle the session while the last request was still being
+serviced, resulting in a assertion failure and a crash when the
+worker thread later tried to delete the session. This should no
+longer happen (see <a class="reference external" href="http://varnish.projects.linpro.no/ticket/162">ticket
+#162</a>.)</li>
+<li>A mismatch between the recorded length of a cached object and the
+amount of data actually present in cache for that object can
+occasionally occur (see <a class="reference external" href="http://varnish.projects.linpro.no/ticket/167">ticket
+#167</a>.) This has been
+partially fixed, but may still occur for error pages generated by
+Varnish when a problem arises while retrieving an object from the
+backend.</li>
+<li>Some socket-related system calls may return unexpected error codes
+when operating on a TCP connection that has been shut down at the
+other end. These error codes would previously cause assertion
+failures, but are now recognized as harmless conditions.</li>
+</ul>
+</div>
+<div class="section" id="varnishhist">
+<h2>varnishhist</h2>
+<ul class="simple">
+<li>Pressing 0 though 9 while varnishhist is running will change the
+refresh interval to the corresponding power of two, in seconds.</li>
+</ul>
+</div>
+<div class="section" id="id107">
+<h2>varnishncsa</h2>
+<ul class="simple">
+<li>The varnishncsa tool can now daemonize and write a PID file like
+varnishlog, using the same command-line options. It will also reopen
+its output upon receipt of a SIGHUP if invoked with -w.</li>
+</ul>
+</div>
+<div class="section" id="id108">
+<h2>varnishstat</h2>
+<ul class="simple">
+<li>Pressing 0 though 9 while varnishstat is running will change the
+refresh interval to the corresponding power of two, in seconds.</li>
+</ul>
+<p>Build system
+-----------~</p>
+<ul class="simple">
+<li>Varnish's &lt;queue.h&gt; has been modified to avoid conflicts with
+&lt;sys/queue.h&gt; on platforms where the latter is included indirectly
+through system headers.</li>
+<li>Several steps have been taken towards Solaris support, but this is
+not yet complete.</li>
+<li>When configure was run without an explicit prefix, Varnish's idea of
+the default state directory would be garbage and a state directory
+would have to be specified manually with -n. This has been corrected.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-1-1-to-1-1-1">
+<h1>Changes from 1.1 to 1.1.1</h1>
+<div class="section" id="id109">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>The code required to allow VCL to read obj.status, which had
+accidentally been left out, has now been added.</li>
+<li>Varnish will now always include a Connection: header in its reply to
+the client, to avoid possible misunderstandings.</li>
+<li>A bug that triggered an assertion failure when generating synthetic
+error documents has been corrected.</li>
+<li>A new VCL function, purge_url, provides the same functionality as
+the url.purge management command.</li>
+<li>Previously, Varnish assumed that the response body should be sent
+only if the request method was GET. This was a problem for custom
+request methods (such as PURGE), so the logic has been changed to
+always send the response body except in the specific case of a HEAD
+request.</li>
+<li>Changes to run-time parameters are now correctly propagated to the
+child process.</li>
+<li>Due to the way run-time parameters are initialized at startup,
+varnishd previously required the nobody user and the nogroup group to
+exist even if a different user and group were specified on the
+command line. This has been corrected.</li>
+<li>Under certain conditions, the VCL compiler would carry on after a
+syntax error instead of exiting after reporting the error. This has
+been corrected.</li>
+<li>The manner in which the hash string is assembled has been modified to
+reduce memory usage and memory-to-memory copying.</li>
+<li>Before calling vcl_miss, Varnish assembles a tentative request
+object for the backend request which will usually follow. This object
+would be leaked if vcl_miss returned anything else than fetch. This
+has been corrected.</li>
+<li>The code necessary to handle an error return from vcl_fetch and
+vcl_deliver had inadvertantly been left out. This has been
+corrected.</li>
+<li>Varnish no longer prints a spurious &quot;child died&quot; message (the result
+of reaping the compiler process) after compiling a new VCL
+configuration.</li>
+<li>Under some circumstances, due to an error in the workspace management
+code, Varnish would lose the &quot;tail&quot; of a request, i.e. the part of
+the request that has been received from the client but not yet
+processed. The most obvious symptom of this was that POST requests
+would work with some browsers but not others, depending on details of
+the browser's HTTP implementation. This has been corrected.</li>
+<li>On some platforms, due to incorrect assumptions in the CLI code, the
+management process would crash while processing commands received
+over the management port. This has been corrected.</li>
+</ul>
+<p>Build system
+-----------~</p>
+<ul class="simple">
+<li>The top-level Makefile will now honor $DESTDIR when creating the
+state directory.</li>
+<li>The Debian and RedHat packages are now split into three (main / lib /
+devel) as is customary.</li>
+<li>A number of compile-time and run-time portability issues have been
+addressed.</li>
+<li>The autogen.sh script had workarounds for problems with the GNU
+autotools on FreeBSD; these are no longer needed and have been
+removed.</li>
+<li>The libcompat library has been renamed to libvarnishcompat and is now
+dynamic rather than static. This simplifies the build process and
+resolves an issue with the Mac OS X linker.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-1-0-4-to-1-1">
+<h1>Changes from 1.0.4 to 1.1</h1>
+<div class="section" id="id110">
+<h2>varnishd</h2>
+<ul class="simple">
+<li>Readability of the C source code generated from VCL code has been
+improved.</li>
+<li>Equality (==) and inequality (!=) operators have been implemented for
+IP addresses (which previously could only be compared using ACLs).</li>
+<li>The address of the listening socket on which the client connection
+was received is now available to VCL as the server.ip variable.</li>
+<li>Each object's hash key is now computed based on a string which is
+available to VCL as req.hash. A VCL hook named vcl_hash has been
+added to allow VCL scripts to control hash generation (for instance,
+whether or not to include the value of the Host: header in the hash).</li>
+<li>The setup code for listening sockets has been modified to detect and
+handle situations where a host name resolves to multiple IP
+addresses. It will now attempt to bind to each IP address separately,
+and report a failure only if none of them worked.</li>
+<li>Network or protocol errors that occur while retrieving an object from
+a backend server now result in a synthetic error page being inserted
+into the cache with a 30-second TTL. This should help avoid driving
+an overburdened backend server into the ground by repeatedly
+requesting the same object.</li>
+<li>The child process will now drop root privileges immediately upon
+startup. The user and group to use are specified with the user and
+group run-time parameters, which default to nobody and nogroup,
+respectively. Other changes have been made in an effort to increase
+the isolation between parent and child, and reduce the impact of a
+compromise of the child process.</li>
+<li>Objects which are received from the backend with a Vary: header are
+now stored separately according to the values of the headers
+specified in Vary:. This allows Varnish to correctly cache e.g.
+compressed and uncompressed versions of the same object.</li>
+<li>Each Varnish instance now has a name, which by default is the host
+name of the machine it runs on, but can be any string that would be
+valid as a relative or absolute directory name. It is used to
+construct the name of a directory in which the server state as well
+as all temporary files are stored. This makes it possible to run
+multiple Varnish instances on the same machine without conflict.</li>
+<li>When invoked with the -C option, varnishd will now not just translate
+the VCL code to C, but also compile the C code and attempt to load
+the resulting shared object.</li>
+<li>Attempts by VCL code to reference a variable outside its scope or to
+assign a value to a read-only variable will now result in
+compile-time rather than run-time errors.</li>
+<li>The new command-line option -F will make varnishd run in the
+foreground, without enabling debugging.</li>
+<li>New VCL variables have been introduced to allow inspection and
+manipulation of the request sent to the backend (bereq.request,
+bereq.url, bereq.proto and bereq.http) and the response to the client
+(resp.proto, resp.status, resp.response and resp.http).</li>
+<li>Statistics from the storage code (including the amount of data and
+free space in the cache) are now available to varnishstat and other
+statistics-gathering tools.</li>
+<li>Objects are now kept on an LRU list which is kept loosely up-to-date
+(to within a few seconds). When cache runs out, the objects at the
+tail end of the LRU list are discarded one by one until there is
+enough space for the freshly requested object(s). A VCL hook,
+vcl_discard, is allowed to inspect each object and determine its
+fate by returning either keep or discard.</li>
+<li>A new VCL hook, vcl_deliver, provides a chance to adjust the
+response before it is sent to the client.</li>
+<li>A new management command, vcl.show, displays the VCL source code of
+any loaded configuration.</li>
+<li>A new VCL variable, now, provides VCL scripts with the current time
+in seconds since the epoch.</li>
+<li>A new VCL variable, obj.lastuse, reflects the time in seconds since
+the object in question was last used.</li>
+<li>VCL scripts can now add an HTTP header (or modify the value of an
+existing one) by assigning a value to the corresponding variable, and
+strip an HTTP header by using the remove keyword.</li>
+<li>VCL scripts can now modify the HTTP status code of cached objects
+(obj.status) and responses (resp.status)</li>
+<li>Numeric and other non-textual variables in VCL can now be assigned to
+textual variables; they will be converted as needed.</li>
+<li>VCL scripts can now apply regular expression substitutions to textual
+variables using the regsub function.</li>
+<li>A new management command, status, returns the state of the child.</li>
+<li>Varnish will now build and run on Mac OS X.</li>
+</ul>
+</div>
+<div class="section" id="id111">
+<h2>varnishadm</h2>
+<ul class="simple">
+<li>This is a new utility which sends a single command to a Varnish
+server's management port and prints the result to stdout, greatly
+simplifying the use of the management port from scripts.</li>
+</ul>
+</div>
+<div class="section" id="id112">
+<h2>varnishhist</h2>
+<ul class="simple">
+<li>The user interface has been greatly improved; the histogram will be
+automatically rescaled and redrawn when the window size changes, and
+it is updated regularly rather than at a rate dependent on the amount
+of log data gathered. In addition, the name of the Varnish instance
+being watched is displayed in the upper right corner.</li>
+</ul>
+</div>
+<div class="section" id="id113">
+<h2>varnishncsa</h2>
+<ul class="simple">
+<li>In addition to client traffic, varnishncsa can now also process log
+data from backend traffic.</li>
+<li>A bug that would cause varnishncsa to segfault when it encountered an
+empty HTTP header in the log file has been fixed.</li>
+</ul>
+</div>
+<div class="section" id="id114">
+<h2>varnishreplay</h2>
+<ul class="simple">
+<li>This new utility will attempt to recreate the HTTP traffic which
+resulted in the raw Varnish log data which it is fed.</li>
+</ul>
+</div>
+<div class="section" id="id115">
+<h2>varnishstat</h2>
+<ul class="simple">
+<li>Don't print lifetime averages when it doesn't make any sense—for
+instance, there is no point in dividing the amount in bytes of free
+cache space by the lifetime in seconds of the varnishd process.</li>
+<li>The user interface has been greatly improved; varnishstat will no
+longer print more than fits in the terminal, and will respond
+correctly to window resize events. The output produced in one-shot
+mode has been modified to include symbolic names for each entry. In
+addition, the name of the Varnish instance being watched is displayed
+in the upper right corner in curses mode.</li>
+</ul>
+</div>
+<div class="section" id="id116">
+<h2>varnishtop</h2>
+<ul class="simple">
+<li>The user interface has been greatly improved; varnishtop will now
+respond correctly to window resize events, and one-shot mode (-1)
+actually works. In addition, the name of the Varnish instance being
+watched is displayed in the upper right corner in curses mode.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="changes-from-1-0-3-to-1-0-4">
+<h1>Changes from 1.0.3 to 1.0.4</h1>
+<div class="section" id="id117">
+<h2>varnishd</h2>
+<ul>
+<li><p class="first">The request workflow has been redesigned to simplify request
+processing and eliminate code duplication. All codepaths which need
+to speak HTTP now share a single implementation of the protocol. Some
+new VCL hooks have been added, though they aren't much use yet. The
+only real user-visible change should be that Varnish now handles
+persistent backend connections correctly (see <a class="reference external" href="http://varnish.projects.linpro.no/ticket/56">ticket
+#56</a>).</p>
+</li>
+<li><p class="first">Support for multiple listen addresses has been added.</p>
+</li>
+<li><p class="first">An &quot;include&quot; facility has been added to VCL, allowing VCL code to
+pull in code fragments from multiple files.</p>
+</li>
+<li><p class="first">Multiple definitions of the same VCL function are now concatenated
+into one in the order in which they appear in the source. This
+simplifies the mechanism for falling back to the built-in default for
+cases which aren't handled in custom code, and facilitates
+modularization.</p>
+</li>
+<li><p class="first">The code used to format management command arguments before passing
+them on to the child process would underestimate the amount of space
+needed to hold each argument once quotes and special characters were
+properly escaped, resulting in a buffer overflow. This has been
+corrected.</p>
+</li>
+<li><p class="first">The VCL compiler has been overhauled. Several memory leaks have been
+plugged, and error detection and reporting has been improved
+throughout. Parts of the compiler have been refactored to simplify
+future extension of the language.</p>
+</li>
+<li><p class="first">A bug in the VCL compiler which resulted in incorrect parsing of the
+decrement (-=) operator has been fixed.</p>
+</li>
+<li><p class="first">A new -C command-line option has been added which causes varnishd to
+compile the VCL code (either from a file specified with -f or the
+built-in default), print the resulting C code and exit.</p>
+</li>
+<li><p class="first">When processing a backend response using chunked encoding, if a chunk
+header crosses a read buffer boundary, read additional bytes from the
+backend connection until the chunk header is complete.</p>
+</li>
+<li><p class="first">A new ping_interval run-time parameter controls how often the
+management process checks that the worker process is alive.</p>
+</li>
+<li><p class="first">A bug which would cause the worker process to dereference a NULL
+pointer and crash if the backend did not respond has been fixed.</p>
+</li>
+<li><p class="first">In some cases, such as when they are used by AJAX applications to
+circumvent Internet Explorer's over-eager disk cache, it may be
+desirable to cache POST requests. However, the code path responsible
+for delivering objects from cache would only transmit the response
+body when replying to a GET request. This has been extended to also
+apply to POST.</p>
+<p>This should be revisited at a later date to allow VCL code to control
+whether the body is delivered.</p>
+</li>
+<li><p class="first">Varnish now respects Cache-control: s-maxage, and prefers it to
+Cache-control: max-age if both are present.</p>
+<p>This should be revisited at a later date to allow VCL code to control
+which headers are used and how they are interpreted.</p>
+</li>
+<li><p class="first">When loading a new VCL script, the management process will now load
+the compiled object to verify that it links correctly before
+instructing the worker process to load it.</p>
+</li>
+<li><p class="first">A new -P command-line options has been added which causes varnishd to
+create a PID file.</p>
+</li>
+<li><p class="first">The sendfile_threshold run-time parameter's default value has been
+set to infinity after a variety of sendfile()-related bugs were
+discovered on several platforms.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="id118">
+<h2>varnishlog</h2>
+<ul class="simple">
+<li>When grouping log entries by request, varnishlog attempts to collapse
+the log entry for a call to a VCL function with the log entry for the
+corresponding return from VCL. When two VCL calls were made in
+succession, varnishlog would incorrectly omit the newline between the
+two calls (see <a class="reference external" href="http://varnish.projects.linpro.no/ticket/95">ticket
+#95</a>).</li>
+<li>New -D and -P command-line options have been added to daemonize and
+create a pidfile, respectively.</li>
+<li>The flag that is raised upon reception of a SIGHUP has been marked
+volatile so it will not be optimized away by the compiler.</li>
+</ul>
+</div>
+<div class="section" id="id119">
+<h2>varnishncsa</h2>
+<ul>
+<li><p class="first">The formatting callback has been largely rewritten for clarity,
+robustness and efficiency.</p>
+<p>If a request included a Host: header, construct and output an
+absolute URL. This makes varnishncsa output from servers which handle
+multiple virtual hosts far more useful.</p>
+</li>
+<li><p class="first">The flag that is raised upon reception of a SIGHUP has been marked
+volatile so it will not be optimized away by the compiler.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="documentation">
+<h2>Documentation</h2>
+<ul class="simple">
+<li>The documentation—especially the VCL documentation—has been greatly
+extended and improved.</li>
+</ul>
+</div>
+<div class="section" id="build-system">
+<h2>Build system</h2>
+<ul class="simple">
+<li>The name and location of the curses or ncurses library is now
+correctly detected by the configure script instead of being hardcoded
+into affected Makefiles. This allows Varnish to build correctly on a
+wider range of platforms.</li>
+<li>Compatibility shims for clock_gettime() are now correctly applied
+where needed, allowing Varnish to build on MacOS X.</li>
+<li>The autogen.sh script will now correctly detect and warn about
+automake versions which are known not to work correctly.</li>
 </ul>
 </div>
 </div>

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2008-2011 Varnish Software AS
+ * Copyright (c) 2008-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -28,29 +28,28 @@
 
 #include "config.h"
 
-#include <stdio.h>
-
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
-#include <poll.h>
-#include <inttypes.h>
-
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
 
-#include "vqueue.h"
-#include "miniobj.h"
-#include "libvarnish.h"
-#include "varnishapi.h"
-#include "vcli.h"
-#include "vss.h"
-#include "vsb.h"
+#include <fcntl.h>
+#include <inttypes.h>
+#include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "vtc.h"
+
+#include "vapi/vsc.h"
+#include "vapi/vsl.h"
+#include "vapi/vsm.h"
+#include "vcli.h"
+#include "vss.h"
+#include "vtcp.h"
+#include "vtim.h"
 
 struct varnish {
 	unsigned		magic;
@@ -58,8 +57,6 @@ struct varnish {
 	char			*name;
 	struct vtclog		*vl;
 	VTAILQ_ENTRY(varnish)	list;
-
-	struct vsb		*storage;
 
 	struct vsb		*args;
 	int			fds[4];
@@ -79,8 +76,6 @@ struct varnish {
 };
 
 #define NONSENSE	"%XJEIFLH|)Xspa8P"
-
-#define VSL_SLEEP_USEC	(50*1000)
 
 static VTAILQ_HEAD(, varnish)	varnishes =
     VTAILQ_HEAD_INITIALIZER(varnishes);
@@ -175,53 +170,83 @@ wait_running(const struct varnish *v)
 }
 
 /**********************************************************************
- * Varnishlog gatherer + thread
+ * Varnishlog gatherer thread
  */
-
-static int
-h_addlog(void *priv, enum VSL_tag_e tag, unsigned fd, unsigned len,
-    unsigned spec, const char *ptr, uint64_t bitmap)
-{
-	struct varnish *v;
-	int type;
-
-	(void) bitmap;
-
-	type = (spec & VSL_S_CLIENT) ? 'c' :
-	    (spec & VSL_S_BACKEND) ? 'b' : '-';
-	CAST_OBJ_NOTNULL(v, priv, VARNISH_MAGIC);
-
-	v->vsl_tag_count[tag]++;
-
-	vtc_log(v->vl, 4, "vsl| %5u %-12s %c %.*s", fd,
-	    VSL_tags[tag], type, len, ptr);
-	v->vsl_sleep = 100;
-	return (0);
-}
 
 static void *
 varnishlog_thread(void *priv)
 {
 	struct varnish *v;
-	struct VSM_data	*vsl;
+	struct VSL_data *vsl;
+	struct VSM_data *vsm;
+	struct VSL_cursor *c;
+	enum VSL_tag_e tag;
+	uint32_t vxid;
+	unsigned len;
+	const char *tagname, *data;
+	int type, i;
 
 	CAST_OBJ_NOTNULL(v, priv, VARNISH_MAGIC);
-	vsl = VSM_New();
-	VSL_Setup(vsl);
-	(void)VSL_Arg(vsl, 'n', v->workdir);
-	VSL_NonBlocking(vsl, 1);
-	while (v->pid  && VSL_Open(vsl, 0) != 0) {
-		assert(usleep(VSL_SLEEP_USEC) == 0 || errno == EINTR);
-	}
+
+	vsl = VSL_New();
+	AN(vsl);
+	vsm = VSM_New();
+	AN(vsm);
+	(void)VSM_n_Arg(vsm, v->workdir);
+
+	c = NULL;
 	while (v->pid) {
-		if (VSL_Dispatch(vsl, h_addlog, v) < 0) {
-			assert(usleep(v->vsl_sleep) == 0 || errno == EINTR);
-			v->vsl_sleep += v->vsl_sleep;
-			if (v->vsl_sleep > VSL_SLEEP_USEC)
-				v->vsl_sleep = VSL_SLEEP_USEC;
+		if (c == NULL) {
+			VTIM_sleep(0.1);
+			if (VSM_Open(vsm)) {
+				VSM_ResetError(vsm);
+				continue;
+			}
+			c = VSL_CursorVSM(vsl, vsm, 1);
+			if (c == NULL) {
+				VSL_ResetError(vsl);
+				continue;
+			}
 		}
+		AN(c);
+
+		i = VSL_Next(c);
+		if (i == 0) {
+			/* Nothing to do but wait */
+			VTIM_sleep(0.01);
+			continue;
+		} else if (i == -2) {
+			/* Abandoned - try reconnect */
+			VSL_DeleteCursor(c);
+			c = NULL;
+			VSM_Close(vsm);
+			continue;
+		} else if (i != 1)
+			break;
+
+		tag = VSL_TAG(c->rec.ptr);
+		vxid = VSL_ID(c->rec.ptr);
+		if (tag == SLT__Batch) {
+			tagname = "Batch";
+			len = 0;
+			continue;
+		} else {
+			tagname = VSL_tags[tag];
+			len = VSL_LEN(c->rec.ptr);
+		}
+		type = VSL_CLIENT(c->rec.ptr) ? 'c' : VSL_BACKEND(c->rec.ptr) ?
+		    'b' : '-';
+		data = VSL_CDATA(c->rec.ptr);
+		v->vsl_tag_count[tag]++;
+		vtc_log(v->vl, 4, "vsl| %10u %-15s %c %.*s", vxid, tagname,
+		    type, (int)len, data);
 	}
-	VSM_Delete(vsl);
+
+	if (c)
+		VSL_DeleteCursor(c);
+	VSL_Delete(vsl);
+	VSM_Delete(vsm);
+
 	return (NULL);
 }
 
@@ -251,18 +276,13 @@ varnish_new(const char *name)
 	AN(v->workdir);
 	VSB_delete(vsb);
 
-	bprintf(buf, "rm -rf %s ; mkdir -p %s ; echo ' %ld' > %s/_S",
-	    v->workdir, v->workdir, random(), v->workdir);
+	bprintf(buf, "rm -rf %s ; mkdir -p %s", v->workdir, v->workdir);
 	AZ(system(buf));
 
 	if (*v->name != 'v')
 		vtc_log(v->vl, 0, "Varnish name must start with 'v'");
 
 	v->args = VSB_new_auto();
-
-	v->storage = VSB_new_auto();
-	VSB_printf(v->storage, "-sfile,%s,10M", v->workdir);
-	AZ(VSB_finish(v->storage));
 
 	v->cli_fd = -1;
 	VTAILQ_INSERT_TAIL(&varnishes, v, list);
@@ -319,8 +339,10 @@ varnish_thread(void *priv)
 		i = poll(fds, 1, 1000);
 		if (i == 0)
 			continue;
-		if (fds->revents & (POLLERR|POLLHUP))
+		if (fds->revents & (POLLERR|POLLHUP)) {
+			vtc_log(v->vl, 4, "STDOUT poll 0x%x", fds->revents);
 			break;
+		}
 		i = read(v->fds[0], buf, sizeof buf - 1);
 		if (i <= 0)
 			break;
@@ -346,12 +368,12 @@ varnish_launch(struct varnish *v)
 	char *r;
 
 	v->vd = VSM_New();
-	VSC_Setup(v->vd);
 
 	/* Create listener socket */
 	nap = VSS_resolve("127.0.0.1", "0", &ap);
 	AN(nap);
 	v->cli_fd = VSS_listen(ap[0], 1);
+	assert(v->cli_fd > 0);
 	VTCP_myname(v->cli_fd, abuf, sizeof abuf, pbuf, sizeof pbuf);
 
 	AZ(VSB_finish(v->args));
@@ -360,14 +382,13 @@ varnish_launch(struct varnish *v)
 	AN(vsb);
 	VSB_printf(vsb, "cd ${pwd} &&");
 	VSB_printf(vsb, " ${varnishd} -d -d -n %s", v->workdir);
-	VSB_printf(vsb, " -l 10m,1m,-");
+	VSB_printf(vsb, " -l 2m,1m,-");
 	VSB_printf(vsb, " -p auto_restart=off");
 	VSB_printf(vsb, " -p syslog_cli_traffic=off");
+	VSB_printf(vsb, " -p sigsegv_handler=on");
 	VSB_printf(vsb, " -a '%s'", "127.0.0.1:0");
-	VSB_printf(vsb, " -S %s/_S", v->workdir);
 	VSB_printf(vsb, " -M '%s %s'", abuf, pbuf);
 	VSB_printf(vsb, " -P %s/varnishd.pid", v->workdir);
-	VSB_printf(vsb, " %s", VSB_data(v->storage));
 	VSB_printf(vsb, " %s", VSB_data(v->args));
 	AZ(VSB_finish(vsb));
 	vtc_log(v->vl, 3, "CMD: %s", VSB_data(vsb));
@@ -407,8 +428,8 @@ varnish_launch(struct varnish *v)
 	memset(fd, 0, sizeof fd);
 	fd[0].fd = v->cli_fd;
 	fd[0].events = POLLIN;
-	fd[1].fd = v->fds[0];
-	fd[1].events = 0; /* Only care about POLLHUP, which is output-only */
+	fd[1].fd = v->fds[1];
+	fd[1].events = POLLIN;
 	i = poll(fd, 2, 10000);
 	vtc_log(v->vl, 4, "CLIPOLL %d 0x%x 0x%x",
 	    i, fd[0].revents, fd[1].revents);
@@ -444,7 +465,7 @@ varnish_launch(struct varnish *v)
 	if (u != CLIS_AUTH)
 		vtc_log(v->vl, 0, "CLI auth demand expected: %u %s", u, r);
 
-	bprintf(abuf, "%s/_S", v->workdir);
+	bprintf(abuf, "%s/_.secret", v->workdir);
 	nfd = open(abuf, O_RDONLY);
 	assert(nfd >= 0);
 
@@ -462,8 +483,8 @@ varnish_launch(struct varnish *v)
 		vtc_log(v->vl, 0, "CLI auth command failed: %u %s", u, r);
 	free(r);
 
-	(void)VSL_Arg(v->vd, 'n', v->workdir);
-	AZ(VSC_Open(v->vd, 1));
+	(void)VSM_n_Arg(v->vd, v->workdir);
+	AZ(VSM_Open(v->vd));
 }
 
 /**********************************************************************
@@ -488,7 +509,7 @@ varnish_start(struct varnish *v)
 		vtc_log(v->vl, 0, "CLI start command failed: %u %s", u, resp);
 	wait_running(v);
 	free(resp);
-	u = varnish_ask_cli(v, "debug.xid 1000", &resp);
+	u = varnish_ask_cli(v, "debug.xid 999", &resp);
 	if (vtc_error)
 		return;
 	if (u != CLIS_OK)
@@ -553,6 +574,7 @@ varnish_wait(struct varnish *v)
 {
 	void *p;
 	int status, r;
+	struct rusage ru;
 
 	if (v->cli_fd < 0)
 		return;
@@ -567,9 +589,12 @@ varnish_wait(struct varnish *v)
 
 	AZ(pthread_join(v->tp, &p));
 	AZ(close(v->fds[0]));
-	r = wait4(v->pid, &status, 0, NULL);
+	r = wait4(v->pid, &status, 0, &ru);
 	v->pid = 0;
-	vtc_log(v->vl, 2, "R %d Status: %04x", r, status);
+	vtc_log(v->vl, 2, "R %d Status: %04x (u %.6f s %.6f)", r, status,
+	    ru.ru_utime.tv_sec + 1e-6 * ru.ru_utime.tv_usec,
+	    ru.ru_stime.tv_sec + 1e-6 * ru.ru_stime.tv_usec
+	);
 	AZ(pthread_join(v->tp_vsl, &p));
 	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
 		return;
@@ -607,7 +632,8 @@ varnish_cli(struct varnish *v, const char *cli, unsigned exp)
  */
 
 static void
-varnish_vcl(struct varnish *v, const char *vcl, enum VCLI_status_e expect)
+varnish_vcl(struct varnish *v, const char *vcl, enum VCLI_status_e expect,
+    char **resp)
 {
 	struct vsb *vsb;
 	enum VCLI_status_e u;
@@ -619,11 +645,11 @@ varnish_vcl(struct varnish *v, const char *vcl, enum VCLI_status_e expect)
 	vsb = VSB_new_auto();
 	AN(vsb);
 
-	VSB_printf(vsb, "vcl.inline vcl%d << %s\n%s\n%s\n",
+	VSB_printf(vsb, "vcl.inline vcl%d << %s\nvcl 4.0;\n%s\n%s\n",
 	    ++v->vcl_nbr, NONSENSE, vcl, NONSENSE);
 	AZ(VSB_finish(vsb));
 
-	u = varnish_ask_cli(v, VSB_data(vsb), NULL);
+	u = varnish_ask_cli(v, VSB_data(vsb), resp);
 	if (u != expect) {
 		VSB_delete(vsb);
 		vtc_log(v->vl, 0,
@@ -663,7 +689,10 @@ varnish_vclbackend(struct varnish *v, const char *vcl)
 	vsb2 = VSB_new_auto();
 	AN(vsb2);
 
+	VSB_printf(vsb2, "vcl 4.0;\n");
+
 	cmd_server_genvcl(vsb2);
+
 	AZ(VSB_finish(vsb2));
 
 	VSB_printf(vsb, "vcl.inline vcl%d << %s\n%s\n%s\n%s\n",
@@ -691,7 +720,7 @@ varnish_vclbackend(struct varnish *v, const char *vcl)
  */
 
 struct stat_priv {
-	const char *target;
+	char target[256];
 	uintmax_t val;
 };
 
@@ -702,28 +731,30 @@ do_stat_cb(void *priv, const struct VSC_point * const pt)
 	const char *p = sp->target;
 	int i;
 
-	if (strcmp(pt->class, "")) {
-		i = strlen(pt->class);
-		if (memcmp(pt->class, p, i))
+	if (pt == NULL)
+		return(0);
+	if (strcmp(pt->section->type, "")) {
+		i = strlen(pt->section->type);
+		if (memcmp(pt->section->type, p, i))
 			return (0);
 		p += i;
 		if (*p != '.')
 			return (0);
 		p++;
 	}
-	if (strcmp(pt->ident, "")) {
-		i = strlen(pt->ident);
-		if (memcmp(pt->ident, p, i))
+	if (strcmp(pt->section->ident, "")) {
+		i = strlen(pt->section->ident);
+		if (memcmp(pt->section->ident, p, i))
 			return (0);
 		p += i;
 		if (*p != '.')
 			return (0);
 		p++;
 	}
-	if (strcmp(pt->name, p))
+	if (strcmp(pt->desc->name, p))
 		return (0);
 
-	assert(!strcmp(pt->fmt, "uint64_t"));
+	assert(!strcmp(pt->desc->fmt, "uint64_t"));
 	sp->val = *(const volatile uint64_t*)pt->ptr;
 	return (1);
 }
@@ -734,20 +765,31 @@ varnish_expect(const struct varnish *v, char * const *av) {
 	int good;
 	char *p;
 	int i;
+	const char *prefix = "";
 	struct stat_priv sp;
 
-	good = -1;
-
-	sp.target = av[0];
+	if (NULL == strchr(av[0], '.'))
+		prefix = "MAIN.";
+	snprintf(sp.target, sizeof sp.target, "%s%s", prefix, av[0]);
+	sp.target[sizeof sp.target - 1] = '\0';
 	sp.val = 0;
 	ref = 0;
+	good = 0;
 	for (i = 0; i < 10; i++, (void)usleep(100000)) {
-
-		good = -1;
-		if (!VSC_Iter(v->vd, do_stat_cb, &sp))
+		if (VSM_Abandoned(v->vd)) {
+			VSM_Close(v->vd);
+			good = VSM_Open(v->vd);
+		}
+		if (good < 0)
 			continue;
-		good = 0;
 
+		good = VSC_Iter(v->vd, NULL, do_stat_cb, &sp);
+		if (!good) {
+			good = -2;
+			continue;
+		}
+
+		good = 0;
 		ref = strtoumax(av[2], &p, 0);
 		if (ref == UINTMAX_MAX || *p)
 			vtc_log(v->vl, 0, "Syntax error in number (%s)", av[2]);
@@ -764,13 +806,16 @@ varnish_expect(const struct varnish *v, char * const *av) {
 			break;
 	}
 	if (good == -1) {
+		vtc_log(v->vl, 0, "VSM error: %s", VSM_Error(v->vd));
+		VSM_ResetError(v->vd);
+	} else if (good == -2) {
 		vtc_log(v->vl, 0, "stats field %s unknown", av[0]);
 	} else if (good) {
 		vtc_log(v->vl, 2, "as expected: %s (%ju) %s %s",
 		    av[0], sp.val, av[1], av[2]);
 	} else {
 		vtc_log(v->vl, 0, "Not true: %s (%ju) %s %s (%ju)",
-		    av[0], sp.val, av[1], av[2], ref);
+		    av[0], (uintmax_t)sp.val, av[1], av[2], (uintmax_t)ref);
 	}
 }
 
@@ -811,13 +856,6 @@ cmd_varnish(CMD_ARGS)
 	for (; *av != NULL; av++) {
 		if (vtc_error)
 			break;
-		if (!strcmp(*av, "-storage")) {
-			VSB_clear(v->storage);
-			VSB_cat(v->storage, av[1]);
-			AZ(VSB_finish(v->storage));
-			av++;
-			continue;
-		}
 		if (!strcmp(*av, "-arg")) {
 			AN(av[1]);
 			AZ(v->pid);
@@ -855,15 +893,26 @@ cmd_varnish(CMD_ARGS)
 			av++;
 			continue;
 		}
-		if (!strcmp(*av, "-badvcl")) {
+		if (!strcmp(*av, "-errvcl")) {
+			char *r = NULL;
 			AN(av[1]);
-			varnish_vcl(v, av[1], CLIS_PARAM);
-			av++;
+			AN(av[2]);
+			varnish_vcl(v, av[2], CLIS_PARAM, &r);
+			if (strstr(r, av[1]) == NULL)
+				vtc_log(v->vl, 0,
+				    "Did not find expected string: (\"%s\")",
+				    av[1]);
+			else
+				vtc_log(v->vl, 3,
+				    "Found expected string: (\"%s\")",
+				    av[1]);
+			free(r);
+			av += 2;
 			continue;
 		}
 		if (!strcmp(*av, "-vcl")) {
 			AN(av[1]);
-			varnish_vcl(v, av[1], CLIS_OK);
+			varnish_vcl(v, av[1], CLIS_OK, NULL);
 			av++;
 			continue;
 		}

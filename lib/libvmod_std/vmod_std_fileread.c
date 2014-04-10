@@ -37,9 +37,16 @@
  * XXX: underlying file has been updated.
  */
 
+#include "config.h"
+
+#include <errno.h>
+#include <stdint.h>
 #include <stdlib.h>
+
+#include "cache/cache.h"
+
 #include "vrt.h"
-#include "../../bin/varnishd/cache.h"
+#include "vfil.h"
 
 #include "vcc_if.h"
 
@@ -52,8 +59,8 @@ struct frfile {
 	VTAILQ_ENTRY(frfile)		list;
 };
 
-static VTAILQ_HEAD(, frfile)		frlist = VTAILQ_HEAD_INITIALIZER(frlist);
-static pthread_mutex_t			frmtx = PTHREAD_MUTEX_INITIALIZER;
+static VTAILQ_HEAD(, frfile)	frlist = VTAILQ_HEAD_INITIALIZER(frlist);
+static pthread_mutex_t		frmtx = PTHREAD_MUTEX_INITIALIZER;
 
 static void
 free_frfile(void *ptr)
@@ -75,20 +82,25 @@ free_frfile(void *ptr)
 	}
 }
 
-const char *
-vmod_fileread(struct sess *sp, struct vmod_priv *priv, const char *file_name)
+VCL_STRING __match_proto__(td_std_fileread)
+vmod_fileread(const struct vrt_ctx *ctx, struct vmod_priv *priv,
+    VCL_STRING file_name)
 {
-	struct frfile *frf;
+	struct frfile *frf = NULL;
 	char *s;
 
-	(void)sp;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	AN(priv);
+
 	if (priv->priv != NULL) {
 		CAST_OBJ_NOTNULL(frf, priv->priv, CACHED_FILE_MAGIC);
-		return (frf->contents);
+		if (!strcmp(file_name, frf->file_name))
+			return (frf->contents);
 	}
 
 	AZ(pthread_mutex_lock(&frmtx));
+	if (frf != NULL)
+		frf->refcount--;
 	VTAILQ_FOREACH(frf, &frlist, list) {
 		if (!strcmp(file_name, frf->file_name)) {
 			frf->refcount++;
@@ -102,7 +114,7 @@ vmod_fileread(struct sess *sp, struct vmod_priv *priv, const char *file_name)
 		return (frf->contents);
 	}
 
-	s = vreadfile(NULL, file_name, NULL);
+	s = VFIL_readfile(NULL, file_name, NULL);
 	if (s != NULL) {
 		ALLOC_OBJ(frf, CACHED_FILE_MAGIC);
 		AN(frf);

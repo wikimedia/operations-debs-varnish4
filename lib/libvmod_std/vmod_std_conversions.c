@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2011 Varnish Software AS
+ * Copyright (c) 2010-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -27,22 +27,29 @@
  *
  */
 
+#include "config.h"
+
 #include <ctype.h>
 #include <math.h>
 #include <stdlib.h>
 
-#include "../../bin/varnishd/cache.h"
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+#include "cache/cache.h"
 
 #include "vrt.h"
+#include "vsa.h"
 #include "vcc_if.h"
 
-double __match_proto__()
-vmod_duration(struct sess *sp, const char *p, double d)
+VCL_DURATION __match_proto__()
+vmod_duration(const struct vrt_ctx *ctx, const char *p, VCL_DURATION d)
 {
 	char *e;
 	double r;
 
-	(void)sp;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 
 	if (p == NULL)
 		return (d);
@@ -69,7 +76,13 @@ vmod_duration(struct sess *sp, const char *p, double d)
 	/* NB: Keep this list synchronized with VCC */
 	switch (*e++) {
 	case 's': break;
-	case 'm': r *= 60.; break;
+	case 'm':
+		if (*e == 's') {
+			r *= 1e-3;
+			e++;
+		} else
+			r *= 60.;
+		break;
 	case 'h': r *= 60.*60.; break;
 	case 'd': r *= 60.*60.*24.; break;
 	case 'w': r *= 60.*60.*24.*7.; break;
@@ -86,13 +99,13 @@ vmod_duration(struct sess *sp, const char *p, double d)
 	return (r);
 }
 
-int __match_proto__()
-vmod_integer(struct sess *sp, const char *p, int i)
+VCL_INT __match_proto__()
+vmod_integer(const struct vrt_ctx *ctx, const char *p, VCL_INT i)
 {
 	char *e;
-	int r;
+	long r;
 
-	(void)sp;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 
 	if (p == NULL)
 		return (i);
@@ -113,5 +126,44 @@ vmod_integer(struct sess *sp, const char *p, int i)
 	if (*e != '\0')
 		return (i);
 
+	return (r);
+}
+
+VCL_IP
+vmod_ip(const struct vrt_ctx *ctx, VCL_STRING s, VCL_IP d)
+{
+	struct addrinfo hints, *res0 = NULL;
+	const struct addrinfo *res;
+	int error;
+	void *p;
+	struct suckaddr *r;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(d);
+	assert(VSA_Sane(d));
+
+	p = WS_Alloc(ctx->ws, vsa_suckaddr_len);
+	AN(p);
+	r = NULL;
+
+	if (s != NULL) {
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		error = getaddrinfo(s, "80", &hints, &res0);
+		if (!error) {
+			for (res = res0; res != NULL; res = res->ai_next) {
+				r = VSA_Build(p, res->ai_addr, res->ai_addrlen);
+				if (r != NULL)
+					break;
+			}
+		}
+	}
+	if (r == NULL) {
+		r = p;
+		memcpy(r, d, vsa_suckaddr_len);
+	}
+	if (res0 != NULL)
+		freeaddrinfo(res0);
 	return (r);
 }

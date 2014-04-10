@@ -1,0 +1,1696 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>varnishd &mdash; Varnish version 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="up" title="The Varnish Reference Manual" href="index.html" />
+    <link rel="next" title="varnishhist" href="varnishhist.html" />
+    <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="varnishhist.html" title="varnishhist"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="varnishadm.html" title="varnishadm"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="varnishd">
+<span id="ref-varnishd"></span><h1>varnishd<a class="headerlink" href="#varnishd" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="http-accelerator-daemon">
+<h2>HTTP accelerator daemon<a class="headerlink" href="#http-accelerator-daemon" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="synopsis">
+<h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
+<dl class="docutils">
+<dt>varnishd [-a address[:port]] [-b host[:port]] [-C] [-d] [-f config]</dt>
+<dd>[-F] [-g group] [-h type[,options]] [-i identity]
+[-l shl[,free[,fill]]] [-M address:port] [-n name]
+[-P file] [-p param=value] [-r param[,param...]
+[-s [name=]kind[,options]] [-S secret-file] [-T address[:port]]
+[-t ttl] [-u user] [-V]</dd>
+</dl>
+</div>
+<div class="section" id="description">
+<h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
+<p>The varnishd daemon accepts HTTP requests from clients, passes them on
+to a backend server and caches the returned documents to better
+satisfy future requests for the same document.</p>
+</div>
+<div class="section" id="options">
+<span id="ref-varnishd-options"></span><h3>OPTIONS<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
+<dl class="docutils">
+<dt>-a address[:port][,address[:port][...]</dt>
+<dd>Listen for client requests on the specified address and
+port.  The address can be a host name (“localhost”), an
+IPv4 dotted-quad (“127.0.0.1”), or an IPv6 address
+enclosed in square brackets (“[::1]”).  If address is not
+specified, varnishd will listen on all available IPv4 and
+IPv6 interfaces.  If port is not specified, the default
+HTTP port as listed in /etc/services is used.  Multiple
+listening addresses and ports can be specified as a
+whitespace or comma -separated list.</dd>
+<dt>-b host[:port]</dt>
+<dd>Use the specified host as backend server.  If port is not
+specified, the default is 8080.</dd>
+</dl>
+<table class="docutils option-list" frame="void" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-C</span></kbd></td>
+<td>Print VCL code compiled to C language and exit. Specify the VCL file
+to compile with the -f option.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-d</span></kbd></td>
+<td>Enables debugging mode: The parent process runs in the foreground
+with a CLI connection on stdin/stdout, and the child
+process must be started explicitly with a CLI command.
+Terminating the parent process will also terminate the
+child.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-f <var>config</var></span></kbd></td>
+<td>Use the specified VCL configuration file instead of the
+builtin default.  See vcl(7) for details on VCL
+syntax. When no configuration is supplied varnishd will
+not start the cache process.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-F</span></kbd></td>
+<td>Run in the foreground.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-g <var>group</var></span></kbd></td>
+<td>Specifies the name of an unprivileged group to which the
+child process should switch before it starts accepting
+connections.  This is a shortcut for specifying the group
+run-time parameter.</td></tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>-h type[,options]</dt>
+<dd>Specifies the hash algorithm.  See Hash Algorithms for a list of supported algorithms.</dd>
+</dl>
+<table class="docutils option-list" frame="void" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-i <var>identity</var></span></kbd></td>
+<td>Specify the identity of the Varnish server.  This can be accessed using server.identity
+from VCL</td></tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>-l shl[,free[,fill]]</dt>
+<dd>Specifies size of shmlog file. shl is the store for the
+shared memory log records [80m], free is the store for other
+allocations [1m] and fill determines how the log is [+].
+Scaling suffixes like 'k', 'm' can be used up to
+(e)tabytes.  Default is 80 Megabytes.</dd>
+<dt>-M address:port</dt>
+<dd>Connect to this port and offer the command line interface.
+Think of it as a reverse shell. When running with -M and there is
+no backend defined the child process (the cache) will not start
+initially.</dd>
+</dl>
+<table class="docutils option-list" frame="void" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-n <var>name</var></span></kbd></td>
+<td>Specify the name for this instance.  Amonst other things, this
+name is used to construct the name of the directory in
+which varnishd keeps temporary files and persistent state.
+If the specified name begins with a forward slash, it is
+interpreted as the absolute path to the directory which
+should be used for this purpose.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-P <var>file</var></span></kbd></td>
+<td>Write the process's PID to the specified file.</td></tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>-p param=value</dt>
+<dd>Set the parameter specified by param to the specified value.  See
+Run-Time Parameters for a list of parameters. This option can be
+used multiple times to specify multiple parameters.</dd>
+<dt>-r param[,param...]</dt>
+<dd>Make the listed parameters read only. This gives the
+system administrator a way to limit what the Varnish CLI can do.
+Consider making parameters such as <em>user</em>, <em>group</em>, <em>cc_command</em>,
+<em>vcc_allow_inline_c</em> read only as these can potentially be used
+to escalate privileges from the CLI.
+Protecting <em>listen_address</em> may also be a good idea.</dd>
+<dt>-s [name=]type[,options]</dt>
+<dd><dl class="first docutils">
+<dt>Use the specified storage backend. The storage backends can be one of the following:</dt>
+<dd><ul class="first last simple">
+<li>malloc[,size]</li>
+<li>file[,path[,size[,granularity]]]</li>
+<li>persistent,path,size</li>
+</ul>
+</dd>
+</dl>
+<p class="last">See Storage Types in the Users Guide for more information
+on the various storage backends.  This option can be used
+multiple times to specify multiple storage files. Names
+are referenced in logs, vcl, statistics, etc.</p>
+</dd>
+</dl>
+<table class="docutils option-list" frame="void" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-S <var>file</var></span></kbd></td>
+<td>Path to a file containing a secret used for authorizing access to the management port.</td></tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>-T address[:port]</dt>
+<dd>Offer a management interface on the specified address and port.  See Management
+Interface for a list of management commands.</dd>
+</dl>
+<table class="docutils option-list" frame="void" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-t <var>ttl</var></span></kbd></td>
+<td>Specifies a hard minimum time to live for cached documents. This
+is a shortcut for specifying the default_ttl run-time parameter.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-u <var>user</var></span></kbd></td>
+<td><p class="first">Specifies the name of an unprivileged user to which the child
+process should switch before it starts accepting
+connections. This is a shortcut for specifying the user
+runtime parameter.</p>
+<p class="last">If specifying both a user and a group, the user should be
+specified first.</p>
+</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-V</span></kbd></td>
+<td>Display the version number and exit.</td></tr>
+</tbody>
+</table>
+<div class="section" id="hash-algorithms">
+<h4>Hash Algorithms<a class="headerlink" href="#hash-algorithms" title="Permalink to this headline">¶</a></h4>
+<p>The following hash algorithms are available:</p>
+<dl class="docutils">
+<dt>critbit</dt>
+<dd><dl class="first last docutils">
+<dt>A self-scaling tree structure. The default hash algorithm in</dt>
+<dd>Varnish Cache 2.1 and onwards. In comparison to a more traditional
+B tree the critbit tree is almost completely lockless. Do not
+change this unless you are certain what you're doing.</dd>
+</dl>
+</dd>
+<dt>simple_list</dt>
+<dd>A simple doubly-linked list.  Not recommended for production use.</dd>
+<dt>classic[,buckets]</dt>
+<dd>A standard hash table. The hash key is the CRC32 of the object's
+URL modulo the size of the hash table.  Each table entry points to
+a list of elements which share the same hash key. The buckets
+parameter specifies the number of entries in the hash table.  The
+default is 16383.</dd>
+</dl>
+</div>
+<div class="section" id="storage-types">
+<h4>Storage Types<a class="headerlink" href="#storage-types" title="Permalink to this headline">¶</a></h4>
+<p>The following storage types are available:</p>
+<div class="section" id="malloc">
+<h5>malloc<a class="headerlink" href="#malloc" title="Permalink to this headline">¶</a></h5>
+<p>syntax: malloc[,size]</p>
+<p>malloc is a memory based backend.</p>
+</div>
+<div class="section" id="file">
+<h5>file<a class="headerlink" href="#file" title="Permalink to this headline">¶</a></h5>
+<p>syntax: file[,path[,size[,granularity]]]</p>
+<p>The file backend stores data in a file on disk. The file will be accessed using mmap.</p>
+</div>
+<div class="section" id="persistent-experimental">
+<h5>persistent (experimental)<a class="headerlink" href="#persistent-experimental" title="Permalink to this headline">¶</a></h5>
+<p>syntax: persistent,path,size</p>
+<p>Persistent storage. Varnish will store objects in a file in a manner
+that will secure the survival of <em>most</em> of the objects in the event of
+a planned or unplanned shutdown of Varnish. The persistent storage
+backend has multiple issues with it and will likely be removed from a
+future version of Varnish.</p>
+</div>
+</div>
+<div class="section" id="management-interface">
+<h4>Management Interface<a class="headerlink" href="#management-interface" title="Permalink to this headline">¶</a></h4>
+<p>If the -T option was specified, varnishd will offer a command-line
+management interface on the specified address and port.  The
+recommended way of connecting to the command-line management interface
+is through varnishadm(1).</p>
+<p>The commands available are documented in varnish(7).</p>
+</div>
+<div class="section" id="run-time-parameters">
+<h4>Run-Time Parameters<a class="headerlink" href="#run-time-parameters" title="Permalink to this headline">¶</a></h4>
+<p>Runtime parameters are marked with shorthand flags to avoid repeating
+the same text over and over in the table below.  The meaning of the
+flags are:</p>
+<dl class="docutils">
+<dt>experimental</dt>
+<dd>We have no solid information about good/bad/optimal values for
+this parameter.  Feedback with experience and observations are
+most welcome.</dd>
+<dt>delayed</dt>
+<dd>This parameter can be changed on the fly, but will not take
+effect immediately.</dd>
+<dt>restart</dt>
+<dd>The worker process must be stopped and restarted, before this
+parameter takes effect.</dd>
+<dt>reload</dt>
+<dd>The VCL programs must be reloaded for this parameter to take effect.</dd>
+</dl>
+<p>Here is a list of all parameters, current as of last time we
+remembered to update the manual page.  This text is produced from the
+same text you will find in the CLI if you use the param.show command,
+so should there be a new parameter which is not listed here, you can
+find the description using the CLI commands.</p>
+<p>Be aware that on 32 bit systems, certain default values, such as
+workspace_client (=16k), thread_pool_workspace (=16k), http_resp_size
+(=8k), http_req_size (=12k), gzip_stack_buffer (=4k) and
+thread_pool_stack (=64k) are reduced relative to the values listed
+here, in order to conserve VM space.</p>
+<div class="section" id="acceptor-sleep-decay">
+<span id="ref-param-acceptor-sleep-decay"></span><h5>acceptor_sleep_decay<a class="headerlink" href="#acceptor-sleep-decay" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 0.9</li>
+<li>Minimum: 0</li>
+<li>Maximum: 1</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>If we run out of resources, such as file descriptors or worker threads, the acceptor will sleep between accepts.
+This parameter (multiplicatively) reduce the sleep duration for each succesfull accept. (ie: 0.9 = reduce by 10%)</p>
+</div>
+<div class="section" id="acceptor-sleep-incr">
+<span id="ref-param-acceptor-sleep-incr"></span><h5>acceptor_sleep_incr<a class="headerlink" href="#acceptor-sleep-incr" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 0.001</li>
+<li>Minimum: 0.000</li>
+<li>Maximum: 1.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>If we run out of resources, such as file descriptors or worker threads, the acceptor will sleep between accepts.
+This parameter control how much longer we sleep, each time we fail to accept a new connection.</p>
+</div>
+<div class="section" id="acceptor-sleep-max">
+<span id="ref-param-acceptor-sleep-max"></span><h5>acceptor_sleep_max<a class="headerlink" href="#acceptor-sleep-max" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 0.050</li>
+<li>Minimum: 0.000</li>
+<li>Maximum: 10.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>If we run out of resources, such as file descriptors or worker threads, the acceptor will sleep between accepts.
+This parameter limits how long it can sleep between attempts to accept new connections.</p>
+</div>
+<div class="section" id="auto-restart">
+<span id="ref-param-auto-restart"></span><h5>auto_restart<a class="headerlink" href="#auto-restart" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: on</li>
+</ul>
+</div></blockquote>
+<p>Restart child process automatically if it dies.</p>
+</div>
+<div class="section" id="ban-dups">
+<span id="ref-param-ban-dups"></span><h5>ban_dups<a class="headerlink" href="#ban-dups" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: on</li>
+</ul>
+</div></blockquote>
+<p>Elimited older identical bans when new bans are created.  This test is CPU intensive and scales with the number and complexity of active (non-Gone) bans.  If identical bans are frequent, the amount of CPU needed to actually test  the bans will be similarly reduced.</p>
+</div>
+<div class="section" id="ban-lurker-age">
+<span id="ref-param-ban-lurker-age"></span><h5>ban_lurker_age<a class="headerlink" href="#ban-lurker-age" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 60.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>The ban lurker does not process bans until they are this old.  Right when a ban is added, the most frequently hit objects will get tested against it as part of object lookup.  This parameter prevents the ban-lurker from kicking in, until the rush is over.</p>
+</div>
+<div class="section" id="ban-lurker-batch">
+<span id="ref-param-ban-lurker-batch"></span><h5>ban_lurker_batch<a class="headerlink" href="#ban-lurker-batch" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 1000</li>
+<li>Minimum: 1</li>
+</ul>
+</div></blockquote>
+<p>How many objects the ban lurker examines before taking a ban_lurker_sleep.  Use this to pace the ban lurker so it does not eat too much CPU.</p>
+</div>
+<div class="section" id="ban-lurker-sleep">
+<span id="ref-param-ban-lurker-sleep"></span><h5>ban_lurker_sleep<a class="headerlink" href="#ban-lurker-sleep" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 0.010</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>The ban lurker thread sleeps between work batches, in order to not monopolize CPU power.  When nothing is done, it sleeps a fraction of a second before looking for new work to do.
+A value of zero disables the ban lurker.</p>
+</div>
+<div class="section" id="between-bytes-timeout">
+<span id="ref-param-between-bytes-timeout"></span><h5>between_bytes_timeout<a class="headerlink" href="#between-bytes-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 60.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Default timeout between bytes when receiving data from backend. We only wait for this many seconds between bytes before giving up. A value of 0 means it will never time out. VCL can override this default value for each backend request and backend request. This parameter does not apply to pipe.</p>
+</div>
+<div class="section" id="busyobj-worker-cache">
+<span id="ref-param-busyobj-worker-cache"></span><h5>busyobj_worker_cache<a class="headerlink" href="#busyobj-worker-cache" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: off</li>
+</ul>
+</div></blockquote>
+<p>Cache free busyobj per worker thread. Disable this if you have very high hitrates and want to save the memory of one busyobj per worker thread.</p>
+</div>
+<div class="section" id="cc-command">
+<span id="ref-param-cc-command"></span><h5>cc_command<a class="headerlink" href="#cc-command" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: &quot;exec gcc -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result  t-Werror t-Wall t-Wno-format-y2k t-W t-Wstrict-prototypes t-Wmissing-prototypes t-Wpointer-arith t-Wreturn-type t-Wcast-qual t-Wwrite-strings t-Wswitch t-Wshadow t-Wunused-parameter t-Wcast-align t-Wchar-subscripts t-Wnested-externs t-Wextra t-Wno-sign-compare  -fstack-protector -Wno-pointer-sign -Wno-address -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s&quot;</li>
+<li>Flags: must_reload</li>
+</ul>
+</div></blockquote>
+<p>Command used for compiling the C source code to a dlopen(3) loadable object.  Any occurrence of %s in the string will be replaced with the source file name, and %o will be replaced with the output file name.</p>
+</div>
+<div class="section" id="cli-buffer">
+<span id="ref-param-cli-buffer"></span><h5>cli_buffer<a class="headerlink" href="#cli-buffer" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 8k</li>
+<li>Minimum: 4k</li>
+</ul>
+</div></blockquote>
+<p>Size of buffer for CLI command input.
+You may need to increase this if you have big VCL files and use the vcl.inline CLI command.
+NB: Must be specified with -p to have effect.</p>
+</div>
+<div class="section" id="cli-limit">
+<span id="ref-param-cli-limit"></span><h5>cli_limit<a class="headerlink" href="#cli-limit" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 48k</li>
+<li>Minimum: 128b</li>
+<li>Maximum: 99999999b</li>
+</ul>
+</div></blockquote>
+<p>Maximum size of CLI response.  If the response exceeds this limit, the reponse code will be 201 instead of 200 and the last line will indicate the truncation.</p>
+</div>
+<div class="section" id="cli-timeout">
+<span id="ref-param-cli-timeout"></span><h5>cli_timeout<a class="headerlink" href="#cli-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 60.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Timeout for the childs replies to CLI requests from the mgt_param.</p>
+</div>
+<div class="section" id="clock-skew">
+<span id="ref-param-clock-skew"></span><h5>clock_skew<a class="headerlink" href="#clock-skew" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 10</li>
+<li>Minimum: 0</li>
+</ul>
+</div></blockquote>
+<p>How much clockskew we are willing to accept between the backend and our own clock.</p>
+</div>
+<div class="section" id="connect-timeout">
+<span id="ref-param-connect-timeout"></span><h5>connect_timeout<a class="headerlink" href="#connect-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 3.500</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Default connection timeout for backend connections. We only try to connect to the backend for this many seconds before giving up. VCL can override this default value for each backend and backend request.</p>
+</div>
+<div class="section" id="critbit-cooloff">
+<span id="ref-param-critbit-cooloff"></span><h5>critbit_cooloff<a class="headerlink" href="#critbit-cooloff" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 180.000</li>
+<li>Minimum: 60.000</li>
+<li>Maximum: 254.000</li>
+<li>Flags: wizard</li>
+</ul>
+</div></blockquote>
+<p>How long time the critbit hasher keeps deleted objheads on the cooloff list.</p>
+</div>
+<div class="section" id="debug">
+<span id="ref-param-debug"></span><h5>debug<a class="headerlink" href="#debug" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: none</li>
+</ul>
+</div></blockquote>
+<p>Enable/Disable various kinds of debugging.</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>none</em></dt>
+<dd>Disable all debugging</dd>
+</dl>
+</div></blockquote>
+<p>Use +/- prefix to set/reset individual bits:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>req_state</em></dt>
+<dd>VSL Request state engine</dd>
+<dt><em>workspace</em></dt>
+<dd>VSL Workspace operations</dd>
+<dt><em>waiter</em></dt>
+<dd>VSL Waiter internals</dd>
+<dt><em>waitinglist</em></dt>
+<dd>VSL Waitinglist events</dd>
+<dt><em>syncvsl</em></dt>
+<dd>Make VSL synchronous</dd>
+<dt><em>hashedge</em></dt>
+<dd>Edge cases in Hash</dd>
+<dt><em>vclrel</em></dt>
+<dd>Rapid VCL release</dd>
+<dt><em>lurker</em></dt>
+<dd>VSL Ban lurker</dd>
+<dt><em>esi_chop</em></dt>
+<dd>Chop ESI fetch to bits</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="default-grace">
+<span id="ref-param-default-grace"></span><h5>default_grace<a class="headerlink" href="#default-grace" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 10.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags:</li>
+</ul>
+</div></blockquote>
+<p>Default grace period.  We will deliver an object this long after it has expired, provided another thread is attempting to get a new copy.</p>
+</div>
+<div class="section" id="default-keep">
+<span id="ref-param-default-keep"></span><h5>default_keep<a class="headerlink" href="#default-keep" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 0.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags:</li>
+</ul>
+</div></blockquote>
+<p>Default keep period.  We will keep a useless object around this long, making it available for conditional backend fetches.  That means that the object will be removed from the cache at the end of ttl+grace+keep.</p>
+</div>
+<div class="section" id="default-ttl">
+<span id="ref-param-default-ttl"></span><h5>default_ttl<a class="headerlink" href="#default-ttl" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 120.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags:</li>
+</ul>
+</div></blockquote>
+<p>The TTL assigned to objects if neither the backend nor the VCL code assigns one.</p>
+</div>
+<div class="section" id="feature">
+<span id="ref-param-feature"></span><h5>feature<a class="headerlink" href="#feature" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: none</li>
+</ul>
+</div></blockquote>
+<p>Enable/Disable various minor features.</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>none</em></dt>
+<dd>Disable all features.</dd>
+</dl>
+</div></blockquote>
+<p>Use +/- prefix to enable/disable individual feature:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>short_panic</em></dt>
+<dd>Short panic message.</dd>
+<dt><em>wait_silo</em></dt>
+<dd>Wait for persistent silo.</dd>
+<dt><em>no_coredump</em></dt>
+<dd>No coredumps.</dd>
+<dt><em>esi_ignore_https</em></dt>
+<dd>Treat HTTPS as HTTP in ESI:includes</dd>
+<dt><em>esi_disable_xml_check</em></dt>
+<dd>Don't check of body looks like XML</dd>
+<dt><em>esi_ignore_other_elements</em></dt>
+<dd>Ignore non-esi XML-elements</dd>
+<dt><em>esi_remove_bom</em></dt>
+<dd>Remove UTF-8 BOM</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="fetch-chunksize">
+<span id="ref-param-fetch-chunksize"></span><h5>fetch_chunksize<a class="headerlink" href="#fetch-chunksize" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 128k</li>
+<li>Minimum: 4k</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>The default chunksize used by fetcher. This should be bigger than the majority of objects with short TTLs.
+Internal limits in the storage_file module makes increases above 128kb a dubious idea.</p>
+</div>
+<div class="section" id="fetch-maxchunksize">
+<span id="ref-param-fetch-maxchunksize"></span><h5>fetch_maxchunksize<a class="headerlink" href="#fetch-maxchunksize" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 0.25G</li>
+<li>Minimum: 64k</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>The maximum chunksize we attempt to allocate from storage. Making this too large may cause delays and storage fragmentation.</p>
+</div>
+<div class="section" id="first-byte-timeout">
+<span id="ref-param-first-byte-timeout"></span><h5>first_byte_timeout<a class="headerlink" href="#first-byte-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 60.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Default timeout for receiving first byte from backend. We only wait for this many seconds for the first byte before giving up. A value of 0 means it will never time out. VCL can override this default value for each backend and backend request. This parameter does not apply to pipe.</p>
+</div>
+<div class="section" id="group">
+<span id="ref-param-group"></span><h5>group<a class="headerlink" href="#group" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: nogroup (65534)</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>The unprivileged group to run as.</p>
+</div>
+<div class="section" id="gzip-buffer">
+<span id="ref-param-gzip-buffer"></span><h5>gzip_buffer<a class="headerlink" href="#gzip-buffer" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 32k</li>
+<li>Minimum: 2k</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Size of malloc buffer used for gzip processing.
+These buffers are used for in-transit data, for instance gunzip'ed data being sent to a client.Making this space to small results in more overhead, writes to sockets etc, making it too big is probably just a waste of memory.</p>
+</div>
+<div class="section" id="gzip-level">
+<span id="ref-param-gzip-level"></span><h5>gzip_level<a class="headerlink" href="#gzip-level" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 6</li>
+<li>Minimum: 0</li>
+<li>Maximum: 9</li>
+</ul>
+</div></blockquote>
+<p>Gzip compression level: 0=debug, 1=fast, 9=best</p>
+</div>
+<div class="section" id="gzip-memlevel">
+<span id="ref-param-gzip-memlevel"></span><h5>gzip_memlevel<a class="headerlink" href="#gzip-memlevel" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 8</li>
+<li>Minimum: 1</li>
+<li>Maximum: 9</li>
+</ul>
+</div></blockquote>
+<p>Gzip memory level 1=slow/least, 9=fast/most compression.
+Memory impact is 1=1k, 2=2k, ... 9=256k.</p>
+</div>
+<div class="section" id="http-gzip-support">
+<span id="ref-param-http-gzip-support"></span><h5>http_gzip_support<a class="headerlink" href="#http-gzip-support" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: on</li>
+</ul>
+</div></blockquote>
+<dl class="docutils">
+<dt>Enable gzip support. When enabled Varnish request compressed objects from the backend and store them compressed. If a client does not support gzip encoding Varnish will uncompress compressed objects on demand. Varnish will also rewrite the Accept-Encoding header of clients indicating support for gzip to:</dt>
+<dd>Accept-Encoding: gzip</dd>
+</dl>
+<p>Clients that do not support gzip will have their Accept-Encoding header removed. For more information on how gzip is implemented please see the chapter on gzip in the Varnish reference.</p>
+</div>
+<div class="section" id="http-max-hdr">
+<span id="ref-param-http-max-hdr"></span><h5>http_max_hdr<a class="headerlink" href="#http-max-hdr" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: header lines</li>
+<li>Default: 64</li>
+<li>Minimum: 32</li>
+<li>Maximum: 65535</li>
+</ul>
+</div></blockquote>
+<p>Maximum number of HTTP header lines we allow in {req|resp|bereq|beresp}.http (obj.http is autosized to the exact number of headers).
+Cheap, ~20 bytes, in terms of workspace memory.
+Note that the first line occupies five header lines.</p>
+</div>
+<div class="section" id="http-range-support">
+<span id="ref-param-http-range-support"></span><h5>http_range_support<a class="headerlink" href="#http-range-support" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: on</li>
+</ul>
+</div></blockquote>
+<p>Enable support for HTTP Range headers.</p>
+</div>
+<div class="section" id="http-req-hdr-len">
+<span id="ref-param-http-req-hdr-len"></span><h5>http_req_hdr_len<a class="headerlink" href="#http-req-hdr-len" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 8k</li>
+<li>Minimum: 40b</li>
+</ul>
+</div></blockquote>
+<p>Maximum length of any HTTP client request header we will allow.  The limit is inclusive its continuation lines.</p>
+</div>
+<div class="section" id="http-req-size">
+<span id="ref-param-http-req-size"></span><h5>http_req_size<a class="headerlink" href="#http-req-size" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 32k</li>
+<li>Minimum: 0.25k</li>
+</ul>
+</div></blockquote>
+<p>Maximum number of bytes of HTTP client request we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
+The memory for the request is allocated from the client workspace (param: workspace_client) and this parameter limits how much of that the request is allowed to take up.</p>
+</div>
+<div class="section" id="http-resp-hdr-len">
+<span id="ref-param-http-resp-hdr-len"></span><h5>http_resp_hdr_len<a class="headerlink" href="#http-resp-hdr-len" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 8k</li>
+<li>Minimum: 40b</li>
+</ul>
+</div></blockquote>
+<p>Maximum length of any HTTP backend response header we will allow.  The limit is inclusive its continuation lines.</p>
+</div>
+<div class="section" id="http-resp-size">
+<span id="ref-param-http-resp-size"></span><h5>http_resp_size<a class="headerlink" href="#http-resp-size" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 32k</li>
+<li>Minimum: 0.25k</li>
+</ul>
+</div></blockquote>
+<p>Maximum number of bytes of HTTP backend resonse we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
+The memory for the request is allocated from the worker workspace (param: thread_pool_workspace) and this parameter limits how much of that the request is allowed to take up.</p>
+</div>
+<div class="section" id="ref-param-idle-send-timeout">
+<span id="idle-send-timeout"></span><h5>idle_send_timeout<a class="headerlink" href="#ref-param-idle-send-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 60.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>Time to wait with no data sent. If no data has been transmitted in this many
+seconds the session is closed.
+See setsockopt(2) under SO_SNDTIMEO for more information.</p>
+</div>
+<div class="section" id="listen-address">
+<span id="ref-param-listen-address"></span><h5>listen_address<a class="headerlink" href="#listen-address" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: :80</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>Whitespace separated list of network endpoints where Varnish will accept requests.
+Possible formats: host, host:port, :port</p>
+</div>
+<div class="section" id="listen-depth">
+<span id="ref-param-listen-depth"></span><h5>listen_depth<a class="headerlink" href="#listen-depth" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: connections</li>
+<li>Default: 1024</li>
+<li>Minimum: 0</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>Listen queue depth.</p>
+</div>
+<div class="section" id="lru-interval">
+<span id="ref-param-lru-interval"></span><h5>lru_interval<a class="headerlink" href="#lru-interval" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 2.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Grace period before object moves on LRU list.
+Objects are only moved to the front of the LRU list if they have not been moved there already inside this timeout period.  This reduces the amount of lock operations necessary for LRU list access.</p>
+</div>
+<div class="section" id="max-esi-depth">
+<span id="ref-param-max-esi-depth"></span><h5>max_esi_depth<a class="headerlink" href="#max-esi-depth" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: levels</li>
+<li>Default: 5</li>
+<li>Minimum: 0</li>
+</ul>
+</div></blockquote>
+<p>Maximum depth of esi:include processing.</p>
+</div>
+<div class="section" id="max-restarts">
+<span id="ref-param-max-restarts"></span><h5>max_restarts<a class="headerlink" href="#max-restarts" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: restarts</li>
+<li>Default: 4</li>
+<li>Minimum: 0</li>
+</ul>
+</div></blockquote>
+<p>Upper limit on how many times a request can restart.
+Be aware that restarts are likely to cause a hit against the backend, so don't increase thoughtlessly.</p>
+</div>
+<div class="section" id="max-retries">
+<span id="ref-param-max-retries"></span><h5>max_retries<a class="headerlink" href="#max-retries" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: retries</li>
+<li>Default: 4</li>
+<li>Minimum: 0</li>
+</ul>
+</div></blockquote>
+<p>Upper limit on how many times a backend fetch can retry.</p>
+</div>
+<div class="section" id="nuke-limit">
+<span id="ref-param-nuke-limit"></span><h5>nuke_limit<a class="headerlink" href="#nuke-limit" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: allocations</li>
+<li>Default: 50</li>
+<li>Minimum: 0</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Maximum number of objects we attempt to nuke in orderto make space for a object body.</p>
+</div>
+<div class="section" id="pcre-match-limit">
+<span id="ref-param-pcre-match-limit"></span><h5>pcre_match_limit<a class="headerlink" href="#pcre-match-limit" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 10000</li>
+<li>Minimum: 1</li>
+</ul>
+</div></blockquote>
+<p>The limit for the  number of internal matching function calls in a pcre_exec() execution.</p>
+</div>
+<div class="section" id="pcre-match-limit-recursion">
+<span id="ref-param-pcre-match-limit-recursion"></span><h5>pcre_match_limit_recursion<a class="headerlink" href="#pcre-match-limit-recursion" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 10000</li>
+<li>Minimum: 1</li>
+</ul>
+</div></blockquote>
+<p>The limit for the  number of internal matching function recursions in a pcre_exec() execution.</p>
+</div>
+<div class="section" id="ping-interval">
+<span id="ref-param-ping-interval"></span><h5>ping_interval<a class="headerlink" href="#ping-interval" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 3</li>
+<li>Minimum: 0</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>Interval between pings from parent to child.
+Zero will disable pinging entirely, which makes it possible to attach a debugger to the child.</p>
+</div>
+<div class="section" id="pipe-timeout">
+<span id="ref-param-pipe-timeout"></span><h5>pipe_timeout<a class="headerlink" href="#pipe-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 60.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Idle timeout for PIPE sessions. If nothing have been received in either direction for this many seconds, the session is closed.</p>
+</div>
+<div class="section" id="pool-req">
+<span id="ref-param-pool-req"></span><h5>pool_req<a class="headerlink" href="#pool-req" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 10,100,10</li>
+</ul>
+</div></blockquote>
+<p>Parameters for per worker pool request memory pool.
+The three numbers are:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>min_pool</em></dt>
+<dd>minimum size of free pool.</dd>
+<dt><em>max_pool</em></dt>
+<dd>maximum size of free pool.</dd>
+<dt><em>max_age</em></dt>
+<dd>max age of free element.</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="pool-sess">
+<span id="ref-param-pool-sess"></span><h5>pool_sess<a class="headerlink" href="#pool-sess" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 10,100,10</li>
+</ul>
+</div></blockquote>
+<p>Parameters for per worker pool session memory pool.
+The three numbers are:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>min_pool</em></dt>
+<dd>minimum size of free pool.</dd>
+<dt><em>max_pool</em></dt>
+<dd>maximum size of free pool.</dd>
+<dt><em>max_age</em></dt>
+<dd>max age of free element.</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="pool-vbc">
+<span id="ref-param-pool-vbc"></span><h5>pool_vbc<a class="headerlink" href="#pool-vbc" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 10,100,10</li>
+</ul>
+</div></blockquote>
+<p>Parameters for backend connection memory pool.
+The three numbers are:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>min_pool</em></dt>
+<dd>minimum size of free pool.</dd>
+<dt><em>max_pool</em></dt>
+<dd>maximum size of free pool.</dd>
+<dt><em>max_age</em></dt>
+<dd>max age of free element.</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="pool-vbo">
+<span id="ref-param-pool-vbo"></span><h5>pool_vbo<a class="headerlink" href="#pool-vbo" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 10,100,10</li>
+</ul>
+</div></blockquote>
+<p>Parameters for backend object fetch memory pool.
+The three numbers are:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>min_pool</em></dt>
+<dd>minimum size of free pool.</dd>
+<dt><em>max_pool</em></dt>
+<dd>maximum size of free pool.</dd>
+<dt><em>max_age</em></dt>
+<dd>max age of free element.</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="prefer-ipv6">
+<span id="ref-param-prefer-ipv6"></span><h5>prefer_ipv6<a class="headerlink" href="#prefer-ipv6" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: off</li>
+</ul>
+</div></blockquote>
+<p>Prefer IPv6 address when connecting to backends which have both IPv4 and IPv6 addresses.</p>
+</div>
+<div class="section" id="rush-exponent">
+<span id="ref-param-rush-exponent"></span><h5>rush_exponent<a class="headerlink" href="#rush-exponent" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: requests per request</li>
+<li>Default: 3</li>
+<li>Minimum: 2</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>How many parked request we start for each completed request on the object.
+NB: Even with the implict delay of delivery, this parameter controls an exponential increase in number of worker threads.</p>
+</div>
+<div class="section" id="send-timeout">
+<span id="ref-param-send-timeout"></span><h5>send_timeout<a class="headerlink" href="#send-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 600.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>Send timeout for client connections. If the HTTP response hasn't been transmitted in this many
+seconds the session is closed.
+See setsockopt(2) under SO_SNDTIMEO for more information.</p>
+</div>
+<div class="section" id="session-max">
+<span id="ref-param-session-max"></span><h5>session_max<a class="headerlink" href="#session-max" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: sessions</li>
+<li>Default: 100000</li>
+<li>Minimum: 1000</li>
+</ul>
+</div></blockquote>
+<p>Maximum number of sessions we will allocate from one pool before just dropping connections.
+This is mostly an anti-DoS measure, and setting it plenty high should not hurt, as long as you have the memory for it.</p>
+</div>
+<div class="section" id="shm-reclen">
+<span id="ref-param-shm-reclen"></span><h5>shm_reclen<a class="headerlink" href="#shm-reclen" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 255b</li>
+<li>Minimum: 16b</li>
+<li>Maximum: 65535b</li>
+</ul>
+</div></blockquote>
+<p>Maximum number of bytes in SHM log record.
+Maximum is 65535 bytes.</p>
+</div>
+<div class="section" id="shortlived">
+<span id="ref-param-shortlived"></span><h5>shortlived<a class="headerlink" href="#shortlived" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: s</li>
+<li>Default: 10.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Objects created with (ttl+grace+keep) shorter than this are always put in transient storage.</p>
+</div>
+<div class="section" id="sigsegv-handler">
+<span id="ref-param-sigsegv-handler"></span><h5>sigsegv_handler<a class="headerlink" href="#sigsegv-handler" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: off</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>Install a signal handler which tries to dump debug information on segmentation faults.</p>
+</div>
+<div class="section" id="syslog-cli-traffic">
+<span id="ref-param-syslog-cli-traffic"></span><h5>syslog_cli_traffic<a class="headerlink" href="#syslog-cli-traffic" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: on</li>
+</ul>
+</div></blockquote>
+<p>Log all CLI traffic to syslog(LOG_INFO).</p>
+</div>
+<div class="section" id="tcp-keepalive-intvl">
+<span id="ref-param-tcp-keepalive-intvl"></span><h5>tcp_keepalive_intvl<a class="headerlink" href="#tcp-keepalive-intvl" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 75.000</li>
+<li>Minimum: 1.000</li>
+<li>Maximum: 100.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>The number of seconds between TCP keep-alive probes.</p>
+</div>
+<div class="section" id="tcp-keepalive-probes">
+<span id="ref-param-tcp-keepalive-probes"></span><h5>tcp_keepalive_probes<a class="headerlink" href="#tcp-keepalive-probes" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: probes</li>
+<li>Default: 9</li>
+<li>Minimum: 1</li>
+<li>Maximum: 100</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>The maximum number of TCP keep-alive probes to send before giving up and killing the connection if no response is obtained from the other end.</p>
+</div>
+<div class="section" id="tcp-keepalive-time">
+<span id="ref-param-tcp-keepalive-time"></span><h5>tcp_keepalive_time<a class="headerlink" href="#tcp-keepalive-time" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 7200.000</li>
+<li>Minimum: 1.000</li>
+<li>Maximum: 7200.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>The number of seconds a connection needs to be idle before TCP begins sending out keep-alive probes.</p>
+</div>
+<div class="section" id="thread-pool-add-delay">
+<span id="ref-param-thread-pool-add-delay"></span><h5>thread_pool_add_delay<a class="headerlink" href="#thread-pool-add-delay" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 0.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Wait at least this long after creating a thread.</p>
+<p>Some (buggy) systems may need a short (sub-second) delay between creating threads.
+Set this to a few milliseconds if you see the 'threads_failed' counter grow too much.</p>
+<p>Setting this too high results in insuffient worker threads.</p>
+</div>
+<div class="section" id="thread-pool-destroy-delay">
+<span id="ref-param-thread-pool-destroy-delay"></span><h5>thread_pool_destroy_delay<a class="headerlink" href="#thread-pool-destroy-delay" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 1.000</li>
+<li>Minimum: 0.010</li>
+<li>Flags: delayed, experimental</li>
+</ul>
+</div></blockquote>
+<p>Wait this long after destroying a thread.</p>
+<p>This controls the decay of thread pools when idle(-ish).</p>
+<p>Minimum is 0.01 second.</p>
+</div>
+<div class="section" id="thread-pool-fail-delay">
+<span id="ref-param-thread-pool-fail-delay"></span><h5>thread_pool_fail_delay<a class="headerlink" href="#thread-pool-fail-delay" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 0.200</li>
+<li>Minimum: 0.010</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Wait at least this long after a failed thread creation before trying to create another thread.</p>
+<p>Failure to create a worker thread is often a sign that  the end is near, because the process is running out of some resource.  This delay tries to not rush the end on needlessly.</p>
+<p>If thread creation failures are a problem, check that thread_pool_max is not too high.</p>
+<p>It may also help to increase thread_pool_timeout and thread_pool_min, to reduce the rate at which treads are destroyed and later recreated.</p>
+</div>
+<div class="section" id="thread-pool-max">
+<span id="ref-param-thread-pool-max"></span><h5>thread_pool_max<a class="headerlink" href="#thread-pool-max" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: threads</li>
+<li>Default: 5000</li>
+<li>Minimum: 100</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>The maximum number of worker threads in each pool.</p>
+<p>Do not set this higher than you have to, since excess worker threads soak up RAM and CPU and generally just get in the way of getting work done.</p>
+<p>Minimum is 10 threads.</p>
+</div>
+<div class="section" id="thread-pool-min">
+<span id="ref-param-thread-pool-min"></span><h5>thread_pool_min<a class="headerlink" href="#thread-pool-min" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: threads</li>
+<li>Default: 100</li>
+<li>Maximum: 5000</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>The minimum number of worker threads in each pool.</p>
+<p>Increasing this may help ramp up faster from low load situations or when threads have expired.</p>
+<p>Minimum is 10 threads.</p>
+</div>
+<div class="section" id="thread-pool-stack">
+<span id="ref-param-thread-pool-stack"></span><h5>thread_pool_stack<a class="headerlink" href="#thread-pool-stack" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 48k</li>
+<li>Minimum: 16k</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Worker thread stack size.
+This will likely be rounded up to a multiple of 4k (or whatever the page_size might be) by the kernel.</p>
+</div>
+<div class="section" id="thread-pool-timeout">
+<span id="ref-param-thread-pool-timeout"></span><h5>thread_pool_timeout<a class="headerlink" href="#thread-pool-timeout" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 300.000</li>
+<li>Minimum: 10.000</li>
+<li>Flags: delayed, experimental</li>
+</ul>
+</div></blockquote>
+<p>Thread idle threshold.</p>
+<p>Threads in excess of thread_pool_min, which have been idle for at least this long, will be destroyed.</p>
+<p>Minimum is 10 seconds.</p>
+</div>
+<div class="section" id="thread-pools">
+<span id="ref-param-thread-pools"></span><h5>thread_pools<a class="headerlink" href="#thread-pools" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: pools</li>
+<li>Default: 2</li>
+<li>Minimum: 1</li>
+<li>Flags: delayed, experimental</li>
+</ul>
+</div></blockquote>
+<p>Number of worker thread pools.</p>
+<p>Increasing number of worker pools decreases lock contention.</p>
+<p>Too many pools waste CPU and RAM resources, and more than one pool for each CPU is probably detrimal to performance.</p>
+<p>Can be increased on the fly, but decreases require a restart to take effect.</p>
+</div>
+<div class="section" id="thread-queue-limit">
+<span id="ref-param-thread-queue-limit"></span><h5>thread_queue_limit<a class="headerlink" href="#thread-queue-limit" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 20</li>
+<li>Minimum: 0</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Permitted queue length per thread-pool.</p>
+<p>This sets the number of requests we will queue, waiting for an available thread.  Above this limit sessions will be dropped instead of queued.</p>
+</div>
+<div class="section" id="thread-stats-rate">
+<span id="ref-param-thread-stats-rate"></span><h5>thread_stats_rate<a class="headerlink" href="#thread-stats-rate" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: requests</li>
+<li>Default: 10</li>
+<li>Minimum: 0</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Worker threads accumulate statistics, and dump these into the global stats counters if the lock is free when they finish a request.
+This parameters defines the maximum number of requests a worker thread may handle, before it is forced to dump its accumulated stats into the global counters.</p>
+</div>
+<div class="section" id="timeout-idle">
+<span id="ref-param-timeout-idle"></span><h5>timeout_idle<a class="headerlink" href="#timeout-idle" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 5.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Idle timeout for client connections.
+A connection is considered idle, until we receive a non-white-space character on it.</p>
+</div>
+<div class="section" id="timeout-linger">
+<span id="ref-param-timeout-linger"></span><h5>timeout_linger<a class="headerlink" href="#timeout-linger" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 0.050</li>
+<li>Minimum: 0.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>How long time the workerthread lingers on an idle session before handing it over to the waiter.
+When sessions are reused, as much as half of all reuses happen within the first 100 msec of the previous request completing.
+Setting this too high results in worker threads not doing anything for their keep, setting it too low just means that more sessions take a detour around the waiter.</p>
+</div>
+<div class="section" id="timeout-req">
+<span id="ref-param-timeout-req"></span><h5>timeout_req<a class="headerlink" href="#timeout-req" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 2.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>Max time to receive clients request header, measured from first non-white-space character to double CRNL.</p>
+</div>
+<div class="section" id="user">
+<span id="ref-param-user"></span><h5>user<a class="headerlink" href="#user" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: nobody (65534)</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>The unprivileged user to run as.</p>
+</div>
+<div class="section" id="vcc-allow-inline-c">
+<span id="ref-param-vcc-allow-inline-c"></span><h5>vcc_allow_inline_c<a class="headerlink" href="#vcc-allow-inline-c" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: off</li>
+</ul>
+</div></blockquote>
+<p>Allow inline C code in VCL.</p>
+</div>
+<div class="section" id="vcc-err-unref">
+<span id="ref-param-vcc-err-unref"></span><h5>vcc_err_unref<a class="headerlink" href="#vcc-err-unref" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: on</li>
+</ul>
+</div></blockquote>
+<p>Unreferenced VCL objects result in error.</p>
+</div>
+<div class="section" id="vcc-unsafe-path">
+<span id="ref-param-vcc-unsafe-path"></span><h5>vcc_unsafe_path<a class="headerlink" href="#vcc-unsafe-path" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: on</li>
+</ul>
+</div></blockquote>
+<p>Allow '/' in vmod &amp; include paths.
+Allow 'import ... from ...'.</p>
+</div>
+<div class="section" id="vcl-dir">
+<span id="ref-param-vcl-dir"></span><h5>vcl_dir<a class="headerlink" href="#vcl-dir" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: /opt/varnish/etc/varnish</li>
+</ul>
+</div></blockquote>
+<p>Directory from which relative VCL filenames (vcl.load and include) are opened.</p>
+</div>
+<div class="section" id="vmod-dir">
+<span id="ref-param-vmod-dir"></span><h5>vmod_dir<a class="headerlink" href="#vmod-dir" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: /opt/varnish/lib/varnish/vmods</li>
+</ul>
+</div></blockquote>
+<p>Directory where VCL modules are to be found.</p>
+</div>
+<div class="section" id="vsl-buffer">
+<span id="ref-param-vsl-buffer"></span><h5>vsl_buffer<a class="headerlink" href="#vsl-buffer" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 4k</li>
+<li>Minimum: 1k</li>
+</ul>
+</div></blockquote>
+<p>Bytes of (req-/backend-)workspace dedicated to buffering VSL records.
+At a bare minimum, this must be longer than the longest HTTP header to be logged.
+Setting this too high costs memory, setting it too low will cause more VSL flushes and likely increase lock-contention on the VSL mutex.
+Minimum is 1k bytes.</p>
+</div>
+<div class="section" id="vsl-mask">
+<span id="ref-param-vsl-mask"></span><h5>vsl_mask<a class="headerlink" href="#vsl-mask" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: -VCL_trace,-WorkThread,-Hash</li>
+</ul>
+</div></blockquote>
+<p>Mask individual VSL messages from being logged.</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><em>default</em></dt>
+<dd>Set default value</dd>
+</dl>
+</div></blockquote>
+<p>Use +/- prefixe in front of VSL tag name, to mask/unmask individual VSL messages.</p>
+</div>
+<div class="section" id="vsl-space">
+<span id="ref-param-vsl-space"></span><h5>vsl_space<a class="headerlink" href="#vsl-space" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 80M</li>
+<li>Minimum: 1M</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>The amount of space to allocate for the VSL fifo buffer in the VSM memory segment.  If you make this too small, varnish{ncsa|log} etc will not be able to keep up.  Making it too large just costs memory resources.</p>
+</div>
+<div class="section" id="vsm-space">
+<span id="ref-param-vsm-space"></span><h5>vsm_space<a class="headerlink" href="#vsm-space" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 1M</li>
+<li>Minimum: 1M</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>The amount of space to allocate for stats counters in the VSM memory segment.  If you make this too small, some counters will be invisible.  Making it too large just costs memory resources.</p>
+</div>
+<div class="section" id="waiter">
+<span id="ref-param-waiter"></span><h5>waiter<a class="headerlink" href="#waiter" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: epoll (possible values: epoll, poll)</li>
+<li>Flags: must_restart, wizard</li>
+</ul>
+</div></blockquote>
+<p>Select the waiter kernel interface.</p>
+</div>
+<div class="section" id="workspace-backend">
+<span id="ref-param-workspace-backend"></span><h5>workspace_backend<a class="headerlink" href="#workspace-backend" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 64k</li>
+<li>Minimum: 1k</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>Bytes of HTTP protocol workspace for backend HTTP req/resp.  If larger than 4k, use a multiple of 4k for VM efficiency.</p>
+</div>
+<div class="section" id="workspace-client">
+<span id="ref-param-workspace-client"></span><h5>workspace_client<a class="headerlink" href="#workspace-client" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 64k</li>
+<li>Minimum: 3k</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>Bytes of HTTP protocol workspace for clients HTTP req/resp.  If larger than 4k, use a multiple of 4k for VM efficiency.</p>
+</div>
+<div class="section" id="workspace-session">
+<span id="ref-param-workspace-session"></span><h5>workspace_session<a class="headerlink" href="#workspace-session" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 384b</li>
+<li>Minimum: 0.25k</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>Bytes of workspace for session and TCP connection addresses.  If larger than 4k, use a multiple of 4k for VM efficiency.</p>
+</div>
+<div class="section" id="workspace-thread">
+<span id="ref-param-workspace-thread"></span><h5>workspace_thread<a class="headerlink" href="#workspace-thread" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 2k</li>
+<li>Minimum: 0.25k</li>
+<li>Maximum: 8k</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>Bytes of auxillary workspace per thread.
+This workspace is used for certain temporary data structures during the operation of a worker thread.
+One use is for the io-vectors for writing requests and responses to sockets, having too little space will result in more writev(2) system calls, having too much just wastes the space.</p>
+</div>
+</div>
+</div>
+<div class="section" id="see-also">
+<h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>varnish-cli(7)</li>
+<li>varnishlog(1)</li>
+<li>varnishhist(1)</li>
+<li>varnishncsa(1)</li>
+<li>varnishstat(1)</li>
+<li>varnishtop(1)</li>
+<li>vcl(7)</li>
+</ul>
+</div>
+<div class="section" id="history">
+<h3>HISTORY<a class="headerlink" href="#history" title="Permalink to this headline">¶</a></h3>
+<p>The varnishd daemon was developed by Poul-Henning Kamp in cooperation
+with Verdens Gang AS and Varnish Software.</p>
+<p>This manual page was written by Dag-Erling Smørgrav with updates by
+Stig Sandbeck Mathisen &lt;<a class="reference external" href="mailto:ssm&#37;&#52;&#48;debian&#46;org">ssm<span>&#64;</span>debian<span>&#46;</span>org</a>&gt;.</p>
+</div>
+<div class="section" id="copyright">
+<h3>COPYRIGHT<a class="headerlink" href="#copyright" title="Permalink to this headline">¶</a></h3>
+<p>This document is licensed under the same licence as Varnish
+itself. See LICENCE for details.</p>
+<ul class="simple">
+<li>Copyright (c) 2007-2014 Varnish Software AS</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">varnishd</a><ul>
+<li><a class="reference internal" href="#http-accelerator-daemon">HTTP accelerator daemon</a><ul>
+<li><a class="reference internal" href="#synopsis">SYNOPSIS</a></li>
+<li><a class="reference internal" href="#description">DESCRIPTION</a></li>
+<li><a class="reference internal" href="#options">OPTIONS</a><ul>
+<li><a class="reference internal" href="#hash-algorithms">Hash Algorithms</a></li>
+<li><a class="reference internal" href="#storage-types">Storage Types</a><ul>
+<li><a class="reference internal" href="#malloc">malloc</a></li>
+<li><a class="reference internal" href="#file">file</a></li>
+<li><a class="reference internal" href="#persistent-experimental">persistent (experimental)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#management-interface">Management Interface</a></li>
+<li><a class="reference internal" href="#run-time-parameters">Run-Time Parameters</a><ul>
+<li><a class="reference internal" href="#acceptor-sleep-decay">acceptor_sleep_decay</a></li>
+<li><a class="reference internal" href="#acceptor-sleep-incr">acceptor_sleep_incr</a></li>
+<li><a class="reference internal" href="#acceptor-sleep-max">acceptor_sleep_max</a></li>
+<li><a class="reference internal" href="#auto-restart">auto_restart</a></li>
+<li><a class="reference internal" href="#ban-dups">ban_dups</a></li>
+<li><a class="reference internal" href="#ban-lurker-age">ban_lurker_age</a></li>
+<li><a class="reference internal" href="#ban-lurker-batch">ban_lurker_batch</a></li>
+<li><a class="reference internal" href="#ban-lurker-sleep">ban_lurker_sleep</a></li>
+<li><a class="reference internal" href="#between-bytes-timeout">between_bytes_timeout</a></li>
+<li><a class="reference internal" href="#busyobj-worker-cache">busyobj_worker_cache</a></li>
+<li><a class="reference internal" href="#cc-command">cc_command</a></li>
+<li><a class="reference internal" href="#cli-buffer">cli_buffer</a></li>
+<li><a class="reference internal" href="#cli-limit">cli_limit</a></li>
+<li><a class="reference internal" href="#cli-timeout">cli_timeout</a></li>
+<li><a class="reference internal" href="#clock-skew">clock_skew</a></li>
+<li><a class="reference internal" href="#connect-timeout">connect_timeout</a></li>
+<li><a class="reference internal" href="#critbit-cooloff">critbit_cooloff</a></li>
+<li><a class="reference internal" href="#debug">debug</a></li>
+<li><a class="reference internal" href="#default-grace">default_grace</a></li>
+<li><a class="reference internal" href="#default-keep">default_keep</a></li>
+<li><a class="reference internal" href="#default-ttl">default_ttl</a></li>
+<li><a class="reference internal" href="#feature">feature</a></li>
+<li><a class="reference internal" href="#fetch-chunksize">fetch_chunksize</a></li>
+<li><a class="reference internal" href="#fetch-maxchunksize">fetch_maxchunksize</a></li>
+<li><a class="reference internal" href="#first-byte-timeout">first_byte_timeout</a></li>
+<li><a class="reference internal" href="#group">group</a></li>
+<li><a class="reference internal" href="#gzip-buffer">gzip_buffer</a></li>
+<li><a class="reference internal" href="#gzip-level">gzip_level</a></li>
+<li><a class="reference internal" href="#gzip-memlevel">gzip_memlevel</a></li>
+<li><a class="reference internal" href="#http-gzip-support">http_gzip_support</a></li>
+<li><a class="reference internal" href="#http-max-hdr">http_max_hdr</a></li>
+<li><a class="reference internal" href="#http-range-support">http_range_support</a></li>
+<li><a class="reference internal" href="#http-req-hdr-len">http_req_hdr_len</a></li>
+<li><a class="reference internal" href="#http-req-size">http_req_size</a></li>
+<li><a class="reference internal" href="#http-resp-hdr-len">http_resp_hdr_len</a></li>
+<li><a class="reference internal" href="#http-resp-size">http_resp_size</a></li>
+<li><a class="reference internal" href="#ref-param-idle-send-timeout">idle_send_timeout</a></li>
+<li><a class="reference internal" href="#listen-address">listen_address</a></li>
+<li><a class="reference internal" href="#listen-depth">listen_depth</a></li>
+<li><a class="reference internal" href="#lru-interval">lru_interval</a></li>
+<li><a class="reference internal" href="#max-esi-depth">max_esi_depth</a></li>
+<li><a class="reference internal" href="#max-restarts">max_restarts</a></li>
+<li><a class="reference internal" href="#max-retries">max_retries</a></li>
+<li><a class="reference internal" href="#nuke-limit">nuke_limit</a></li>
+<li><a class="reference internal" href="#pcre-match-limit">pcre_match_limit</a></li>
+<li><a class="reference internal" href="#pcre-match-limit-recursion">pcre_match_limit_recursion</a></li>
+<li><a class="reference internal" href="#ping-interval">ping_interval</a></li>
+<li><a class="reference internal" href="#pipe-timeout">pipe_timeout</a></li>
+<li><a class="reference internal" href="#pool-req">pool_req</a></li>
+<li><a class="reference internal" href="#pool-sess">pool_sess</a></li>
+<li><a class="reference internal" href="#pool-vbc">pool_vbc</a></li>
+<li><a class="reference internal" href="#pool-vbo">pool_vbo</a></li>
+<li><a class="reference internal" href="#prefer-ipv6">prefer_ipv6</a></li>
+<li><a class="reference internal" href="#rush-exponent">rush_exponent</a></li>
+<li><a class="reference internal" href="#send-timeout">send_timeout</a></li>
+<li><a class="reference internal" href="#session-max">session_max</a></li>
+<li><a class="reference internal" href="#shm-reclen">shm_reclen</a></li>
+<li><a class="reference internal" href="#shortlived">shortlived</a></li>
+<li><a class="reference internal" href="#sigsegv-handler">sigsegv_handler</a></li>
+<li><a class="reference internal" href="#syslog-cli-traffic">syslog_cli_traffic</a></li>
+<li><a class="reference internal" href="#tcp-keepalive-intvl">tcp_keepalive_intvl</a></li>
+<li><a class="reference internal" href="#tcp-keepalive-probes">tcp_keepalive_probes</a></li>
+<li><a class="reference internal" href="#tcp-keepalive-time">tcp_keepalive_time</a></li>
+<li><a class="reference internal" href="#thread-pool-add-delay">thread_pool_add_delay</a></li>
+<li><a class="reference internal" href="#thread-pool-destroy-delay">thread_pool_destroy_delay</a></li>
+<li><a class="reference internal" href="#thread-pool-fail-delay">thread_pool_fail_delay</a></li>
+<li><a class="reference internal" href="#thread-pool-max">thread_pool_max</a></li>
+<li><a class="reference internal" href="#thread-pool-min">thread_pool_min</a></li>
+<li><a class="reference internal" href="#thread-pool-stack">thread_pool_stack</a></li>
+<li><a class="reference internal" href="#thread-pool-timeout">thread_pool_timeout</a></li>
+<li><a class="reference internal" href="#thread-pools">thread_pools</a></li>
+<li><a class="reference internal" href="#thread-queue-limit">thread_queue_limit</a></li>
+<li><a class="reference internal" href="#thread-stats-rate">thread_stats_rate</a></li>
+<li><a class="reference internal" href="#timeout-idle">timeout_idle</a></li>
+<li><a class="reference internal" href="#timeout-linger">timeout_linger</a></li>
+<li><a class="reference internal" href="#timeout-req">timeout_req</a></li>
+<li><a class="reference internal" href="#user">user</a></li>
+<li><a class="reference internal" href="#vcc-allow-inline-c">vcc_allow_inline_c</a></li>
+<li><a class="reference internal" href="#vcc-err-unref">vcc_err_unref</a></li>
+<li><a class="reference internal" href="#vcc-unsafe-path">vcc_unsafe_path</a></li>
+<li><a class="reference internal" href="#vcl-dir">vcl_dir</a></li>
+<li><a class="reference internal" href="#vmod-dir">vmod_dir</a></li>
+<li><a class="reference internal" href="#vsl-buffer">vsl_buffer</a></li>
+<li><a class="reference internal" href="#vsl-mask">vsl_mask</a></li>
+<li><a class="reference internal" href="#vsl-space">vsl_space</a></li>
+<li><a class="reference internal" href="#vsm-space">vsm_space</a></li>
+<li><a class="reference internal" href="#waiter">waiter</a></li>
+<li><a class="reference internal" href="#workspace-backend">workspace_backend</a></li>
+<li><a class="reference internal" href="#workspace-client">workspace_client</a></li>
+<li><a class="reference internal" href="#workspace-session">workspace_session</a></li>
+<li><a class="reference internal" href="#workspace-thread">workspace_thread</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
+<li><a class="reference internal" href="#history">HISTORY</a></li>
+<li><a class="reference internal" href="#copyright">COPYRIGHT</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="varnishadm.html"
+                        title="previous chapter">varnishadm</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="varnishhist.html"
+                        title="next chapter">varnishhist</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/reference/varnishd.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="varnishhist.html" title="varnishhist"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="varnishadm.html" title="varnishadm"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

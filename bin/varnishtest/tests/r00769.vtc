@@ -8,18 +8,18 @@ server s1 {
 varnish v1 -vcl+backend {
 	sub vcl_recv {
 		if (req.url ~ "^/test1") {
-			error 700;
+			return (synth(700));
 		}
 	}
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.status = 404;
 		set beresp.http.X-status = beresp.status;
 		return (deliver);
 	}
-	sub vcl_error {
-		if (obj.status == 700) {
-			set obj.status=404;
-			set obj.http.X-status = obj.status;
+	sub vcl_synth {
+		if (resp.status == 700) {
+			set resp.status=404;
+			set resp.http.X-status = resp.status;
 			return (deliver);
 		}
 	}

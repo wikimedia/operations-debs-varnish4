@@ -25,7 +25,7 @@ varnish v1 -vcl {
 	backend b1 {
 		.host = "127.0.0.1";
 		.probe = {
-			.request = 
+			.request =
 			    "GET / HTTP/1.1"
 			    "Host: foo.bar" ;
 		}
@@ -33,12 +33,12 @@ varnish v1 -vcl {
 }
 
 # Check redefinition
-varnish v1 -badvcl {
+varnish v1 -errvcl {Probe request redefinition at:} {
 	backend b1 {
 		.host = "127.0.0.1";
 		.probe = {
 			.url = "/";
-			.request = 
+			.request =
 			    "GET / HTTP/1.1"
 			    "Host: foo.bar" ;
 		}
@@ -46,11 +46,11 @@ varnish v1 -badvcl {
 }
 
 # Check redefinition the other way
-varnish v1 -badvcl {
+varnish v1 -errvcl {Probe request redefinition at:} {
 	backend b1 {
 		.host = "127.0.0.1";
 		.probe = {
-			.request = 
+			.request =
 			    "GET / HTTP/1.1"
 			    "Host: foo.bar" ;
 			.url = "/";

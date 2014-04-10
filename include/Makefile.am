@@ -1,56 +1,94 @@
 #
 
-pkginclude_HEADERS = \
-	vsm.h \
-	vsl.h \
-	vcli.h \
-	vsl_tags.h \
-	vsc_fields.h \
-	vsc_all.h \
-	vsc.h \
-	varnishapi.h
+# API headers
+nobase_pkginclude_HEADERS = \
+	tbl/acct_fields_req.h \
+	tbl/acct_fields_bereq.h \
+	tbl/backend_poll.h \
+	tbl/ban_vars.h \
+	tbl/bo_flags.h \
+	tbl/body_status.h \
+	tbl/debug_bits.h \
+	tbl/feature_bits.h \
+	tbl/http_headers.h \
+	tbl/http_response.h \
+	tbl/locks.h \
+	tbl/req_body.h \
+	tbl/sess_close.h \
+	tbl/steps.h \
+	tbl/symbol_kind.h \
+	tbl/vcc_types.h \
+	tbl/vcl_returns.h \
+	tbl/vrt_stv_var.h \
+	tbl/vsc_types.h \
+	tbl/vsc_all.h \
+	tbl/vsc_fields.h \
+	tbl/vsc_levels.h \
+	tbl/vsc_f_main.h \
+	tbl/vsl_tags.h \
+	tbl/vsl_tags_http.h \
+	vapi/vsm.h \
+	vapi/vsm_int.h \
+	vapi/vsc.h \
+	vapi/vsc_int.h \
+	vapi/vsl.h \
+	vapi/vsl_int.h \
+	vapi/voptget.h \
+	vapi/vapi_options.h \
+	vcli.h
 
+# Private headers
 nobase_noinst_HEADERS = \
-	ban_vars.h \
 	binary_heap.h \
-	cli_common.h \
-	cli_priv.h \
-	cli_serve.h \
 	compat/daemon.h \
 	compat/execinfo.h \
-	compat/srandomdev.h \
 	flopen.h \
-	http_headers.h \
-	http_response.h \
-	libvarnish.h \
-	libvcl.h \
-	miniobj.h \
+	libvcc.h \
 	persistent.h \
-	vas.h \
-	vav.h \
-	vsha256.h \
-	vqueue.h \
-	vpf.h \
-	vsb.h \
-	vcl.h \
-	vcl_returns.h \
+	vcli_common.h \
+	vcli_priv.h \
+	vcli_serve.h \
 	vcs_version.h \
 	vct.h \
 	vend.h \
 	vev.h \
+	vfil.h \
 	vin.h \
 	vlu.h \
-	vbm.h \
 	vmb.h \
+	vnum.h \
+	vpf.h \
+	vrnd.h \
+	vsub.h \
+	vss.h \
+	vtcp.h \
+	vtim.h \
+	vtree.h \
+	vut.h \
+	vut_options.h
+
+# Headers for use with vmods
+pkgdataincludedir = $(pkgdatadir)/include
+nobase_pkgdatainclude_HEADERS = \
+	miniobj.h \
+	vas.h \
+	vav.h \
+	vbm.h \
+	vcl.h \
+	vcs.h \
 	vmod_abi.h \
+	vqueue.h \
 	vre.h \
+	vdef.h \
 	vrt.h \
 	vrt_obj.h \
-	vrt_stv_var.h \
-	vss.h
+	vsa.h \
+	vsb.h \
+	vsha256.h
 
-vrt_stv_var.h vcl_returns.h vcl.h vrt_obj.h: $(top_srcdir)/lib/libvcl/generate.py $(top_srcdir)/include/vrt.h
-	@PYTHON@ $(top_srcdir)/lib/libvcl/generate.py $(top_srcdir) $(top_builddir)
+tbl/vrt_stv_var.h tbl/vcl_returns.h tbl/vcc_types.h vcl.h vrt_obj.h: $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir)/include/vrt.h
+	mkdir -p tbl
+	@PYTHON@ $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir) $(top_builddir)
 
 BUILT_SOURCES = vcs_version.h vmod_abi.h
 MAINTAINERCLEANFILES = vcs_version.h 
@@ -98,7 +136,9 @@ vmod_abi.h: vcs_version.h
 	fi ; \
 	echo "#define VMOD_ABI_Version \"@PACKAGE_STRING@ $$GITID\"" > vmod_abi.h
 
-CLEANFILES = vcl_returns.h \
+CLEANFILES = \
+	tbl/vcl_returns.h \
+	tbl/vrt_stv_var.h \
 	vcl.h \
 	vrt_obj.h \
 	vmod_abi.h

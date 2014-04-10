@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2011 Varnish Software AS
+ * Copyright (c) 2010-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -26,33 +26,48 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 #include <ctype.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <syslog.h>
-#include <netinet/in.h>
+
 #include "vrt.h"
-#include "../../bin/varnishd/cache.h"
+#include "vtcp.h"
+#include "vsa.h"
+#include "vtim.h"
+
+#include "cache/cache.h"
+#include "cache/cache_backend.h"
 
 #include "vcc_if.h"
 
-void __match_proto__()
-vmod_set_ip_tos(struct sess *sp, int tos)
+VCL_VOID __match_proto__(td_std_set_ip_tos)
+vmod_set_ip_tos(const struct vrt_ctx *ctx, VCL_INT tos)
 {
+	int itos = tos;
 
-	VTCP_Assert(setsockopt(sp->fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)));
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	VTCP_Assert(setsockopt(ctx->req->sp->fd,
+	    IPPROTO_IP, IP_TOS, &itos, sizeof(itos)));
 }
 
-static const char * __match_proto__()
-vmod_updown(struct sess *sp, int up, const char *s, va_list ap)
+static const char *
+vmod_updown(const struct vrt_ctx *ctx, int up, const char *s, va_list ap)
 {
 	unsigned u;
 	char *b, *e;
 	const char *p;
 
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-	u = WS_Reserve(sp->wrk->ws, 0);
-	e = b = sp->wrk->ws->f;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	u = WS_Reserve(ctx->ws, 0);
+	e = b = ctx->ws->f;
 	e += u;
 	p = s;
 	while (p != vrt_magic_string_end && b < e) {
@@ -69,123 +84,144 @@ vmod_updown(struct sess *sp, int up, const char *s, va_list ap)
 		*b = '\0';
 	b++;
 	if (b > e) {
-		WS_Release(sp->wrk->ws, 0);
+		WS_Release(ctx->ws, 0);
 		return (NULL);
 	} else {
 		e = b;
-		b = sp->wrk->ws->f;
-		WS_Release(sp->wrk->ws, e - b);
+		b = ctx->ws->f;
+		WS_Release(ctx->ws, e - b);
 		return (b);
 	}
 }
 
-const char * __match_proto__()
-vmod_toupper(struct sess *sp, struct vmod_priv *priv, const char *s, ...)
+VCL_STRING __match_proto__(td_std_toupper)
+vmod_toupper(const struct vrt_ctx *ctx, const char *s, ...)
 {
 	const char *p;
 	va_list ap;
 
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-	if (priv->priv == NULL) {
-		priv->priv = strdup("BAR");
-		priv->free = free;
-	} else {
-		assert(!strcmp(priv->priv, "BAR"));
-	}
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	va_start(ap, s);
-	p = vmod_updown(sp, 1, s, ap);
+	p = vmod_updown(ctx, 1, s, ap);
 	va_end(ap);
 	return (p);
 }
 
-const char * __match_proto__()
-vmod_tolower(struct sess *sp, struct vmod_priv *priv, const char *s, ...)
+VCL_STRING __match_proto__(td_std_tolower)
+vmod_tolower(const struct vrt_ctx *ctx, const char *s, ...)
 {
 	const char *p;
 	va_list ap;
 
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-	assert(!strcmp(priv->priv, "FOO"));
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	va_start(ap, s);
-	p = vmod_updown(sp, 0, s, ap);
+	p = vmod_updown(ctx, 0, s, ap);
 	va_end(ap);
 	return (p);
 }
 
-int
-init_function(struct vmod_priv *priv, const struct VCL_conf *cfg)
-{
-	(void)cfg;
-
-	priv->priv = strdup("FOO");
-	priv->free = free;
-	return (0);
-}
-
-double
-vmod_random(struct sess *sp, double lo, double hi)
+VCL_REAL __match_proto__(td_std_random)
+vmod_random(const struct vrt_ctx *ctx, VCL_REAL lo, VCL_REAL hi)
 {
 	double a;
 
-	(void)sp;
-
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	a = drand48();
 	a *= hi - lo;
 	a += lo;
 	return (a);
 }
 
-void __match_proto__()
-vmod_log(struct sess *sp, const char *fmt, ...)
+VCL_VOID __match_proto__(td_std_log)
+vmod_log(const struct vrt_ctx *ctx, const char *fmt, ...)
 {
-	char buf[8192], *p;
+	unsigned u;
+	va_list ap;
+	txt t;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	u = WS_Reserve(ctx->ws, 0);
+	t.b = ctx->ws->f;
+	va_start(ap, fmt);
+	t.e = VRT_StringList(t.b, u, fmt, ap);
+	va_end(ap);
+	if (t.e != NULL) {
+		assert(t.e > t.b);
+		t.e--;
+		VSLbt(ctx->vsl, SLT_VCL_Log, t);
+	}
+	WS_Release(ctx->ws, 0);
+}
+
+VCL_VOID __match_proto__(td_std_syslog)
+vmod_syslog(const struct vrt_ctx *ctx, VCL_INT fac, const char *fmt, ...)
+{
+	char *p;
+	unsigned u;
 	va_list ap;
 
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	u = WS_Reserve(ctx->ws, 0);
+	p = ctx->ws->f;
 	va_start(ap, fmt);
-	p = VRT_StringList(buf, sizeof buf, fmt, ap);
+	p = VRT_StringList(p, u, fmt, ap);
 	va_end(ap);
 	if (p != NULL)
-		WSP(sp, SLT_VCL_Log, "%s", buf);
+		syslog((int)fac, "%s", p);
+	WS_Release(ctx->ws, 0);
 }
 
-void
-vmod_syslog(struct sess *sp, int fac, const char *fmt, ...)
+VCL_VOID __match_proto__(td_std_collect)
+vmod_collect(const struct vrt_ctx *ctx, VCL_HEADER hdr)
 {
-	char buf[8192], *p;
-	va_list ap;
 
-	(void)sp;
-	va_start(ap, fmt);
-	p = VRT_StringList(buf, sizeof buf, fmt, ap);
-	va_end(ap);
-	if (p != NULL)
-		syslog(fac, "%s", buf);
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (hdr->where == HDR_REQ)
+		http_CollectHdr(ctx->http_req, hdr->what);
+	else if (hdr->where == HDR_BEREQ) {
+		http_CollectHdr(ctx->http_bereq, hdr->what);
+	} else if (hdr->where == HDR_BERESP) {
+		http_CollectHdr(ctx->http_beresp, hdr->what);
+	} else if (hdr->where == HDR_RESP) {
+		http_CollectHdr(ctx->http_resp, hdr->what);
+	}
 }
 
-const char * __match_proto__()
-vmod_author(struct sess *sp, const char *id)
+VCL_BOOL __match_proto__(td_std_healthy)
+vmod_healthy(const struct vrt_ctx *ctx, VCL_BACKEND be)
 {
-	(void)sp;
-	if (!strcmp(id, "phk"))
-		return ("Poul-Henning");
-	if (!strcmp(id, "des"))
-		return ("Dag-Erling");
-	if (!strcmp(id, "kristian"))
-		return ("Kristian");
-	if (!strcmp(id, "mithrandir"))
-		return ("Tollef");
-	WRONG("Illegal VMOD enum");
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (be == NULL)
+		return (0);
+	CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
+	return (VDI_Healthy(be));
 }
 
-void __match_proto__()
-vmod_collect(struct sess *sp, enum gethdr_e e, const char *h)
+VCL_INT __match_proto__(td_std_port)
+vmod_port(const struct vrt_ctx *ctx, VCL_IP ip)
 {
-	(void)e;
-	(void)sp;
-	(void)h;
-	if (e == HDR_REQ)
-		http_CollectHdr(sp->http, h);
-	else if (e == HDR_BERESP)
-		http_CollectHdr(sp->wrk->beresp, h);
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (ip == NULL)
+		return (0);
+	return (VSA_Port(ip));
 }
 
+VCL_VOID __match_proto__(td_std_timestamp)
+vmod_timestamp(const struct vrt_ctx *ctx, VCL_STRING label)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (label == NULL)
+		return;
+	if (*label == '\0')
+		return;
+	if (ctx->bo != NULL && ctx->req == NULL) {
+		/* Called from backend vcl methods */
+		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
+		VSLb_ts_busyobj(ctx->bo, label, VTIM_real());
+	} else if (ctx->req != NULL) {
+		/* Called from request vcl methdos */
+		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
+		VSLb_ts_req(ctx->req, label, VTIM_real());
+	}
+}

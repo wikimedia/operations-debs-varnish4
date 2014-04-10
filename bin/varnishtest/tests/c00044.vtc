@@ -2,22 +2,29 @@ varnishtest	"Object/LRU/Stevedores"
 
 server s1 {
 	rxreq
-	txresp -bodylen 1048100
-	rxreq
-	txresp -bodylen 1048101
-	rxreq
-	txresp -bodylen 1048102
+	txresp -bodylen 1048190
 
 	rxreq
-	txresp -bodylen 1048103
+	txresp -bodylen 1048191
 
 	rxreq
-	txresp -bodylen 1048104
+	txresp -bodylen 1048192
+
+	rxreq
+	txresp -bodylen 1047193
+
+	rxreq
+	txresp -bodylen 1047194
 } -start
 
-varnish v1 -storage "-smalloc,1m -smalloc,1m, -smalloc,1m" -vcl+backend {
-	sub vcl_fetch {
-		set beresp.storage = "invalid";
+varnish v1 \
+	-arg "-smalloc,1m" \
+	-arg "-smalloc,1m" \
+	-arg "-smalloc,1m" \
+	-vcl+backend {
+	sub vcl_backend_response {
+		set beresp.do_stream = false;
+		set beresp.storage_hint = "invalid";
 	}
 } -start
 
@@ -26,52 +33,52 @@ client c1 {
 	txreq -url /foo
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 1048100
+	expect resp.bodylen == 1048190
 } -run
 
 varnish v1 -expect SMA.Transient.g_bytes == 0
 varnish v1 -expect SMA.s0.g_bytes == 0
-varnish v1 -expect SMA.s0.g_space > 1000000 
+varnish v1 -expect SMA.s0.g_space > 1000000
 varnish v1 -expect SMA.s1.g_bytes > 1000000
-varnish v1 -expect SMA.s1.g_space < 170
+varnish v1 -expect SMA.s1.g_space < 180
 varnish v1 -expect SMA.s2.g_bytes == 0
-varnish v1 -expect SMA.s2.g_space > 1000000 
+varnish v1 -expect SMA.s2.g_space > 1000000
 
 client c1 {
 	txreq -url /bar
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 1048101
+	expect resp.bodylen == 1048191
 } -run
 
 varnish v1 -expect SMA.Transient.g_bytes == 0
 varnish v1 -expect SMA.s0.g_bytes == 0
-varnish v1 -expect SMA.s0.g_space > 1000000 
+varnish v1 -expect SMA.s0.g_space > 1000000
 varnish v1 -expect SMA.s1.g_bytes > 1000000
-varnish v1 -expect SMA.s1.g_space < 170
+varnish v1 -expect SMA.s1.g_space < 180
 varnish v1 -expect SMA.s2.g_bytes > 1000000
-varnish v1 -expect SMA.s2.g_space < 170
+varnish v1 -expect SMA.s2.g_space < 180
 
 client c1 {
 	txreq -url /burp
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 1048102
+	expect resp.bodylen == 1048192
 } -run
 
 varnish v1 -expect SMA.Transient.g_bytes == 0
 varnish v1 -expect SMA.s0.g_bytes > 1000000
-varnish v1 -expect SMA.s0.g_space < 170
+varnish v1 -expect SMA.s0.g_space < 180
 varnish v1 -expect SMA.s1.g_bytes > 1000000
-varnish v1 -expect SMA.s1.g_space < 170
+varnish v1 -expect SMA.s1.g_space < 180
 varnish v1 -expect SMA.s2.g_bytes > 1000000
-varnish v1 -expect SMA.s2.g_space < 170
+varnish v1 -expect SMA.s2.g_space < 180
 
 client c1 {
 	txreq -url /foo1
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 1048103
+	expect resp.bodylen == 1047193
 } -run
 
 varnish v1 -expect n_lru_nuked == 1
@@ -80,7 +87,7 @@ client c1 {
 	txreq -url /foo
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 1048104
+	expect resp.bodylen == 1047194
 } -run
 
 varnish v1 -expect n_lru_nuked == 2

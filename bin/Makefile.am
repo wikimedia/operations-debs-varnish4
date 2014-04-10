@@ -1,7 +1,14 @@
 #
 
-SUBDIRS = varnishadm varnishd varnishlog varnishncsa varnishreplay varnishtest
+# Disabling building of the tools while api is in flux
 
-if HAVE_CURSES
-SUBDIRS += varnishhist varnishstat varnishtop varnishsizes
-endif
+#SUBDIRS = varnishreplay
+SUBDIRS = \
+	varnishadm \
+	varnishd \
+	varnishhist \
+	varnishlog \
+	varnishncsa \
+	varnishstat \
+	varnishtest \
+	varnishtop

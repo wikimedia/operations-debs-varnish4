@@ -1,7 +1,7 @@
 varnishtest "ESI request can't be turned off midstream"
 
 server s1 {
-	rxreq 
+	rxreq
 	txresp -body {
 		<html>
 		Before include
@@ -9,7 +9,7 @@ server s1 {
 		<esi:include src="/body3"/>
 		After include
 	}
-	rxreq 
+	rxreq
 	expect req.url == "/body"
 	txresp -body {
 	       <esi:include src="/body2"/>
@@ -27,12 +27,14 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
- 	    	set req.esi = true;	
-	    	if(req.url == "/body") {
-		   set req.esi = false;
-		} 
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
+	}
+	sub vcl_deliver {
+		set req.esi = true;
+		if(req.url == "/body") {
+			set req.esi = false;
+		}
 	}
 } -start
 

@@ -6,10 +6,14 @@ server s1 {
 	rxreq
 	send "HTTP/1.1 200 Ok\r\nConnection: close\r\n\r\n"
 	delay 1.5
-	send "Baba\n"
+	# send "Baba\n"
 } -start
 
-varnish v1 -vcl+backend {} -start
+varnish v1 -vcl+backend {
+	sub vcl_backend_response {
+		set beresp.do_stream = false;
+	}
+} -start
 varnish v1 -cliok "param.set between_bytes_timeout 1"
 
 client c1 {
@@ -18,7 +22,12 @@ client c1 {
 	expect resp.status == 503
 } -run
 
-server s1 {
+delay 1
+
+varnish v1 -expect n_object == 0
+varnish v1 -expect n_objectcore == 0
+
+server s1 -wait {
 	rxreq
 	send "HTTP/1.1 200 Ok\r\nConnection: close\r\n\r\n"
 	delay 0.5
@@ -32,3 +41,7 @@ client c1 {
 	rxresp
 	expect resp.status == 200
 } -run
+
+varnish v1 -expect n_object == 1
+varnish v1 -expect n_objectcore == 1
+

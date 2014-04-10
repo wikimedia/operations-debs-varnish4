@@ -1,9 +1,10 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2011 Varnish Software AS
+ * Copyright (c) 2006-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
+ * Author: Martin Blix Grydeland <martin@varnish-software.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,19 +36,22 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 
-#include "vas.h"
-#include "vre.h"
-#include "vbm.h"
 #include "miniobj.h"
-#include "varnishapi.h"
+#include "vas.h"
 
-#include "vsm_api.h"
+#include "vapi/vsl.h"
+#include "vapi/vsm.h"
+#include "vbm.h"
+#include "vre.h"
 #include "vsl_api.h"
+#include "vsm_api.h"
 
 /*--------------------------------------------------------------------
  * Look up a tag
@@ -64,7 +68,7 @@ VSL_Name2Tag(const char *name, int l)
 	if (l == -1)
 		l = strlen(name);
 	n = -1;
-	for (i = 0; i < 256; i++) {
+	for (i = 0; i < SLT__MAX; i++) {
 		if (VSL_tags[i] != NULL &&
 		    !strncasecmp(name, VSL_tags[i], l)) {
 			if (strlen(VSL_tags[i]) == l) {
@@ -80,205 +84,275 @@ VSL_Name2Tag(const char *name, int l)
 	return (n);
 }
 
-
-/*--------------------------------------------------------------------*/
-
-static int
-vsl_r_arg(const struct VSM_data *vd, const char *opt)
+int
+VSL_Glob2Tags(const char *glob, int l, VSL_tagfind_f *func, void *priv)
 {
+	int i, r, l2;
+	int pre = 0;
+	int post = 0;
+	char buf[64];
 
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	if (!strcmp(opt, "-"))
-		vd->vsl->r_fd = STDIN_FILENO;
-	else
-		vd->vsl->r_fd = open(opt, O_RDONLY);
-	if (vd->vsl->r_fd < 0) {
-		perror(opt);
+	AN(glob);
+	if (l < 0)
+		l = strlen(glob);
+	if (l == 0 || l > sizeof buf - 1)
 		return (-1);
-	}
-	return (1);
-}
-
-/*--------------------------------------------------------------------*/
-
-static int
-vsl_IX_arg(const struct VSM_data *vd, const char *opt, int arg)
-{
-	vre_t **rp;
-	const char *error;
-	int erroroffset;
-
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	if (arg == 'I')
-		rp = &vd->vsl->regincl;
-	else
-		rp = &vd->vsl->regexcl;
-	if (*rp != NULL) {
-		fprintf(stderr, "Option %c can only be given once", arg);
-		return (-1);
-	}
-	*rp = VRE_compile(opt, vd->vsl->regflags, &error, &erroroffset);
-	if (*rp == NULL) {
-		fprintf(stderr, "Illegal regex: %s\n", error);
-		return (-1);
-	}
-	return (1);
-}
-
-/*--------------------------------------------------------------------*/
-
-static int
-vsl_ix_arg(const struct VSM_data *vd, const char *opt, int arg)
-{
-	int i, l;
-	const char *b, *e;
-
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	/* If first option is 'i', set all bits for supression */
-	if (arg == 'i' && !(vd->vsl->flags & F_SEEN_IX))
-		for (i = 0; i < 256; i++)
-			vbit_set(vd->vsl->vbm_supress, i);
-	vd->vsl->flags |= F_SEEN_IX;
-
-	for (b = opt; *b; b = e) {
-		while (isspace(*b))
-			b++;
-		e = strchr(b, ',');
-		if (e == NULL)
-			e = strchr(b, '\0');
-		l = e - b;
-		if (*e == ',')
-			e++;
-		while (isspace(b[l - 1]))
+	if (strchr(glob, '*') != NULL) {
+		if (glob[0] == '*') {
+			/* Prefix wildcard */
+			pre = 1;
+			glob++;
 			l--;
-		i = VSL_Name2Tag(b, l);
-		if (i >= 0) {
-			if (arg == 'x')
-				vbit_set(vd->vsl->vbm_supress, i);
-			else
-				vbit_clr(vd->vsl->vbm_supress, i);
-		} else if (i == -2) {
-			fprintf(stderr,
-			    "\"%*.*s\" matches multiple tags\n", l, l, b);
-			return (-1);
-		} else {
-			fprintf(stderr,
-			    "Could not match \"%*.*s\" to any tag\n", l, l, b);
-			return (-1);
+		}
+		if (l > 0 && glob[l - 1] == '*') {
+			/* Postfix wildcard */
+			post = 1;
+			l--;
 		}
 	}
-	return (1);
+	if (pre && post)
+		/* Support only post or prefix wildcards */
+		return (-3);
+	memcpy(buf, glob, l);
+	buf[l] = '\0';
+	if (strchr(buf, '*') != NULL)
+		/* No multiple wildcards */
+		return (-3);
+	if (pre == 0 && post == 0) {
+		/* No wildcards, use VSL_Name2Tag */
+		i = VSL_Name2Tag(buf, l);
+		if (i < 0)
+			return (i);
+		if (func != NULL)
+			(func)(i, priv);
+		return (1);
+	}
+
+	r = 0;
+	for (i = 0; i < SLT__MAX; i++) {
+		if (VSL_tags[i] == NULL)
+			continue;
+		l2 = strlen(VSL_tags[i]);
+		if (l2 < l)
+			continue;
+		if (pre) {
+			/* Prefix wildcard match */
+			if (strcasecmp(buf, VSL_tags[i] + l2 - l))
+				continue;
+		} else {
+			/* Postfix wildcard match */
+			if (strncasecmp(buf, VSL_tags[i], l))
+				continue;
+		}
+		if (func != NULL)
+			(func)(i, priv);
+		r++;
+	}
+	if (r == 0)
+		return (-1);
+	return (r);
 }
-
-/*--------------------------------------------------------------------*/
-
-
-static int
-vsl_m_arg(const struct VSM_data *vd, const char *opt)
-{
-	struct vsl_re_match *m;
-	const char *error;
-	char *o, *regex;
-	int erroroffset;
-
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-
-	if (!strchr(opt, ':')) {
-		fprintf(stderr, "No : found in -o option %s\n", opt);
-		return (-1);
-	}
-
-	o = strdup(opt);
-	AN(o);
-	regex = strchr(o, ':');
-	*regex = '\0';
-	regex++;
-
-	ALLOC_OBJ(m, VSL_RE_MATCH_MAGIC);
-	AN(m);
-	m->tag = VSL_Name2Tag(o, -1);
-	if (m->tag < 0) {
-		fprintf(stderr, "Illegal tag %s specified\n", o);
-		free(o);
-		FREE_OBJ(m);
-		return (-1);
-	}
-	/* Get tag, regex */
-	m->re = VRE_compile(regex, vd->vsl->regflags, &error, &erroroffset);
-	if (m->re == NULL) {
-		fprintf(stderr, "Illegal regex: %s\n", error);
-		free(o);
-		FREE_OBJ(m);
-		return (-1);
-	}
-	vd->vsl->num_matchers++;
-	VTAILQ_INSERT_TAIL(&vd->vsl->matchers, m, next);
-	free(o);
-	return (1);
-}
-
-/*--------------------------------------------------------------------*/
-
-static int
-vsl_s_arg(const struct VSM_data *vd, const char *opt)
-{
-	char *end;
-
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	if (*opt == '\0') {
-		fprintf(stderr, "number required for -s\n");
-		return (-1);
-	}
-	vd->vsl->skip = strtoul(opt, &end, 10);
-	if (*end != '\0') {
-		fprintf(stderr, "invalid number for -s\n");
-		return (-1);
-	}
-	return (1);
-}
-
-/*--------------------------------------------------------------------*/
-
-static int
-vsl_k_arg(const struct VSM_data *vd, const char *opt)
-{
-	char *end;
-
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	if (*opt == '\0') {
-		fprintf(stderr, "number required for -k\n");
-		return (-1);
-	}
-	vd->vsl->keep = strtoul(opt, &end, 10);
-	if (*end != '\0') {
-		fprintf(stderr, "invalid number for -k\n");
-		return (-1);
-	}
-	return (1);
-}
-
-/*--------------------------------------------------------------------*/
 
 int
-VSL_Arg(struct VSM_data *vd, int arg, const char *opt)
+VSL_List2Tags(const char *list, int l, VSL_tagfind_f *func, void *priv)
+{
+	const char *p, *q, *e;
+	int r, t;
+
+	if (l < 0)
+		l = strlen(list);
+	p = list;
+	e = p + l;
+	t = 0;
+	while (p < e) {
+		while (p < e && *p == ',')
+			p++;
+		if (p == e)
+			break;
+		q = p;
+		while (q < e && *q != ',')
+			q++;
+		r = VSL_Glob2Tags(p, q - p, func, priv);
+		if (r < 0)
+			return (r);
+		t += r;
+		p = q;
+	}
+	if (t == 0)
+		return (-1);
+	return (t);
+}
+
+const char *VSLQ_grouping[VSL_g__MAX] = {
+	[VSL_g_raw]	= "raw",
+	[VSL_g_vxid]	= "vxid",
+	[VSL_g_request]	= "request",
+	[VSL_g_session]	= "session",
+};
+
+int
+VSLQ_Name2Grouping(const char *name, int l)
+{
+	int i, n;
+
+	if (l == -1)
+		l = strlen(name);
+	n = -1;
+	for (i = 0; i < VSL_g__MAX; i++) {
+		if (!strncasecmp(name, VSLQ_grouping[i], l)) {
+			if (strlen(VSLQ_grouping[i]) == l) {
+				/* Exact match */
+				return (i);
+			}
+			if (n == -1)
+				n = i;
+			else
+				n = -2;
+		}
+	}
+	return (n);
+}
+
+void __match_proto__(VSL_tagfind_f)
+vsl_vbm_bitset(int bit, void *priv)
 {
 
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	switch (arg) {
-	case 'b': vd->vsl->b_opt = !vd->vsl->b_opt; return (1);
-	case 'c': vd->vsl->c_opt = !vd->vsl->c_opt; return (1);
-	case 'd':
-		vd->vsl->d_opt = !vd->vsl->d_opt;
-		vd->vsl->flags |= F_NON_BLOCKING;
+	vbit_set((struct vbitmap *)priv, bit);
+}
+
+void __match_proto__(VSL_tagfind_f)
+vsl_vbm_bitclr(int bit, void *priv)
+{
+
+	vbit_clr((struct vbitmap *)priv, bit);
+}
+
+static int
+vsl_ix_arg(struct VSL_data *vsl, int opt, const char *arg)
+{
+	int i;
+
+	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
+	vsl->flags |= F_SEEN_ixIX;
+
+	i = VSL_List2Tags(arg, -1, opt == 'x' ? vsl_vbm_bitset : vsl_vbm_bitclr,
+	    vsl->vbm_supress);
+	if (i == -1)
+		return (vsl_diag(vsl, "-%c: \"%s\" matches zero tags",
+			(char)opt, arg));
+	else if (i == -2)
+		return (vsl_diag(vsl, "-%c: \"%s\" is ambiguous",
+			(char)opt, arg));
+	else if (i == -3)
+		return (vsl_diag(vsl, "-%c: Syntax error in \"%s\"",
+			(char)opt, arg));
+
+	return (1);
+}
+
+static int
+vsl_IX_arg(struct VSL_data *vsl, int opt, const char *arg)
+{
+	int i, l, off;
+	const char *b, *e, *err;
+	vre_t *vre;
+	struct vslf *vslf;
+	struct vbitmap *tags = NULL;
+
+	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
+	vsl->flags |= F_SEEN_ixIX;
+
+	b = arg;
+	e = strchr(b, ':');
+	if (e) {
+		tags = vbit_init(SLT__MAX);
+		AN(tags);
+		l = e - b;
+		i = VSL_List2Tags(b, l, vsl_vbm_bitset, tags);
+		if (i < 0)
+			vbit_destroy(tags);
+		if (i == -1)
+			return (vsl_diag(vsl,
+				"-%c: \"%*.*s\" matches zero tags",
+				(char)opt, l, l, b));
+		else if (i == -2)
+			return (vsl_diag(vsl,
+				"-%c: \"%*.*s\" is ambiguous",
+				(char)opt, l, l, b));
+		else if (i <= -3)
+			return (vsl_diag(vsl,
+				"-%c: Syntax error in \"%*.*s\"",
+				(char)opt, l, l, b));
+		b = e + 1;
+	}
+
+	vre = VRE_compile(b, vsl->C_opt ? VRE_CASELESS : 0, &err, &off);
+	if (vre == NULL) {
+		if (tags)
+			vbit_destroy(tags);
+		return (vsl_diag(vsl, "-%c: Regex error at position %d (%s)\n",
+			(char)opt, off, err));
+	}
+
+	ALLOC_OBJ(vslf, VSLF_MAGIC);
+	AN(vslf);
+	vslf->tags = tags;
+	vslf->vre = vre;
+
+	if (opt == 'I')
+		VTAILQ_INSERT_TAIL(&vsl->vslf_select, vslf, list);
+	else {
+		assert(opt == 'X');
+		VTAILQ_INSERT_TAIL(&vsl->vslf_suppress, vslf, list);
+	}
+
+	return (1);
+}
+
+int
+VSL_Arg(struct VSL_data *vsl, int opt, const char *arg)
+{
+	int i;
+	char *p;
+	double d;
+	long l;
+
+	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
+	/* If first option is 'i', set all bits for supression */
+	if ((opt == 'i' || opt == 'I') && !(vsl->flags & F_SEEN_ixIX))
+		for (i = 0; i < SLT__MAX; i++)
+			vbit_set(vsl->vbm_supress, i);
+
+	switch (opt) {
+	case 'b': vsl->b_opt = 1; return (1);
+	case 'c': vsl->c_opt = 1; return (1);
+	case 'C':
+		/* Caseless regular expressions */
+		vsl->C_opt = 1;
 		return (1);
-	case 'i': case 'x': return (vsl_ix_arg(vd, opt, arg));
-	case 'k': return (vsl_k_arg(vd, opt));
-	case 'n': return (VSM_n_Arg(vd, opt));
-	case 'r': return (vsl_r_arg(vd, opt));
-	case 's': return (vsl_s_arg(vd, opt));
-	case 'I': case 'X': return (vsl_IX_arg(vd, opt, arg));
-	case 'm': return (vsl_m_arg(vd, opt));
-	case 'C': vd->vsl->regflags = VRE_CASELESS; return (1);
+	case 'i': case 'x': return (vsl_ix_arg(vsl, opt, arg));
+	case 'I': case 'X': return (vsl_IX_arg(vsl, opt, arg));
+	case 'L':
+		l = strtol(arg, &p, 0);
+		while (isspace(*p))
+			p++;
+		if (*p != '\0')
+			return (vsl_diag(vsl, "-L: Syntax error"));
+		if (l < 0 || l > INT_MAX)
+			return (vsl_diag(vsl, "-L: Range error"));
+		vsl->L_opt = (int)l;
+		return (1);
+	case 'T':
+		d = strtod(arg, &p);
+		while (isspace(*p))
+			p++;
+		if (*p != '\0')
+			return (vsl_diag(vsl, "-P: Syntax error"));
+		if (d < 0.)
+			return (vsl_diag(vsl, "-L: Range error"));
+		vsl->T_opt = d;
+		return (1);
+	case 'v': vsl->v_opt = 1; return (1);
 	default:
 		return (0);
 	}

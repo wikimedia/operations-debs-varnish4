@@ -15,18 +15,18 @@ client c1 {
 	txreq -url "/foo"
 	rxresp
 	expect resp.status == 200
-	expect resp.http.content-length == 5
-} 
+	expect resp.bodylen == 5
+}
 
 client c1 -run
 
-varnish v1 -cli "ban.url foo"
+varnish v1 -cli "ban req.url ~ foo"
 
 client c1 {
 	txreq -url "/foo"
 	rxresp
 	expect resp.status == 200
-	expect resp.http.content-length == 6
+	expect resp.bodylen == 6
 }
 
 client c1 -run

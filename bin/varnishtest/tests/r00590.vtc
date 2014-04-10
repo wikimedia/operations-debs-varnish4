@@ -4,50 +4,50 @@ server s1 {
 	rxreq
 	expect req.url == "/"
 	txresp -body {
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
-		<esi:remove> </esi:remove> 
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
+		<esi:remove> </esi:remove>
 		<esi:include src="/fooooooooooooo"/>
 	}
 
@@ -60,7 +60,7 @@ varnish v1 -vcl+backend {
 	sub vcl_recv {
 		return (pass);
 	}
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.do_esi = true;
 	}
 } -start
@@ -69,5 +69,5 @@ client c1 {
 	txreq
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 184
+	expect resp.bodylen == 140
 } -run

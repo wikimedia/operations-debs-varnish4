@@ -5,8 +5,8 @@ server s1 {
 	txresp
 } -start
 
-varnish v1 -vcl+backend { 
-	sub vcl_error {
+varnish v1 -vcl+backend {
+	sub vcl_synth {
 		return (restart);
 	}
 } -start
@@ -21,10 +21,4 @@ client c1 {
 	txreq -hdr "Expect: Santa-Claus"
 	rxresp
 	expect resp.status == 417
-} -run
-
-client c1 {
-	txreq
-	rxresp
-	expect resp.status == 200
 } -run

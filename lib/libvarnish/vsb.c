@@ -30,12 +30,13 @@ __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
 #include "config.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "libvarnish.h"
+#include "vas.h"
 #include "vsb.h"
 
 #define	KASSERT(e, m)		assert(e)
@@ -44,7 +45,6 @@ __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
 
 #define	roundup2(x, y)	(((x)+((y)-1))&(~((y)-1))) /* if y is powers of two */
 
-#define VSB_MAGIC		0x4a82dd8a
 /*
  * Predicates
  */
@@ -76,15 +76,15 @@ __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
  */
 #if !defined(NDEBUG)
 static void
-_assert_VSB_integrity(const char *fun, struct vsb *s)
+_assert_VSB_integrity(const char *fun, const struct vsb *s)
 {
 
 	(void)fun;
 	(void)s;
 	KASSERT(s != NULL,
 	    ("%s called with a NULL vsb pointer", fun));
-	KASSERT(s->s_magic == VSB_MAGIC,
-	    ("%s called wih an unintialized vsb pointer", fun));
+	KASSERT(s->magic == VSB_MAGIC,
+	    ("%s called wih an bogus vsb pointer", fun));
 	KASSERT(s->s_buf != NULL,
 	    ("%s called with uninitialized or corrupt vsb", fun));
 	KASSERT(s->s_len < s->s_size,
@@ -92,7 +92,7 @@ _assert_VSB_integrity(const char *fun, struct vsb *s)
 }
 
 static void
-_assert_VSB_state(const char *fun, struct vsb *s, int state)
+_assert_VSB_state(const char *fun, const struct vsb *s, int state)
 {
 
 	(void)fun;
@@ -166,7 +166,7 @@ VSB_newbuf(struct vsb *s, char *buf, int length, int flags)
 {
 
 	memset(s, 0, sizeof(*s));
-	s->s_magic = VSB_MAGIC;
+	s->magic = VSB_MAGIC;
 	s->s_flags = flags;
 	s->s_size = length;
 	s->s_buf = buf;
@@ -489,7 +489,7 @@ VSB_finish(struct vsb *s)
  * Return a pointer to the vsb data.
  */
 char *
-VSB_data(struct vsb *s)
+VSB_data(const struct vsb *s)
 {
 
 	assert_VSB_integrity(s);
@@ -502,7 +502,7 @@ VSB_data(struct vsb *s)
  * Return the length of the vsb data.
  */
 ssize_t
-VSB_len(struct vsb *s)
+VSB_len(const struct vsb *s)
 {
 
 	assert_VSB_integrity(s);

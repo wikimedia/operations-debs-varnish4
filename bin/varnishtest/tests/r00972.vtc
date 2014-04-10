@@ -6,16 +6,15 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_fetch {
+	sub vcl_backend_response {
 		set beresp.do_stream = true;
 	}
 } -start
 
 client c1 {
 	txreq -hdr "If-None-Match: foo"
-	rxresp
+	rxresp -no_obj
 	expect resp.status == 304
 	expect resp.http.etag == "foo"
-	expect resp.bodylen == 0
 }  -run
 

@@ -28,30 +28,22 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "libvarnish.h"
-#include "vev.h"
-#include "vsb.h"
-#include "vqueue.h"
-#include "miniobj.h"
+#include <ctype.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "vtc.h"
 
-#ifndef HAVE_SRANDOMDEV
-#include "compat/srandomdev.h"
-#endif
+#include "vav.h"
+#include "vtim.h"
 
 #define		MAX_TOKENS		200
 
@@ -154,10 +146,10 @@ macro_get(const char *b, const char *e)
 	l = e - b;
 
 	if (l == 4 && !memcmp(b, "date", l)) {
-		double t = TIM_real();
+		double t = VTIM_real();
 		retval = malloc(64);
 		AN(retval);
-		TIM_format(t, retval);
+		VTIM_format(t, retval);
 		return (retval);
 	}
 
@@ -199,10 +191,12 @@ macro_expand(struct vtclog *vl, const char *text)
 		m = macro_get(p, q);
 		if (m == NULL) {
 			VSB_delete(vsb);
-			vtc_log(vl, 0, "Macro ${%s} not found", p);
+			vtc_log(vl, 0, "Macro ${%.*s} not found", (int)(q - p),
+			    p);
 			return (NULL);
 		}
 		VSB_printf(vsb, "%s", m);
+		free(m);
 		text = q + 1;
 	}
 	AZ(VSB_finish(vsb));
@@ -440,7 +434,7 @@ cmd_delay(CMD_ARGS)
 	AZ(av[2]);
 	f = strtod(av[1], NULL);
 	vtc_log(vl, 3, "delaying %g second(s)", f);
-	TIM_sleep(f);
+	VTIM_sleep(f);
 }
 
 /**********************************************************************
@@ -471,7 +465,7 @@ cmd_random(CMD_ARGS)
 		l = random();
 		if (l == random_expect[i])
 			continue;
-		vtc_log(vl, 4, "random[%d] = 0x%x (expect 0x%x)",
+		vtc_log(vl, 4, "random[%d] = 0x%x (expect 0x%lx)",
 		    i, l, random_expect[i]);
 		vtc_log(vl, 1, "SKIPPING test: unknown srandom(1) sequence.");
 		vtc_stop = 1;
@@ -516,6 +510,8 @@ cmd_feature(CMD_ARGS)
 			continue;
 #endif
 		}
+		if (!strcmp(av[i], "topbuild") && iflg)
+			continue;
 
 		vtc_log(vl, 1, "SKIPPING test, missing feature: %s", av[i]);
 		vtc_stop = 1;
@@ -537,6 +533,7 @@ static const struct cmds cmds[] = {
 	{ "sema",	cmd_sema },
 	{ "random",	cmd_random },
 	{ "feature",	cmd_feature },
+	{ "logexpect",	cmd_logexp },
 	{ NULL,		NULL }
 };
 
@@ -545,7 +542,7 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
     char *logbuf, unsigned loglen)
 {
 	unsigned old_err;
-	char *cwd, *p;
+	char *p;
 	FILE *f;
 	struct extmacro *m;
 
@@ -560,12 +557,7 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
 
 	/* Apply extmacro definitions */
 	VTAILQ_FOREACH(m, &extmacro_list, list)
-		macro_def(vltop, NULL, m->name, m->val);
-
-	/* Other macro definitions */
-	cwd = getcwd(NULL, PATH_MAX);
-	macro_def(vltop, NULL, "pwd", cwd);
-	macro_def(vltop, NULL, "topbuild", "%s/%s", cwd, TOP_BUILDDIR);
+		macro_def(vltop, NULL, m->name, "%s", m->val);
 
 	/*
 	 * We need an IP number which will not repond, ever, and that is a
@@ -578,7 +570,7 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
 
 	/* Move into our tmpdir */
 	AZ(chdir(tmpdir));
-	macro_def(vltop, NULL, "tmpdir", tmpdir);
+	macro_def(vltop, NULL, "tmpdir", "%s", tmpdir);
 
 	/* Drop file to tell what was going on here */
 	f = fopen("INFO", "w");

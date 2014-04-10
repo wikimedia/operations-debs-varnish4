@@ -10,8 +10,11 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	sub vcl_miss {
+	sub vcl_backend_fetch {
 		set bereq.between_bytes_timeout = 2s;
+	}
+	sub vcl_backend_response {
+		set beresp.do_stream = false;
 	}
 } -start
 

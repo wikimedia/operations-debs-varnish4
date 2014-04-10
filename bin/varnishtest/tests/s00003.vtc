@@ -1,54 +1,41 @@
-varnishtest "Check saint mode with sick pages"
+varnishtest "Coverage test for -sfile"
 
 server s1 {
-	timeout 10
+	rxreq
+	txresp -nolen -hdr "Transfer-encoding: chunked"
+	chunkedlen 65536
+	chunkedlen 65536
+	chunkedlen 65536
+	chunkedlen 65536
+	chunkedlen 1
+	chunkedlen 0
 
 	rxreq
-	expect req.url == "/"
-	txresp -status 200 -hdr "foo: 1"
-	rxreq
-	expect req.url == "/"
-	txresp -status 200 -hdr "foo: 2"
-	accept
-	rxreq
-	expect req.url == "/"
-	txresp -status 200 -hdr "foo: 3"
+	txresp -nolen -hdr "Transfer-encoding: chunked"
+	chunkedlen 262
+	chunkedlen 0
 } -start
 
-varnish v1 -vcl+backend {
-	sub vcl_fetch {
-		set beresp.ttl = 1s;
-		set beresp.grace = 10m;
-		if (beresp.http.foo == "2")
-		{
-			set beresp.saintmode = 2s;
-			return (restart);
+varnish v1 \
+	-arg "-sTransient=file,${tmpdir}/_.file,10m" \
+	-vcl+backend {
+		sub vcl_backend_response {
+			set beresp.do_stream = false;
+			set beresp.ttl = 0.1s;
+			set beresp.grace = 0.1s;
+			set beresp.keep = 0.1s;
 		}
-		return(deliver);
-	}
-} -start
+	} \
+	-start
 
 client c1 {
-	txreq -url "/"
+	txreq
 	rxresp
-	expect resp.status == 200
-	expect resp.http.foo == 1
-} -run
+	expect resp.bodylen == 262145
 
-delay 2
+	delay 2
 
-client c2 {
-	txreq -url "/"
+	txreq
 	rxresp
-	expect resp.status == 200
-	expect resp.http.foo == 1
-} -run
-
-delay 2
-
-client c3 {
-	txreq -url "/"
-	rxresp
-	expect resp.status == 200
-	expect resp.http.foo == 3
+	expect resp.bodylen == 262
 } -run

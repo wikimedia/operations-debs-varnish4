@@ -31,9 +31,11 @@ client c1 {
 	rxresp
 	expect resp.status == 200
 	expect resp.http.foo == 0
+	delay .1
 
 	txreq
 	rxresp
 	expect resp.status == 200
 	expect resp.http.foo == 2
-} -run 
+	expect resp.http.bar >= 0.100
+} -run

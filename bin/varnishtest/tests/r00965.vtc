@@ -7,13 +7,14 @@ server s1 {
 
 varnish v1 -vcl+backend {
 	sub vcl_recv {
-		if (req.http.X-Banned == "check") { remove req.http.X-Banned; }
-		elseif (req.restarts == 0) {
+		if (req.http.X-Banned == "check") {
+			unset req.http.X-Banned;
+		} elseif (req.restarts == 0) {
 		        set req.http.X-Banned = "check";
 			if (req.http.x-pass) {
 				return (pass);
 			} else {
-				return (lookup);
+				return (hash);
 			}
 		}
 	}
@@ -22,20 +23,24 @@ varnish v1 -vcl+backend {
 		## Check if they have a ban in the cache, or if they are going to be banned in cache.
 		if (req.http.X-Banned) {
 			hash_data(client.ip);
-			return (hash);
+			return (lookup);
 		}
 	}
 
-	sub vcl_error {
-		if (obj.status == 988) { return (restart); }
+	sub vcl_synth {
+		if (resp.status == 988) { return (restart); }
 	}
 
 	sub vcl_miss {
-		if (req.http.X-Banned == "check") { error 988 "restarting"; }
+		if (req.http.X-Banned == "check") {
+			return (synth(988,"restarting"));
+		}
 	}
 
 	sub vcl_pass {
-		if (req.http.X-Banned == "check") { error 988 "restarting"; }
+		if (req.http.X-Banned == "check") {
+			return (synth(988,"restarting"));
+		}
 	}
 } -start
 

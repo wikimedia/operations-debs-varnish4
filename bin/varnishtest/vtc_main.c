@@ -28,29 +28,24 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "libvarnish.h"
-#include "vev.h"
-#include "vsb.h"
-#include "vqueue.h"
-#include "miniobj.h"
+#include <fcntl.h>
+#include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "vtc.h"
 
-#ifndef HAVE_SRANDOMDEV
-#include "compat/srandomdev.h"
-#endif
+#include "vev.h"
+#include "vqueue.h"
+#include "vrnd.h"
+#include "vtim.h"
 
 #define		MAX_FILESIZE		(1024 * 1024)
 
@@ -77,6 +72,8 @@ struct vtc_job {
 	double			t0;
 };
 
+int iflg = 0;
+
 static VTAILQ_HEAD(, vtc_tst) tst_head = VTAILQ_HEAD_INITIALIZER(tst_head);
 static struct vev_base *vb;
 static int njob = 0;
@@ -87,6 +84,8 @@ static int vtc_verbosity = 1;		/* Verbosity Level */
 static int vtc_good;
 static int vtc_fail;
 static int leave_temp;
+static char *tmppath;
+static char *cwd = NULL;
 
 /**********************************************************************
  * Parse a -D option argument into a name/val pair, and insert
@@ -128,6 +127,7 @@ read_file(const char *fn)
 	s = read(fd, buf, sz - 1);
 	if (s <= 0) {
 		free(buf);
+		(void)close(fd);
 		return (NULL);
 	}
 	AZ(close (fd));
@@ -147,19 +147,17 @@ usage(void)
 {
 	fprintf(stderr, "usage: varnishtest [options] file ...\n");
 #define FMT "    %-28s # %s\n"
-	fprintf(stderr, FMT, "-D name=val", "Define macro for use in scripts");
+	fprintf(stderr, FMT, "-D name=val", "Define macro");
 	fprintf(stderr, FMT, "-i", "Find varnishd in build tree");
 	fprintf(stderr, FMT, "-j jobs", "Run this many tests in parallel");
 	fprintf(stderr, FMT, "-k", "Continue on test failure");
-	fprintf(stderr, FMT, "-l", "Leave /tmp/vtc.* if test fails");
-	fprintf(stderr, FMT, "-L", "Always leave /tmp/vtc.*");
+	fprintf(stderr, FMT, "-l", "Leave temporary vtc.* if test fails");
+	fprintf(stderr, FMT, "-L", "Always leave temporary vtc.*");
 	fprintf(stderr, FMT, "-n iterations", "Run tests this many times");
 	fprintf(stderr, FMT, "-q", "Quiet mode: report only failures");
 	fprintf(stderr, FMT, "-t duration", "Time tests out after this long");
 	fprintf(stderr, FMT, "-v", "Verbose mode: always report test log");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "    Overridable macro definitions:\n");
-	fprintf(stderr, FMT, "varnishd", "Path to varnishd to use [varnishd]");
 	exit(1);
 }
 
@@ -198,7 +196,7 @@ tst_cb(const struct vev *ve, int what)
 		njob--;
 		px = wait4(jp->child, &stx, 0, NULL);
 		assert(px == jp->child);
-		t = TIM_mono() - jp->t0;
+		t = VTIM_mono() - jp->t0;
 		AZ(close(ve->fd));
 
 		if (stx && vtc_verbosity)
@@ -269,8 +267,9 @@ start_test(void)
 	assert(jp->buf != MAP_FAILED);
 	memset(jp->buf, 0, jp->bufsiz);
 
-	srandomdev();
-	bprintf(tmpdir, "/tmp/vtc.%d.%08x", (int)getpid(), (unsigned)random());
+	VRND_Seed();
+	bprintf(tmpdir, "%s/vtc.%d.%08x", tmppath, (int)getpid(),
+		(unsigned)random());
 	AZ(mkdir(tmpdir, 0711));
 
 	tp = VTAILQ_FIRST(&tst_head);
@@ -288,7 +287,7 @@ start_test(void)
 	AZ(pipe(p));
 	assert(p[0] > STDERR_FILENO);
 	assert(p[1] > STDERR_FILENO);
-	jp->t0 = TIM_mono();
+	jp->t0 = VTIM_mono();
 	jp->child = fork();
 	assert(jp->child >= 0);
 	if (jp->child == 0) {
@@ -322,6 +321,100 @@ start_test(void)
 }
 
 /**********************************************************************
+ * i-mode = "we're inside a src-tree"
+ *
+ * Find the abs path to top of source dir from Makefile, if that
+ * fails, fall back on "../../"
+ *
+ * Set path to all programs build directories
+ *
+ */
+
+static void
+i_mode(void)
+{
+	const char *sep;
+	struct vsb *vsb;
+	char *p, *q;
+	char *topbuild;
+
+	/*
+	 * This code has a rather intimate knowledge of auto* generated
+	 * makefiles.
+	 */
+
+	vsb = VSB_new_auto();
+
+	q = p = read_file("Makefile");
+	if (p == NULL) {
+		fprintf(stderr, "No Makefile to search for -i flag.\n");
+		VSB_printf(vsb, "%s/../..", cwd);
+		AZ(VSB_finish(vsb));
+		topbuild = strdup(VSB_data(vsb));
+		VSB_clear(vsb);
+	} else {
+		p = strstr(p, "\nabs_top_builddir");
+		if (p == NULL) {
+			fprintf(stderr,
+			    "could not find 'abs_top_builddir' in Makefile\n");
+			exit(2);
+		}
+		topbuild =  strchr(p + 1, '\n');
+		if (topbuild == NULL) {
+			fprintf(stderr,
+			    "No NL after 'abs_top_builddir' in Makefile\n");
+			exit(2);
+		}
+		*topbuild = '\0';
+		topbuild = strchr(p, '/');
+		if (topbuild == NULL) {
+			fprintf(stderr,
+			    "No '/' after 'abs_top_builddir' in Makefile\n");
+			exit(2);
+		}
+		topbuild = strdup(topbuild);
+		free(q);
+
+	}
+	AN(topbuild);
+	extmacro_def("topbuild", "%s", topbuild);
+	/*
+	 * Build $PATH which can find all programs in the build tree
+	 */
+	AN(vsb);
+	VSB_printf(vsb, "PATH=");
+	sep = "";
+#define VTC_PROG(l)							\
+	do {								\
+		VSB_printf(vsb, "%s%s/bin/%s/", sep, topbuild, #l);	\
+		sep = ":";						\
+	} while (0);
+#include "programs.h"
+#undef VTC_PROG
+	VSB_printf(vsb, ":%s", getenv("PATH"));
+	AZ(VSB_finish(vsb));
+
+	AZ(putenv(strdup(VSB_data(vsb))));
+
+	/*
+	 * Redefine VMOD macros
+	 */
+#define VTC_VMOD(l)							\
+	do {								\
+		VSB_clear(vsb);						\
+		VSB_printf(vsb,						\
+		   "%s from \"%s/lib/libvmod_%s/.libs/libvmod_%s.so\"",	\
+		    #l, topbuild, #l, #l);				\
+		AZ(VSB_finish(vsb));					\
+	    extmacro_def("vmod_" #l, "%s", VSB_data(vsb));		\
+	} while (0);
+#include "vmods.h"
+#undef VTC_VMOD
+	free(topbuild);
+	VSB_delete(vsb);
+}
+
+/**********************************************************************
  * Main
  */
 
@@ -333,7 +426,23 @@ main(int argc, char * const *argv)
 	struct vtc_tst *tp;
 	char *p;
 
-	extmacro_def("varnishd", "varnishd"); /* Default to path lookup */
+	/* Default names of programs */
+#define VTC_PROG(l)	extmacro_def(#l, #l);
+#include "programs.h"
+#undef VTC_PROG
+
+	/* Default import spec of vmods */
+#define VTC_VMOD(l)	extmacro_def("vmod_" #l, #l);
+#include "vmods.h"
+#undef VTC_VMOD
+
+	if (getenv("TMPDIR") != NULL)
+		tmppath = strdup(getenv("TMPDIR"));
+	else
+		tmppath = strdup("/tmp");
+
+	cwd = getcwd(NULL, PATH_MAX);
+	extmacro_def("pwd", "%s", cwd);
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -347,8 +456,7 @@ main(int argc, char * const *argv)
 			}
 			break;
 		case 'i':
-			/* Look for varnishd relative to varnishtest */
-			extmacro_def("varnishd", "../varnishd/varnishd");
+			iflg = 1;
 			break;
 		case 'j':
 			npar = strtoul(optarg, NULL, 0);
@@ -400,6 +508,9 @@ main(int argc, char * const *argv)
 		VTAILQ_INSERT_TAIL(&tst_head, tp, list);
 	}
 
+	if (iflg)
+		i_mode();
+
 	vb = vev_new_base();
 
 	i = 0;
@@ -407,6 +518,9 @@ main(int argc, char * const *argv)
 		if (!VTAILQ_EMPTY(&tst_head) && njob < npar) {
 			start_test();
 			njob++;
+			/* Stagger ramp-up */
+			if (njob < npar)
+				(void)usleep(random() % 100000L);
 			i = 1;
 			continue;
 		}

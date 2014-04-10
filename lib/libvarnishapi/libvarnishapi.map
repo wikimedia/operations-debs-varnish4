@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011 Varnish Software AS
+ * Copyright (c) 2011-2014 Varnish Software AS
  * All rights reserved.
  *
  * Author: Tollef Fog Heen <tfheen@varnish-software.com> 
@@ -74,4 +74,53 @@ LIBVARNISHAPI_1.1 {
 	# Functions:
 	VSL_Name2Tag;
 	# Variables:
+} LIBVARNISHAPI_1.0;
+
+LIBVARNISHAPI_1.2 {
+  global:
+	# Functions:
+	VSL_NextSLT;
+	VSM_Error;
+	VSM_Get;
+	# Variables:
+} LIBVARNISHAPI_1.0;
+
+LIBVARNISHAPI_1.3 {
+  global:
+	# Functions:
+	VSM_Abandoned;
+	VSM_ResetError;
+	VSM_StillValid;
+	VSC_Mgt;
+	VSC_LevelDesc;
+	VSL_New;
+	VSL_Delete;
+	VSL_Error;
+	VSL_ResetError;
+	VSL_CursorVSM;
+	VSL_CursorFile;
+	VSL_DeleteCursor;
+	VSL_Next;
+	VSL_Match;
+	VSL_Print;
+	VSL_PrintTerse;
+	VSL_PrintAll;
+	VSL_PrintTransactions;
+	VSL_WriteOpen;
+	VSL_Write;
+	VSL_WriteAll;
+	VSL_WriteTransactions;
+	VSLQ_New;
+	VSLQ_Delete;
+	VSLQ_Dispatch;
+	VSLQ_Flush;
+	VSLQ_Name2Grouping;
+	VSL_Glob2Tags;
+	VSL_List2Tags;
+	VSM_N_Arg;
+	VSL_Check;
+	VSL_ResetCursor;
+	# Variables:
+	VSLQ_grouping;
+	VSL_tagflags;
 } LIBVARNISHAPI_1.0;

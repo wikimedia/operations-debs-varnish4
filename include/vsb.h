@@ -31,13 +31,14 @@
 #ifndef VSB_H_INCLUDED
 #define VSB_H_INCLUDED
 
-#include <sys/types.h>
+#include "vdef.h"
 
 /*
  * Structure definition
  */
 struct vsb {
-	unsigned	s_magic;
+	unsigned	magic;
+#define VSB_MAGIC	0x4a82dd8a
 	char		*s_buf;		/* storage buffer */
 	int		 s_error;	/* current error code */
 	ssize_t		 s_size;	/* size of storage buffer */
@@ -50,10 +51,6 @@ struct vsb {
 #define	VSB_DYNSTRUCT	0x00080000	/* vsb must be freed */
 	int		 s_flags;	/* flags */
 };
-
-#ifndef __printflike
-#define __printflike(a,b)
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,8 +77,8 @@ int		 VSB_putc(struct vsb *, int);
 int		 VSB_trim(struct vsb *);
 int		 VSB_error(const struct vsb *);
 int		 VSB_finish(struct vsb *);
-char		*VSB_data(struct vsb *);
-ssize_t		 VSB_len(struct vsb *);
+char		*VSB_data(const struct vsb *);
+ssize_t		 VSB_len(const struct vsb *);
 int		 VSB_done(const struct vsb *);
 void		 VSB_delete(struct vsb *);
 void		 VSB_quote(struct vsb *s, const char *p, int len, int how);

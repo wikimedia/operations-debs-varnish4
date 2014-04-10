@@ -4,16 +4,20 @@ SUBDIRS = \
 	libvarnishcompat \
 	libvarnish \
 	libvarnishapi \
-	libvcl \
+	libvarnishtools \
+	libvcc \
 	libvgz \
+	libvmod_debug \
 	libvmod_std \
-	@JEMALLOC_SUBDIR@
+	libvmod_directors
 
 DIST_SUBDIRS = 	\
 	libvarnishcompat \
 	libvarnish \
 	libvarnishapi \
-	libvcl \
+	libvarnishtools \
+	libvcc \
 	libvgz \
+	libvmod_debug \
 	libvmod_std \
-	libjemalloc
+	libvmod_directors

@@ -1,13 +1,14 @@
-varnishtest "#1175 - -smalloc c_fail incremented by bytes"
+varnishtest "#1175 - -smalloc c_fail incremented by allocations, not bytes"
 
 server s1 {
 	rxreq
 	txresp -nolen -hdr "Content-Length: 1048576"
 } -start
 
-varnish v1 -storage "-s test=malloc,1M" -vcl+backend {
-	sub vcl_fetch {
-		set beresp.storage = "test";
+varnish v1 -arg "-s test=malloc,1M" -vcl+backend {
+	sub vcl_backend_response {
+		set beresp.storage_hint = "test";
+		set beresp.do_stream = false;
 	}
 } -start
 

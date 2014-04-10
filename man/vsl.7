@@ -1,0 +1,703 @@
+.TH VSL  "" "" ""
+.SH NAME
+VSL \- Shared Memory Logging
+.\" Man page generated from reStructeredText.
+.
+.SH OVERVIEW
+.sp
+This document describes the format and content of all the Varnish shared memory
+logging tags. These tags are used by the varnishlog(1), varnishtop(1), etc.
+logging tools supplied with Varnish.
+.SS VSL tags
+.INDENT 0.0
+.TP
+.B Backend \- Backend selected
+Logged when a connection is selected for handling a backend request.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d %s %s
+|  |  |
+|  |  +\- Backend display name
+|  +\-\-\-\- VCL name
++\-\-\-\-\-\-\- Connection file descriptor
+.ft P
+.fi
+.TP
+.B BackendClose \- Backend connection closed
+Logged when a backend connection is closed.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d %s [ %s ]
+|  |    |
+|  |    +\- Optional reason
+|  +\-\-\-\-\-\- Backend display name
++\-\-\-\-\-\-\-\-\- Connection file descriptor
+.ft P
+.fi
+.TP
+.B BackendOpen \- Backend connection opened
+Logged when a new backend connection is opened.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d %s %s %s
+|  |  |  |
+|  |  |  +\- Remote port
+|  |  +\-\-\-\- Remote address
+|  +\-\-\-\-\-\-\- Backend display name
++\-\-\-\-\-\-\-\-\-\- Connection file descriptor
+.ft P
+.fi
+.TP
+.B BackendReuse \- Backend connection put up for reuse
+Logged when a backend connection is put up for reuse by a later connection.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d %s
+|  |
+|  +\- Backend display name
++\-\-\-\- Connection file descriptor
+.ft P
+.fi
+.TP
+.B Backend_health \- Backend health check
+The result of a backend health probe.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %s %s %u %u %u %f %f %s
+|  |  |  |  |  |  |  |  |
+|  |  |  |  |  |  |  |  +\- Probe HTTP response
+|  |  |  |  |  |  |  +\-\-\-\- Average response time
+|  |  |  |  |  |  +\-\-\-\-\-\-\- Response time
+|  |  |  |  |  +\-\-\-\-\-\-\-\-\-\- Probe window size
+|  |  |  |  +\-\-\-\-\-\-\-\-\-\-\-\-\- Probe threshold level
+|  |  |  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Number of good probes in window
+|  |  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Probe window bits
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Status message
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Backend name
+.ft P
+.fi
+.TP
+.B Begin \- Marks the start of a VXID
+The first record of a VXID transaction.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %d %s
+|  |  |
+|  |  +\- Reason
+|  +\-\-\-\- Parent vxid
++\-\-\-\-\-\-\- Type ("sess", "req" or "bereq")
+.ft P
+.fi
+.TP
+.B BereqAcct \- Backend request accounting
+Contains byte counters from backend request processing.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d %d %d %d %d %d
+|  |  |  |  |  |
+|  |  |  |  |  +\- Total bytes received
+|  |  |  |  +\-\-\-\- Body bytes received
+|  |  |  +\-\-\-\-\-\-\- Header bytes received
+|  |  +\-\-\-\-\-\-\-\-\-\- Total bytes transmitted
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\- Body bytes transmitted
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Header bytes transmitted
+.ft P
+.fi
+.TP
+.B BereqHeader \- Backend request header
+HTTP header contents.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s: %s
+|   |
+|   +\- Header value
++\-\-\-\-\- Header name
+.ft P
+.fi
+.TP
+.B BereqMethod \- Backend request method
+The HTTP request method used.
+.TP
+.B BereqProtocol \- Backend request protocol
+The HTTP protocol version information.
+.TP
+.B BereqURL \- Backend request URL
+The HTTP request URL.
+.TP
+.B BerespHeader \- Backend response header
+HTTP header contents.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s: %s
+|   |
+|   +\- Header value
++\-\-\-\-\- Header name
+.ft P
+.fi
+.TP
+.B BerespProtocol \- Backend response protocol
+The HTTP protocol version information.
+.TP
+.B BerespResponse \- Backend response response
+The HTTP response string received.
+.TP
+.B BerespStatus \- Backend response status
+The HTTP status code received.
+.TP
+.B BogoHeader \- Bogus HTTP received
+Contains the first 20 characters of received HTTP headers we could not make sense of.  Applies to both req.http and beresp.http.
+.TP
+.B CLI \- CLI communication
+CLI communication between varnishd master and child process.
+.TP
+.B Debug \- Debug messages
+Debug messages can normally be ignored, but are sometimes helpful during trouble\-shooting.  Most debug messages must be explicitly enabled with parameters.
+.TP
+.B ESI_BodyBytes \- ESI body fragment byte counter
+Contains the body byte count for this ESI body fragment. This number does not include any transfer encoding overhead.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d
+|
++\- Body bytes
+.ft P
+.fi
+.TP
+.B ESI_xmlerror \- ESI parser error or warning message
+An error or warning was generated during parsing of an ESI object. The log record describes the problem encountered.
+.TP
+.B End \- Marks the end of a VXID
+The last record of a VXID transaction.
+.TP
+.B Error \- Error messages
+Error messages are stuff you probably want to know.
+.TP
+.B ExpBan \- Object evicted due to ban
+Logs the VXID when an object is banned.
+.TP
+.B ExpKill \- Object expiry event
+Logs events related to object expiry. The events are:
+.INDENT 7.0
+.TP
+.B EXP_Rearm
+Logged when the expiry time of an object changes.
+.TP
+.B EXP_Inbox
+Logged when the expiry thread picks an object from the inbox for processing.
+.TP
+.B EXP_Kill
+Logged when the expiry thread kills an object from the inbox.
+.TP
+.B EXP_When
+Logged when the expiry thread moves an object on the binheap.
+.TP
+.B EXP_Expired
+Logged when the expiry thread expires an object.
+.TP
+.B LRU_Cand
+Logged when an object is evaluated for LRU force expiry.
+.TP
+.B LRU
+Logged when an object is force expired due to LRU.
+.TP
+.B LRU_Fail
+Logged when no suitable candidate object is found for LRU force expiry.
+.UNINDENT
+.sp
+The format is:
+.sp
+.nf
+.ft C
+EXP_Rearm p=%p E=%f e=%f f=0x%x
+EXP_Inbox p=%p e=%f f=0x%x
+EXP_Kill p=%p e=%f f=0x%x
+EXP_When p=%p e=%f f=0x%x
+EXP_Expired x=%u t=%f
+LRU_Cand p=%p f=0x%x r=%d
+LRU x=%u
+LRU_Fail
+
+Legend:
+p=%p         Objcore pointer
+t=%f         Remaining TTL (s)
+e=%f         Expiry time (unix epoch)
+E=%f         Old expiry time (unix epoch)
+f=0x%x       Objcore flags
+r=%d         Objcore refcount
+x=%u         Object VXID
+.ft P
+.fi
+.TP
+.B FetchError \- Error while fetching object
+Logs the error message of a failed fetch operation.
+.TP
+.B Fetch_Body \- Body fetched from backend
+Ready to fetch body from backend.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d (%s) %s
+|   |    |
+|   |    +\-\-\-\- \(aqstream\(aq or \(aq\-\(aq
+|   +\-\-\-\-\-\-\-\-\- Text description of body fetch mode
++\-\-\-\-\-\-\-\-\-\-\-\-\- Body fetch mode
+.ft P
+.fi
+.TP
+.B Gzip \- G(un)zip performed on object
+A Gzip record is emitted for each instance of gzip or gunzip work performed. Worst case, an ESI transaction stored in gzip\(aqed objects but delivered gunziped, will run into many of these.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%c %c %c %d %d %d %d %d
+|  |  |  |  |  |  |  |
+|  |  |  |  |  |  |  +\- Bit length of compressed data
+|  |  |  |  |  |  +\-\-\-\- Bit location of \(aqlast\(aq bit
+|  |  |  |  |  +\-\-\-\-\-\-\- Bit location of first deflate block
+|  |  |  |  +\-\-\-\-\-\-\-\-\-\- Bytes output
+|  |  |  +\-\-\-\-\-\-\-\-\-\-\-\-\- Bytes input
+|  |  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- \(aqE\(aq: ESI, \(aq\-\(aq: Plain object
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- \(aqF\(aq: Fetch, \(aqD\(aq: Deliver
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- \(aqG\(aq: Gzip, \(aqU\(aq: Gunzip, \(aqu\(aq: Gunzip\-test
+.ft P
+.fi
+.sp
+Examples:
+.sp
+.nf
+.ft C
+U F E 182 159 80 80 1392
+G F E 159 173 80 1304 1314
+.ft P
+.fi
+.TP
+.B Hash \- Value added to hash
+This value was added to the object lookup hash.
+.sp
+NB: This log record is masked by default.
+.TP
+.B Hit \- Hit object in cache
+Object looked up in cache. Shows the VXID of the object.
+.TP
+.B HitPass \- Hit for pass object in cache.
+Hit\-for\-pass object looked up in cache. Shows the VXID of the hit\-for\-pass object.
+.TP
+.B HttpGarbage \- Unparseable HTTP request
+Logs the content of unparseable HTTP requests.
+.TP
+.B Length \- Size of object body
+Logs the size of a fetch object body.
+.TP
+.B Link \- Links to a child VXID
+Links this VXID to any child VXID it initiates.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %d %s
+|  |  |
+|  |  +\- Reason
+|  +\-\-\-\- Child vxid
++\-\-\-\-\-\-\- Child type ("req" or "bereq")
+.ft P
+.fi
+.TP
+.B LostHeader \- Failed attempt to set HTTP header
+Logs the header name of a failed HTTP header operation due to resource exhaustion or configured limits.
+.TP
+.B ObjHeader \- Object  header
+HTTP header contents.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s: %s
+|   |
+|   +\- Header value
++\-\-\-\-\- Header name
+.ft P
+.fi
+.TP
+.B ObjProtocol \- Object  protocol
+The HTTP protocol version information.
+.TP
+.B ObjResponse \- Object  response
+The HTTP response string received.
+.TP
+.B ObjStatus \- Object  status
+The HTTP status code received.
+.TP
+.B PipeAcct \- Pipe byte counts
+Contains byte counters for pipe sessions.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d %d %d %d
+|  |  |  |
+|  |  |  +\-\-\-\-\-\-\- Piped bytes to client
+|  |  +\-\-\-\-\-\-\-\-\-\- Piped bytes from client
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\- Backend request headers
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Client request headers
+.ft P
+.fi
+.TP
+.B ReqAcct \- Request handling byte counts
+Contains byte counts for the request handling. This record is not logged for ESI sub\-requests, but the sub\-requests\(aq response body count is added to the main request.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%d %d %d %d %d %d
+|  |  |  |  |  |
+|  |  |  |  |  +\- Total bytes transmitted
+|  |  |  |  +\-\-\-\- Body bytes transmitted
+|  |  |  +\-\-\-\-\-\-\- Header bytes transmitted
+|  |  +\-\-\-\-\-\-\-\-\-\- Total bytes received
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\- Body bytes received
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Header bytes received
+.ft P
+.fi
+.TP
+.B ReqHeader \- Client request header
+HTTP header contents.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s: %s
+|   |
+|   +\- Header value
++\-\-\-\-\- Header name
+.ft P
+.fi
+.TP
+.B ReqMethod \- Client request method
+The HTTP request method used.
+.TP
+.B ReqProtocol \- Client request protocol
+The HTTP protocol version information.
+.TP
+.B ReqStart \- Client request start
+Start of request processing. Logs the client IP address and port number.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %s
+|  |
+|  +\- Port number
++\-\-\-\- IP address
+.ft P
+.fi
+.TP
+.B ReqURL \- Client request URL
+The HTTP request URL.
+.TP
+.B RespHeader \- Client response header
+HTTP header contents.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s: %s
+|   |
+|   +\- Header value
++\-\-\-\-\- Header name
+.ft P
+.fi
+.TP
+.B RespProtocol \- Client response protocol
+The HTTP protocol version information.
+.TP
+.B RespResponse \- Client response response
+The HTTP response string received.
+.TP
+.B RespStatus \- Client response status
+The HTTP status code received.
+.TP
+.B SessClose \- Client connection closed
+SessionClose is the last record for any client connection.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %f
+|  |
+|  +\- How long the session was open
++\-\-\-\- Why the connection closed
+.ft P
+.fi
+.TP
+.B SessOpen \- Client connection opened
+The first record for a client connection, with the socket\-endpoints of the connection.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %d %s %s %s %d
+|  |  |  |  |  |
+|  |  |  |  |  +\- File descriptor number
+|  |  |  |  +\-\-\-\- Local TCP port (\(aq\-\(aq if !$log_local_addr)
+|  |  |  +\-\-\-\-\-\-\- Local IPv4/6 address (\(aq\-\(aq if !$log_local_addr)
+|  |  +\-\-\-\-\-\-\-\-\-\- Listen socket
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\- Client TCP socket
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Client IPv4/6 address
+.ft P
+.fi
+.TP
+.B Storage \- Where object is stored
+Type and name of the storage backend the object is stored in.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %s
+|  |
+|  +\- Name of storage backend
++\-\-\-\- Type ("malloc", "file", "persistent" etc.)
+.ft P
+.fi
+.TP
+.B TTL \- TTL set on object
+A TTL record is emitted whenever the ttl, grace or keep values for an object is set.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %d %d %d %d %d [ %d %u %u ]
+|  |  |  |  |  |    |  |  |
+|  |  |  |  |  |    |  |  +\- Max\-Age from Cache\-Control header
+|  |  |  |  |  |    |  +\-\-\-\- Expires header
+|  |  |  |  |  |    +\-\-\-\-\-\-\- Date header
+|  |  |  |  |  +\-\-\-\-\-\-\-\-\-\-\-\- Age (incl Age: header value)
+|  |  |  |  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Reference time for TTL
+|  |  |  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Keep
+|  |  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Grace
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- TTL
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- "RFC" or "VCL"
+.ft P
+.fi
+.sp
+The last four fields are only present in "RFC" headers.
+.sp
+Examples:
+.sp
+.nf
+.ft C
+RFC 19 \-1 \-1 1312966109 4 0 0 23
+VCL 10 \-1 \-1 1312966109 4
+VCL 7 \-1 \-1 1312966111 6
+VCL 7 120 \-1 1312966111 6
+VCL 7 120 3600 1312966111 6
+VCL 12 120 3600 1312966113 8
+.ft P
+.fi
+.TP
+.B Timestamp \- Timing information
+Contains timing information for the Varnish worker threads.
+.sp
+Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s: %f %f %f
+|   |  |  |
+|   |  |  +\- Time since last timestamp
+|   |  +\-\-\-\- Time since start of work unit
+|   +\-\-\-\-\-\-\- Absolute time of event
++\-\-\-\-\-\-\-\-\-\-\- Event label
+.ft P
+.fi
+.TP
+.B VCL_Error \- VCL execution error message
+Logs error messages generated during VCL execution.
+.TP
+.B VCL_Log \- Log statement from VCL
+User generated log messages insert from VCL through std.log()
+.TP
+.B VCL_acl \- VSL ACL check results
+Logs VCL ACL evaluation results.
+.TP
+.B VCL_call \- VCL method called
+Logs the VCL method name when a VCL method is called.
+.TP
+.B VCL_return \- VCL method return value
+Logs the VCL method terminating statement.
+.TP
+.B VCL_trace \- VCL trace data
+Logs VCL execution trace data.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%u %u.%u
+|  |  |
+|  |  +\- VCL program line position
+|  +\-\-\-\- VCL program line number
++\-\-\-\-\-\-\- VCL trace point index
+.ft P
+.fi
+.sp
+NB: This log record is masked by default.
+.TP
+.B VSL \- VSL API warnings and error message
+Warnings and error messages genererated by the VSL API while reading the shared memory log.
+.TP
+.B WorkThread \- Logs thread start/stop events
+Logs worker thread creation and termination events.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%p %s
+|  |
+|  +\- [start|end]
++\-\-\-\- Worker struct pointer
+.ft P
+.fi
+.sp
+NB: This log record is masked by default.
+.UNINDENT
+.SH TIMESTAMPS
+.sp
+Timestamps are inserted in the log on completing certain events during
+the worker thread\(aqs task handling. The timestamps has a label showing
+which event was completed. The reported fields show the absolute time
+of the event, the time spent since the start of the task and the time
+spent since the last timestamp was logged.
+.sp
+The timestamps logged automatically by Varnish are inserted after
+completing events that are expected to have delays (e.g. network IO or
+spending time on a waitinglist). Timestamps can also be inserted from
+VCL using the std.timestamp() method. If one is doing time consuming
+tasks in the VCL configuration, it\(aqs a good idea to log a timestamp
+after completing that task. This keeps the timing information in
+subsequent timestamps from including the time spent on the VCL event.
+.SS Request handling timestamps
+.INDENT 0.0
+.TP
+.B Start
+The start of request processing (first byte received or
+restart).
+.TP
+.B Req
+Complete client request received.
+.TP
+.B ReqBody
+Client request body processed (discarded, cached or passed to
+the backend).
+.TP
+.B Waitinglist
+Came off waitinglist.
+.TP
+.B Fetch
+Fetch processing finished (completely fetched or ready for
+streaming).
+.TP
+.B Process
+Processing finished, ready to deliver the client response.
+.TP
+.B Resp
+Delivery of response to the client finished.
+.TP
+.B Restart
+Client request is being restarted.
+.UNINDENT
+.SS Pipe handling timestamps
+.INDENT 0.0
+.TP
+.B Pipe
+Opened a pipe to the backend and forwarded the request.
+.TP
+.B PipeSess
+The pipe session has finished.
+.UNINDENT
+.SS Backend fetch timestamps
+.INDENT 0.0
+.TP
+.B Start
+Start of the backend fetch processing.
+.TP
+.B Bereq
+Backend request sent.
+.TP
+.B Beresp
+Backend response headers received.
+.TP
+.B BerespBody
+Backend response body received.
+.TP
+.B Retry
+Backend request is being retried.
+.TP
+.B Error
+Backend request failed to vcl_error.
+.UNINDENT
+.SH HISTORY
+.sp
+This document was initially written by Poul\-Henning Kamp, and later updated by
+Martin Blix Grydeland.
+.SH SEE ALSO
+.INDENT 0.0
+.IP \(bu 2
+varnishlog(1)
+.IP \(bu 2
+varnishhist(1)
+.IP \(bu 2
+varnishncsa(1)
+.IP \(bu 2
+varnishtop(1)
+.UNINDENT
+.\" Generated by docutils manpage writer.
+.\" 
+.

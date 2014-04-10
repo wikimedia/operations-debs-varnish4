@@ -6,10 +6,10 @@ server s1 {
 	txresp -status 200 -body "1"
 } -start
 
-varnish v1 -vcl+backend { 
+varnish v1 -vcl+backend {
 	sub vcl_recv {
 		if (req.http.etag == req.http.if-none-match) {
-			error 400 "FOO";
+			return(synth(400,"FOO"));
 		}
 	}
 } -start
