@@ -4,6 +4,7 @@ Description=Varnish HTTP accelerator log daemon
 [Service]
 User=varnishlog
 ExecStart=/usr/bin/varnishncsa -a -w /var/log/varnish/varnishncsa.log
+ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
 WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-/var/log/varnish/varnish.log /var/log/varnish/varnishncsa.log {
+/var/log/varnish/varnish.log {
   daily
   rotate 7
   missingok
@@ -6,10 +6,18 @@
   delaycompress
   missingok
   postrotate
-    for service in varnishlog varnishncsa; do
-      if /usr/bin/pgrep -P 1 $service >/dev/null; then
-        /usr/sbin/invoke-rc.d $service reload > /dev/null
-      fi
-    done
+    /usr/sbin/invoke-rc.d varnishlog reload > /dev/null
+  endscript
+}
+
+/var/log/varnish/varnishncsa.log {
+  daily
+  rotate 7
+  missingok
+  compress
+  delaycompress
+  missingok
+  postrotate
+    /usr/sbin/invoke-rc.d varnishncsa reload > /dev/null
   endscript
 }
