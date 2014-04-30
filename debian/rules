@@ -47,6 +47,9 @@ override_dh_install:
 		$(CURDIR)/debian/reload-vcl \
 		$(CURDIR)/debian/varnish/usr/share/varnish/reload-vcl
 
+override_dh_installchangelogs:
+	dh_installchangelogs -XChangeLog doc/changes.html
+
 override_dh_installdocs:
 	dh_installdocs
 	@ # Use the packaged javascript libraries
