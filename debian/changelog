@@ -1,3 +1,13 @@
+varnish (4.0.0-2) unstable; urgency=medium
+
+  * Reload varnishlog/varnishnsca properly on logrotate (Closes: #676491)
+  * Install new upstream changelog (Closes: #745892)
+  * Add upstream patch to build on kFreeBSD (Closes: #744199)
+  * Ensure varnish starts before the logging daemons
+  * debian/test: make better tests
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 13 May 2014 15:04:56 +0200
+
 varnish (4.0.0-1) unstable; urgency=medium
 
   * Imported Upstream version 4.0.0
