@@ -1,5 +1,6 @@
 [Unit]
 Description=Varnish HTTP accelerator log daemon
+After=varnish.service
 
 [Service]
 User=varnishlog
