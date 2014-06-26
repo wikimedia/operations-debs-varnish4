@@ -1,3 +1,10 @@
+varnish (4.0.0-3) UNRELEASED; urgency=medium
+
+  * [5bdad65] Ensure header files end up in /usr/include/varnish
+    (Closes: #745902)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Thu, 26 Jun 2014 15:30:13 +0200
+
 varnish (4.0.0-2) unstable; urgency=medium
 
   * Reload varnishlog/varnishnsca properly on logrotate (Closes: #676491)
