@@ -43,8 +43,8 @@
 #include "vsa.h"
 #include "vcc_if.h"
 
-VCL_DURATION __match_proto__()
-vmod_duration(const struct vrt_ctx *ctx, const char *p, VCL_DURATION d)
+VCL_DURATION __match_proto__(td_std_duration)
+vmod_duration(const struct vrt_ctx *ctx, VCL_STRING p, VCL_DURATION d)
 {
 	char *e;
 	double r;
@@ -86,6 +86,7 @@ vmod_duration(const struct vrt_ctx *ctx, const char *p, VCL_DURATION d)
 	case 'h': r *= 60.*60.; break;
 	case 'd': r *= 60.*60.*24.; break;
 	case 'w': r *= 60.*60.*24.*7.; break;
+	case 'y': r *= 60.*60.*24.*365.; break;
 	default:
 		return (d);
 	}
@@ -99,8 +100,8 @@ vmod_duration(const struct vrt_ctx *ctx, const char *p, VCL_DURATION d)
 	return (r);
 }
 
-VCL_INT __match_proto__()
-vmod_integer(const struct vrt_ctx *ctx, const char *p, VCL_INT i)
+VCL_INT __match_proto__(td_std_integer)
+vmod_integer(const struct vrt_ctx *ctx, VCL_STRING p, VCL_INT i)
 {
 	char *e;
 	long r;
@@ -120,10 +121,7 @@ vmod_integer(const struct vrt_ctx *ctx, const char *p, VCL_INT i)
 
 	r = strtol(p, &e, 0);
 
-	if (e == NULL)
-		return (i);
-
-	if (*e != '\0')
+	if (e == NULL || *e != '\0')
 		return (i);
 
 	return (r);
@@ -166,4 +164,58 @@ vmod_ip(const struct vrt_ctx *ctx, VCL_STRING s, VCL_IP d)
 	if (res0 != NULL)
 		freeaddrinfo(res0);
 	return (r);
+}
+
+VCL_REAL __match_proto__(td_std_real)
+vmod_real(const struct vrt_ctx *ctx, VCL_STRING p, VCL_REAL d)
+{
+	char *e;
+	double r;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	if (p == NULL)
+		return (d);
+
+	while (isspace(*p))
+		p++;
+
+	if (*p != '+' && *p != '-' && !isdigit(*p))
+		return (d);
+
+	e = NULL;
+
+	r = strtod(p, &e);
+
+	if (!isfinite(r))
+		return (d);
+
+	if (e == NULL || *e != '\0')
+		return (d);
+
+	return (r);
+}
+
+VCL_TIME __match_proto__(td_std_real2time)
+vmod_real2time(const struct vrt_ctx *ctx, VCL_REAL r)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	return (r);
+}
+
+VCL_INT __match_proto__(td_std_time2integer)
+vmod_time2integer(const struct vrt_ctx *ctx, VCL_TIME t)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	return (t);
+}
+
+VCL_REAL __match_proto__(td_std_time2real)
+vmod_time2real(const struct vrt_ctx *ctx, VCL_TIME t)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	return (t);
 }

@@ -289,11 +289,13 @@ const struct var vcc_vars[] = {
 	},
 	{ "req.esi", BOOL, 7,
 	    "VRT_r_req_esi(ctx)",
-		VCL_MET_BACKEND_RESPONSE | VCL_MET_DELIVER | VCL_MET_RECV
-		 | VCL_MET_SYNTH,
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
 	    "VRT_l_req_esi(ctx, ",
-		VCL_MET_BACKEND_RESPONSE | VCL_MET_DELIVER | VCL_MET_RECV
-		 | VCL_MET_SYNTH,
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
 	},
 	{ "req.esi_level", INT, 13,
 	    "VRT_r_req_esi_level(ctx)",

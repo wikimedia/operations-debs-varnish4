@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.0.0 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -1272,8 +1270,8 @@ This will likely be rounded up to a multiple of 4k (or whatever the page_size mi
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>Worker threads accumulate statistics, and dump these into the global stats counters if the lock is free when they finish a request.
-This parameters defines the maximum number of requests a worker thread may handle, before it is forced to dump its accumulated stats into the global counters.</p>
+<p>Worker threads accumulate statistics, and dump these into the global stats counters if the lock is free when they finish a job (request/fetch etc.)
+This parameters defines the maximum number of jobs a worker thread may handle, before it is forced to dump its accumulated stats into the global counters.</p>
 </div>
 <div class="section" id="timeout-idle">
 <span id="ref-param-timeout-idle"></span><h5>timeout_idle<a class="headerlink" href="#timeout-idle" title="Permalink to this headline">¶</a></h5>
@@ -1684,13 +1682,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>

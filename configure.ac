@@ -2,7 +2,7 @@ AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2006 Verdens Gang AS
 Copyright (c) 2006-2014 Varnish Software AS])
 AC_REVISION([$Id$])
-AC_INIT([Varnish], [4.0.0], [varnish-dev@varnish-cache.org])
+AC_INIT([Varnish], [4.0.1], [varnish-dev@varnish-cache.org])
 AC_CONFIG_SRCDIR(include/miniobj.h)
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -54,8 +54,8 @@ AC_PROG_MAKE_SET
 AC_ARG_WITH([rst2man],
   AS_HELP_STRING([--with-rst2man=PATH], [Location of rst2man (auto)]),
   [RST2MAN="$withval"],
-  AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py], []))
-if test -z "$RST2MAN"; then
+  AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py], [no]))
+if test "x$RST2MAN" = "xno"; then
   AC_MSG_ERROR(
     [rst2man is needed to build Varnish, please install python-docutils.])
 fi

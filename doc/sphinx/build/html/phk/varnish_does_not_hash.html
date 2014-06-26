@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Varnish Does Not Hash &mdash; Varnish version 4.0.0 documentation</title>
+    <title>Varnish Does Not Hash &mdash; Varnish version 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="The Tools We Work With" href="thetoolsweworkwith.html" />
     <link rel="prev" title="Why HTTP/2.0 does not seem interesting" href="http20.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="http20.html" title="Why HTTP/2.0 does not seem interesting"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
       </ul>
     </div>  
@@ -67,13 +65,14 @@ Shannon's information theory: &quot;entropy.&quot;</p>
 why Shannon recycled that term from thermodynamics.</p>
 <p>In this context, we can get away with thinking about entropy as how
 much our &quot;keys&quot; differ:</p>
-<div class="highlight-python"><pre>Low entropy (1 bit):
+<div class="highlight-python"><div class="highlight"><pre>Low entropy (1 bit):
         /foo/bar/barf/some/cms/content/article?article=2
         /foo/bar/barf/some/cms/content/article?article=3
 
 High entropy (65 bits):
         /i?ee30d0770eb460634e9d5dcfb562a2c5.html
-        /i?bca3633d52607f38a107cb5297fd66e5.html</pre>
+        /i?bca3633d52607f38a107cb5297fd66e5.html
+</pre></div>
 </div>
 <p>Hashing consists of calculating a hash-index from the key and
 storing the objects in an array indexed by that key.</p>
@@ -105,7 +104,7 @@ tree instead. There every object has its own place and there are no
 collisions.</p>
 <p>Varnish does that, but with a twist.</p>
 <p>The &quot;keys&quot; in Varnish can be very long; by default they consist of:</p>
-<div class="highlight-python"><pre>sub vcl_hash {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_hash {
     hash_data(req.url);
     if (req.http.host) {
         hash_data(req.http.host);
@@ -113,7 +112,8 @@ collisions.</p>
         hash_data(server.ip);
     }
     return (hash);
-}</pre>
+}
+</pre></div>
 </div>
 <p>But some users will add cookies, user identification and many other
 bits and pieces of string in there, and in the end the keys can be
@@ -143,17 +143,19 @@ SHA256, which, as the name says, always spits out 256 bits (= 32
 bytes), no matter how many bits you feed it.</p>
 <p>This does not eliminate the key-storage requirement, but now all
 the keys are 32 bytes and can be put directly into the data structure:</p>
-<div class="highlight-python"><pre>struct objhead {
+<div class="highlight-python"><div class="highlight"><pre>struct objhead {
         [...]
         unsigned char           digest[DIGEST_LEN];
-};</pre>
+};
+</pre></div>
 </div>
 <p>In the example above, the output of SHA256 for the 1 bit difference
 in entropy becomes:</p>
-<div class="highlight-python"><pre>/foo/bar/barf/some/cms/content/article?article=2
+<div class="highlight-python"><div class="highlight"><pre>/foo/bar/barf/some/cms/content/article?article=2
 -&gt; 14f0553caa5c796650ec82256e3f111ae2f20020a4b9029f135a01610932054e
 /foo/bar/barf/some/cms/content/article?article=3
--&gt; 4d45b9544077921575c3c5a2a14c779bff6c4830d1fbafe4bd7e03e5dd93ca05</pre>
+-&gt; 4d45b9544077921575c3c5a2a14c779bff6c4830d1fbafe4bd7e03e5dd93ca05
+</pre></div>
 </div>
 <p>That should be random enough.</p>
 <p>But the key-compression does introduce a risk of collisions, since
@@ -222,13 +224,13 @@ be the first person to find a SHA256 collision.</p>
         <li class="right" >
           <a href="http20.html" title="Why HTTP/2.0 does not seem interesting"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>

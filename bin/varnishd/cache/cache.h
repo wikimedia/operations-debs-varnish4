@@ -89,15 +89,10 @@ enum sess_close {
 #undef SESS_CLOSE
 };
 
-/*--------------------------------------------------------------------*/
-
-/*
- * NB: HDR_STATUS is only used in cache_http.c, everybody else uses the
- * http->status integer field.
+/*--------------------------------------------------------------------
+ * Indicies into http->hd[]
  */
-
 enum {
-	/* Fields from the first line of HTTP proto */
 #define SLTH(tag, ind, req, resp, sdesc, ldesc)	ind,
 #include "tbl/vsl_tags_http.h"
 #undef SLTH
@@ -186,19 +181,23 @@ struct http {
 	unsigned		magic;
 #define HTTP_MAGIC		0x6428b5c9
 
-	enum VSL_tag_e		logtag;		/* Must be SLT_*Method */
-	struct vsl_log		*vsl;
-
-	struct ws		*ws;
+	uint16_t		shd;		/* Size of hd space */
 	txt			*hd;
 	unsigned char		*hdf;
 #define HDF_FILTER		(1 << 0)	/* Filtered by Connection */
 #define HDF_MARKER		(1 << 1)	/* Marker bit */
-	uint16_t		shd;		/* Size of hd space */
+
+	/* NB: ->nhd and below zeroed/initialized by http_Teardown */
 	uint16_t		nhd;		/* Next free hd */
+
+	enum VSL_tag_e		logtag;		/* Must be SLT_*Method */
+	struct vsl_log		*vsl;
+
+	struct ws		*ws;
 	uint16_t		status;
 	uint8_t			protover;
 	uint8_t			conds;		/* If-* headers present */
+	uint8_t			failed;		/* usually: ws-alloc failed */
 };
 
 /*--------------------------------------------------------------------
@@ -237,7 +236,7 @@ struct acct_req {
 /*--------------------------------------------------------------------*/
 
 struct acct_bereq {
-#define ACCT(foo)	ssize_t		foo;
+#define ACCT(foo)	uint64_t	foo;
 #include "tbl/acct_fields_bereq.h"
 #undef ACCT
 };
@@ -248,6 +247,7 @@ struct acct_bereq {
 #define L1(t, n)		t n;
 #define VSC_F(n,t,l,f,v,e,d)	L##l(t, n)
 struct dstat {
+	unsigned		summs;
 #include "tbl/vsc_f_main.h"
 };
 #undef VSC_F
@@ -532,7 +532,6 @@ struct busyobj {
 	 */
 	unsigned		refcount;
 	int			retries;
-	double			t_fetch;
 	struct req		*req;
 
 	uint8_t			*vary;
@@ -666,6 +665,7 @@ struct req {
 
 	unsigned char		wantbody;
 	uint64_t		req_bodybytes;	/* Parsed req bodybytes */
+	intptr_t		chunk_ctr;	/* Parsed req bodybytes */
 
 	uint64_t		resp_hdrbytes;	/* Scheduled resp hdrbytes */
 	uint64_t		resp_bodybytes; /* Scheduled resp bodybytes */
@@ -858,6 +858,16 @@ void HTTP1_Session(struct worker *, struct req *);
 int HTTP1_DiscardReqBody(struct req *req);
 int HTTP1_CacheReqBody(struct req *req, ssize_t maxsize);
 int HTTP1_IterateReqBody(struct req *req, req_body_iter_f *func, void *priv);
+extern const int HTTP1_Req[3];
+extern const int HTTP1_Resp[3];
+enum http1_chunked_ret {
+	H1CR_ERROR,
+	H1CR_MORE,
+	H1CR_END,
+};
+enum http1_chunked_ret
+HTTP1_Chunked(struct http_conn *htc, intptr_t *priv, const char **error,
+    uint64_t *statp, void *ptr, ssize_t *lp);
 
 /* cache_http1_deliver.c */
 unsigned V1D_FlushReleaseAcct(struct req *req);
@@ -980,23 +990,19 @@ void VGZ_WrwFlush(struct req *, struct vgz *vg);
 unsigned HTTP_estimate(unsigned nhttp);
 void HTTP_Copy(struct http *to, const struct http * const fm);
 struct http *HTTP_create(void *p, uint16_t nhttp);
-const char *http_StatusMessage(unsigned);
+const char *http_Status2Reason(unsigned);
 unsigned http_EstimateWS(const struct http *fm, unsigned how, uint16_t *nhd);
 void HTTP_Init(void);
-void http_ClrHeader(struct http *to);
-void http_SetResp(struct http *to, const char *proto, uint16_t status,
+void http_PutResponse(struct http *to, const char *proto, uint16_t status,
     const char *response);
 void http_FilterReq(struct http *to, const struct http *fm, unsigned how);
 void http_FilterResp(const struct http *fm, struct http *to, unsigned how);
-void http_PutProtocol(const struct http *to, const char *protocol);
-void http_PutStatus(struct http *to, uint16_t status);
 void http_ForceHeader(struct http *to, const char *hdr, const char *val);
-void http_PutResponse(const struct http *to, const char *response);
 void http_PrintfHeader(struct http *to, const char *fmt, ...)
     __printflike(2, 3);
 void http_SetHeader(struct http *to, const char *hdr);
 void http_SetH(const struct http *to, unsigned n, const char *fm);
-void http_ForceGet(const struct http *to);
+void http_ForceField(const struct http *to, unsigned n, const char *t);
 void HTTP_Setup(struct http *, struct ws *, struct vsl_log *, enum VSL_tag_e);
 void http_Teardown(struct http *ht);
 int http_GetHdr(const struct http *hp, const char *hdr, char **ptr);
@@ -1006,11 +1012,12 @@ int http_GetHdrField(const struct http *hp, const char *hdr,
     const char *field, char **ptr);
 double http_GetHdrQ(const struct http *hp, const char *hdr, const char *field);
 uint16_t http_GetStatus(const struct http *hp);
+void http_SetStatus(struct http *to, uint16_t status);
 const char *http_GetReq(const struct http *hp);
 int http_HdrIs(const struct http *hp, const char *hdr, const char *val);
 int http_IsHdr(const txt *hh, const char *hdr);
 enum sess_close http_DoConnection(const struct http *);
-void http_CopyHome(const struct http *hp);
+void http_CopyHome(struct http *hp);
 void http_Unset(struct http *hp, const char *hdr);
 void http_CollectHdr(struct http *hp, const char *hdr);
 void http_VSL_log(const struct http *hp);
@@ -1034,7 +1041,7 @@ ssize_t HTTP1_Read(struct http_conn *htc, void *d, size_t len);
 enum htc_status_e HTTP1_Complete(struct http_conn *htc);
 uint16_t HTTP1_DissectRequest(struct req *);
 uint16_t HTTP1_DissectResponse(struct http *sp, const struct http_conn *htc);
-unsigned HTTP1_Write(const struct worker *w, const struct http *hp, int resp);
+unsigned HTTP1_Write(const struct worker *w, const struct http *hp, const int*);
 
 #define HTTPH(a, b, c) extern char b[];
 #include "tbl/http_headers.h"
@@ -1108,6 +1115,8 @@ void Pool_Init(void);
 void Pool_Accept(void);
 void Pool_Work_Thread(void *priv, struct worker *w);
 int Pool_Task(struct pool *pp, struct pool_task *task, enum pool_how how);
+void Pool_Sumstat(struct worker *w);
+void Pool_PurgeStat(unsigned nobj);
 
 #define WRW_IsReleased(w)	((w)->wrw == NULL)
 int WRW_Error(const struct worker *w);
@@ -1115,7 +1124,7 @@ void WRW_Chunked(const struct worker *w);
 void WRW_EndChunk(const struct worker *w);
 void WRW_Reserve(struct worker *w, int *fd, struct vsl_log *, double t0);
 unsigned WRW_Flush(const struct worker *w);
-unsigned WRW_FlushRelease(struct worker *w, ssize_t *pacc);
+unsigned WRW_FlushRelease(struct worker *w, uint64_t *pacc);
 unsigned WRW_Write(const struct worker *w, const void *ptr, int len);
 unsigned WRW_WriteH(const struct worker *w, const txt *hh, const char *suf);
 
@@ -1217,9 +1226,6 @@ void WAIT_Write_Session(struct sess *sp, int fd);
 
 /* cache_wrk.c */
 
-void WRK_Init(void);
-int WRK_TrySumStat(struct worker *w);
-void WRK_SumStat(struct worker *w);
 void *WRK_thread(void *priv);
 typedef void *bgthread_t(struct worker *, void *priv);
 void WRK_BgThread(pthread_t *thr, const char *name, bgthread_t *func,
@@ -1240,7 +1246,7 @@ int WS_Overflowed(const struct ws *ws);
 void *WS_Printf(struct ws *ws, const char *fmt, ...) __printflike(2, 3);
 
 /* rfc2616.c */
-void RFC2616_Ttl(struct busyobj *);
+void RFC2616_Ttl(struct busyobj *, double now);
 enum body_status RFC2616_Body(struct busyobj *, struct dstat *);
 unsigned RFC2616_Req_Gzip(const struct http *);
 int RFC2616_Do_Cond(const struct req *sp);

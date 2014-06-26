@@ -1,0 +1,36 @@
+varnishtest "Test std.querysort"
+
+server s1 -repeat 5 {
+	rxreq
+	txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import ${vmod_std};
+
+	sub vcl_deliver {
+		set resp.http.url = std.querysort(req.url);
+	}
+} -start
+
+client c1 {
+	txreq -url "/foo/bar?t=0&b=0&p=0&c=5"
+	rxresp
+	expect resp.http.url == "/foo/bar?b=0&c=5&p=0&t=0"
+
+	txreq -url "/foo/bar?coa=0&co=0"
+	rxresp
+	expect resp.http.url == "/foo/bar?co=0&coa=0"
+
+	txreq -url "/foo/bar?a=0&&&&&"
+	rxresp
+	expect resp.http.url == "/foo/bar?a=0"
+
+	txreq -url "/foo/bar?&"
+	rxresp
+	expect resp.http.url == "/foo/bar?"
+
+	txreq -url "/foo/bar"
+	rxresp
+	expect resp.http.url == "/foo/bar"
+} -run

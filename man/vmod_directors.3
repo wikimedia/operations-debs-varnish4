@@ -1,4 +1,4 @@
-.\" Man page generated from reStructeredText.
+.\" Man page generated from reStructuredText.
 .
 .TH VMOD_DIRECTORS 3 "" "" ""
 .SH NAME
@@ -30,38 +30,58 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
+.\" 
+.
+.\" NB:  This file is machine generated, DO NOT EDIT!
+.
+.\" 
+.
+.\" Edit vmod.vcc and run make instead
+.
+.\" 
+.
 .SH SYNOPSIS
 .sp
 import directors [from "path"] ;
 .SH DESCRIPTION
 .sp
-Vmod_directors enables load balancing in Varnish. The module serves
-as an example on how one could extend the load balancing capabilities
-of Varnish.
+\fIvmod_directors\fP enables backend load balancing in Varnish.
+.sp
+The module implements a set of basic load balancing techniques, and
+also serves as an example on how one could extend the load balancing
+capabilities of Varnish.
 .sp
 To enable load balancing you must import this vmod (directors) in your
 VCL::
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
 import directors;
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
 Then you define your backends. Once you have the backends declared you
 can add them to a director. This happens in executed VCL code. If you
 want to emulate the previous behavior of Varnish 3.0 you can just
 initialize the directors in vcl_init, like this::
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
 sub vcl_init {
-    new bar = directors.round_robin();
-    bar.add_backend(server1);
-    bar.add_backend(server2);
+    new vdir = directors.round_robin();
+    vdir.add_backend(backend1);
+    vdir.add_backend(backend2);
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
 As you can see there is nothing keeping you from manipulating the
 directors elsewhere in VCL. So, you could have VCL code that would
@@ -99,11 +119,12 @@ BACKEND round_robin.backend()
 .INDENT 0.0
 .TP
 .B Description
-Create a round robin director. This director will pick backends
-in a round robin fashion.
+Create a round robin director.
+.sp
+This director will pick backends in a round robin fashion.
 .TP
 .B Example
-new bar = directors.round_robin();
+new vdir = directors.round_robin();
 .UNINDENT
 .SS VOID round_robin.add_backend(BACKEND)
 .INDENT 0.0
@@ -112,10 +133,11 @@ new bar = directors.round_robin();
 VOID round_robin.add_backend(BACKEND)
 .TP
 .B Description
-Adds a backend to the director.
+Add a backend to the round\-robin director.
 .TP
 .B Example
-rrdir.add_backend(backend1);
+vdir.add_backend(backend1);
+vdir.add_backend(backend2);
 .UNINDENT
 .SS BACKEND round_robin.backend()
 .INDENT 0.0
@@ -124,23 +146,22 @@ rrdir.add_backend(backend1);
 BACKEND round_robin.backend()
 .TP
 .B Description
-Picks a backend from the director.
+Pick a backend from the director.
 .TP
 .B Example
-set req.backend_hint = rrdir.backend();
+set req.backend_hint = vdir.backend();
 .UNINDENT
 .SH OBJECT FALLBACK
 .INDENT 0.0
 .TP
 .B Description
-Creates a fallback director.
-.UNINDENT
+Create a fallback director.
 .sp
-#       XXX: Add description of fallback director.
-.INDENT 0.0
+A fallback director will try each of the added backends in turn,
+and return the first one that is healthy.
 .TP
 .B Example
-new foo = directors.fallback();
+new vdir = directors.fallback();
 .UNINDENT
 .SS VOID fallback.add_backend(BACKEND)
 .INDENT 0.0
@@ -149,10 +170,14 @@ new foo = directors.fallback();
 VOID fallback.add_backend(BACKEND)
 .TP
 .B Description
-Adds a backend to the director.
+Add a backend to the director.
+.sp
+Note that the order in which this is done matters for the fallback
+director.
 .TP
 .B Example
-bar.add_backend(backend1);
+vdir.add_backend(backend1);
+vdir.add_backend(backend2);
 .UNINDENT
 .SS BACKEND fallback.backend()
 .INDENT 0.0
@@ -161,24 +186,22 @@ bar.add_backend(backend1);
 BACKEND fallback.backend()
 .TP
 .B Description
-Picks a backend from the director.
+Pick a backend from the director.
 .TP
 .B Example
-set req.backend_hint = rrdir.backend();
+set req.backend_hint = vdir.backend();
 .UNINDENT
 .SH OBJECT RANDOM
 .INDENT 0.0
 .TP
 .B Description
-Adds a random director. This director chooses backend based on
-a random number. As you add backends to the director each
-backends gets a weight, which is used to when requests are
-being distributed. So, a backend with a weight of 1 would get
-more or less 1% of the traffic of a backend in the same
-director with a weight of 100.
+Create a random backend director.
+.sp
+The random director distributes load over the backends using
+a weighted random probability distribution.
 .TP
 .B Example
-new rand_dir = directors.random();
+new vdir = directors.random();
 .UNINDENT
 .SS VOID random.add_backend(BACKEND, REAL)
 .INDENT 0.0
@@ -187,10 +210,16 @@ new rand_dir = directors.random();
 VOID random.add_backend(BACKEND, REAL)
 .TP
 .B Description
-Adds a backend to the director with weight.
+Add a backend to the director with a given weight.
+.sp
+Each backend backend will receive approximately
+100 * (weight / (sum(all_added_weights))) per cent of the traffic sent
+to this director.
 .TP
 .B Example
-bar.add_backend(backend1, 3.14);
+vdir.add_backend(backend1, 10);
+vdir.add_backend(backend2, 5);
+# 2/3 to backend1, 1/3 to backend2.
 .UNINDENT
 .SS BACKEND random.backend()
 .INDENT 0.0
@@ -199,22 +228,25 @@ bar.add_backend(backend1, 3.14);
 BACKEND random.backend()
 .TP
 .B Description
-Picks a backend from the director.
+Pick a backend from the director.
 .TP
 .B Example
-set req.backend_hint = rrdir.backend();
+set req.backend_hint = vdir.backend();
 .UNINDENT
 .SH OBJECT HASH
 .INDENT 0.0
 .TP
 .B Description
-Creates a hash director. The hash director chooses the backend
-based on hashing an arbitrary string. If you provide it with a
-session cookie, you\(aqll have the client connecting to the same
-backend every time.
+Create a hashing backend director.
+.sp
+The director chooses the backend server by computing a hash/digest of
+the string given to .backend().
+.sp
+Commonly used with \fBclient.identity\fP or a session cookie to get
+sticky sessions.
 .TP
 .B Example
-new hdir = directors.hash();
+new vdir = directors.hash();
 .UNINDENT
 .SS VOID hash.add_backend(BACKEND, REAL)
 .INDENT 0.0
@@ -223,13 +255,14 @@ new hdir = directors.hash();
 VOID hash.add_backend(BACKEND, REAL)
 .TP
 .B Description
-Adds a backend to the director with a certain weight.
+Add a backend to the director with a certain weight.
 .sp
-Weight is used as in the round_robin director. Recommended value is
+Weight is used as in the random director. Recommended value is
 1.0 unless you have special needs.
 .TP
 .B Example
-hdir.add_backend(backend1, 1.0);
+vdir.add_backend(backend1, 1.0);
+vdir.add_backend(backend2, 1.0);
 .UNINDENT
 .SS BACKEND hash.backend(STRING_LIST)
 .INDENT 0.0
@@ -238,13 +271,12 @@ hdir.add_backend(backend1, 1.0);
 BACKEND hash.backend(STRING_LIST)
 .TP
 .B Description
-Picks a backend from the director. Use the string or list of
-strings provided to pick the backend.
+Pick a backend from the backend director.
+.sp
+Use the string or list of strings provided to pick the backend.
 .TP
 .B Example
-# pick a backend based on the cookie header from the client
-set req.backend_hint = hdir.backend(req.http.cookie);
+set req.backend_hint = vdir.backend(req.http.cookie);  # pick a backend based on the cookie header from the client
 .UNINDENT
 .\" Generated by docutils manpage writer.
-.\" 
 .

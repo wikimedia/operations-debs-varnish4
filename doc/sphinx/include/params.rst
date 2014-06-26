@@ -903,8 +903,8 @@ thread_stats_rate
 	* Minimum: 0
 	* Flags: experimental
 
-Worker threads accumulate statistics, and dump these into the global stats counters if the lock is free when they finish a request.
-This parameters defines the maximum number of requests a worker thread may handle, before it is forced to dump its accumulated stats into the global counters.
+Worker threads accumulate statistics, and dump these into the global stats counters if the lock is free when they finish a job (request/fetch etc.)
+This parameters defines the maximum number of jobs a worker thread may handle, before it is forced to dump its accumulated stats into the global counters.
 
 .. _ref_param_timeout_idle:
 

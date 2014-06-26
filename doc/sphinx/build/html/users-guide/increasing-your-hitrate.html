@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Achieving a high hitrate &mdash; Varnish version 4.0.0 documentation</title>
+    <title>Achieving a high hitrate &mdash; Varnish version 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
     <link rel="up" title="Varnish and Website Performance" href="performance.html" />
     <link rel="next" title="Purging and banning" href="purging.html" />
     <link rel="prev" title="Varnish and Website Performance" href="performance.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &raquo;</li> 
       </ul>
@@ -98,7 +96,7 @@ programs, <tt class="docutils literal"><span class="pre">GET</span></tt> and <tt
 <p>vg.no was the first site to use Varnish and the people running Varnish
 there are quite clueful. So it's interesting to look at their HTTP
 Headers. Let's send a GET request for their home page:</p>
-<div class="highlight-python"><pre>$ GET -H 'Host: www.vg.no' -Used http://vg.no/
+<div class="highlight-python"><div class="highlight"><pre>$ GET -H &#39;Host: www.vg.no&#39; -Used http://vg.no/
 GET http://vg.no/
 Host: www.vg.no
 User-Agent: lwp-request/5.834 libwww-perl/5.834
@@ -113,7 +111,8 @@ X-Rick-Would-Never: Let you down
 X-VG-Jobb: http://www.finn.no/finn/job/fulltime/result?keyword=vg+multimedia Merk:HeaderNinja
 X-VG-Korken: http://www.youtube.com/watch?v=Fcj8CnD5188
 X-VG-WebCache: joanie
-X-VG-WebServer: leon</pre>
+X-VG-WebServer: leon
+</pre></div>
 </div>
 <p>OK. Lets look at what <tt class="docutils literal"><span class="pre">GET</span></tt> does. <tt class="docutils literal"><span class="pre">GET</span></tt> usually sends off HTTP 0.9
 requests, which lack the 'Host' header. So we add a 'Host' header with the
@@ -125,7 +124,8 @@ headers. Some of the headers, like the 'X-Rick-Would-Never' are specific
 to vg.no and their somewhat odd sense of humour. Others, like the
 'X-VG-Webcache' are for debugging purposes.</p>
 <p>So, to check whether a site sets cookies for a specific URL, just do:</p>
-<div class="highlight-python"><pre>GET -Used http://example.com/ |grep ^Set-Cookie</pre>
+<div class="highlight-python"><div class="highlight"><pre>GET -Used http://example.com/ |grep ^Set-Cookie
+</pre></div>
 </div>
 </div>
 <div class="section" id="tool-live-http-headers">
@@ -167,9 +167,10 @@ interest to the server.</p>
 cookies unless you are accessing a special part of the web site. This
 VCL snippet in <cite>vcl_recv</cite> will disregard cookies unless you are
 accessing <cite>/admin/</cite>:</p>
-<div class="highlight-python"><pre>if (!(req.url ~ "^/admin/")) {
+<div class="highlight-python"><div class="highlight"><pre>if (!(req.url ~ &quot;^/admin/&quot;)) {
     unset req.http.Cookie;
-}</pre>
+}
+</pre></div>
 </div>
 <p>Quite simple. If, however, you need to do something more complicated,
 like removing one out of several cookies, things get
@@ -189,42 +190,45 @@ the client sends cookies Varnish will discard these unnecessary
 cookies in VCL.</p>
 <p>In the following VCL we discard all cookies that start with an
 underscore:</p>
-<div class="highlight-python"><pre># Remove has_js and Google Analytics __* cookies.
-set req.http.Cookie = regsuball(req.http.Cookie, "(^|;\s*)(_[_a-z]+|has_js)=[^;]*", "");
-# Remove a ";" prefix, if present.
-set req.http.Cookie = regsub(req.http.Cookie, "^;\s*", "");</pre>
+<div class="highlight-python"><div class="highlight"><pre># Remove has_js and Google Analytics __* cookies.
+set req.http.Cookie = regsuball(req.http.Cookie, &quot;(^|;\s*)(_[_a-z]+|has_js)=[^;]*&quot;, &quot;&quot;);
+# Remove a &quot;;&quot; prefix, if present.
+set req.http.Cookie = regsub(req.http.Cookie, &quot;^;\s*&quot;, &quot;&quot;);
+</pre></div>
 </div>
 <p>Lets look at an example where we remove everything except the
 cookies named &quot;COOKIE1&quot; and &quot;COOKIE2&quot; and you can marvel at the &quot;beauty&quot; of it:</p>
-<div class="highlight-python"><pre>sub vcl_recv {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
     if (req.http.Cookie) {
-        set req.http.Cookie = ";" + req.http.Cookie;
-        set req.http.Cookie = regsuball(req.http.Cookie, "; +", ";");
-        set req.http.Cookie = regsuball(req.http.Cookie, ";(COOKIE1|COOKIE2)=", "; \1=");
-        set req.http.Cookie = regsuball(req.http.Cookie, ";[^ ][^;]*", "");
-        set req.http.Cookie = regsuball(req.http.Cookie, "^[; ]+|[; ]+$", "");
+        set req.http.Cookie = &quot;;&quot; + req.http.Cookie;
+        set req.http.Cookie = regsuball(req.http.Cookie, &quot;; +&quot;, &quot;;&quot;);
+        set req.http.Cookie = regsuball(req.http.Cookie, &quot;;(COOKIE1|COOKIE2)=&quot;, &quot;; \1=&quot;);
+        set req.http.Cookie = regsuball(req.http.Cookie, &quot;;[^ ][^;]*&quot;, &quot;&quot;);
+        set req.http.Cookie = regsuball(req.http.Cookie, &quot;^[; ]+|[; ]+$&quot;, &quot;&quot;);
 
-        if (req.http.Cookie == "") {
+        if (req.http.Cookie == &quot;&quot;) {
             unset req.http.Cookie;
         }
     }
-}</pre>
+}
+</pre></div>
 </div>
 <p>A somewhat simpler example that can accomplish almost the same functionality can be
 found below. Instead of filtering out &quot;other&quot; cookies it instead picks out
 &quot;the one&quot; cookie that is needed, copies it to another header and then
 copies it back to the request, deleting the original cookie header.
 .. XXX:Verify correctness of request above! benc</p>
-<div class="highlight-python"><pre>sub vcl_recv {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
     # save the original cookie header so we can mangle it
     set req.http.X-Varnish-PHP_SID = req.http.Cookie;
     # using a capturing sub pattern, extract the continuous string of
-    # alphanumerics that immediately follows "PHPSESSID="
+    # alphanumerics that immediately follows &quot;PHPSESSID=&quot;
     set req.http.X-Varnish-PHP_SID =
-       regsuball(req.http.X-Varnish-PHP_SID, ";? ?PHPSESSID=([a-zA-Z0-9]+)( |;| ;).*","\1");
+       regsuball(req.http.X-Varnish-PHP_SID, &quot;;? ?PHPSESSID=([a-zA-Z0-9]+)( |;| ;).*&quot;,&quot;\1&quot;);
     set req.http.Cookie = req.X-Varnish-PHP_SID;
     unset req.X-Varnish-PHP_SID;
-}</pre>
+}
+</pre></div>
 </div>
 <p>There are other scary examples of what can be done in VCL in the
 Varnish Cache Wiki.</p>
@@ -245,8 +249,9 @@ for an object.</p>
 <p>So make sure you issue a 'Cache-Control' header with a max-age
 header. You can have a look at what Varnish Software's Drupal server
 issues:</p>
-<div class="highlight-python"><pre>$ GET -Used http://www.varnish-software.com/|grep ^Cache-Control
-Cache-Control: public, max-age=600</pre>
+<div class="highlight-python"><div class="highlight"><pre>$ GET -Used http://www.varnish-software.com/|grep ^Cache-Control
+Cache-Control: public, max-age=600
+</pre></div>
 </div>
 </div>
 <div class="section" id="age">
@@ -259,10 +264,11 @@ kept inside Varnish. You can grep out 'Age' from <cite>varnishlog</cite> with <t
 <p>An HTTP 1.0 server might send the header <tt class="docutils literal"><span class="pre">Pragma:</span> <span class="pre">nocache</span></tt>. Varnish ignores this
 header. You could easily add support for this header in VCL.</p>
 <p>In <cite>vcl_backend_response</cite>:</p>
-<div class="highlight-python"><pre>if (beresp.http.Pragma ~ "nocache") {
+<div class="highlight-python"><div class="highlight"><pre>if (beresp.http.Pragma ~ &quot;nocache&quot;) {
     set beresp.uncacheable = true;
     set beresp.ttl = 120s; # how long not to cache this url.
-}</pre>
+}
+</pre></div>
 </div>
 </div>
 <div class="section" id="authorization">
@@ -277,11 +283,12 @@ setup, be easier to override the TTL in Varnish then to fix your
 somewhat cumbersome backend.</p>
 <p>You need VCL to identify the objects you want and then you set the
 'beresp.ttl' to whatever you want:</p>
-<div class="highlight-python"><pre>sub vcl_backend_response {
-    if (req.url ~ "^/legacy_broken_cms/") {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
+    if (bereq.url ~ &quot;^/legacy_broken_cms/&quot;) {
         set beresp.ttl = 5d;
     }
-}</pre>
+}
+</pre></div>
 </div>
 <p>This example will set the TTL to 5 days for the old legacy stuff on
 your site.</p>
@@ -304,9 +311,10 @@ doesn't know they are the same,
 Varnish will cache different versions of every page for every
 hostname. You can mitigate this in your web server configuration
 by setting up redirects or by using the following VCL:</p>
-<div class="highlight-python"><pre>if (req.http.host ~ "(?i)^(www.)?varnish-?software.com") {
-    set req.http.host = "varnish-software.com";
-}</pre>
+<div class="highlight-python"><div class="highlight"><pre>if (req.http.host ~ &quot;(?i)^(www.)?varnish-?software.com&quot;) {
+    set req.http.host = &quot;varnish-software.com&quot;;
+}
+</pre></div>
 </div>
 </div>
 </div>
@@ -338,19 +346,20 @@ crucial to normalize the headers the backends varies on. Remember,
 just a difference in casing can force different cache entries.</p>
 <p>The following VCL code will normalize the 'Accept-Language' headers,
 to one of either &quot;en&quot;, &quot;de&quot; or &quot;fr&quot;:</p>
-<div class="highlight-python"><pre>if (req.http.Accept-Language) {
-    if (req.http.Accept-Language ~ "en") {
-        set req.http.Accept-Language = "en";
-    } elsif (req.http.Accept-Language ~ "de") {
-        set req.http.Accept-Language = "de";
-    } elsif (req.http.Accept-Language ~ "fr") {
-        set req.http.Accept-Language = "fr";
+<div class="highlight-python"><div class="highlight"><pre>if (req.http.Accept-Language) {
+    if (req.http.Accept-Language ~ &quot;en&quot;) {
+        set req.http.Accept-Language = &quot;en&quot;;
+    } elsif (req.http.Accept-Language ~ &quot;de&quot;) {
+        set req.http.Accept-Language = &quot;de&quot;;
+    } elsif (req.http.Accept-Language ~ &quot;fr&quot;) {
+        set req.http.Accept-Language = &quot;fr&quot;;
     } else {
         # unknown language. Remove the accept-language header and
         # use the backend default.
         unset req.http.Accept-Language
     }
-}</pre>
+}
+</pre></div>
 </div>
 <p>The code sets the 'Accept-Encoding' header from the client to either
 gzip, deflate with a preference for gzip.</p>
@@ -450,14 +459,14 @@ above code as a template.</p>
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" >Varnish and Website Performance</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>

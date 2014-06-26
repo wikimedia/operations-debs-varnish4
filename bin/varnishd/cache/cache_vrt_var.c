@@ -45,22 +45,25 @@
 
 static char vrt_hostname[255] = "";
 
-/*--------------------------------------------------------------------*/
+/*--------------------------------------------------------------------
+ * VRT variables relating to first line of HTTP/1.1 req/resp
+ */
 
 static void
-vrt_do_string(const struct http *hp, int fld,
+vrt_do_string(struct http *hp, int fld,
     const char *err, const char *p, va_list ap)
 {
 	const char *b;
 
-	AN(hp);
+	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
+
 	b = VRT_String(hp->ws, NULL, p, ap);
 	if (b == NULL || *b == '\0') {
 		VSLb(hp->vsl, SLT_LostHeader, "%s", err);
-	} else {
-		http_SetH(hp, fld, b);
+		hp->failed = 1;
+		return;
 	}
-	va_end(ap);
+	http_SetH(hp, fld, b);
 }
 
 #define VRT_HDR_L(obj, hdr, fld)					\
@@ -95,8 +98,16 @@ VRT_l_##obj##_status(const struct vrt_ctx *ctx, long num)		\
 									\
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);				\
 	CHECK_OBJ_NOTNULL(ctx->http_##obj, HTTP_MAGIC);			\
-	assert(num >= 100 && num <= 999);				\
-	ctx->http_##obj->status = (uint16_t)num;			\
+	if (num > 65535) {						\
+		VSLb(ctx->vsl, SLT_VCL_Error, "%s.status > 65535", #obj); \
+		ctx->http_##obj->failed = 1;				\
+	} else if ((num % 1000) < 100) {				\
+		VSLb(ctx->vsl, SLT_VCL_Error, "illegal %s.status (..0##)", \
+		    #obj);						\
+		ctx->http_##obj->failed = 1;				\
+	} else {							\
+		http_SetStatus(ctx->http_##obj, (uint16_t)num);		\
+	}								\
 }
 
 #define VRT_STATUS_R(obj)						\
@@ -114,11 +125,11 @@ VRT_HDR_LR(req,    url,		HTTP_HDR_URL)
 VRT_HDR_LR(req,    proto,	HTTP_HDR_PROTO)
 
 VRT_HDR_R(obj,    proto,	HTTP_HDR_PROTO)
-VRT_HDR_R(obj,    reason,	HTTP_HDR_RESPONSE)
+VRT_HDR_R(obj,    reason,	HTTP_HDR_REASON)
 VRT_STATUS_R(obj)
 
 VRT_HDR_LR(resp,   proto,	HTTP_HDR_PROTO)
-VRT_HDR_LR(resp,   reason,	HTTP_HDR_RESPONSE)
+VRT_HDR_LR(resp,   reason,	HTTP_HDR_REASON)
 VRT_STATUS_L(resp)
 VRT_STATUS_R(resp)
 
@@ -126,11 +137,13 @@ VRT_HDR_LR(bereq,  method,	HTTP_HDR_METHOD)
 VRT_HDR_LR(bereq,  url,		HTTP_HDR_URL)
 VRT_HDR_LR(bereq,  proto,	HTTP_HDR_PROTO)
 VRT_HDR_LR(beresp, proto,	HTTP_HDR_PROTO)
-VRT_HDR_LR(beresp, reason,	HTTP_HDR_RESPONSE)
+VRT_HDR_LR(beresp, reason,	HTTP_HDR_REASON)
 VRT_STATUS_L(beresp)
 VRT_STATUS_R(beresp)
 
-/*--------------------------------------------------------------------*/
+/*--------------------------------------------------------------------
+ * bool-fields (.do_*)
+ */
 
 #define VBERESPW0(field)
 #define VBERESPW1(field)						\
@@ -227,9 +240,13 @@ VRT_l_client_identity(const struct vrt_ctx *ctx, const char *str, ...)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 	va_start(ap, str);
-	// XXX ?
 	b = VRT_String(ctx->req->http->ws, NULL, str, ap);
 	va_end(ap);
+	if (b == NULL) {
+		VSLb(ctx->vsl, SLT_LostHeader, "client.identity");
+		ctx->req->http->failed = 1;
+		return;
+	}
 	ctx->req->client_identity = b;
 }
 
@@ -270,9 +287,8 @@ VRT_r_beresp_backend_name(const struct vrt_ctx *ctx)
 		CHECK_OBJ_NOTNULL(ctx->bo->vbc, VBC_MAGIC);
 		return (ctx->bo->vbc->backend->vcl_name);
 	}
-	if (ctx->bo->director != NULL) {
+	if (ctx->bo->director != NULL)
 		return (ctx->bo->director->vcl_name);
-	}
 	return (NULL);
 }
 
@@ -288,6 +304,8 @@ VRT_r_beresp_backend_ip(const struct vrt_ctx *ctx)
 	} else
 		return (NULL);
 }
+
+/*--------------------------------------------------------------------*/
 
 const char *
 VRT_r_beresp_storage_hint(const struct vrt_ctx *ctx)
@@ -311,6 +329,11 @@ VRT_l_beresp_storage_hint(const struct vrt_ctx *ctx, const char *str, ...)
 	va_start(ap, str);
 	b = VRT_String(ctx->bo->ws, NULL, str, ap);	// XXX: ctx->ws ?
 	va_end(ap);
+	if (b == NULL) {
+		VSLb(ctx->vsl, SLT_LostHeader, "storage.hint");
+		ctx->bo->beresp->failed = 1;
+		return;
+	}
 	ctx->bo->storage_hint = b;
 }
 
@@ -350,7 +373,6 @@ VRT_l_bereq_backend(const struct vrt_ctx *ctx, struct director *be)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
-	AN(ctx->bo->director);
 	ctx->bo->director = be;
 }
 
@@ -360,7 +382,6 @@ VRT_r_bereq_backend(const struct vrt_ctx *ctx)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
-	AN(ctx->bo->director);
 	return (ctx->bo->director);
 }
 
@@ -408,7 +429,6 @@ VRT_r_req_can_gzip(const struct vrt_ctx *ctx)
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 	return (RFC2616_Req_Gzip(ctx->req->http));	// XXX ?
 }
-
 
 /*--------------------------------------------------------------------*/
 

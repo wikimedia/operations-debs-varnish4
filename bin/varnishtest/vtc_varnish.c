@@ -104,7 +104,7 @@ varnish_ask_cli(const struct varnish *v, const char *cmd, char **repl)
 		    cmd, i, retval, r);
 		return ((enum VCLI_status_e)retval);
 	}
-	assert(i == 0);
+	AZ(i);
 	vtc_log(v->vl, 3, "CLI RX  %u", retval);
 	vtc_dump(v->vl, 4, "CLI RX", r, -1);
 	if (repl != NULL)
@@ -386,6 +386,7 @@ varnish_launch(struct varnish *v)
 	VSB_printf(vsb, " -p auto_restart=off");
 	VSB_printf(vsb, " -p syslog_cli_traffic=off");
 	VSB_printf(vsb, " -p sigsegv_handler=on");
+	VSB_printf(vsb, " -p thread_pool_min=10");
 	VSB_printf(vsb, " -a '%s'", "127.0.0.1:0");
 	VSB_printf(vsb, " -M '%s %s'", abuf, pbuf);
 	VSB_printf(vsb, " -P %s/varnishd.pid", v->workdir);
@@ -402,7 +403,7 @@ varnish_launch(struct varnish *v)
 	v->pid = fork();
 	assert(v->pid >= 0);
 	if (v->pid == 0) {
-		assert(dup2(v->fds[0], 0) == 0);
+		AZ(dup2(v->fds[0], 0));
 		assert(dup2(v->fds[3], 1) == 1);
 		assert(dup2(1, 2) == 2);
 		AZ(close(v->fds[0]));
@@ -754,7 +755,7 @@ do_stat_cb(void *priv, const struct VSC_point * const pt)
 	if (strcmp(pt->desc->name, p))
 		return (0);
 
-	assert(!strcmp(pt->desc->fmt, "uint64_t"));
+	AZ(strcmp(pt->desc->fmt, "uint64_t"));
 	sp->val = *(const volatile uint64_t*)pt->ptr;
 	return (1);
 }
@@ -843,7 +844,7 @@ cmd_varnish(CMD_ARGS)
 		return;
 	}
 
-	assert(!strcmp(av[0], "varnish"));
+	AZ(strcmp(av[0], "varnish"));
 	av++;
 
 	VTAILQ_FOREACH(v, &varnishes, list)

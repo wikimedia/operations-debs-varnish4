@@ -28,18 +28,17 @@
 
 #include "config.h"
 
-#ifdef HAVE_SYS_ENDIAN_H
-#include <sys/types.h>
-#include <sys/endian.h>
-#define VBYTE_ORDER	_BYTE_ORDER
-#define VBIG_ENDIAN	_BIG_ENDIAN
+#if defined(HAVE_SYS_ENDIAN_H)
+#  include <sys/types.h>
+#  include <sys/endian.h>
+#  define VBYTE_ORDER	_BYTE_ORDER
+#  define VBIG_ENDIAN	_BIG_ENDIAN
+#elif defined(HAVE_ENDIAN_H)
+#  include <endian.h>
+#  define VBYTE_ORDER	__BYTE_ORDER
+#  define VBIG_ENDIAN	__BIG_ENDIAN
 #endif
 
-#ifdef HAVE_ENDIAN_H
-#include <endian.h>
-#define VBYTE_ORDER	__BYTE_ORDER
-#define VBIG_ENDIAN	__BIG_ENDIAN
-#endif
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
@@ -329,6 +328,6 @@ SHA256_Test(void)
 		SHA256_Init(&c);
 		SHA256_Update(&c, p->input, strlen(p->input));
 		SHA256_Final(o, &c);
-		assert(!memcmp(o, p->output, 32));
+		AZ(memcmp(o, p->output, 32));
 	}
 }

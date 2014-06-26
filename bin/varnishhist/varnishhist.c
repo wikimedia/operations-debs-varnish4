@@ -35,7 +35,6 @@
 
 #include <sys/types.h>
 
-#include <curses.h>
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -47,6 +46,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "vcurses.h"
 #include "vapi/vsl.h"
 #include "vapi/vsm.h"
 #include "vapi/voptget.h"
@@ -442,8 +442,8 @@ main(int argc, char **argv)
 
 	hist_range = hist_high - hist_low;
 	hist_buckets = hist_range * HIST_RES;
-	bucket_hit = calloc(sizeof bucket_hit, hist_buckets);
-	bucket_miss = calloc(sizeof bucket_miss, hist_buckets);
+	bucket_hit = calloc(sizeof *bucket_hit, hist_buckets);
+	bucket_miss = calloc(sizeof *bucket_miss, hist_buckets);
 
 	format = malloc(4 * fnum);
 	for (i = 0; i < fnum-1; i++) {
@@ -463,7 +463,7 @@ main(int argc, char **argv)
 	VUT.dispatch_priv = NULL;
 	VUT_Main();
 	end_of_file = 1;
-	pthread_join(thr, NULL);
+	AZ(pthread_join(thr, NULL));
 	VUT_Fini();
 	exit(0);
 }

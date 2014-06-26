@@ -43,14 +43,14 @@
 static struct lock pipestat_mtx;
 
 struct acct_pipe {
-	ssize_t		req;
-	ssize_t		bereq;
-	ssize_t		in;
-	ssize_t		out;
+	uint64_t	req;
+	uint64_t	bereq;
+	uint64_t	in;
+	uint64_t	out;
 };
 
 static int
-rdf(int fd0, int fd1, ssize_t *pcnt)
+rdf(int fd0, int fd1, uint64_t *pcnt)
 {
 	int i, j;
 	char buf[BUFSIZ], *p;
@@ -124,7 +124,7 @@ PipeRequest(struct req *req, struct busyobj *bo)
 	(void)VTCP_blocking(vc->fd);
 
 	WRW_Reserve(wrk, &vc->fd, bo->vsl, req->t_req);
-	hdrbytes = HTTP1_Write(wrk, bo->bereq, 0);
+	hdrbytes = HTTP1_Write(wrk, bo->bereq, HTTP1_Req);
 
 	if (req->htc->pipeline.b != NULL)
 		(void)WRW_Write(wrk, req->htc->pipeline.b,

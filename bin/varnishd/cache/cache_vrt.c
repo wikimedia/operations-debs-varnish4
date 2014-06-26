@@ -63,7 +63,7 @@ VRT_error(const struct vrt_ctx *ctx, unsigned code, const char *reason)
 		code = 503;
 	ctx->req->err_code = (uint16_t)code;
 	ctx->req->err_reason =
-	    reason ? reason : http_StatusMessage(ctx->req->err_code);
+	    reason ? reason : http_Status2Reason(ctx->req->err_code);
 }
 
 /*--------------------------------------------------------------------*/
@@ -480,11 +480,11 @@ VRT_CacheReqBody(const struct vrt_ctx *ctx, long long maxsize)
 }
 
 /*--------------------------------------------------------------------
- * "real" purges
+ * purges
  */
 
 void
-VRT_purge(const struct vrt_ctx *ctx, double ttl, double grace)
+VRT_purge(const struct vrt_ctx *ctx, double ttl, double grace, double keep)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -492,10 +492,10 @@ VRT_purge(const struct vrt_ctx *ctx, double ttl, double grace)
 	CHECK_OBJ_NOTNULL(ctx->req->wrk, WORKER_MAGIC);
 	if (ctx->method == VCL_MET_HIT)
 		HSH_Purge(ctx->req->wrk, ctx->req->obj->objcore->objhead,
-		    ttl, grace);
+		    ttl, grace, keep);
 	else if (ctx->method == VCL_MET_MISS)
 		HSH_Purge(ctx->req->wrk, ctx->req->objcore->objhead,
-		    ttl, grace);
+		    ttl, grace, keep);
 }
 
 /*--------------------------------------------------------------------
