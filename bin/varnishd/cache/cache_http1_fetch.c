@@ -40,7 +40,6 @@
 
 #include "cache_backend.h"
 #include "vcli_priv.h"
-#include "vct.h"
 #include "vtcp.h"
 #include "vtim.h"
 
@@ -110,10 +109,7 @@ v1f_pull_straight(struct busyobj *bo, void *p, ssize_t *lp, intptr_t *priv)
 static enum vfp_status __match_proto__(vfp_pull_f)
 v1f_pull_chunked(struct busyobj *bo, void *p, ssize_t *lp, intptr_t *priv)
 {
-	int i;
-	char buf[20];		/* XXX: 20 is arbitrary */
-	unsigned u;
-	ssize_t cl, l, lr;
+	const char *err;
 
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	if (p == vfp_init)
@@ -123,77 +119,18 @@ v1f_pull_chunked(struct busyobj *bo, void *p, ssize_t *lp, intptr_t *priv)
 	AN(p);
 	AN(lp);
 	AN(priv);
-	l = *lp;
-	*lp = 0;
-	if (*priv == -1) {
-		/* Skip leading whitespace */
-		do {
-			lr = HTTP1_Read(&bo->htc, buf, 1);
-			if (lr <= 0)
-				return (VFP_Error(bo, "chunked read err"));
-			bo->acct.beresp_bodybytes += lr;
-		} while (vct_islws(buf[0]));
 
-		if (!vct_ishex(buf[0]))
-			 return (VFP_Error(bo, "chunked header non-hex"));
-
-		/* Collect hex digits, skipping leading zeros */
-		for (u = 1; u < sizeof buf; u++) {
-			do {
-				lr = HTTP1_Read(&bo->htc, buf + u, 1);
-				if (lr <= 0)
-					return (VFP_Error(bo,
-					    "chunked read err"));
-				bo->acct.beresp_bodybytes += lr;
-			} while (u == 1 && buf[0] == '0' && buf[u] == '0');
-			if (!vct_ishex(buf[u]))
-				break;
-		}
-
-		if (u >= sizeof buf)
-			return (VFP_Error(bo,"chunked header too long"));
-
-		/* Skip trailing white space */
-		while(vct_islws(buf[u]) && buf[u] != '\n') {
-			lr = HTTP1_Read(&bo->htc, buf + u, 1);
-			if (lr <= 0)
-				return (VFP_Error(bo, "chunked read err"));
-			bo->acct.beresp_bodybytes += lr;
-		}
-
-		if (buf[u] != '\n')
-			return (VFP_Error(bo,"chunked header no NL"));
-
-		buf[u] = '\0';
-
-		cl = vbf_fetch_number(buf, 16);
-		if (cl < 0)
-			return (VFP_Error(bo,"chunked header number syntax"));
-		*priv = cl;
-	}
-	if (*priv > 0) {
-		if (*priv < l)
-			l = *priv;
-		lr = HTTP1_Read(&bo->htc, p, l);
-		if (lr <= 0)
-			return (VFP_Error(bo, "straight insufficient bytes"));
-		bo->acct.beresp_bodybytes += lr;
-		*lp = lr;
-		*priv -= lr;
-		if (*priv == 0)
-			*priv = -1;
+	switch (HTTP1_Chunked(&bo->htc, priv, &err,
+	    &bo->acct.beresp_bodybytes, p, lp)) {
+	case H1CR_ERROR:
+		return (VFP_Error(bo, "%s", err));
+	case H1CR_MORE:
 		return (VFP_OK);
+	case H1CR_END:
+		return (VFP_END);
+	default:
+		WRONG("invalid HTTP1_Chunked return");
 	}
-	AZ(*priv);
-	i = HTTP1_Read(&bo->htc, buf, 1);
-	if (i <= 0)
-		return (VFP_Error(bo, "chunked read err"));
-	bo->acct.beresp_bodybytes += i;
-	if (buf[0] == '\r' && HTTP1_Read(&bo->htc, buf, 1) <= 0)
-		return (VFP_Error(bo, "chunked read err"));
-	if (buf[0] != '\n')
-		return (VFP_Error(bo,"chunked tail no NL"));
-	return (VFP_END);
 }
 
 /*--------------------------------------------------------------------*/
@@ -255,6 +192,31 @@ V1F_Setup_Fetch(struct busyobj *bo)
 }
 
 /*--------------------------------------------------------------------
+ * Pass the request body to the backend with chunks
+ */
+
+static int __match_proto__(req_body_iter_f)
+vbf_iter_req_body_chunked(struct req *req, void *priv, void *ptr, size_t l)
+{
+	struct worker *wrk;
+	char buf[20];
+
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	CAST_OBJ_NOTNULL(wrk, priv, WORKER_MAGIC);
+
+	if (l > 0) {
+		bprintf(buf, "%jx\r\n", (uintmax_t)l);
+		VSLb(req->vsl, SLT_Debug, "WWWW: %s", buf);
+		(void)WRW_Write(wrk, buf, strlen(buf));
+		(void)WRW_Write(wrk, ptr, l);
+		(void)WRW_Write(wrk, "\r\n", 2);
+		if (WRW_Flush(wrk))
+			return (-1);
+	}
+	return (0);
+}
+
+/*--------------------------------------------------------------------
  * Pass the request body to the backend
  */
 
@@ -294,12 +256,17 @@ V1F_fetch_hdr(struct worker *wrk, struct busyobj *bo, struct req *req)
 	int i, j, first;
 	struct http_conn *htc;
 	ssize_t hdrbytes;
+	int do_chunked = 0;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_ORNULL(req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	htc = &bo->htc;
 
+	if (bo->director == NULL) {
+		VSLb(bo->vsl, SLT_FetchError, "No backend");
+		return (-1);
+	}
 	AN(bo->director);
 
 	hp = bo->bereq;
@@ -321,18 +288,29 @@ V1F_fetch_hdr(struct worker *wrk, struct busyobj *bo, struct req *req)
 	if (!http_GetHdr(bo->bereq, H_Host, NULL))
 		VDI_AddHostHeader(bo->bereq, vc);
 
+	if (req != NULL && req->req_body_status == REQ_BODY_CHUNKED) {
+		http_PrintfHeader(hp, "Transfer-Encoding: chunked");
+		do_chunked = 1;
+	}
+
 	(void)VTCP_blocking(vc->fd);	/* XXX: we should timeout instead */
 	WRW_Reserve(wrk, &vc->fd, bo->vsl, bo->t_prev);
-	hdrbytes = HTTP1_Write(wrk, hp, 0);
+	hdrbytes = HTTP1_Write(wrk, hp, HTTP1_Req);
 
 	/* Deal with any message-body the request might (still) have */
 	i = 0;
 
 	if (req != NULL) {
-		i = HTTP1_IterateReqBody(req, vbf_iter_req_body, wrk);
-		if (req->req_body_status == REQ_BODY_DONE)
+		if (do_chunked) {
+			i = HTTP1_IterateReqBody(req,
+			    vbf_iter_req_body_chunked, wrk);
+			(void)WRW_Write(wrk, "0\r\n\r\n", 5);
+		} else {
+			i = HTTP1_IterateReqBody(req, vbf_iter_req_body, wrk);
+		}
+		if (req->req_body_status == REQ_BODY_DONE) {
 			retry = -1;
-		if (req->req_body_status == REQ_BODY_FAIL) {
+		} else if (req->req_body_status == REQ_BODY_FAIL) {
 			VSLb(bo->vsl, SLT_FetchError,
 			    "req.body read error: %d (%s)",
 			    errno, strerror(errno));

@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Security first &mdash; Varnish version 4.0.0 documentation</title>
+    <title>Security first &mdash; Varnish version 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
     <link rel="up" title="Starting and running Varnish" href="running.html" />
     <link rel="next" title="Important command line arguments" href="command-line.html" />
     <link rel="prev" title="Starting and running Varnish" href="running.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="running.html" title="Starting and running Varnish"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="running.html" accesskey="U">Starting and running Varnish</a> &raquo;</li> 
       </ul>
@@ -89,10 +87,11 @@ how and where the command comes into Varnish:</p>
 <p><cite>Varnishd</cite> can be told til listen and offer CLI connections
 on a TCP socket. You can bind the socket to pretty
 much anything the kernel will accept:</p>
-<div class="highlight-python"><pre>-T 127.0.0.1:631
+<div class="highlight-python"><div class="highlight"><pre>-T 127.0.0.1:631
 -T localhost:9999
 -T 192.168.1.1:34
--T '[fe80::1]:8082'</pre>
+-T &#39;[fe80::1]:8082&#39;
+</pre></div>
 </div>
 <p>The default is <tt class="docutils literal"><span class="pre">-T</span> <span class="pre">localhost:0</span></tt> which will pick a random
 port number, which <cite>varnishadm(8)</cite> can learn in the shared
@@ -140,7 +139,8 @@ provided it can read the secret file.</p>
 own secret file and make it possible for (only!) these users to
 read it.</p>
 <p>A good way to create the secret file is:</p>
-<div class="highlight-python"><pre>dd if=/dev/random of=/etc/varnish_secret count=1</pre>
+<div class="highlight-python"><div class="highlight"><pre>dd if=/dev/random of=/etc/varnish_secret count=1
+</pre></div>
 </div>
 <p>When you start <cite>varnishd</cite>, you specify the filename with '-S', and
 it goes without saying that the <cite>varnishd</cite> master process needs
@@ -152,7 +152,8 @@ shared memory, but on remote systems, you need to give <cite>varnishadm</cite>
 a copy of the secret file, with the -S argument.</p>
 <p>If you want to disable -S/PSK authentication, specify '-S' with
 an empty argument to varnishd:</p>
-<div class="highlight-python"><pre>varnishd [...] -S "" [...]</pre>
+<div class="highlight-python"><div class="highlight"><pre>varnishd [...] -S &quot;&quot; [...]
+</pre></div>
 </div>
 </div>
 <div class="section" id="parameters">
@@ -296,14 +297,14 @@ IP numbers/nets using VCL's <a class="reference internal" href="vcl-syntax.html#
         <li class="right" >
           <a href="running.html" title="Starting and running Varnish"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="running.html" >Starting and running Varnish</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>

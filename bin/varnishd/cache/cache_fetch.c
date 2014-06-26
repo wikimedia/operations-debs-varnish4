@@ -181,7 +181,6 @@ vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
 	CHECK_OBJ_NOTNULL(bo->req, REQ_MAGIC);
 
 	assert(bo->state == BOS_INVALID);
-	AN(bo->director);
 	AZ(bo->vbc);
 	AZ(bo->should_close);
 	AZ(bo->storage_hint);
@@ -191,7 +190,8 @@ vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
 	    bo->do_pass ? HTTPH_R_PASS : HTTPH_R_FETCH);
 
 	if (!bo->do_pass) {
-		http_ForceGet(bo->bereq0);
+		http_ForceField(bo->bereq0, HTTP_HDR_METHOD, "GET");
+		http_ForceField(bo->bereq0, HTTP_HDR_PROTO, "HTTP/1.1");
 		if (cache_param->http_gzip_support)
 			http_ForceHeader(bo->bereq0, H_Accept_Encoding, "gzip");
 		AN(bo->req);
@@ -199,7 +199,7 @@ vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
 		http_CopyHome(bo->bereq0);
 	}
 
-	if (bo->ims_obj != NULL) {
+	if (bo->ims_obj != NULL && bo->ims_obj->http->status == 200) {
 		if (http_GetHdr(bo->ims_obj->http, H_Last_Modified, &p)) {
 			http_PrintfHeader(bo->bereq0,
 			    "If-Modified-Since: %s", p);
@@ -249,11 +249,12 @@ static enum fetch_step
 vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 {
 	int i, do_ims;
+	double now;
+	char time_str[VTIM_FORMAT_SIZE];
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
-	AN(bo->director);
 	AZ(bo->vbc);
 	AZ(bo->should_close);
 	AZ(bo->storage_hint);
@@ -292,7 +293,8 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 		VSC_C_main->backend_retry++;
 		i = V1F_fetch_hdr(wrk, bo, bo->req);
 	}
-	VSLb_ts_busyobj(bo, "Beresp", W_TIM_real(wrk));
+	now = W_TIM_real(wrk);
+	VSLb_ts_busyobj(bo, "Beresp", now);
 
 	if (i) {
 		AZ(bo->vbc);
@@ -301,6 +303,22 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 
 	AN(bo->vbc);
 	http_VSL_log(bo->beresp);
+
+	if (!http_GetHdr(bo->beresp, H_Date, NULL)) {
+		/*
+		 * RFC 2616 14.18 Date: The Date general-header field
+		 * represents the date and time at which the message was
+		 * originated, having the same semantics as orig-date in
+		 * RFC 822. ... A received message that does not have a
+		 * Date header field MUST be assigned one by the recipient
+		 * if the message will be cached by that recipient or
+		 * gatewayed via a protocol which requires a Date.
+		 *
+		 * If we didn't get a Date header, we assign one here.
+		 */
+		VTIM_format(now, time_str);
+		http_PrintfHeader(bo->beresp, "Date: %s", time_str);
+	}
 
 	/*
 	 * These two headers can be spread over multiple actual headers
@@ -328,7 +346,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	 * What does RFC2616 think about TTL ?
 	 */
 	EXP_Clr(&bo->exp);
-	RFC2616_Ttl(bo);
+	RFC2616_Ttl(bo, now);
 
 	/* private objects have negative TTL */
 	if (bo->fetch_objcore->flags & OC_F_PRIVATE)
@@ -337,9 +355,9 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	AZ(bo->do_esi);
 
 	if (bo->ims_obj != NULL && bo->beresp->status == 304) {
-		bo->beresp->status = 200;
 		http_Merge(bo->ims_obj->http, bo->beresp,
 		    bo->ims_obj->changed_gzip);
+		assert(bo->beresp->status == 200);
 		do_ims = 1;
 	} else
 		do_ims = 0;
@@ -352,6 +370,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	if (wrk->handling == VCL_RET_RETRY) {
 		AN (bo->vbc);
 		VDI_CloseFd(&bo->vbc, &bo->acct);
+		bo->should_close = 0;
 		bo->retries++;
 		if (bo->retries <= cache_param->max_retries)
 			return (F_STP_RETRY);
@@ -528,8 +547,18 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 		assert(bo->state == BOS_REQ_DONE);
 		HSH_Unbusy(&wrk->stats, obj->objcore);
 	}
-	VSLb_ts_busyobj(bo, "BerespBody", W_TIM_real(wrk));
+
+	/* Recycle the backend connection before setting BOS_FINISHED to
+	   give predictable backend reuse behavior for varnishtest */
+	if (bo->vbc != NULL && !(bo->should_close)) {
+		VDI_RecycleFd(&bo->vbc, &bo->acct);
+		AZ(bo->vbc);
+	}
+
 	VBO_setstate(bo, BOS_FINISHED);
+	VSLb_ts_busyobj(bo, "BerespBody", W_TIM_real(wrk));
+	if (bo->ims_obj != NULL)
+		EXP_Rearm(bo->ims_obj, bo->ims_obj->exp.t_origin, 0, 0, 0);
 	return (F_STP_DONE);
 }
 
@@ -620,6 +649,14 @@ vbf_stp_condfetch(struct worker *wrk, struct busyobj *bo)
 	assert(al == bo->ims_obj->len);
 	assert(obj->len == al);
 	EXP_Rearm(bo->ims_obj, bo->ims_obj->exp.t_origin, 0, 0, 0);
+
+	/* Recycle the backend connection before setting BOS_FINISHED to
+	   give predictable backend reuse behavior for varnishtest */
+	if (bo->vbc != NULL && !(bo->should_close)) {
+		VDI_RecycleFd(&bo->vbc, &bo->acct);
+		AZ(bo->vbc);
+	}
+
 	VBO_setstate(bo, BOS_FINISHED);
 	VSLb_ts_busyobj(bo, "BerespBody", W_TIM_real(wrk));
 	return (F_STP_DONE);
@@ -634,11 +671,14 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 {
 	struct storage *st;
 	ssize_t l;
+	double now;
+	char time_str[VTIM_FORMAT_SIZE];
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
-	VSLb_ts_busyobj(bo, "Error", W_TIM_real(wrk));
+	now = W_TIM_real(wrk);
+	VSLb_ts_busyobj(bo, "Error", now);
 
 	AN(bo->fetch_objcore->flags & OC_F_BUSY);
 
@@ -649,9 +689,12 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	// XXX: reset all beresp flags ?
 
 	HTTP_Setup(bo->beresp, bo->ws, bo->vsl, SLT_BerespMethod);
-	http_SetResp(bo->beresp, "HTTP/1.1", 503, "Backend fetch failed");
+	http_PutResponse(bo->beresp, "HTTP/1.1", 503, "Backend fetch failed");
+	VTIM_format(now, time_str);
+	http_PrintfHeader(bo->beresp, "Date: %s", time_str);
+	http_SetHeader(bo->beresp, "Server: Varnish");
 
-	bo->exp.t_origin = VTIM_real();
+	bo->exp.t_origin = bo->t_prev;
 	bo->exp.ttl = 0;
 	bo->exp.grace = 0;
 	bo->exp.keep = 0;
@@ -776,7 +819,7 @@ vbf_fetch_thread(struct worker *wrk, void *priv)
 	http_Teardown(bo->beresp);
 
 	if (bo->state == BOS_FINISHED) {
-		assert(!(bo->fetch_objcore->flags & OC_F_FAILED));
+		AZ(bo->fetch_objcore->flags & OC_F_FAILED);
 		HSH_Complete(bo->fetch_objcore);
 		VSLb(bo->vsl, SLT_Length, "%zd", bo->fetch_obj->len);
 		{

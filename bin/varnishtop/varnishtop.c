@@ -34,7 +34,6 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <curses.h>
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
@@ -45,6 +44,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "vcurses.h"
 #include "vapi/vsm.h"
 #include "vapi/vsl.h"
 #include "vapi/voptget.h"
@@ -329,7 +329,7 @@ main(int argc, char **argv)
 	while ((o = getopt(argc, argv, vopt_optstring)) != -1) {
 		switch (o) {
 		case '1':
-			VUT_Arg('d', NULL);
+			AN(VUT_Arg('d', NULL));
 			once = 1;
 			break;
 		case 'f':

@@ -164,10 +164,24 @@ parse_new(struct vcc *tl)
 		return;
 	}
 	sy1 = VCC_FindSymbol(tl, tl->t, SYM_NONE);
-	XXXAZ(sy1);
+	if (sy1 != NULL) {
+		VSB_printf(tl->sb, "Object name '%.*s' already used.\n",
+		    PF(tl->t));
+
+		VSB_printf(tl->sb, "First usage:\n");
+		AN(sy1->def_b);
+		if (sy1->def_e != NULL)
+			vcc_ErrWhere2(tl, sy1->def_b, sy1->def_e);
+		else
+			vcc_ErrWhere(tl, sy1->def_b);
+		VSB_printf(tl->sb, "Redefinition:\n");
+		vcc_ErrWhere(tl, tl->t);
+		return;
+	}
 
 	sy1 = VCC_AddSymbolTok(tl, tl->t, SYM_NONE);	// XXX: NONE ?
 	XXXAN(sy1);
+	sy1->def_b = tl->t;
 	vcc_NextToken(tl);
 
 	ExpectErr(tl, '=');
@@ -200,17 +214,17 @@ parse_new(struct vcc *tl)
 		p++;
 	p += 2;
 
-	Fh(tl, 0, "static %s *%s;\n\n", s_struct, sy1->name);
+	Fh(tl, 0, "static %s *vo_%s;\n\n", s_struct, sy1->name);
 
 	vcc_NextToken(tl);
 
-	bprintf(buf1, ", &%s, \"%s\"", sy1->name, sy1->name);
+	bprintf(buf1, ", &vo_%s, \"%s\"", sy1->name, sy1->name);
 	vcc_Eval_Func(tl, s_init, buf1, "ASDF", s_init + strlen(s_init) + 1);
 	ifp = New_IniFin(tl);
-	VSB_printf(ifp->fin, "\t%s(&%s);", s_fini, sy1->name);
+	VSB_printf(ifp->fin, "\t%s(&vo_%s);", s_fini, sy1->name);
 	ExpectErr(tl, ';');
 
-	bprintf(buf1, ", %s", sy1->name);
+	bprintf(buf1, ", vo_%s", sy1->name);
 	/* Split the methods from the args */
 	while (*p != '\0') {
 		p += strlen(s_obj);
@@ -243,6 +257,7 @@ parse_new(struct vcc *tl)
 		}
 		p += 2;
 	}
+	sy1->def_e = tl->t;
 	/*lint -restore */
 }
 
@@ -367,16 +382,6 @@ parse_rollback(struct vcc *tl)
 /*--------------------------------------------------------------------*/
 
 static void
-parse_purge(struct vcc *tl)
-{
-
-	vcc_NextToken(tl);
-	Fb(tl, 1, "VRT_purge(ctx, 0, 0);\n");
-}
-
-/*--------------------------------------------------------------------*/
-
-static void
 parse_synthetic(struct vcc *tl)
 {
 	vcc_NextToken(tl);
@@ -409,7 +414,6 @@ static struct action_table {
 	{ "call",		parse_call },
 	{ "hash_data",		parse_hash_data, VCL_MET_HASH },
 	{ "new",		parse_new, VCL_MET_INIT},
-	{ "purge",		parse_purge, VCL_MET_MISS | VCL_MET_HIT },
 	{ "return",		parse_return },
 	{ "rollback",		parse_rollback },
 	{ "set",		parse_set },

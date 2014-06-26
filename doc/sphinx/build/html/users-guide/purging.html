@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Purging and banning &mdash; Varnish version 4.0.0 documentation</title>
+    <title>Purging and banning &mdash; Varnish version 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
     <link rel="up" title="Varnish and Website Performance" href="performance.html" />
     <link rel="next" title="Compression" href="compression.html" />
     <link rel="prev" title="Achieving a high hitrate" href="increasing-your-hitrate.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="increasing-your-hitrate.html" title="Achieving a high hitrate"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &raquo;</li> 
       </ul>
@@ -73,22 +71,23 @@ through HTTP with the method <cite>PURGE</cite>.</p>
 like, but most people refer to this as purging. Squid, for example, supports the
 same mechanism. In order to support purging in Varnish you need the
 following VCL in place:</p>
-<div class="highlight-python"><pre>acl purge {
-        "localhost";
-        "192.168.55.0"/24;
+<div class="highlight-python"><div class="highlight"><pre>acl purge {
+        &quot;localhost&quot;;
+        &quot;192.168.55.0&quot;/24;
 }
 
 sub vcl_recv {
         # allow PURGE from localhost and 192.168.55...
 
-        if (req.method == "PURGE") {
+        if (req.method == &quot;PURGE&quot;) {
                 if (!client.ip ~ purge) {
-                        return(synth(405,"Not allowed.");
+                        return(synth(405,&quot;Not allowed.&quot;));
                 }
                 # jump to hit/miss
                 return (purge);
         }
-}</pre>
+}
+</pre></div>
 </div>
 <p>As you can see we have used a new action - return(purge). This ends
 execution of vcl_recv and jumps to vcl_hash. This is just like we
@@ -98,8 +97,9 @@ option of adding any particular actions you want Varnish to take once
 it has purge the object.</p>
 <p>So for example.com to invalidate their front page they would call out
 to Varnish like this:</p>
-<div class="highlight-python"><pre>PURGE / HTTP/1.0
-Host: example.com</pre>
+<div class="highlight-python"><div class="highlight"><pre>PURGE / HTTP/1.0
+Host: example.com
+</pre></div>
 </div>
 <p>And Varnish would then discard the front page. This will remove all
 variants as defined by Vary.</p>
@@ -115,7 +115,8 @@ prevent new content from entering the cache or being served.</p>
 <p>Support for bans is built into Varnish and available in the CLI
 interface. To ban every png object belonging on example.com, issue
 the following command:</p>
-<div class="highlight-python"><pre>ban req.http.host == "example.com" &amp;&amp; req.url ~ "\.png$"</pre>
+<div class="highlight-python"><div class="highlight"><pre>ban req.http.host == &quot;example.com&quot; &amp;&amp; req.url ~ &quot;\.png$&quot;
+</pre></div>
 </div>
 <p>Quite powerful, really.</p>
 <p>Bans are checked when we hit an object in the cache, but before we
@@ -131,20 +132,21 @@ without evaluation. If you have a lot of objects with long TTL, that
 are seldom accessed, you might accumulate a lot of bans. This might
 impact CPU usage and thereby performance.</p>
 <p>You can also add bans to Varnish via HTTP. Doing so requires a bit of VCL:</p>
-<div class="highlight-python"><pre>sub vcl_recv {
-        if (req.method == "BAN") {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
+        if (req.method == &quot;BAN&quot;) {
                 # Same ACL check as above:
                 if (!client.ip ~ purge) {
-                        return(synth(403, "Not allowed."));
+                        return(synth(403, &quot;Not allowed.&quot;));
                 }
-                ban("req.http.host == " + req.http.host +
-                      "&amp;&amp; req.url == " + req.url);
+                ban(&quot;req.http.host == &quot; + req.http.host +
+                      &quot;&amp;&amp; req.url == &quot; + req.url);
 
                 # Throw a synthetic page so the
-                # request won't go to the backend.
-                return(synth(200, "Ban added"));
+                # request won&#39;t go to the backend.
+                return(synth(200, &quot;Ban added&quot;));
         }
-}</pre>
+}
+</pre></div>
 </div>
 <p>This VCL stanza enables Varnish to handle a <cite>HTTP BAN</cite> method, adding a
 ban on the URL, including the host part.</p>
@@ -152,8 +154,8 @@ ban on the URL, including the host part.</p>
 we recommend that you avoid using <cite>req.*</cite> in your bans, as the request
 object is not available in the <cite>ban lurker</cite> thread.</p>
 <p>You can use the following template to write <cite>ban lurker</cite> friendly bans:</p>
-<div class="highlight-python"><pre>sub vcl_backend_response {
-  set beresp.http.x-url = req.url;
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
+  set beresp.http.x-url = bereq.url;
 }
 
 sub vcl_deliver {
@@ -161,18 +163,20 @@ sub vcl_deliver {
 }
 
 sub vcl_recv {
-  if (req.method == "PURGE") {
+  if (req.method == &quot;PURGE&quot;) {
     if (client.ip !~ purge) {
-      return(synth(403, "Not allowed"));
+      return(synth(403, &quot;Not allowed&quot;));
     }
-    ban("obj.http.x-url ~ " + req.url); # Assumes req.url is a regex. This might be a bit too simple
+    ban(&quot;obj.http.x-url ~ &quot; + req.url); # Assumes req.url is a regex. This might be a bit too simple
   }
-}</pre>
+}
+</pre></div>
 </div>
 <p>To inspect the current ban list, issue the <tt class="docutils literal"><span class="pre">ban.list</span></tt> command in the CLI. This
 will produce a status of all current bans:</p>
-<div class="highlight-python"><pre>0xb75096d0 1318329475.377475    10      obj.http.x-url ~ test
-0xb7509610 1318329470.785875    20G     obj.http.x-url ~ test</pre>
+<div class="highlight-python"><div class="highlight"><pre>0xb75096d0 1318329475.377475    10      obj.http.x-url ~ test
+0xb7509610 1318329470.785875    20G     obj.http.x-url ~ test
+</pre></div>
 </div>
 <p>The ban list contains the ID of the ban, the timestamp when the ban
 entered the ban list. A count of the objects that has reached this point
@@ -249,14 +253,14 @@ some other means.</p>
         <li class="right" >
           <a href="increasing-your-hitrate.html" title="Achieving a high hitrate"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" >Varnish and Website Performance</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>

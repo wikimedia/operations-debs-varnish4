@@ -1,8 +1,35 @@
+.\" Man page generated from reStructuredText.
+.
 .TH VCL  "" "" ""
 .SH NAME
 VCL \- Varnish Configuration Language
-.\" Man page generated from reStructeredText.
 .
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
 .SH DESCRIPTION
 .sp
 The VCL language is a small domain\-specific language designed to be
@@ -67,6 +94,8 @@ Note that are no loops or iterators of any kind in VCL.
 These are the data types in Varnish. You can \fIset\fP or \fIunset\fP these.
 .sp
 Example:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -74,6 +103,8 @@ set req.http.User\-Agent = "unknown";
 unset req.http.Range;
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .SS Strings
 .sp
 Basic strings are enclosed in double quotes (" ... "), and may not contain
@@ -82,7 +113,7 @@ character including single double quotes ("), newline and other control
 characters except for the NUL (0x00) character.
 .SS Booleans
 .sp
-Booleans can be either \fItrue\fP or \fIfalse\fP.
+Booleans can be either \fItrue\fP or \fIfalse\fP\&.
 .SS Time
 .sp
 VCL has time. The function \fInow\fP returns a time. A duration can be
@@ -113,6 +144,9 @@ days
 .TP
 .B w
 weeks
+.TP
+.B y
+years
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -131,6 +165,8 @@ complete description please see the pcre(3) man page.
 .sp
 To send flags to the PCRE engine, such as to do case insensitive matching, add
 the flag within parens following a question mark, like this:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -140,20 +176,28 @@ if (req.http.host !~ "(?i)example.com$") {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .SS Include statement
 .sp
 To include a VCL file in another file use the include keyword:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
 include "foo.vcl";
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .SS Import statement
 .sp
 The \fIimport\fP statement is used to load Varnish Modules (VMODs.)
 .sp
 Example:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -163,11 +207,15 @@ sub vcl_recv {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .SS Backend definition
 .sp
 A backend declaration creates and initialises a named backend object. A
 declaration start with the keyword \fIbackend\fP followed by the name of the
 backend. The actual declaration is in curly brackets, in a key/value fashion.:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -176,8 +224,10 @@ backend name {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
-The only mandatory attribute is \fIhost\fP. The attributes will inherit
+The only mandatory attribute is \fIhost\fP\&. The attributes will inherit
 their defaults from the global parameters. The following attributes
 are available:
 .INDENT 0.0
@@ -214,12 +264,14 @@ connections.
 .UNINDENT
 .UNINDENT
 .sp
-Backends can be used with \fIdirectors\fP. Please see the
+Backends can be used with \fIdirectors\fP\&. Please see the
 vmod_directors(3) man page for more information.
 .SS Probes
 .sp
 Probes will query the backend for status on a regular basis and mark
 the backend as down it they fail. A probe is defined as this::
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -228,6 +280,8 @@ probe name {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
 There are no mandatory options. These are the options you can set:
 .INDENT 0.0
@@ -263,11 +317,7 @@ Defaults to 8.
 .TP
 .B threshold
 How many of the polls in .window must have succeeded for us to
-consider the backend healthy. If this is set to more than or equal
-to the threshold, the backend starts as healthy. Defaults to the
-value of threshold \- 1. In this case, the backend starts as sick
-and requires one poll to pass to become healthy. Defaults to
-threshold \- 1.
+consider the backend healthy. Defaults to 3.
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -275,6 +325,8 @@ threshold \- 1.
 .sp
 An Access Control List (ACL) declaration creates and initialises a named access
 control list which can later be used to match client addresses:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -285,6 +337,8 @@ acl localnetwork {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
 If an ACL entry specifies a host name which Varnish is unable to
 resolve, it will match any address it is compared to. Consequently,
@@ -293,6 +347,8 @@ compared to, which may not be what you intended. If the entry is
 enclosed in parentheses, however, it will simply be ignored.
 .sp
 To match an IP address against an ACL, simply use the match operator:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -301,11 +357,15 @@ if (client.ip ~ localnetwork) {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .SS VCL objects
 .sp
 A VCL object can be made with the \fInew\fP keyword.
 .sp
 Example:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -315,9 +375,13 @@ sub vcl_init {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .SS Subroutines
 .sp
 A subroutine is used to group code for legibility or reusability:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -328,12 +392,16 @@ sub pipe_if_local {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
 Subroutines in VCL do not take arguments, nor do they return
 values. The built in subroutines all have names beginning with vcl_,
 which is reserved.
 .sp
 To call a subroutine, use the call keyword followed by the subroutine\(aqs name:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -342,6 +410,8 @@ sub vcl_recv {
 }
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .SS Return statements
 .sp
 The ongoing vcl_* subroutine execution ends when a return(\fIaction\fP) statement
@@ -757,9 +827,12 @@ Type: INT
 .sp
 Readable from: vcl_hit, vcl_deliver
 .sp
-The approximate number of times the object has been
-delivered. A value of 0 indicates a cache miss.
-This variable is also available in vcl_deliver.
+The count of cache\-hits on this hash\-key since it was
+last instantiated.  This counts cache\-hits across all
+Vary:\-ants on this hash\-key.
+The counter will only be reset to zero if/when all objects
+with this hash\-key have disappeared from cache.
+NB: obj.hits == 0 does \fInot\fP indicate a cache miss.
 .UNINDENT
 .UNINDENT
 .sp
@@ -867,9 +940,9 @@ req.esi
 .INDENT 3.5
 Type: BOOL
 .sp
-Readable from: vcl_recv, vcl_backend_response, vcl_deliver, vcl_synth
+Readable from: client
 .sp
-Writable from: vcl_recv, vcl_backend_response, vcl_deliver, vcl_synth
+Writable from: client
 .sp
 Boolean. Set to false to disable ESI processing
 regardless of any value in beresp.do_esi. Defaults
@@ -1094,6 +1167,43 @@ The IP address of the socket on which the client
 connection was received.
 .UNINDENT
 .UNINDENT
+.SS storage
+.sp
+storage.<name>.free_space
+.INDENT 0.0
+.INDENT 3.5
+Type: BYTES
+.sp
+Readable from: client, backend
+.sp
+Free space available in the named stevedore. Only available for
+the malloc stevedore.
+.UNINDENT
+.UNINDENT
+.sp
+storage.<name>.used_space
+.INDENT 0.0
+.INDENT 3.5
+Type: BYTES
+.sp
+Readable from: client, backend
+.sp
+Used space in the named stevedore. Only available for the malloc
+stevedore.
+.UNINDENT
+.UNINDENT
+.sp
+storage.<name>.happy
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: client, backend
+.sp
+Health status for the named stevedore. Not available in any of the
+current stevedores.
+.UNINDENT
+.UNINDENT
 .SS Functions
 .sp
 The following built\-in functions are available:
@@ -1108,7 +1218,7 @@ Run a VCL subroutine within the current scope.
 .TP
 .B hash_data(input)
 Adds an input to the hash input. In the built\-in VCL hash_data()
-is called on the host and URL of the \fIrequest\fP. Available in vcl_hash.
+is called on the host and URL of the \fIrequest\fP\&. Available in vcl_hash.
 .TP
 .B new()
 Instanciate a new VCL object. Available in vcl_init.
@@ -1173,5 +1283,4 @@ Copyright (c) 2006 Verdens Gang AS
 Copyright (c) 2006\-2014 Varnish Software AS
 .UNINDENT
 .\" Generated by docutils manpage writer.
-.\" 
 .

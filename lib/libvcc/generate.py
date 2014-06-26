@@ -100,7 +100,7 @@ returns =(
 	),
 	('purge',
 		"C",
-		('synth', 'fetch',)
+		('synth', 'restart',)
 	),
 	('miss',
 		"C",
@@ -254,8 +254,8 @@ sp_variables = [
 	),
 	('req.esi',
 		'BOOL',
-		( 'recv', 'backend_response', 'deliver', 'synth',),
-		( 'recv', 'backend_response', 'deliver', 'synth',), """
+		( 'client',),
+		( 'client',), """
 		Boolean. Set to false to disable ESI processing
 		regardless of any value in beresp.do_esi. Defaults
 		to true. This variable is subject to change in
@@ -511,9 +511,12 @@ sp_variables = [
 		'INT',
 		( 'hit', 'deliver',),
 		( ), """
-		The approximate number of times the object has been
-		delivered. A value of 0 indicates a cache miss.
-		This variable is also available in vcl_deliver.
+		The count of cache-hits on this hash-key since it was
+		last instantiated.  This counts cache-hits across all
+		Vary:-ants on this hash-key.
+		The counter will only be reset to zero if/when all objects
+		with this hash-key have disappeared from cache.
+		NB: obj.hits == 0 does *not* indicate a cache miss.
 		"""
 	),
 	('obj.http.',
@@ -593,9 +596,18 @@ aliases = [
 ]
 
 stv_variables = (
-	('free_space',	'BYTES',	"0."),
-	('used_space',	'BYTES',	"0."),
-	('happy',	'BOOL',		"0"),
+	('free_space',	'BYTES',	"0.", 'storage.<name>.free_space', """
+        Free space available in the named stevedore. Only available for
+        the malloc stevedore.
+        """),
+	('used_space',	'BYTES',	"0.", 'storage.<name>.used_space', """
+        Used space in the named stevedore. Only available for the malloc
+        stevedore.
+        """),
+	('happy',	'BOOL',		"0", 'storage.<name>.happy', """
+        Health status for the named stevedore. Not available in any of the
+        current stevedores.
+        """),
 )
 
 #######################################################################
@@ -723,7 +735,7 @@ def emit_file(fo, fd, bn):
 	x = 0
 	l = 0
 	fo.write("\n\t/* %s */\n\n" % fn)
-	fo.write('\tVSB_cat(sb, "/* ---===### %s ###===--- */\\n");\n' % bn)
+	fo.write('\tVSB_cat(sb, "/* ---===### %s ###===--- */\\n\\n");\n' % bn)
 	for c in fc:
 		if l == 0:
 			fo.write("\tVSB_cat(sb, \"")
@@ -761,9 +773,10 @@ def emit_file(fo, fd, bn):
 			fo.write("\"\n")
 			x = 0
 	if x != 0:
-		fo.write("\"")
+		fo.write("\"\n")
 	if l != 0:
 		fo.write("\t);\n")
+	fo.write('\tVSB_cat(sb, "\\n");\n')
 
 #######################################################################
 
@@ -1170,5 +1183,16 @@ for i in l:
 	rst_where(fp_vclvar, "Writable from: ", i[3])
 	for j in i[4].split("\n"):
 		fp_vclvar.write("\t%s\n" % j.strip())
+
+hdr="storage"
+fp_vclvar.write("\n" + hdr + "\n");
+fp_vclvar.write("~" * len(hdr) + "\n");
+for i in stv_variables:
+        fp_vclvar.write("\n" + i[3] + "\n\n")
+        fp_vclvar.write("\tType: " + i[1] + "\n\n")
+        fp_vclvar.write("\tReadable from: client, backend\n\n")
+        for j in i[4].split("\n"):
+                fp_vclvar.write("\t%s\n" % j.strip())
+
 
 fp_vclvar.close()

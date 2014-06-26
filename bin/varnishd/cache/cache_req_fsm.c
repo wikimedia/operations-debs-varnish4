@@ -53,7 +53,7 @@ DOT	label="Request received"
 DOT ]
 DOT ESI_REQ [ shape=hexagon ]
 DOT ESI_REQ -> recv
-DOT ERROR [shape=plaintext]
+DOT SYNTH [shape=plaintext]
 DOT RESTART [shape=plaintext]
 DOT acceptor -> recv [style=bold,color=green]
  */
@@ -87,8 +87,6 @@ DOT deliver:deliver:s -> DONE [style=bold,color=blue]
 static enum req_fsm_nxt
 cnt_deliver(struct worker *wrk, struct req *req)
 {
-	char time_str[30];
-	double now;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
@@ -100,19 +98,12 @@ cnt_deliver(struct worker *wrk, struct req *req)
 
 	assert(req->obj->objcore->refcnt > 0);
 
-	now = W_TIM_real(wrk);
-	VSLb_ts_req(req, "Process", now);
 	if (req->obj->objcore->exp_flags & OC_EF_EXP)
-		EXP_Touch(req->obj->objcore, now);
+		EXP_Touch(req->obj->objcore, req->t_prev);
 
 	HTTP_Setup(req->resp, req->ws, req->vsl, SLT_RespMethod);
-
-	http_ClrHeader(req->resp);
 	http_FilterResp(req->obj->http, req->resp, 0);
-
-	http_Unset(req->resp, H_Date);
-	VTIM_format(now, time_str);
-	http_PrintfHeader(req->resp, "Date: %s", time_str);
+	http_ForceField(req->resp, HTTP_HDR_PROTO, "HTTP/1.1");
 
 	if (req->wrk->stats.cache_hit)
 		http_PrintfHeader(req->resp,
@@ -122,16 +113,24 @@ cnt_deliver(struct worker *wrk, struct req *req)
 		http_PrintfHeader(req->resp,
 		    "X-Varnish: %u", req->vsl->wid & VSL_IDENTMASK);
 
+	/* We base Age calculation upon the last timestamp taken during
+	   client request processing. This gives some inaccuracy, but
+	   since Age is only full second resolution that shouldn't
+	   matter. (Last request timestamp could be a Start timestamp
+	   taken before the object entered into cache leading to negative
+	   age. Truncate to zero in that case).
+	*/
 	http_PrintfHeader(req->resp, "Age: %.0f",
-	    now - req->obj->exp.t_origin);
+	    fmax(0., req->t_prev - req->obj->exp.t_origin));
 
-	http_SetHeader(req->resp, "Via: 1.1 varnish (v4)");
+	http_SetHeader(req->resp, "Via: 1.1 varnish-v4");
 
 	if (cache_param->http_gzip_support && req->obj->gziped &&
 	    !RFC2616_Req_Gzip(req->http))
 		RFC2616_Weaken_Etag(req->resp);
 
 	VCL_deliver_method(req->vcl, wrk, req, NULL, req->http->ws);
+	VSLb_ts_req(req, "Process", W_TIM_real(wrk));
 
 	/* Stop the insanity before it turns "Hotel California" on us */
 	if (req->restarts >= cache_param->max_restarts)
@@ -150,8 +149,10 @@ cnt_deliver(struct worker *wrk, struct req *req)
 	if (!(req->obj->objcore->flags & OC_F_PASS)
 	    && req->esi_level == 0
 	    && http_GetStatus(req->obj->http) == 200
-	    && req->http->conds && RFC2616_Do_Cond(req))
-		http_SetResp(req->resp, "HTTP/1.1", 304, "Not Modified");
+	    && req->http->conds && RFC2616_Do_Cond(req)) {
+		http_PutResponse(req->resp, "HTTP/1.1", 304, NULL);
+		req->wantbody = 0;
+	}
 
 	V1D_Deliver(req);
 	VSLb_ts_req(req, "Resp", W_TIM_real(wrk));
@@ -178,15 +179,15 @@ VSLb(req->vsl, SLT_Debug, "XXX REF %d", req->obj->objcore->refcnt);
 }
 
 /*--------------------------------------------------------------------
- * Emit an error
+ * Emit a synthetic response
  *
-DOT subgraph xcluster_error {
-DOT	vcl_error [
+DOT subgraph xcluster_synth {
+DOT	synth [
 DOT		shape=record
-DOT		label="{{vcl_error()|resp.}|{<del>deliver?|<restart>restart?}}"
+DOT		label="{cnt_synth:|{vcl_synth\{\}|resp.}|{<del>deliver?|<restart>restart?}}"
 DOT	]
-DOT	ERROR -> vcl_error
-DOT	vcl_error:del:s -> deliver [label=deliver]
+DOT	SYNTH -> synth
+DOT	synth:del:s -> deliver [label=deliver]
 DOT }
  */
 
@@ -202,8 +203,6 @@ cnt_synth(struct worker *wrk, struct req *req)
 
 	wrk->stats.s_synth++;
 
-	HTTP_Setup(req->resp, req->ws, req->vsl, SLT_RespMethod);
-	h = req->resp;
 
 	now = W_TIM_real(wrk);
 	VSLb_ts_req(req, "Process", now);
@@ -211,18 +210,14 @@ cnt_synth(struct worker *wrk, struct req *req)
 	if (req->err_code < 100 || req->err_code > 999)
 		req->err_code = 501;
 
-	http_ClrHeader(h);
-	http_PutProtocol(h, "HTTP/1.1");
-	http_PutStatus(h, req->err_code);
+	HTTP_Setup(req->resp, req->ws, req->vsl, SLT_RespMethod);
+	h = req->resp;
 	VTIM_format(now, date);
 	http_PrintfHeader(h, "Date: %s", date);
 	http_SetHeader(h, "Server: Varnish");
 	http_PrintfHeader(req->resp,
 	    "X-Varnish: %u", req->vsl->wid & VSL_IDENTMASK);
-	if (req->err_reason != NULL)
-		http_PutResponse(h, req->err_reason);
-	else
-		http_PutResponse(h, http_StatusMessage(req->err_code));
+	http_PutResponse(h, "HTTP/1.1", req->err_code, req->err_reason);
 
 	AZ(req->synth_body);
 	req->synth_body = VSB_new_auto();
@@ -235,7 +230,7 @@ cnt_synth(struct worker *wrk, struct req *req)
 	AZ(VSB_finish(req->synth_body));
 
 	if (wrk->handling == VCL_RET_RESTART) {
-		http_ClrHeader(h);
+		HTTP_Setup(h, req->ws, req->vsl, SLT_RespMethod);
 		VSB_delete(req->synth_body);
 		req->synth_body = NULL;
 		req->req_step = R_STP_RESTART;
@@ -313,7 +308,7 @@ DOT		label="{<top>cnt_lookup:|hash lookup|{<busy>busy?|<e>exp?|<eb>exp+busy?|<h>
 DOT	]
 DOT	lookup2 [
 DOT		shape=record
-DOT		label="{<top>cnt_lookup:|{vcl_hit\{\}|req.*, obj.*}|{<deliver>deliver?|error?|restart?|<fetch>fetch?|<pass>pass?}}"
+DOT		label="{<top>cnt_lookup:|{vcl_hit\{\}|req.*, obj.*}|{<deliver>deliver?|synth?|restart?|<fetch>fetch?|<pass>pass?}}"
 DOT	]
 DOT }
 DOT lookup:busy:w -> lookup:top:w [label="(waitinglist)"]
@@ -471,7 +466,7 @@ cnt_lookup(struct worker *wrk, struct req *req)
 DOT subgraph xcluster_miss {
 DOT	miss [
 DOT		shape=record
-DOT		label="{cnt_miss:|{vcl_miss\{\}|req.*}|{<fetch>fetch?|<err>error?|<rst>restart?|<pass>pass?}}"
+DOT		label="{cnt_miss:|{vcl_miss\{\}|req.*}|{<fetch>fetch?|<synth>synth?|<rst>restart?|<pass>pass?}}"
 DOT	]
 DOT }
 DOT miss:fetch:s -> fetch [label="fetch",style=bold,color=blue]
@@ -498,6 +493,8 @@ cnt_miss(struct worker *wrk, struct req *req)
 		wrk->stats.cache_miss++;
 		VBF_Fetch(wrk, req, req->objcore, o, VBF_NORMAL);
 		req->req_step = R_STP_FETCH;
+		if (o != NULL)
+			(void)HSH_DerefObj(&wrk->stats, &o);
 		return (REQ_FSM_MORE);
 	case VCL_RET_SYNTH:
 		req->req_step = R_STP_SYNTH;
@@ -525,7 +522,7 @@ cnt_miss(struct worker *wrk, struct req *req)
 DOT subgraph xcluster_pass {
 DOT	pass [
 DOT		shape=record
-DOT		label="{cnt_pass:|{vcl_pass\{\}|req.*}|{<fetch>fetch?|<err>error?|<rst>restart?}}"
+DOT		label="{cnt_pass:|{vcl_pass\{\}|req.*}|{<fetch>fetch?|<synth>synth?|<rst>restart?}}"
 DOT	]
 DOT }
 DOT pass:fetch:s -> fetch:n [style=bold, color=red]
@@ -573,7 +570,7 @@ cnt_pass(struct worker *wrk, struct req *req)
 DOT subgraph xcluster_pipe {
 DOT	pipe [
 DOT		shape=record
-DOT		label="{cnt_pipe:|filter req.*-\>bereq.*|{vcl_pipe()|req.*, bereq\.*}|{<pipe>pipe?|<error>error?}}"
+DOT		label="{cnt_pipe:|filter req.*-\>bereq.*|{vcl_pipe()|req.*, bereq\.*}|{<pipe>pipe?|<synth>synth?}}"
 DOT	]
 DOT	pipe_do [
 DOT		shape=ellipse
@@ -596,6 +593,7 @@ cnt_pipe(struct worker *wrk, struct req *req)
 	wrk->stats.s_pipe++;
 	bo = VBO_GetBusyObj(wrk, req);
 	HTTP_Setup(bo->bereq, bo->ws, bo->vsl, SLT_BereqMethod);
+	VSLb(bo->vsl, SLT_Begin, "bereq %u pipe", req->vsl->wid & VSL_IDENTMASK);
 	http_FilterReq(bo->bereq, req->http, 0);	// XXX: 0 ?
 	http_PrintfHeader(bo->bereq,
 	    "X-Varnish: %u", req->vsl->wid & VSL_IDENTMASK);
@@ -607,6 +605,7 @@ cnt_pipe(struct worker *wrk, struct req *req)
 		INCOMPL();
 	assert(wrk->handling == VCL_RET_PIPE);
 
+	VSLb(req->vsl, SLT_Link, "bereq %u pipe", bo->vsl->wid & VSL_IDENTMASK);
 	PipeRequest(req, bo);
 	assert(WRW_IsReleased(wrk));
 	http_Teardown(bo->bereq);
@@ -625,7 +624,7 @@ DOT }
 DOT RESTART -> restart [color=purple]
 DOT restart -> recv [color=purple]
 DOT restart -> err_restart
-DOT err_restart [label="ERROR",shape=plaintext]
+DOT err_restart [label="SYNTH",shape=plaintext]
  */
 
 static enum req_fsm_nxt
@@ -667,7 +666,7 @@ cnt_restart(struct worker *wrk, struct req *req)
 DOT subgraph xcluster_recv {
 DOT	recv [
 DOT		shape=record
-DOT		label="{cnt_recv:|{vcl_recv\{\}|req.*}|{vcl_hash\{\}|req.*}|{<lookup>lookup?|<pass>pass?|<pipe>pipe?|<error>error?|<purge>purge?}}"
+DOT		label="{cnt_recv:|{vcl_recv\{\}|req.*}|{vcl_hash\{\}|req.*}|{<lookup>lookup?|<pass>pass?|<pipe>pipe?|<synth>synth?|<purge>purge?}}"
 DOT	]
 DOT }
 DOT recv:pipe -> pipe [style=bold,color=orange]
@@ -692,9 +691,9 @@ cnt_recv(struct worker *wrk, struct req *req)
 	AZ(req->obj);
 	AZ(req->objcore);
 
-	assert(!isnan(req->t_first));
-	assert(!isnan(req->t_prev));
-	assert(!isnan(req->t_req));
+	AZ(isnan(req->t_first));
+	AZ(isnan(req->t_prev));
+	AZ(isnan(req->t_req));
 
 	VSLb(req->vsl, SLT_ReqStart, "%s %s",
 	    req->sp->client_addr_str, req->sp->client_port_str);
@@ -793,6 +792,13 @@ cnt_recv(struct worker *wrk, struct req *req)
  * Find the objhead, purge it and ask VCL if we should fetch or
  * just return.
  * XXX: fetching not implemented yet.
+ *
+DOT subgraph xcluster_purge {
+DOT	purge [
+DOT		shape=record
+DOT		label="{cnt_purge:|{vcl_purge\{\}|req.*}|{<synth>synth?}}"
+DOT	]
+DOT }
  */
 
 static enum req_fsm_nxt
@@ -816,12 +822,21 @@ cnt_purge(struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(boc, OBJCORE_MAGIC);
 	VRY_Finish(req, DISCARD);
 
-	HSH_Purge(wrk, boc->objhead, 0, 0);
+	HSH_Purge(wrk, boc->objhead, 0, 0, 0);
 
 	AZ(HSH_DerefObjCore(&wrk->stats, &boc));
 
 	VCL_purge_method(req->vcl, wrk, req, NULL, req->http->ws);
-	req->req_step = R_STP_SYNTH;
+	switch (wrk->handling) {
+	case VCL_RET_RESTART:
+		req->req_step = R_STP_RESTART;
+		break;
+	case VCL_RET_SYNTH:
+		req->req_step = R_STP_SYNTH;
+		break;
+	default:
+		WRONG("Illegal return from vcl_purge{}");
+	}
 	return (REQ_FSM_MORE);
 }
 
@@ -906,8 +921,8 @@ CNT_Request(struct worker *wrk, struct req *req)
 			VTAILQ_REMOVE(&req->body, st, list);
 			STV_free(st);
 		}
+		req->wrk = NULL;
 	}
-	req->wrk = NULL;
 	assert(WRW_IsReleased(wrk));
 	return (nxt);
 }

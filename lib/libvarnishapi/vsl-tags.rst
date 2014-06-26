@@ -142,7 +142,7 @@ BerespProtocol - Backend response protocol
 	
 
 
-BerespResponse - Backend response response
+BerespReason - Backend response response
 	The HTTP response string received.
 	
 
@@ -348,7 +348,7 @@ ObjProtocol - Object  protocol
 	
 
 
-ObjResponse - Object  response
+ObjReason - Object  response
 	The HTTP response string received.
 	
 
@@ -444,7 +444,7 @@ RespProtocol - Client response protocol
 	
 
 
-RespResponse - Client response response
+RespReason - Client response response
 	The HTTP response string received.
 	
 

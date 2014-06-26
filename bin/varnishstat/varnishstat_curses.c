@@ -53,20 +53,7 @@
 #include "vtim.h"
 
 #include "varnishstat.h"
-
-#if defined HAVE_NCURSESW_CURSES_H
-#  include <ncursesw/curses.h>
-#elif defined HAVE_NCURSESW_H
-#  include <ncursesw.h>
-#elif defined HAVE_NCURSES_CURSES_H
-#  include <ncurses/curses.h>
-#elif defined HAVE_NCURSES_H
-#  include <ncurses.h>
-#elif defined HAVE_CURSES_H
-#  include <curses.h>
-#else
-#  error "SysV or X/Open-compatible Curses header file required"
-#endif
+#include "vcurses.h"
 
 #define LINES_STATUS		3
 #define LINES_BAR_T		1
@@ -264,7 +251,7 @@ build_pt_list_cb(void *priv, const struct VSC_point *vpt)
 
 	CAST_OBJ_NOTNULL(pt_priv, priv, PT_PRIV_MAGIC);
 
-	assert(!strcmp(vpt->desc->fmt, "uint64_t"));
+	AZ(strcmp(vpt->desc->fmt, "uint64_t"));
 	snprintf(buf, sizeof buf, "%s.%s.%s", vpt->section->type,
 	    vpt->section->ident, vpt->desc->name);
 	buf[sizeof buf - 1] = '\0';

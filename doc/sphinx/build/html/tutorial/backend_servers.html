@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Backend servers &mdash; Varnish version 4.0.0 documentation</title>
+    <title>Backend servers &mdash; Varnish version 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Tutorial" href="index.html" />
     <link rel="next" title="Peculiarities" href="peculiarities.html" />
     <link rel="prev" title="Put Varnish on port 80" href="putting_varnish_on_port_80.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="putting_varnish_on_port_80.html" title="Put Varnish on port 80"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Tutorial</a> &raquo;</li> 
       </ul>
     </div>  
@@ -64,12 +62,13 @@ file. If you installed from source this is
 is probably <cite>/etc/varnish/default.vcl</cite>.</p>
 <p>If you've been following the tutorial there is probably a section of
 the configuration that looks like this::</p>
-<div class="highlight-python"><pre>vcl 4.0;
+<div class="highlight-python"><div class="highlight"><pre>vcl 4.0;
 
 backend default {
-    .host = "www.varnish-cache.org";
-    .port = "80";
-}</pre>
+    .host = &quot;www.varnish-cache.org&quot;;
+    .port = &quot;80&quot;;
+}
+</pre></div>
 </div>
 <p>This means we set up a backend in Varnish that fetches content from
 the host www.varnish-cache.org on port 80.</p>
@@ -79,12 +78,13 @@ server. We've already bound Varnish to the public port 80 on the
 server so now we need to tie it to the origin.</p>
 <p>For this example, let's pretend the origin server is running on
 localhost, port 8080.:</p>
-<div class="highlight-python"><pre>vcl 4.0;
+<div class="highlight-python"><div class="highlight"><pre>vcl 4.0;
 
 backend default {
-  .host = "127.0.0.1";
-  .port = "8080";
-}</pre>
+  .host = &quot;127.0.0.1&quot;;
+  .port = &quot;8080&quot;;
+}
+</pre></div>
 </div>
 <p>Varnish can have several backends defined and can even join several backends
 together into clusters of backends for load balancing purposes, having Varnish
@@ -138,13 +138,13 @@ pick one backend based on different algorithms.</p>
         <li class="right" >
           <a href="putting_varnish_on_port_80.html" title="Put Varnish on port 80"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Tutorial</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>

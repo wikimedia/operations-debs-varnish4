@@ -187,6 +187,23 @@ server_start(struct server *s)
 }
 
 /**********************************************************************
+ * Force stop the server thread
+ */
+
+static void
+server_break(struct server *s)
+{
+	void *res;
+
+	CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
+	vtc_log(s->vl, 2, "Breaking for server");
+	(void)pthread_cancel(s->tp);
+	AZ(pthread_join(s->tp, &res));
+	s->tp = 0;
+	s->run = 0;
+}
+
+/**********************************************************************
  * Wait for server thread to stop
  */
 
@@ -202,8 +219,6 @@ server_wait(struct server *s)
 		vtc_log(s->vl, 0, "Server returned \"%p\"",
 		    (char *)res);
 	s->tp = 0;
-	VTCP_close(&s->sock);
-	s->sock = -1;
 	s->run = 0;
 }
 
@@ -246,12 +261,16 @@ cmd_server(CMD_ARGS)
 				(void)pthread_cancel(s->tp);
 				server_wait(s);
 			}
+			if (s->sock >= 0) {
+				VTCP_close(&s->sock);
+				s->sock = -1;
+			}
 			server_delete(s);
 		}
 		return;
 	}
 
-	assert(!strcmp(av[0], "server"));
+	AZ(strcmp(av[0], "server"));
 	av++;
 
 	VTAILQ_FOREACH(s, &servers, list)
@@ -271,6 +290,12 @@ cmd_server(CMD_ARGS)
 			server_wait(s);
 			continue;
 		}
+
+		if (!strcmp(*av, "-break")) {
+			server_break(s);
+			continue;
+		}
+
 		/*
 		 * We do an implict -wait if people muck about with a
 		 * running server.
@@ -278,13 +303,17 @@ cmd_server(CMD_ARGS)
 		if (s->run)
 			server_wait(s);
 
-		assert(s->run == 0);
+		AZ(s->run);
 		if (!strcmp(*av, "-repeat")) {
 			s->repeat = atoi(av[1]);
 			av++;
 			continue;
 		}
 		if (!strcmp(*av, "-listen")) {
+			if (s->sock >= 0) {
+				VTCP_close(&s->sock);
+				s->sock = -1;
+			}
 			bprintf(s->listen, "%s", av[1]);
 			AZ(VSS_parse(s->listen, &s->addr, &s->port));
 			av++;

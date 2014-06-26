@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Security barriers in Varnish &mdash; Varnish version 4.0.0 documentation</title>
+    <title>Security barriers in Varnish &mdash; Varnish version 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="What were they thinking ?" href="thoughts.html" />
     <link rel="prev" title="Picking platforms" href="platforms.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="platforms.html" title="Picking platforms"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
       </ul>
     </div>  
@@ -60,37 +58,38 @@ if you find yourself thinking &quot;Why did he do _that_ ? the answer has to
 do with security.</p>
 <p>The Varnish security model is based on some very crude but easy to understand
 barriers between the various components:</p>
-<div class="highlight-python"><pre>              .--&gt;- provides -&gt;---------------------------------------.
+<div class="highlight-python"><div class="highlight"><pre>              .--&gt;- provides -&gt;---------------------------------------.
               |                                          |            |
      (ADMIN)--+--&gt;- runs -----&gt;---.                      |            |
               |                   |                      |            |
               |--&gt;- cli_req --&gt;---|                      v            v
-              '--&lt;- cli_resp -&lt;---|                     VCL        MODULE
+              &#39;--&lt;- cli_resp -&lt;---|                     VCL        MODULE
                                   |                      |            |
      (OPER)                       |                      |reads       |
        |                          |                      |            |
        |runs                      |                      |            |
        |      .-&lt;- create -&lt;-.    |    .-&gt;- fork -&gt;-.    v            |
        v      |-&gt;- check --&gt;-|-- MGR --|            |-- VCC &lt;- loads -|
-      VSM     |-&lt;- write --&lt;-'    |    '-&lt;- wait -&lt;-'    |            |
+      VSM     |-&lt;- write --&lt;-&#39;    |    &#39;-&lt;- wait -&lt;-&#39;    |            |
      TOOLS    |                   |                      |            |
-       ^      |     .-------------'                      |            |
+       ^      |     .-------------&#39;                      |            |
        |      |     |                                    |writes      |
        |reads |     |-&gt;- fork -----&gt;-.                   |            |
        |      |     |-&gt;- cli_req --&gt;-|                   |            |
-      VSM ----'     |-&lt;- cli_resp -&lt;-|                   v            |
-       |            '-&lt;- wait -----&lt;-|                VCL.SO          |
+      VSM ----&#39;     |-&lt;- cli_resp -&lt;-|                   v            |
+       |            &#39;-&lt;- wait -----&lt;-|                VCL.SO          |
        |                             |                   |            |
        |                             |                   |            |
-       |----&gt;----- inherit ---&gt;------|--&lt;-- loads -------'            |
+       |----&gt;----- inherit ---&gt;------|--&lt;-- loads -------&#39;            |
        |----&gt;-----  reads ----&gt;------|                                |
-       '----&lt;----- writes ----&lt;------|--&lt;-- loads --------------------'
+       &#39;----&lt;----- writes ----&lt;------|--&lt;-- loads --------------------&#39;
                                      |
                                      |
                                      |
          .---&gt;-- http_req ---&gt;--.    |    .--&gt;-- http_req ---&gt;--.
 (ANON) --|                      |-- CLD --|                     |-- (BACKEND)
-         '---&lt;-- http_resp --&lt;--'         '--&lt;-- http_resp --&lt;--'</pre>
+         &#39;---&lt;-- http_resp --&lt;--&#39;         &#39;--&lt;-- http_resp --&lt;--&#39;
+</pre></div>
 </div>
 <p>(ASCII-ART rules!)</p>
 <div class="section" id="the-really-important-barrier">
@@ -211,13 +210,13 @@ process like all other server programs.</p>
         <li class="right" >
           <a href="platforms.html" title="Picking platforms"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>

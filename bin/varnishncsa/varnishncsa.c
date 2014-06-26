@@ -30,30 +30,12 @@
  * SUCH DAMAGE.
  *
  * Obtain log data from the shared memory log, order it by session ID, and
- * display it in Apache / NCSA combined log format:
+ * display it in Apache / NCSA combined log format.
  *
- *	%h %l %u %t "%r" %s %b "%{Referer}i" "%{User-agent}i"
+ * See doc/sphinx/reference/varnishncsa.rst for the supported format
+ * specifiers.
  *
- * where the fields are defined as follows:
- *
- *	%h		Client host name or IP address (always the latter)
- *	%l		Client user ID as reported by identd (always "-")
- *	%u		User ID if using HTTP authentication, or "-"
- *	%t		Date and time of request
- *	%r		Request line
- *	%s		Status code
- *	%b		Length of reply body, or "-"
- *	%{Referer}i	Contents of "Referer" request header
- *	%{User-agent}i	Contents of "User-agent" request header
- *
- * Actually, we cheat a little and replace "%r" with something close to
- * "%m http://%{Host}i%U%q %H", where the additional fields are:
- *
- *	%m		Request method
- *	%{Host}i	Contents of "Host" request header
- *	%U		URL path
- *	%q		Query string
- *	%H		Protocol version
+ * Note: %r is "%m http://%{Host}i%U%q %H"
  *
  */
 
@@ -68,6 +50,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <time.h>
+#include <math.h>
 
 #include "base64.h"
 #include "vapi/vsm.h"
@@ -91,10 +74,12 @@ enum e_frag {
 	F_H,			/* %H Proto */
 	F_U,			/* %U URL path */
 	F_q,			/* %q Query string */
-	F_b,			/* %b Bytes */
+	F_b,			/* %b Body bytes sent */
 	F_h,			/* %h Host name / IP Address */
 	F_m,			/* %m Method */
 	F_s,			/* %s Status */
+	F_I,			/* %I Bytes recieved */
+	F_O,			/* %O Bytes sent */
 	F_tstart,		/* Time start */
 	F_tend,			/* Time end */
 	F_ttfb,			/* %{Varnish:time_firstbyte}x */
@@ -259,24 +244,31 @@ format_time(const struct format *format)
 	struct tm tm;
 
 	CHECK_OBJ_NOTNULL(format, FORMAT_MAGIC);
-	if (CTX.frag[F_tstart].gen != CTX.gen ||
-	    CTX.frag[F_tend].gen != CTX.gen) {
+	if (CTX.frag[F_tstart].gen == CTX.gen) {
+		t_start = strtod(CTX.frag[F_tstart].b, &p);
+		if (p != CTX.frag[F_tstart].e)
+			t_start = NAN;
+	} else
+		t_start = NAN;
+	if (isnan(t_start)) {
+		/* Missing t_start is a no go */
 		if (format->string == NULL)
 			return (-1);
 		AZ(VSB_cat(CTX.vsb, format->string));
 		return (0);
 	}
 
-	t_start = strtod(CTX.frag[F_tstart].b, &p);
-	if (p != CTX.frag[F_tstart].e)
-		return (-1);
-	t_end = strtod(CTX.frag[F_tend].b, &p);
-	if (p != CTX.frag[F_tend].e)
-		return (-1);
+	/* Missing t_end defaults to t_start */
+	if (CTX.frag[F_tend].gen == CTX.gen) {
+		t_end = strtod(CTX.frag[F_tend].b, &p);
+		if (p != CTX.frag[F_tend].e)
+			t_end = t_start;
+	} else
+		t_end = t_start;
 
 	switch (format->time_type) {
 	case 'D':
-		AZ(VSB_printf(CTX.vsb, "%f", (t_end - t_start) * 1e6));
+		AZ(VSB_printf(CTX.vsb, "%d", (int)((t_end - t_start) * 1e6)));
 		break;
 	case 't':
 		AN(format->time_fmt);
@@ -535,7 +527,7 @@ parse_format(const char *format)
 
 		p++;
 		switch (*p) {
-		case 'b':	/* Bytes */
+		case 'b':	/* Body bytes sent */
 			addf_fragment(&CTX.frag[F_b], "-");
 			break;
 		case 'D':	/* Float request time */
@@ -547,11 +539,17 @@ parse_format(const char *format)
 		case 'H':	/* Protocol */
 			addf_fragment(&CTX.frag[F_H], "HTTP/1.0");
 			break;
+		case 'I':	/* Bytes recieved */
+			addf_fragment(&CTX.frag[F_I], "-");
+			break;
 		case 'l':	/* Client user ID (identd) always '-' */
 			AZ(VSB_putc(vsb, '-'));
 			break;
 		case 'm':	/* Method */
 			addf_fragment(&CTX.frag[F_m], "-");
+			break;
+		case 'O':	/* Bytes sent */
+			addf_fragment(&CTX.frag[F_O], "-");
 			break;
 		case 'q':	/* Query string */
 			addf_fragment(&CTX.frag[F_q], "");
@@ -560,7 +558,7 @@ parse_format(const char *format)
 			addf_requestline();
 			break;
 		case 's':	/* Status code */
-			addf_fragment(&CTX.frag[F_s], "");
+			addf_fragment(&CTX.frag[F_s], "-");
 			break;
 		case 't':	/* strftime */
 			addf_time(*p, TIME_FMT, NULL);
@@ -568,7 +566,7 @@ parse_format(const char *format)
 		case 'T':	/* Int request time */
 			addf_time(*p, NULL, NULL);
 			break;
-		case 'u':
+		case 'u':	/* Remote user from auth */
 			addf_auth("-");
 			break;
 		case 'U':	/* URL */
@@ -762,6 +760,12 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				e--;
 
 			switch (tag) {
+			case SLT_PipeAcct:
+				frag_fields(b, e,
+				    3, &CTX.frag[F_I],
+				    4, &CTX.frag[F_O],
+				    0, NULL);
+				break;
 			case SLT_ReqStart:
 				frag_fields(b, e, 1, &CTX.frag[F_h], 0, NULL);
 				break;
@@ -782,18 +786,24 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				frag_line(b, e, &CTX.frag[F_s]);
 				break;
 			case SLT_ReqAcct:
-				frag_fields(b, e, 5, &CTX.frag[F_b], 0, NULL);
+				frag_fields(b, e,
+				    3, &CTX.frag[F_I],
+				    5, &CTX.frag[F_b],
+				    6, &CTX.frag[F_O],
+				    0, NULL);
 				break;
 			case SLT_Timestamp:
 				if (isprefix(b, "Start:", e, &p)) {
 					frag_fields(p, e, 1,
 					    &CTX.frag[F_tstart], 0, NULL);
 
-				} else if (isprefix(b, "Resp:", e, &p)) {
+				} else if (isprefix(b, "Resp:", e, &p) ||
+					isprefix(b, "PipeSess:", e, &p)) {
 					frag_fields(p, e, 1,
 					    &CTX.frag[F_tend], 0, NULL);
 
-				} else if (isprefix(b, "Process:", e, &p)) {
+				} else if (isprefix(b, "Process:", e, &p) ||
+					isprefix(b, "Pipe:", e, &p)) {
 					frag_fields(p, e, 2,
 					    &CTX.frag[F_ttfb], 0, NULL);
 				}
@@ -824,14 +834,15 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 					   wrong */
 					CTX.hitmiss = "miss";
 					CTX.handling = "error";
+				}
+				break;
+			case SLT_VCL_return:
+				if (!strcasecmp(b, "restart")) {
+					skip = 1;
 				} else if (!strcasecmp(b, "pipe")) {
 					CTX.hitmiss = "miss";
 					CTX.handling = "pipe";
 				}
-				break;
-			case SLT_VCL_return:
-				if (!strcasecmp(b, "restart"))
-					skip = 1;
 				break;
 			default:
 				break;

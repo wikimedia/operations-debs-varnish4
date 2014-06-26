@@ -37,7 +37,7 @@ following VCL in place::
 
 	  if (req.method == "PURGE") {
 		  if (!client.ip ~ purge) {
-			  return(synth(405,"Not allowed.");
+			  return(synth(405,"Not allowed."));
 		  }
                   # jump to hit/miss
 		  return (purge);
@@ -122,7 +122,7 @@ object is not available in the `ban lurker` thread.
 You can use the following template to write `ban lurker` friendly bans::
 
   sub vcl_backend_response {
-    set beresp.http.x-url = req.url;
+    set beresp.http.x-url = bereq.url;
   }
 
   sub vcl_deliver {

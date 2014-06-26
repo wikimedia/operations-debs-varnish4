@@ -1,6 +1,8 @@
 #
 
-AM_CPPFLAGS = -I$(top_srcdir)/include
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)/include
 
 bin_PROGRAMS = varnishstat
 
@@ -9,9 +11,9 @@ varnishstat_SOURCES = \
 	\
 	varnishstat.c \
 	varnishstat_curses.c \
-	$(top_builddir)/lib/libvarnish/vas.c \
-	$(top_builddir)/lib/libvarnish/version.c \
-	$(top_builddir)/lib/libvarnish/vtim.c
+	$(top_srcdir)/lib/libvarnish/vas.c \
+	$(top_srcdir)/lib/libvarnish/version.c \
+	$(top_srcdir)/lib/libvarnish/vtim.c
 
 varnishstat_LDADD = \
 	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
