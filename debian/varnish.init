@@ -101,8 +101,9 @@ status_varnishd() {
 }
 
 configtest() {
-    $DAEMON ${DAEMON_OPTS} -C -n /tmp > /dev/null && echo "Syntax ok"
+    $DAEMON ${DAEMON_OPTS} -C -n /tmp > /dev/null
 }
+
 
 
 case "$1" in
@@ -126,11 +127,17 @@ case "$1" in
         status_varnishd
         ;;
     restart|force-reload)
+	if status_of_proc -p "${PIDFILE}" "${DAEMON}" "${NAME}" 1>/dev/null; then
+	    if ! configtest; then
+		log_failure_msg "Syntax check failed, not restarting"
+		exit 1
+	    fi
+	fi
         $0 stop
         $0 start
         ;;
     configtest)
-        configtest
+        configtest && log_success_msg "Syntax ok"
         ;;
     *)
         log_success_msg "Usage: $0 {start|stop|restart|reload|force-reload|configtest}"
