@@ -1,3 +1,12 @@
+varnish (4.0.2-1) UNRELEASED; urgency=medium
+
+  * use /run instead of /var/run in sysv init scripts (Closes: #708975)
+  * Remove explicit "exit 0" from init scripts
+  * Check syntax of running varnish before restart
+  * Imported upstream release 4.0.2
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 14 Oct 2014 21:37:38 +0200
+
 varnish (4.0.1-1) unstable; urgency=medium
 
   * Imported upstream release 4.0.1
