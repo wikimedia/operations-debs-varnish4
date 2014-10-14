@@ -8,13 +8,11 @@ Uploaders:
  Stig Sandbeck Mathisen <ssm@debian.org>,
  Tollef Fog Heen <tfheen@debian.org>,
 Build-Depends:
- autoconf,
  automake,
  autotools-dev,
  debhelper (>= 9),
  dh-autoreconf,
  dh-systemd,
- groff-base,
  libedit-dev,
  libjemalloc-dev,
  libncurses-dev,
