@@ -120,7 +120,8 @@ vlu_dotelnet(struct vlu *l, char *p)
 		/* Return WONT for these */
 		memcpy(tno, p, 3);
 		tno[1] = (char)252;
-		(void)write(l->telnet, tno, 3);
+		if (write(l->telnet, tno, 3) != 3)
+			return (1);
 		i = 3;
 		break;
 	default:

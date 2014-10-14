@@ -325,9 +325,18 @@ Default timeout for receiving first byte from backend. We only wait for this man
 group
 ~~~~~
 	* Default: nogroup (65534)
-	* Flags: must_restart
+	* Flags: must_restart, only_root
 
 The unprivileged group to run as.
+
+.. _ref_param_group_cc:
+
+group_cc
+~~~~~~~~
+	* Default: <not set>
+	* Flags: only_root
+
+On some systems the C-compiler is restricted so not everybody can run it.  This parameter makes it possible to add an extra group to the sandbox process which runs the cc_command, in order to gain access to such a restricted C-compiler.
 
 .. _ref_param_gzip_buffer:
 
@@ -690,10 +699,9 @@ shm_reclen
 	* Units: bytes
 	* Default: 255b
 	* Minimum: 16b
-	* Maximum: 65535b
+	* Maximum: 4084
 
-Maximum number of bytes in SHM log record.
-Maximum is 65535 bytes.
+Old name for vsl_reclen, use that instead.
 
 .. _ref_param_shortlived:
 
@@ -945,7 +953,7 @@ Max time to receive clients request header, measured from first non-white-space 
 user
 ~~~~
 	* Default: nobody (65534)
-	* Flags: must_restart
+	* Flags: must_restart, only_root
 
 The unprivileged user to run as.
 
@@ -999,12 +1007,12 @@ vsl_buffer
 ~~~~~~~~~~
 	* Units: bytes
 	* Default: 4k
-	* Minimum: 1k
+	* Minimum: 267
 
 Bytes of (req-/backend-)workspace dedicated to buffering VSL records.
-At a bare minimum, this must be longer than the longest HTTP header to be logged.
 Setting this too high costs memory, setting it too low will cause more VSL flushes and likely increase lock-contention on the VSL mutex.
-Minimum is 1k bytes.
+
+The minimum tracks the vsl_reclen parameter + 12 bytes.
 
 .. _ref_param_vsl_mask:
 
@@ -1018,6 +1026,19 @@ Mask individual VSL messages from being logged.
 		Set default value
 
 Use +/- prefixe in front of VSL tag name, to mask/unmask individual VSL messages.
+
+.. _ref_param_vsl_reclen:
+
+vsl_reclen
+~~~~~~~~~~
+	* Units: bytes
+	* Default: 255b
+	* Minimum: 16b
+	* Maximum: 4084b
+
+Maximum number of bytes in SHM log record.
+
+The maximum tracks the vsl_buffer parameter - 12 bytes.
 
 .. _ref_param_vsl_space:
 
@@ -1067,7 +1088,7 @@ workspace_client
 ~~~~~~~~~~~~~~~~
 	* Units: bytes
 	* Default: 64k
-	* Minimum: 3k
+	* Minimum: 9k
 	* Flags: delayed
 
 Bytes of HTTP protocol workspace for clients HTTP req/resp.  If larger than 4k, use a multiple of 4k for VM efficiency.

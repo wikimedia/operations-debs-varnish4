@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Varnish CLI &mdash; Varnish version 4.0.1 documentation</title>
+    <title>Varnish CLI &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishadm" href="varnishadm.html" />
     <link rel="prev" title="VCL" href="vcl.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="vcl.html" title="VCL"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -88,10 +90,9 @@ that service. Please see varnishd(1) for details.</p>
 <p>Commands are usually terminated with a newline. Long command can be
 entered using sh style <em>here documents</em>. The format of here-documents
 is:</p>
-<div class="highlight-python"><div class="highlight"><pre>&lt;&lt; word
+<div class="highlight-python"><pre>&lt;&lt; word
      here document
-word
-</pre></div>
+word</pre>
 </div>
 <p><em>word</em> can be any continuous string choosen to make sure it doesn't
 appear naturally in the following <em>here document</em>.</p>
@@ -191,11 +192,11 @@ contents is not cached in varnishd, so it is possible to update the
 file on the fly.</p>
 <p>Use the unix file permissions to control access to the file.</p>
 <p>An authenticated session looks like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>critter phk&gt; telnet localhost 1234
+<div class="highlight-python"><pre>critter phk&gt; telnet localhost 1234
 Trying ::1...
 Trying 127.0.0.1...
 Connected to localhost.
-Escape character is &#39;^]&#39;.
+Escape character is '^]'.
 107 59
 ixslvvxrgkjptxmcgnnsdxsvdmvfympg
 
@@ -206,10 +207,9 @@ auth 455ce847f0073c7ab3b1465f74507b75d3dc064c1e7de3b71e00de9092fdc89a
 -----------------------------
 Varnish HTTP accelerator CLI.
 -----------------------------
-Type &#39;help&#39; for command list.
-Type &#39;quit&#39; to close CLI session.
-Type &#39;start&#39; to launch worker process.
-</pre></div>
+Type 'help' for command list.
+Type 'quit' to close CLI session.
+Type 'start' to launch worker process.</pre>
 </div>
 <p>The CLI status of 107 indicates that authentication is necessary. The
 first 32 characters of the reponse text is the challenge
@@ -228,7 +228,7 @@ following byte sequence:</p>
 </ul>
 <p>and dumping the resulting digest in lower-case hex.</p>
 <p>In the above example, the secret file contained foon and thus:</p>
-<div class="highlight-python"><div class="highlight"><pre>critter phk&gt; cat &gt; _
+<div class="highlight-python"><pre>critter phk&gt; cat &gt; _
 ixslvvxrgkjptxmcgnnsdxsvdmvfympg
 foo
 ixslvvxrgkjptxmcgnnsdxsvdmvfympg
@@ -243,8 +243,7 @@ critter phk&gt; hexdump -C _
 critter phk&gt; sha256 _
 SHA256 (_) = 455ce847f0073c7ab3b1465f74507b75d3dc064c1e7de3b71e00de9092fdc89a
 critter phk&gt; openssl dgst -sha256 &lt; _
-455ce847f0073c7ab3b1465f74507b75d3dc064c1e7de3b71e00de9092fdc89a
-</pre></div>
+455ce847f0073c7ab3b1465f74507b75d3dc064c1e7de3b71e00de9092fdc89a</pre>
 </div>
 <p>The sourcefile lib/libvarnish/cli_auth.c contains a useful function
 which calculates the response, given an open filedescriptor to the
@@ -261,8 +260,7 @@ secret file, and the challenge string.</p>
 <p>Example: Ban all documents where the serving host is &quot;example.com&quot;
 or &quot;www.example.com&quot;, and where the Set-Cookie header received from
 the backend contains &quot;USERID=1663&quot;:</p>
-<div class="highlight-python"><div class="highlight"><pre>req.http.host ~ &quot;^(?i)(www\.)example.com$&quot; &amp;&amp; obj.http.set-cookie ~ &quot;USERID=1663&quot;
-</pre></div>
+<div class="highlight-python"><pre>req.http.host ~ "^(?i)(www\.)example.com$" &amp;&amp; obj.http.set-cookie ~ "USERID=1663"</pre>
 </div>
 </div>
 <div class="section" id="see-also">
@@ -358,13 +356,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="vcl.html" title="VCL"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

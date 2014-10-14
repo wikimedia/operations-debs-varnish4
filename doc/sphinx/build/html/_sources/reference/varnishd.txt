@@ -76,10 +76,10 @@ OPTIONS
 
 -l shl[,free[,fill]]
             Specifies size of shmlog file. shl is the store for the
-            shared memory log records [80m], free is the store for other
-            allocations [1m] and fill determines how the log is [+].
-            Scaling suffixes like 'k', 'm' can be used up to
-            (e)tabytes.  Default is 80 Megabytes.
+            shared memory log records [80M], free is the store for other
+            allocations [1M] and fill determines how the log is [+].
+            Scaling suffixes like 'k', 'M' can be used up to
+            (E)xabytes.  Default is 80 Megabytes.
 
 -M address:port
             Connect to this port and offer the command line interface.
@@ -226,6 +226,15 @@ restart
 reload
       The VCL programs must be reloaded for this parameter to take effect.
 
+experimental
+      We're not really sure about this parameter, tell us what you find.
+
+wizard
+      Do not touch unless you *really* know what you're doing.
+
+only_root
+      Only works if varnishd is running as root.
+
 Here is a list of all parameters, current as of last time we
 remembered to update the manual page.  This text is produced from the
 same text you will find in the CLI if you use the param.show command,
@@ -239,6 +248,24 @@ thread_pool_stack (=64k) are reduced relative to the values listed
 here, in order to conserve VM space.
 
 .. include:: ../include/params.rst
+
+EXIT CODES
+==========
+
+Varnish and bundled tools will, in most cases, exit with one of the
+following codes
+
+* `0` OK
+* `1` Some error which could be system-dependend and/or transient
+* `2` Serious configuration / parameter error - retrying with the same
+  configuration / parameters is most likely useless
+
+The `varnishd` master process may also OR its exit code
+
+* with `0x20` when the `varnishd` child process died,
+* with `0x40` when the `varnishd` child process was terminated by a
+  signal and
+* with `0x80` when a core was dumped.
 
 SEE ALSO
 ========

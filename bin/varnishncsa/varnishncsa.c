@@ -300,7 +300,7 @@ format_requestline(const struct format *format)
 		AZ(vsb_fcat(CTX.vsb, &CTX.frag[F_host], NULL));
 	} else
 		AZ(VSB_cat(CTX.vsb, "http://localhost"));
-	AZ(vsb_fcat(CTX.vsb, &CTX.frag[F_U], "-"));
+	AZ(vsb_fcat(CTX.vsb, &CTX.frag[F_U], ""));
 	AZ(vsb_fcat(CTX.vsb, &CTX.frag[F_q], ""));
 	AZ(VSB_putc(CTX.vsb, ' '));
 	AZ(vsb_fcat(CTX.vsb, &CTX.frag[F_H], "HTTP/1.0"));
@@ -760,6 +760,9 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				e--;
 
 			switch (tag) {
+			case SLT_HttpGarbage:
+				skip = 1;
+				break;
 			case SLT_PipeAcct:
 				frag_fields(b, e,
 				    3, &CTX.frag[F_I],

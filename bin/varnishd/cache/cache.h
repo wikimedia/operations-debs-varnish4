@@ -545,6 +545,7 @@ struct busyobj {
 	enum busyobj_state_e	state;
 
 	struct ws		ws[1];
+	char 			*ws_bo;
 	struct vbc		*vbc;
 	struct http		*bereq0;
 	struct http		*bereq;
@@ -731,7 +732,7 @@ struct req {
 	/* Temporary accounting */
 	struct acct_req		acct;
 
-	/* Synth content in vcl_error */
+	/* Synth content in vcl_synth */
 	struct vsb		*synth_body;
 };
 
@@ -871,7 +872,7 @@ HTTP1_Chunked(struct http_conn *htc, intptr_t *priv, const char **error,
 
 /* cache_http1_deliver.c */
 unsigned V1D_FlushReleaseAcct(struct req *req);
-void V1D_Deliver(struct req *);
+void V1D_Deliver(struct req *, struct busyobj *);
 void V1D_Deliver_Synth(struct req *req);
 
 
@@ -882,6 +883,7 @@ VDP_bytes(struct req *req, enum vdp_action act, const void *ptr, ssize_t len)
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 
+	assert(act > VDP_NULL || len > 0);
 	/* Call the present layer, while pointing to the next layer down */
 	i = req->vdp_nxt--;
 	assert(i >= 0 && i < N_VDPS);
@@ -925,7 +927,7 @@ void CLI_AddFuncs(struct cli_proto *p);
 extern pthread_t cli_thread;
 #define ASSERT_CLI() do {assert(pthread_self() == cli_thread);} while (0)
 
-/* cache_expiry.c */
+/* cache_expire.c */
 void EXP_Clr(struct exp *e);
 
 double EXP_Ttl(const struct req *, const struct object*);
@@ -1185,6 +1187,7 @@ int VRY_Create(struct busyobj *bo, struct vsb **psb);
 int VRY_Match(struct req *, const uint8_t *vary);
 unsigned VRY_Validate(const uint8_t *vary);
 void VRY_Prep(struct req *);
+void VRY_Clear(struct req *);
 enum vry_finish_flag { KEEP, DISCARD };
 void VRY_Finish(struct req *req, enum vry_finish_flag);
 
@@ -1235,6 +1238,7 @@ void WRK_BgThread(pthread_t *thr, const char *name, bgthread_t *func,
 
 void WS_Init(struct ws *ws, const char *id, void *space, unsigned len);
 unsigned WS_Reserve(struct ws *ws, unsigned bytes);
+void WS_MarkOverflow(struct ws *ws);
 void WS_Release(struct ws *ws, unsigned bytes);
 void WS_ReleaseP(struct ws *ws, char *ptr);
 void WS_Assert(const struct ws *ws);
@@ -1245,7 +1249,7 @@ char *WS_Snapshot(struct ws *ws);
 int WS_Overflowed(const struct ws *ws);
 void *WS_Printf(struct ws *ws, const char *fmt, ...) __printflike(2, 3);
 
-/* rfc2616.c */
+/* cache_rfc2616.c */
 void RFC2616_Ttl(struct busyobj *, double now);
 enum body_status RFC2616_Body(struct busyobj *, struct dstat *);
 unsigned RFC2616_Req_Gzip(const struct http *);

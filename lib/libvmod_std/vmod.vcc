@@ -174,6 +174,13 @@ $Function INT port(IP)
 Description
 	Returns the port number of an IP address.
 
+$Function VOID rollback(HTTP)
+
+Description
+	Restore *h* HTTP headers to their original state.
+Example
+	std.rollback(bereq);
+
 $Function VOID timestamp(STRING)
 
 Description
@@ -188,9 +195,23 @@ $Function STRING querysort(STRING)
 
 Description
         Sorts the querystring for cache normalization purposes.
-
 Example
         set req.url = std.querysort(req.url);
+
+
+$Function STRING strstr(STRING, STRING)
+
+Description
+	Returns the substring if the second string is a substring of the first
+	string. Note that the comparison is case sensitive. You can
+	use the tolower function on both strings if you want case
+	insensitivity.
+	
+        If there is no match a NULL pointer is returned which would
+        evaluate to false in an if-test.
+
+Example
+	if (std.strstr(req.url, req.http.x-restrict)) 
 
 
 

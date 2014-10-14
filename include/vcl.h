@@ -16,40 +16,40 @@ typedef void vcl_fini_f(struct cli *);
 typedef int vcl_func_f(const struct vrt_ctx *ctx);
 
 /* VCL Methods */
-#define VCL_MET_RECV		(1U << 0)
-#define VCL_MET_PIPE		(1U << 1)
-#define VCL_MET_PASS		(1U << 2)
-#define VCL_MET_HASH		(1U << 3)
-#define VCL_MET_PURGE		(1U << 4)
-#define VCL_MET_MISS		(1U << 5)
-#define VCL_MET_HIT		(1U << 6)
-#define VCL_MET_DELIVER		(1U << 7)
-#define VCL_MET_SYNTH		(1U << 8)
-#define VCL_MET_BACKEND_FETCH		(1U << 9)
-#define VCL_MET_BACKEND_RESPONSE		(1U << 10)
-#define VCL_MET_BACKEND_ERROR		(1U << 11)
-#define VCL_MET_INIT		(1U << 12)
-#define VCL_MET_FINI		(1U << 13)
+#define VCL_MET_RECV			(1U << 1)
+#define VCL_MET_PIPE			(1U << 2)
+#define VCL_MET_PASS			(1U << 3)
+#define VCL_MET_HASH			(1U << 4)
+#define VCL_MET_PURGE			(1U << 5)
+#define VCL_MET_MISS			(1U << 6)
+#define VCL_MET_HIT			(1U << 7)
+#define VCL_MET_DELIVER			(1U << 8)
+#define VCL_MET_SYNTH			(1U << 9)
+#define VCL_MET_BACKEND_FETCH		(1U << 10)
+#define VCL_MET_BACKEND_RESPONSE	(1U << 11)
+#define VCL_MET_BACKEND_ERROR		(1U << 12)
+#define VCL_MET_INIT			(1U << 13)
+#define VCL_MET_FINI			(1U << 14)
 
-#define VCL_MET_MAX		14
+#define VCL_MET_MAX			15
 
-#define VCL_MET_MASK		0x3fff
+#define VCL_MET_MASK			0x7fff
 
 /* VCL Returns */
-#define VCL_RET_ABANDON		0
-#define VCL_RET_DELIVER		1
-#define VCL_RET_FETCH		2
-#define VCL_RET_HASH		3
-#define VCL_RET_LOOKUP		4
-#define VCL_RET_OK		5
-#define VCL_RET_PASS		6
-#define VCL_RET_PIPE		7
-#define VCL_RET_PURGE		8
-#define VCL_RET_RESTART		9
-#define VCL_RET_RETRY		10
-#define VCL_RET_SYNTH		11
+#define VCL_RET_ABANDON			0
+#define VCL_RET_DELIVER			1
+#define VCL_RET_FETCH			2
+#define VCL_RET_HASH			3
+#define VCL_RET_LOOKUP			4
+#define VCL_RET_OK			5
+#define VCL_RET_PASS			6
+#define VCL_RET_PIPE			7
+#define VCL_RET_PURGE			8
+#define VCL_RET_RESTART			9
+#define VCL_RET_RETRY			10
+#define VCL_RET_SYNTH			11
 
-#define VCL_RET_MAX		12
+#define VCL_RET_MAX			12
 
 struct VCL_conf {
 	unsigned	magic;

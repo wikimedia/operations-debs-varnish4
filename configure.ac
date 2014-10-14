@@ -2,7 +2,7 @@ AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2006 Verdens Gang AS
 Copyright (c) 2006-2014 Varnish Software AS])
 AC_REVISION([$Id$])
-AC_INIT([Varnish], [4.0.1], [varnish-dev@varnish-cache.org])
+AC_INIT([Varnish], [4.0.2], [varnish-dev@varnish-cache.org])
 AC_CONFIG_SRCDIR(include/miniobj.h)
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -140,16 +140,31 @@ AC_SUBST(PCRE_CFLAGS)
 AC_SUBST(PCRE_LIBS)
 
 PKG_CHECK_MODULES([LIBEDIT], [libedit], 
-	[AC_DEFINE([HAVE_LIBEDIT], [1], [Define we have libedit])],
-	[AX_LIB_READLINE])
-if test "$ac_cv_have_readline" = no; then
-  AC_MSG_ERROR([libedit or readline not found])
-fi
+	# having the module does not imply having the header
+	[AC_CHECK_HEADERS([editline/readline.h],
+			  [AC_DEFINE([HAVE_LIBEDIT], [1], [Define if we have libedit])],
+			  [AC_MSG_ERROR([Found libedit, but header file is missing. Hint: Install dev package?])])],
+	[
+	 # AX_LIB_READLINE overwrites LIBS which leads to every binary getting
+	 # linked against libreadline uselessly. So we re-use LIBEDIT_LIBS which
+	 # we have for libedit to add the lib specifically where needed
+	 save_LIBS="${LIBS}"
+	 AX_LIB_READLINE
+	 LIBS="${save_LIBS}"
+	 if test "$ax_cv_lib_readline" = "no"; then
+		AC_MSG_ERROR([neither libedit nor another readline compatible library found])
+	 fi
+	 if test "x$ax_cv_lib_readline_history" != "xyes"; then
+		AC_MSG_ERROR([need readline history support])
+	 fi
+	 LIBEDIT_LIBS="$ax_cv_lib_readline"
+	])
 
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIME
+AC_CHECK_HEADERS([edit/readline/readline.h])
 AC_CHECK_HEADERS([sys/param.h])
 AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([sys/endian.h])
@@ -321,7 +336,10 @@ else
 fi
 
 AM_MISSING_HAS_RUN
-AC_CHECK_PROGS(PYTHON, [python3 python3.1 python3.2 python2.7 python2.6 python2.5 python2 python], [AC_MSG_ERROR([Python is needed to build Varnish, please install python.])])
+AC_CHECK_PROGS(PYTHON, [python3 python3.1 python3.2 python2.7 python2.6 python2.5 python2 python], "no")
+if test "x$PYTHON" = "xno"; then
+  AC_MSG_ERROR([Python is needed to build Varnish, please install python.])
+fi
 
 AC_CHECK_DECL([SO_ACCEPTFILTER],
     AC_DEFINE(HAVE_ACCEPT_FILTERS,1,[Define to 1 if you have accept filters]),

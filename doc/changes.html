@@ -3,13 +3,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="generator" content="Docutils 0.11: http://docutils.sourceforge.net/" />
+<meta name="generator" content="Docutils 0.8.1: http://docutils.sourceforge.net/" />
 <title></title>
 <style type="text/css">
 
 /*
 :Author: David Goodger (goodger@python.org)
-:Id: $Id: html4css1.css 7614 2013-02-21 15:55:51Z milde $
+:Id: $Id: html4css1.css 7056 2011-06-17 10:50:48Z milde $
 :Copyright: This stylesheet has been placed in the public domain.
 
 Default cascading style sheet for the HTML output of Docutils.
@@ -77,7 +77,7 @@ div.tip p.admonition-title {
 
 div.attention p.admonition-title, div.caution p.admonition-title,
 div.danger p.admonition-title, div.error p.admonition-title,
-div.warning p.admonition-title, .code .error {
+div.warning p.admonition-title {
   color: red ;
   font-weight: bold ;
   font-family: sans-serif }
@@ -249,18 +249,9 @@ pre.address {
   margin-top: 0 ;
   font: inherit }
 
-pre.literal-block, pre.doctest-block, pre.math, pre.code {
+pre.literal-block, pre.doctest-block, pre.math {
   margin-left: 2em ;
   margin-right: 2em }
-
-pre.code .ln { color: grey; } /* line numbers */
-pre.code, code { background-color: #eeeeee }
-pre.code .comment, code .comment { color: #5C6576 }
-pre.code .keyword, code .keyword { color: #3B0D06; font-weight: bold }
-pre.code .literal.string, code .literal.string { color: #0C5404 }
-pre.code .name.builtin, code .name.builtin { color: #352B84 }
-pre.code .deleted, code .deleted { background-color: #DEB0A1}
-pre.code .inserted, code .inserted { background-color: #A3D289}
 
 span.classifier {
   font-family: sans-serif ;
@@ -313,21 +304,6 @@ table.docutils th.field-name, table.docinfo th.docinfo-name {
   white-space: nowrap ;
   padding-left: 0 }
 
-/* "booktabs" style (no vertical lines) */
-table.docutils.booktabs {
-  border: 0px;
-  border-top: 2px solid;
-  border-bottom: 2px solid;
-  border-collapse: collapse;
-}
-table.docutils.booktabs * {
-  border: 0px;
-}
-table.docutils.booktabs th {
-  border-bottom: thin solid;
-  text-align: left;
-}
-
 h1 tt.docutils, h2 tt.docutils, h3 tt.docutils,
 h4 tt.docutils, h5 tt.docutils, h6 tt.docutils {
   font-size: 100% }
@@ -341,6 +317,76 @@ ul.auto-toc {
 <div class="document">
 
 
+<div class="section" id="changes-from-4-0-2-rc1-to-4-0-2-2014-10-08">
+<h1>Changes from 4.0.2-rc1 to 4.0.2 (2014-10-08)</h1>
+<p>New since 4.0.2-rc1:</p>
+<ul class="simple">
+<li>[varnishlog] -k argument is back. (exit after n records)</li>
+<li>[varnishadm] vcl.show is now listed in help.</li>
+</ul>
+</div>
+<div class="section" id="changes-from-4-0-1-to-4-0-2-rc1-2014-09-23">
+<h1>Changes from 4.0.1 to 4.0.2-rc1 (2014-09-23)</h1>
+<p>New since 4.0.1:</p>
+<ul class="simple">
+<li>[libvmod-std] New function strstr() for matching substrings.</li>
+<li>server.(hostname|identity) is now available in all VCL functions.</li>
+<li>VCL variable type BYTES was added.</li>
+<li><cite>workspace_client</cite> default is now 9k.</li>
+<li>[varnishstat] Update interval can now be subsecond.</li>
+<li>Document that reloading VCL does not reload a VMOD.</li>
+<li>Guru meditation page is now valid HTML5.</li>
+<li>[varnishstat] hitrate calculation is back.</li>
+<li>New parameter <cite>group_cc</cite> adds a GID to the grouplist of
+VCL compiler sandbox.</li>
+<li>Parameter shm_reclen is now an alias for vsl_reclen.</li>
+<li>Workspace overflows are now handled with a 500 client response.</li>
+<li>VCL variable type added: HTTP, representing a HTTP header set.</li>
+<li>It is now possible to return(synth) from vcl_deliver.</li>
+<li>[varnishadm] vcl.show now has a -v option that output the
+complete set of VCL and included VCL files.</li>
+<li>RHEL7 packaging (systemd) was added.</li>
+<li>[libvmod-std] querysort() fixed parameter limit has been lifted.</li>
+<li>Fix small memory leak in ESI parser.</li>
+<li>Fix unreported race/assert in V1D_Deliver().</li>
+</ul>
+<div class="section" id="bugs-fixed">
+<h2>Bugs fixed</h2>
+<ul class="simple">
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1553">1553</a> - Fully reset workspace (incl. Vary state) before reusing it.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1551">1551</a> - Handle workspace exhaustion during purge.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1591">1591</a> - Group entries correctly in varnishtop.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1592">1592</a> - Bail out on workspace exhaustion in VRT_IP_string.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1538">1538</a> - Relax VMOD ABI check for release branches.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1584">1584</a> - Don't log garbage/non-HTTP requests. [varnishncsa]</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1407">1407</a> - Don't rename VSM file until child has started.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1466">1466</a> - Don't leak request structs on restart after waitinglist.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1580">1580</a> - Output warning if started without -b and -f. [varnishd]</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1583">1583</a> - Abort on fatal sandbox errors on Solaris. (Related: <a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1572">1572</a>)</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1585">1585</a> - Handle fatal sandbox errors.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1572">1572</a> - Exit codes have been cleaned up.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1569">1569</a> - Order of symbols should not influence compilation result.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1579">1579</a> - Clean up type inference in VCL.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1578">1578</a> - Don't count Age twice when computing new object TTL.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1574">1574</a> - std.syslog() logged empty strings.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1555">1555</a> - autoconf editline/readline build issue.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1568">1568</a> - Skip NULL arguments when hashing.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1567">1567</a> - Compile on systems without SO_SNDTIMEO/SO_RCVTIMEO.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1512">1512</a> - Changes to bereq are lost between v_b_r and v_b_f.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1563">1563</a> - Increase varnishtest read timeout.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1562">1562</a> - Fail correctly when rereading a failed client request body.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1521">1521</a> - VCL compilation fails on OSX x86_64.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1547">1547</a> - Panic when increasing shm_reclen.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1503">1503</a> - Document return(retry).</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1581">1581</a> - Don't log duplicate Begin records to shmlog.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1588">1588</a> - Correct timestamps on pipelined requests.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1575">1575</a> - Use all director backends when looking for a healthy one.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1577">1577</a> - Read the full request body if shunted to synth.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1532">1532</a> - Use correct VCL representation of reals.</li>
+<li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1531">1531</a> - Work around libedit bug in varnishadm.</li>
+</ul>
+</div>
+</div>
 <div class="section" id="changes-from-4-0-0-to-4-0-1-2014-06-24">
 <h1>Changes from 4.0.0 to 4.0.1 (2014-06-24)</h1>
 <p>New since 4.0.0:</p>
@@ -366,7 +412,7 @@ varnishncsa.</li>
 <li>VMOD ABI requirements are relaxed, a VMOD no longer have to be run on the
 same git revision as it was compiled for. Replaced by a major/minor ABI counter.</li>
 </ul>
-<div class="section" id="bugs-fixed">
+<div class="section" id="id32">
 <h2>Bugs fixed</h2>
 <ul class="simple">
 <li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1269">1269</a> - Use correct byte counters in varnishncsa when piping a request.</li>
@@ -407,7 +453,7 @@ same git revision as it was compiled for. Replaced by a major/minor ABI counter.
 <li>In VCL, req.backend_hint is available in vcl_hit</li>
 <li>ncurses is now a dependency.</li>
 </ul>
-<div class="section" id="id28">
+<div class="section" id="id60">
 <h2>Bugs fixed</h2>
 <ul class="simple">
 <li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1469">1469</a> - Fix build error on PPC</li>
@@ -440,7 +486,7 @@ times of high IO load/scheduling latency.</li>
 <li>return(hash) is now the default return action from vcl_recv.</li>
 <li>req.backend is now req.backend_hint. beresp.storage is beresp.storage_hint.</li>
 </ul>
-<div class="section" id="id33">
+<div class="section" id="id65">
 <h2>Bugs fixed</h2>
 <ul class="simple">
 <li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1460">1460</a> - tools now use the new timestamp format.</li>
@@ -468,7 +514,7 @@ times of high IO load/scheduling latency.</li>
 <li>New format for VMOD description files. (.vcc)</li>
 </ul>
 </div>
-<div class="section" id="id47">
+<div class="section" id="id79">
 <h2>Bugs fixed</h2>
 <ul class="simple">
 <li><a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1404">1404</a> - Don't send Content-Length on 304 Not Modified responses.</li>
@@ -509,7 +555,7 @@ server.ip is accessed after a client has closed the connection. <cite>Bug #1376<
 </div>
 <div class="section" id="changes-from-3-0-4-to-3-0-5-rc-1">
 <h1>Changes from 3.0.4 to 3.0.5 rc 1</h1>
-<div class="section" id="id64">
+<div class="section" id="id96">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Stop printing error messages on ESI parse errors</li>
@@ -540,7 +586,7 @@ transaction. <cite>Bug #1325</cite></li>
 </div>
 <div class="section" id="changes-from-3-0-4-rc-1-to-3-0-4">
 <h1>Changes from 3.0.4 rc 1 to 3.0.4</h1>
-<div class="section" id="id65">
+<div class="section" id="id97">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Set the waiter pipe as non-blocking and record overflows.  <cite>Bug
@@ -553,7 +599,7 @@ negatives.  CVE-2013-4090.    <cite>Bug #1312</cite></li>
 </div>
 <div class="section" id="changes-from-3-0-3-to-3-0-4-rc-1">
 <h1>Changes from 3.0.3 to 3.0.4 rc 1</h1>
-<div class="section" id="id66">
+<div class="section" id="id98">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Fix error handling when uncompressing fetched objects for ESI
@@ -567,14 +613,14 @@ processing. <cite>Bug #1184</cite></li>
 <li>Make hit-for-pass correctly prefer the transient storage.</li>
 </ul>
 </div>
-<div class="section" id="id67">
+<div class="section" id="id99">
 <h2>varnishlog</h2>
 <ul class="simple">
 <li>If -m, but neither -b or -c is given, assume both.  This filters out
 a lot of noise when -m is used to filter.  <cite>Bug #1071</cite></li>
 </ul>
 </div>
-<div class="section" id="id68">
+<div class="section" id="id100">
 <h2>varnishadm</h2>
 <ul class="simple">
 <li>Improve tab completion and require libedit/readline to build.</li>
@@ -607,7 +653,7 @@ least on i386.</li>
 </div>
 <div class="section" id="changes-from-3-0-2-to-3-0-3">
 <h1>Changes from 3.0.2 to 3.0.3</h1>
-<div class="section" id="id69">
+<div class="section" id="id101">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Fix a race on the n_sess counter. This race made varnish do excessive
@@ -663,7 +709,7 @@ many ESI includes on an object. <a class="reference external" href="http://varni
 <li>Small performance optimizations.</li>
 </ul>
 </div>
-<div class="section" id="id71">
+<div class="section" id="id103">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Support for tn in varnishncsa format strings.</li>
@@ -686,7 +732,7 @@ VCL.</li>
 <li>Add json output (-j).</li>
 </ul>
 </div>
-<div class="section" id="id72">
+<div class="section" id="id104">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates.</li>
@@ -701,7 +747,7 @@ VCL.</li>
 </div>
 <div class="section" id="changes-from-3-0-2-rc-1-to-3-0-2">
 <h1>Changes from 3.0.2 rc 1 to 3.0.2</h1>
-<div class="section" id="id73">
+<div class="section" id="id105">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Make the size of the synthetic object workspace equal to
@@ -713,14 +759,14 @@ does not have anything to do.</li>
 it will now give a syntax error.</li>
 </ul>
 </div>
-<div class="section" id="id74">
+<div class="section" id="id106">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Add default values for some fields when logging incomplete records
 and document the default values.</li>
 </ul>
 </div>
-<div class="section" id="id75">
+<div class="section" id="id107">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates</li>
@@ -730,7 +776,7 @@ and document the default values.</li>
 </div>
 <div class="section" id="changes-from-3-0-1-to-3-0-2-rc-1">
 <h1>Changes from 3.0.1 to 3.0.2 rc 1</h1>
-<div class="section" id="id76">
+<div class="section" id="id108">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Only log the first 20 bytes of extra headers to prevent overflows.</li>
@@ -758,7 +804,7 @@ bytes.  This better matches what other HTTPds have.   <a class="reference extern
 loading to fail.</li>
 </ul>
 </div>
-<div class="section" id="id77">
+<div class="section" id="id109">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Fixed crash when client was sending illegal HTTP headers.</li>
@@ -766,7 +812,7 @@ loading to fail.</li>
 fixed.</li>
 </ul>
 </div>
-<div class="section" id="id78">
+<div class="section" id="id110">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates</li>
@@ -776,7 +822,7 @@ fixed.</li>
 </div>
 <div class="section" id="changes-from-3-0-1-rc-1-to-3-0-1">
 <h1>Changes from 3.0.1 rc 1 to 3.0.1</h1>
-<div class="section" id="id79">
+<div class="section" id="id111">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Fix crash in streaming code.</li>
@@ -785,20 +831,20 @@ director.</li>
 <li>The parameter <cite>http_req_size</cite> has been reduced on 32 bit machines.</li>
 </ul>
 </div>
-<div class="section" id="id80">
+<div class="section" id="id112">
 <h2>VCL</h2>
 <ul class="simple">
 <li>Disallow error in the <cite>vcl_init</cite> and <cite>vcl_fini</cite> VCL functions.</li>
 </ul>
 </div>
-<div class="section" id="id81">
+<div class="section" id="id113">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Fixed crash when using <cite>-X</cite>.</li>
 <li>Fix error when the time to first byte was in the format string.</li>
 </ul>
 </div>
-<div class="section" id="id82">
+<div class="section" id="id114">
 <h2>Other</h2>
 <ul class="simple">
 <li>Documentation updates</li>
@@ -807,7 +853,7 @@ director.</li>
 </div>
 <div class="section" id="changes-from-3-0-0-to-3-0-1-rc-1">
 <h1>Changes from 3.0.0 to 3.0.1 rc 1</h1>
-<div class="section" id="id83">
+<div class="section" id="id115">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Avoid sending an empty end-chunk when sending bodyless responsed.</li>
@@ -828,7 +874,7 @@ object from the same backend unless health probes were enabled.
 This has been fixed and it will now retry a different backend.</li>
 </ul>
 </div>
-<div class="section" id="id84">
+<div class="section" id="id116">
 <h2>VCL</h2>
 <ul class="simple">
 <li>Request specific variables such as <cite>client.*</cite> and <cite>server.*</cite> are now
@@ -837,7 +883,7 @@ correctly marked as not available in <cite>vcl_init</cite> and <cite>vcl_fini</c
 same line.  This now works correctly.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/948">Bug #948</a>.</li>
 </ul>
 </div>
-<div class="section" id="id85">
+<div class="section" id="id117">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>Add support for logging arbitrary request and response headers.</li>
@@ -847,14 +893,14 @@ string.</li>
 <li>Report user specified format string errors better.</li>
 </ul>
 </div>
-<div class="section" id="id86">
+<div class="section" id="id118">
 <h2>varnishlog</h2>
 <ul class="simple">
 <li><cite>varnishlog -r</cite> now works correctly again and no longer opens the
 shared log file of the running Varnish.</li>
 </ul>
 </div>
-<div class="section" id="id87">
+<div class="section" id="id119">
 <h2>Other</h2>
 <ul class="simple">
 <li>Various documentation updates.</li>
@@ -868,20 +914,20 @@ all vmods against the new version of Varnish.</li>
 </div>
 <div class="section" id="changes-from-3-0-beta-2-to-3-0-0">
 <h1>Changes from 3.0 beta 2 to 3.0.0</h1>
-<div class="section" id="id88">
+<div class="section" id="id120">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Avoid sending an empty end-chunk when sending bodyless responsed.</li>
 </ul>
 </div>
-<div class="section" id="id89">
+<div class="section" id="id121">
 <h2>VCL</h2>
 <ul class="simple">
 <li>The <cite>synthetic</cite> keyword has now been properly marked as only
 available in <cite>vcl_deliver</cite>.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/936">Bug #936</a>.</li>
 </ul>
 </div>
-<div class="section" id="id90">
+<div class="section" id="id122">
 <h2>varnishadm</h2>
 <ul class="simple">
 <li>Fix crash if the secret file was unreadable.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/935">Bug #935</a>.</li>
@@ -892,7 +938,7 @@ reason.</li>
 </div>
 <div class="section" id="changes-from-3-0-beta-1-to-3-0-beta-2">
 <h1>Changes from 3.0 beta 1 to 3.0 beta 2</h1>
-<div class="section" id="id91">
+<div class="section" id="id123">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>thread_pool_min and thread_pool_max now each refer to the number of
@@ -906,7 +952,7 @@ single-threaded so we do not want to do this work there in the first
 place.  Use varnishstat instead.</li>
 </ul>
 </div>
-<div class="section" id="id92">
+<div class="section" id="id124">
 <h2>VCL</h2>
 <ul class="simple">
 <li>VCL now treats null arguments (unset headers for instance) as empty
@@ -921,7 +967,7 @@ appropriate.</li>
 backends and ACLs.</li>
 </ul>
 </div>
-<div class="section" id="id93">
+<div class="section" id="id125">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>varnishncsa now ignores piped requests, since we have no way of
@@ -948,7 +994,7 @@ to do <tt class="docutils literal"><span class="pre">ban(&quot;req.url</span> ==
 works and is recommended.</li>
 </ul>
 </div>
-<div class="section" id="id94">
+<div class="section" id="id126">
 <h2>Varnishd</h2>
 <ul class="simple">
 <li>Add streaming on <tt class="docutils literal">pass</tt> and <tt class="docutils literal">miss</tt>.  This is controlled by the
@@ -1034,7 +1080,7 @@ transactions.  The parameter can be repeated, in which case it is
 logically and-ed together.</li>
 </ul>
 </div>
-<div class="section" id="id96">
+<div class="section" id="id128">
 <h3>varnishadm</h3>
 <ul class="simple">
 <li>varnishadm will now pick up the -S and -T arguments from the shared
@@ -1045,7 +1091,7 @@ shared memory log file</li>
 <li>add libedit support</li>
 </ul>
 </div>
-<div class="section" id="id97">
+<div class="section" id="id129">
 <h3>varnishstat</h3>
 <ul class="simple">
 <li>reopen shared memory log if the varnishd process is restarted.</li>
@@ -1055,7 +1101,7 @@ the use of <tt class="docutils literal"><span class="pre">-f</span></tt>.</li>
 <li>display per-backend health information</li>
 </ul>
 </div>
-<div class="section" id="id98">
+<div class="section" id="id130">
 <h3>varnishncsa</h3>
 <ul class="simple">
 <li>Report error if called with <tt class="docutils literal"><span class="pre">-i</span></tt> and <tt class="docutils literal"><span class="pre">-I</span></tt> as they do not make
@@ -1065,7 +1111,7 @@ log formats are supported, as well as some Varnish-specific ones.
 See the documentation for further information.  <a class="reference external" href="http://varnish-cache.org/trac/ticket/712">Bug #712</a> and <a class="reference external" href="http://varnish-cache.org/trac/ticket/485">bug #485</a></li>
 </ul>
 </div>
-<div class="section" id="id99">
+<div class="section" id="id131">
 <h3>varnishtest</h3>
 <ul class="simple">
 <li>add <tt class="docutils literal"><span class="pre">-l</span></tt> and <tt class="docutils literal"><span class="pre">-L</span></tt> switches which leave <tt class="docutils literal">/tmp/vtc.*</tt> behind on
@@ -1074,7 +1120,7 @@ error and unconditionally respectively.</li>
 default.</li>
 </ul>
 </div>
-<div class="section" id="id100">
+<div class="section" id="id132">
 <h3>varnishtop</h3>
 <ul class="simple">
 <li>add <tt class="docutils literal"><span class="pre">-p</span> $period</tt> parameter.  The units in varnishtop were
@@ -1082,7 +1128,7 @@ previously undefined, they are now in requests/period.  The default
 period is 60 seconds.</li>
 </ul>
 </div>
-<div class="section" id="id101">
+<div class="section" id="id133">
 <h3>varnishlog</h3>
 <ul class="simple">
 <li>group requests by default.  This can be turned off by using <tt class="docutils literal"><span class="pre">-O</span></tt></li>
@@ -1090,14 +1136,14 @@ period is 60 seconds.</li>
 </ul>
 </div>
 </div>
-<div class="section" id="id102">
+<div class="section" id="id134">
 <h2>VMODs</h2>
 <ul class="simple">
 <li>Add a std vmod which includes a random function, log, syslog,
 fileread, collect,</li>
 </ul>
 </div>
-<div class="section" id="id103">
+<div class="section" id="id135">
 <h2>VCL</h2>
 <ul class="simple">
 <li>Change string concatenation to be done using <tt class="docutils literal">+</tt> rather than
@@ -1160,7 +1206,7 @@ directory as they are not for public consumption and have no ABI/API
 guarantees.</li>
 </ul>
 </div>
-<div class="section" id="id104">
+<div class="section" id="id136">
 <h2>Other</h2>
 <ul class="simple">
 <li>Python is now required to build</li>
@@ -1175,7 +1221,7 @@ much better shape than before</li>
 </div>
 <div class="section" id="changes-from-2-1-4-to-2-1-5">
 <h1>Changes from 2.1.4 to 2.1.5</h1>
-<div class="section" id="id105">
+<div class="section" id="id137">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>On pass from vcl_recv, we did not remove the backends Content-Length
@@ -1222,7 +1268,7 @@ here-documents.</li>
 <li>Fix a problem with the expiry thread slacking off during high load.</li>
 </ul>
 </div>
-<div class="section" id="id106">
+<div class="section" id="id138">
 <h2>varnishtest</h2>
 <ul class="simple">
 <li>Remove no longer existing -L option.</li>
@@ -1231,7 +1277,7 @@ here-documents.</li>
 </div>
 <div class="section" id="changes-from-2-1-3-to-2-1-4">
 <h1>Changes from 2.1.3 to 2.1.4</h1>
-<div class="section" id="id107">
+<div class="section" id="id139">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>An embarrasing typo in the new binary heap layout caused inflated
@@ -1289,20 +1335,20 @@ colon.</li>
 make preloading or periodically refreshing content work better.</li>
 </ul>
 </div>
-<div class="section" id="id108">
+<div class="section" id="id140">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>varnishncsa would in some cases be confused by ESI requests and
 output invalid lines. This has now been fixed.</li>
 </ul>
 </div>
-<div class="section" id="id109">
+<div class="section" id="id141">
 <h2>varnishlog</h2>
 <ul class="simple">
 <li>varnishlog now allows -o and -u together.</li>
 </ul>
 </div>
-<div class="section" id="id110">
+<div class="section" id="id142">
 <h2>varnishtop</h2>
 <ul class="simple">
 <li>varnishtop would crash on 32 bit architectures. This has been fixed.</li>
@@ -1318,7 +1364,7 @@ parts of the string being matched. This has been fixed.</li>
 </div>
 <div class="section" id="changes-from-2-1-2-to-2-1-3">
 <h1>Changes from 2.1.2 to 2.1.3</h1>
-<div class="section" id="id111">
+<div class="section" id="id143">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Improve scalability of critbit.</li>
@@ -1344,7 +1390,7 @@ HTTP requests</li>
 related to that socket will return EINVAL. We now handle this better.</li>
 </ul>
 </div>
-<div class="section" id="id112">
+<div class="section" id="id144">
 <h2>libvarnishapi</h2>
 <ul class="simple">
 <li>The -X parameter didn't work correctly. This has been fixed.</li>
@@ -1353,7 +1399,7 @@ related to that socket will return EINVAL. We now handle this better.</li>
 </div>
 <div class="section" id="changes-from-2-1-1-to-2-1-2">
 <h1>Changes from 2.1.1 to 2.1.2</h1>
-<div class="section" id="id113">
+<div class="section" id="id145">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>When adding Range support for 2.1.1, we accidentially introduced a
@@ -1365,7 +1411,7 @@ Content-Length, but some load balancers would get very confused.</li>
 </div>
 <div class="section" id="changes-from-2-1-1-to-2-1-1">
 <h1>Changes from 2.1.1 to 2.1.1</h1>
-<div class="section" id="id114">
+<div class="section" id="id146">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>The changelog in 2.1.0 included syntax errors, causing the generated
@@ -1407,7 +1453,7 @@ objects, has been added..</li>
 </div>
 <div class="section" id="changes-from-2-0-6-to-2-1-0">
 <h1>Changes from 2.0.6 to 2.1.0</h1>
-<div class="section" id="id115">
+<div class="section" id="id147">
 <h2>varnishd</h2>
 <ul>
 <li><p class="first">Persistent storage is now experimentally supported using the
@@ -1560,20 +1606,20 @@ sessions.</p>
 </li>
 </ul>
 </div>
-<div class="section" id="id116">
+<div class="section" id="id148">
 <h2>varnishstat</h2>
 <ul class="simple">
 <li>Make use of the new uptime field in the shared memory log rather than
 synthesizing it from the start time.</li>
 </ul>
 </div>
-<div class="section" id="id117">
+<div class="section" id="id149">
 <h2>varnishlog</h2>
 <ul class="simple">
 <li>Exit at the end of the file when started with -d.</li>
 </ul>
 </div>
-<div class="section" id="id118">
+<div class="section" id="id150">
 <h2>varnishadm</h2>
 <ul class="simple">
 <li>varnishadm can now have a timeout when trying to connect to the
@@ -1585,7 +1631,7 @@ varnishd</li>
 </div>
 <div class="section" id="changes-from-2-0-5-to-2-0-6">
 <h1>Changes from 2.0.5 to 2.0.6</h1>
-<div class="section" id="id119">
+<div class="section" id="id151">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>2.0.5 had an off-by-one error in the ESI handling causing includes to
@@ -1608,7 +1654,7 @@ useful on 32 bit systems with their limited address space.</li>
 </div>
 <div class="section" id="changes-from-2-0-4-to-2-0-5">
 <h1>Changes from 2.0.4 to 2.0.5</h1>
-<div class="section" id="id120">
+<div class="section" id="id152">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Handle object workspace overruns better.</li>
@@ -1671,7 +1717,7 @@ has been removed in the development version. This will increase
 performance somewhat.</li>
 </ul>
 </div>
-<div class="section" id="id121">
+<div class="section" id="id153">
 <h2>varnishtop</h2>
 <ul class="simple">
 <li>varnishtop did not handle variable-length log fields correctly. This
@@ -1683,7 +1729,7 @@ it very hard to understand. We now print out the tag name.</li>
 </div>
 <div class="section" id="changes-from-2-0-3-to-2-0-4">
 <h1>Changes from 2.0.3 to 2.0.4</h1>
-<div class="section" id="id122">
+<div class="section" id="id154">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Make Varnish more portable by pulling in fixes for Solaris and
@@ -1716,7 +1762,7 @@ but stopped at the first NULL byte. We no longer do that, enabling
 ESI processing of binary data.</li>
 </ul>
 </div>
-<div class="section" id="id123">
+<div class="section" id="id155">
 <h2>varnishtest</h2>
 <ul class="simple">
 <li>Make sure system &quot;...&quot; returns successfully to ensure test failures
@@ -1727,7 +1773,7 @@ do not go unnoticed.</li>
 </div>
 <div class="section" id="changes-from-2-0-2-to-2-0-3">
 <h1>Changes from 2.0.2 to 2.0.3</h1>
-<div class="section" id="id124">
+<div class="section" id="id156">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Handle If-Modified-Since and ESI sub-objects better, fixing a problem
@@ -1831,14 +1877,14 @@ stack. This has now been fixed.</li>
 </div>
 <div class="section" id="changes-from-2-0-1-to-2-0-2">
 <h1>Changes from 2.0.1 to 2.0.2</h1>
-<div class="section" id="id125">
+<div class="section" id="id157">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>In high-load situations, when using ESI, varnishd would sometimes
 mishandle objects and crash. This has been worked around.</li>
 </ul>
 </div>
-<div class="section" id="id126">
+<div class="section" id="id158">
 <h2>varnishreplay</h2>
 <ul class="simple">
 <li>varnishreplay did not work correctly on Linux, due to a too small
@@ -1848,7 +1894,7 @@ stack. This has now been fixed.</li>
 </div>
 <div class="section" id="changes-from-2-0-to-2-0-1">
 <h1>Changes from 2.0 to 2.0.1</h1>
-<div class="section" id="id127">
+<div class="section" id="id159">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>When receiving a garbled HTTP request, varnishd would sometimes
@@ -1864,7 +1910,7 @@ crash. This has been fixed.</li>
 </div>
 <div class="section" id="changes-from-1-1-2-to-2-0">
 <h1>Changes from 1.1.2 to 2.0</h1>
-<div class="section" id="id128">
+<div class="section" id="id160">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Only look for sendfile on platforms where we know how to use it,
@@ -1920,27 +1966,27 @@ this problem.</li>
 workspace. Now, vcl_error is called when we reach max_restarts.</li>
 </ul>
 </div>
-<div class="section" id="id129">
+<div class="section" id="id161">
 <h2>varnishtest</h2>
 <ul class="simple">
 <li>varnishtest is a tool to do correctness tests of varnishd. The test
 suite is run by using make check.</li>
 </ul>
 </div>
-<div class="section" id="id130">
+<div class="section" id="id162">
 <h2>varnishtop</h2>
 <ul class="simple">
 <li>We now set the field widths dynamically based on the size of the
 terminal and the name of the longest field.</li>
 </ul>
 </div>
-<div class="section" id="id131">
+<div class="section" id="id163">
 <h2>varnishstat</h2>
 <ul class="simple">
 <li>varnishstat -1 now displays the uptime too.</li>
 </ul>
 </div>
-<div class="section" id="id132">
+<div class="section" id="id164">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>varnishncsa now does fflush after each write. This makes tail -f work
@@ -1962,7 +2008,7 @@ now be overridden by passing VCC_CC when running configure.</li>
 </div>
 <div class="section" id="changes-from-1-1-1-to-1-1-2">
 <h1>Changes from 1.1.1 to 1.1.2</h1>
-<div class="section" id="id133">
+<div class="section" id="id165">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>When switching to a new VCL configuration, a race condition exists
@@ -2024,7 +2070,7 @@ failures, but are now recognized as harmless conditions.</li>
 refresh interval to the corresponding power of two, in seconds.</li>
 </ul>
 </div>
-<div class="section" id="id135">
+<div class="section" id="id167">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>The varnishncsa tool can now daemonize and write a PID file like
@@ -2032,7 +2078,7 @@ varnishlog, using the same command-line options. It will also reopen
 its output upon receipt of a SIGHUP if invoked with -w.</li>
 </ul>
 </div>
-<div class="section" id="id136">
+<div class="section" id="id168">
 <h2>varnishstat</h2>
 <ul class="simple">
 <li>Pressing 0 though 9 while varnishstat is running will change the
@@ -2054,7 +2100,7 @@ would have to be specified manually with -n. This has been corrected.</li>
 </div>
 <div class="section" id="changes-from-1-1-to-1-1-1">
 <h1>Changes from 1.1 to 1.1.1</h1>
-<div class="section" id="id137">
+<div class="section" id="id169">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>The code required to allow VCL to read obj.status, which had
@@ -2121,7 +2167,7 @@ resolves an issue with the Mac OS X linker.</li>
 </div>
 <div class="section" id="changes-from-1-0-4-to-1-1">
 <h1>Changes from 1.0.4 to 1.1</h1>
-<div class="section" id="id138">
+<div class="section" id="id170">
 <h2>varnishd</h2>
 <ul class="simple">
 <li>Readability of the C source code generated from VCL code has been
@@ -2201,7 +2247,7 @@ variables using the regsub function.</li>
 <li>Varnish will now build and run on Mac OS X.</li>
 </ul>
 </div>
-<div class="section" id="id139">
+<div class="section" id="id171">
 <h2>varnishadm</h2>
 <ul class="simple">
 <li>This is a new utility which sends a single command to a Varnish
@@ -2209,7 +2255,7 @@ server's management port and prints the result to stdout, greatly
 simplifying the use of the management port from scripts.</li>
 </ul>
 </div>
-<div class="section" id="id140">
+<div class="section" id="id172">
 <h2>varnishhist</h2>
 <ul class="simple">
 <li>The user interface has been greatly improved; the histogram will be
@@ -2219,7 +2265,7 @@ of log data gathered. In addition, the name of the Varnish instance
 being watched is displayed in the upper right corner.</li>
 </ul>
 </div>
-<div class="section" id="id141">
+<div class="section" id="id173">
 <h2>varnishncsa</h2>
 <ul class="simple">
 <li>In addition to client traffic, varnishncsa can now also process log
@@ -2228,14 +2274,14 @@ data from backend traffic.</li>
 empty HTTP header in the log file has been fixed.</li>
 </ul>
 </div>
-<div class="section" id="id142">
+<div class="section" id="id174">
 <h2>varnishreplay</h2>
 <ul class="simple">
 <li>This new utility will attempt to recreate the HTTP traffic which
 resulted in the raw Varnish log data which it is fed.</li>
 </ul>
 </div>
-<div class="section" id="id143">
+<div class="section" id="id175">
 <h2>varnishstat</h2>
 <ul class="simple">
 <li>Don't print lifetime averages when it doesn't make any sense—for
@@ -2249,7 +2295,7 @@ addition, the name of the Varnish instance being watched is displayed
 in the upper right corner in curses mode.</li>
 </ul>
 </div>
-<div class="section" id="id144">
+<div class="section" id="id176">
 <h2>varnishtop</h2>
 <ul class="simple">
 <li>The user interface has been greatly improved; varnishtop will now
@@ -2261,7 +2307,7 @@ watched is displayed in the upper right corner in curses mode.</li>
 </div>
 <div class="section" id="changes-from-1-0-3-to-1-0-4">
 <h1>Changes from 1.0.3 to 1.0.4</h1>
-<div class="section" id="id145">
+<div class="section" id="id177">
 <h2>varnishd</h2>
 <ul>
 <li><p class="first">The request workflow has been redesigned to simplify request
@@ -2338,7 +2384,7 @@ discovered on several platforms.</p>
 </li>
 </ul>
 </div>
-<div class="section" id="id146">
+<div class="section" id="id178">
 <h2>varnishlog</h2>
 <ul class="simple">
 <li>When grouping log entries by request, varnishlog attempts to collapse
@@ -2353,7 +2399,7 @@ create a pidfile, respectively.</li>
 volatile so it will not be optimized away by the compiler.</li>
 </ul>
 </div>
-<div class="section" id="id147">
+<div class="section" id="id179">
 <h2>varnishncsa</h2>
 <ul>
 <li><p class="first">The formatting callback has been largely rewritten for clarity,

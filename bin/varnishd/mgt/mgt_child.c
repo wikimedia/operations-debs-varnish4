@@ -425,7 +425,7 @@ mgt_launch_child(struct cli *cli)
 
 		child_main();
 
-		exit(1);
+		exit(0);
 	}
 	assert(pid > 1);
 	REPORT(LOG_NOTICE, "child (%jd) Started", (intmax_t)pid);
@@ -570,6 +570,7 @@ mgt_reap_child(void)
 		mgt_SHM_Destroy(0);
 	}
 	mgt_SHM_Create();
+	mgt_SHM_Commit();
 
 	if (child_state == CH_RUNNING)
 		child_state = CH_DIED;
@@ -683,7 +684,7 @@ mgt_sigint(const struct vev *e, int what)
 	(void)fflush(stdout);
 	if (child_pid >= 0)
 		mgt_stop_child();
-	exit (2);
+	exit(0);
 }
 
 /*--------------------------------------------------------------------*/
@@ -752,11 +753,14 @@ MGT_Run(void)
 		REPORT0(LOG_ERR, "No VCL loaded yet");
 	else if (!d_flag) {
 		mgt_launch_child(NULL);
-		if (child_state == CH_STOPPED) {
+		if (child_state != CH_RUNNING) {
+			// XXX correct? or 0?
 			exit_status = 2;
 			return;
 		}
 	}
+
+	mgt_SHM_Commit();
 
 	i = vev_schedule(mgt_evb);
 	if (i != 0)

@@ -213,6 +213,8 @@ are available:
 Backends can be used with *directors*. Please see the
 vmod_directors(3) man page for more information.
 
+.. _reference-vcl_probes:
+
 Probes
 ------
 
@@ -364,16 +366,13 @@ hash_data(input)
 new()
   Instanciate a new VCL object. Available in vcl_init.
 
-purge()
-  Invalidate all variants of the current object using purge. Available in 
-  vcl_miss and vcl_hit.
-
 return()
   End execution of the current VCL subroutine, and continue to the next step
   in the request handling state machine.
 
 rollback()
-  Restore request HTTP headers to their original state.
+  Restore *req* HTTP headers to their original state. This function is
+  deprecated.  Use std.rollback() instead.
 
 synthetic(STRING)
   Prepare a synthetic response body containing the STRING. Available in

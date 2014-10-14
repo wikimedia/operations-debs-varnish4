@@ -47,10 +47,13 @@ from pprint import pprint, pformat
 
 ctypes = {
 	'BACKEND':	"VCL_BACKEND",
+	'BLOB':		"VCL_BLOB",
 	'BOOL':		"VCL_BOOL",
+	'BYTES':	"VCL_BYTES",
 	'DURATION':	"VCL_DURATION",
 	'ENUM':		"VCL_ENUM",
 	'HEADER':	"VCL_HEADER",
+	'HTTP':		"VCL_HTTP",
 	'INT':		"VCL_INT",
 	'IP':		"VCL_IP",
 	'PRIV_CALL':	"struct vmod_priv *",
@@ -60,7 +63,6 @@ ctypes = {
 	'STRING_LIST':	"const char *, ...",
 	'TIME':		"VCL_TIME",
 	'VOID':		"VCL_VOID",
-	'BLOB':		"VCL_BLOB",
 }
 
 #######################################################################
@@ -238,7 +240,7 @@ class Vmod(object):
 		#
 		fo.write("\t.file_id = \"")
 		for i in range(32):
-			fo.write("%c" % random.randint(0x23,0x5b))
+			fo.write("%c" % random.randint(0x40,0x5a))
 		fo.write("\",\n")
 		fo.write("};\n")
 

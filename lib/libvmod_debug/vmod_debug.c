@@ -93,7 +93,7 @@ vmod_test_priv_vcl(const struct vrt_ctx *ctx, struct vmod_priv *priv)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-        assert(!strcmp(priv->priv, "FOO"));
+	assert(!strcmp(priv->priv, "FOO"));
 }
 
 VCL_BLOB
@@ -138,3 +138,12 @@ vmod_no_backend(const struct vrt_ctx *ctx)
 	return (NULL);
 }
 
+VCL_VOID __match_proto__(td_debug_rot52)
+vmod_rot52(const struct vrt_ctx *ctx, VCL_HTTP hp)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
+
+	http_PrintfHeader(hp, "Encrypted: ROT52");
+}

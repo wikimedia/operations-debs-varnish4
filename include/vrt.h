@@ -41,7 +41,7 @@
 
 #define VRT_MAJOR_VERSION	1U
 
-#define VRT_MINOR_VERSION	1U
+#define VRT_MINOR_VERSION	2U
 
 
 /***********************************************************************/
@@ -59,21 +59,23 @@ struct suckaddr;
 /***********************************************************************
  * This is the central definition of the mapping from VCL types to
  * C-types.  The python scripts read these from here.
+ * (alphabetic order)
  */
 
 typedef struct director *		VCL_BACKEND;
+typedef const struct vmod_priv *	VCL_BLOB;
 typedef unsigned			VCL_BOOL;
 typedef double				VCL_BYTES;
 typedef double				VCL_DURATION;
 typedef const char *			VCL_ENUM;
 typedef const struct gethdr_s *		VCL_HEADER;
+typedef struct http *			VCL_HTTP;
 typedef long				VCL_INT;
 typedef const struct suckaddr *		VCL_IP;
 typedef double				VCL_REAL;
 typedef const char *			VCL_STRING;
 typedef double				VCL_TIME;
 typedef void				VCL_VOID;
-typedef const struct vmod_priv *	VCL_BLOB;
 
 /***********************************************************************
  * This is the composite argument we pass to compiled VCL and VRT
@@ -100,6 +102,7 @@ struct vrt_ctx {
 	struct http			*http_bereq;
 	struct http			*http_beresp;
 
+	double				now;
 };
 
 /***********************************************************************/
@@ -167,38 +170,6 @@ struct vrt_backend {
 };
 
 /*
- * A director with an unpredictable reply
- */
-
-struct vrt_dir_random_entry {
-	int					host;
-	double					weight;
-};
-
-struct vrt_dir_random {
-	const char				*name;
-	unsigned				retries;
-	unsigned				nmember;
-	const struct vrt_dir_random_entry	*members;
-};
-
-/*
- * A director with dns-based selection
- */
-
-struct vrt_dir_dns_entry {
-	int					host;
-};
-
-struct vrt_dir_dns {
-	const char				*name;
-	const char				*suffix;
-	const double				ttl;
-	unsigned				nmember;
-	const struct vrt_dir_dns_entry		*members;
-};
-
-/*
  * other stuff.
  * XXX: document when bored
  */
@@ -247,7 +218,7 @@ void VRT_hashdata(const struct vrt_ctx *, const char *str, ...);
 int VRT_strcmp(const char *s1, const char *s2);
 void VRT_memmove(void *dst, const void *src, unsigned len);
 
-void VRT_Rollback(const struct vrt_ctx *);
+void VRT_Rollback(const struct vrt_ctx *, const struct http *);
 
 /* Synthetic pages */
 void VRT_synth_page(const struct vrt_ctx *, const char *, ...);

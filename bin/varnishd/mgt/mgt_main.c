@@ -199,7 +199,7 @@ cli_check(const struct cli *cli)
 	}
 	AZ(VSB_finish(cli->sb));
 	fprintf(stderr, "Error:\n%s\n", VSB_data(cli->sb));
-	exit (2);
+	exit(2);
 }
 
 /*--------------------------------------------------------------------
@@ -559,11 +559,11 @@ main(int argc, char * const *argv)
 		case 'x':
 			if (!strcmp(optarg, "dumprstparam")) {
 				MCF_DumpRstParam();
-				exit (0);
+				exit(0);
 			}
 			if (!strcmp(optarg, "dumprstvsl")) {
 				mgt_DumpRstVsl();
-				exit (0);
+				exit(0);
 			}
 			usage();
 			break;
@@ -651,16 +651,22 @@ main(int argc, char * const *argv)
 		    P_arg, strerror(errno));
 
 	if (b_arg != NULL || f_arg != NULL)
-		if (mgt_vcc_default(b_arg, f_arg, vcl, C_flag))
-			exit (2);
+		if ((o = mgt_vcc_default(b_arg, f_arg, vcl, C_flag)) != 0)
+			exit(o);
 
 	if (C_flag)
-		exit (0);
+		exit(0);
 
 	if (!d_flag) {
 		if (MGT_open_sockets())
 			ARGV_ERR("Failed to open (any) accept sockets.\n");
 		MGT_close_sockets();
+
+		if (b_arg == NULL && f_arg == NULL) {
+			fprintf(stderr,
+			    "Warning: Neither -b nor -f given, won't start a worker child.\n"
+			    "         Master process started, use varnishadm to control it.\n");
+		}
 	}
 
 	/* If no -s argument specified, process default -s argument */

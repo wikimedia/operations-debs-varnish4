@@ -1,35 +1,8 @@
-.\" Man page generated from reStructuredText.
-.
 .TH VARNISHD  "" "" ""
 .SH NAME
 varnishd \- HTTP accelerator daemon
+.\" Man page generated from reStructeredText.
 .
-.nr rst2man-indent-level 0
-.
-.de1 rstReportMargin
-\\$1 \\n[an-margin]
-level \\n[rst2man-indent-level]
-level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
--
-\\n[rst2man-indent0]
-\\n[rst2man-indent1]
-\\n[rst2man-indent2]
-..
-.de1 INDENT
-.\" .rstReportMargin pre:
-. RS \\$1
-. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
-. nr rst2man-indent-level +1
-.\" .rstReportMargin post:
-..
-.de UNINDENT
-. RE
-.\" indent \\n[an-margin]
-.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.nr rst2man-indent-level -1
-.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
-..
 .SH SYNOPSIS
 .INDENT 0.0
 .TP
@@ -106,10 +79,10 @@ from VCL
 .TP
 .B \-l shl[,free[,fill]]
 Specifies size of shmlog file. shl is the store for the
-shared memory log records [80m], free is the store for other
-allocations [1m] and fill determines how the log is [+].
-Scaling suffixes like \(aqk\(aq, \(aqm\(aq can be used up to
-(e)tabytes.  Default is 80 Megabytes.
+shared memory log records [80M], free is the store for other
+allocations [1M] and fill determines how the log is [+].
+Scaling suffixes like \(aqk\(aq, \(aqM\(aq can be used up to
+(E)xabytes.  Default is 80 Megabytes.
 .TP
 .B \-M address:port
 Connect to this port and offer the command line interface.
@@ -269,6 +242,15 @@ parameter takes effect.
 .TP
 .B reload
 The VCL programs must be reloaded for this parameter to take effect.
+.TP
+.B experimental
+We\(aqre not really sure about this parameter, tell us what you find.
+.TP
+.B wizard
+Do not touch unless you \fIreally\fP know what you\(aqre doing.
+.TP
+.B only_root
+Only works if varnishd is running as root.
 .UNINDENT
 .sp
 Here is a list of all parameters, current as of last time we
@@ -763,12 +745,25 @@ Default timeout for receiving first byte from backend. We only wait for this man
 .IP \(bu 2
 Default: nogroup (65534)
 .IP \(bu 2
-Flags: must_restart
+Flags: must_restart, only_root
 .UNINDENT
 .UNINDENT
 .UNINDENT
 .sp
 The unprivileged group to run as.
+.SS group_cc
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Default: <not set>
+.IP \(bu 2
+Flags: only_root
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+On some systems the C\-compiler is restricted so not everybody can run it.  This parameter makes it possible to add an extra group to the sandbox process which runs the cc_command, in order to gain access to such a restricted C\-compiler.
 .SS gzip_buffer
 .INDENT 0.0
 .INDENT 3.5
@@ -1305,13 +1300,12 @@ Default: 255b
 .IP \(bu 2
 Minimum: 16b
 .IP \(bu 2
-Maximum: 65535b
+Maximum: 4084
 .UNINDENT
 .UNINDENT
 .UNINDENT
 .sp
-Maximum number of bytes in SHM log record.
-Maximum is 65535 bytes.
+Old name for vsl_reclen, use that instead.
 .SS shortlived
 .INDENT 0.0
 .INDENT 3.5
@@ -1674,7 +1668,7 @@ Max time to receive clients request header, measured from first non\-white\-spac
 .IP \(bu 2
 Default: nobody (65534)
 .IP \(bu 2
-Flags: must_restart
+Flags: must_restart, only_root
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -1751,15 +1745,15 @@ Units: bytes
 .IP \(bu 2
 Default: 4k
 .IP \(bu 2
-Minimum: 1k
+Minimum: 267
 .UNINDENT
 .UNINDENT
 .UNINDENT
 .sp
 Bytes of (req\-/backend\-)workspace dedicated to buffering VSL records.
-At a bare minimum, this must be longer than the longest HTTP header to be logged.
 Setting this too high costs memory, setting it too low will cause more VSL flushes and likely increase lock\-contention on the VSL mutex.
-Minimum is 1k bytes.
+.sp
+The minimum tracks the vsl_reclen parameter + 12 bytes.
 .SS vsl_mask
 .INDENT 0.0
 .INDENT 3.5
@@ -1782,6 +1776,25 @@ Set default value
 .UNINDENT
 .sp
 Use +/\- prefixe in front of VSL tag name, to mask/unmask individual VSL messages.
+.SS vsl_reclen
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Units: bytes
+.IP \(bu 2
+Default: 255b
+.IP \(bu 2
+Minimum: 16b
+.IP \(bu 2
+Maximum: 4084b
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Maximum number of bytes in SHM log record.
+.sp
+The maximum tracks the vsl_buffer parameter \- 12 bytes.
 .SS vsl_space
 .INDENT 0.0
 .INDENT 3.5
@@ -1855,7 +1868,7 @@ Units: bytes
 .IP \(bu 2
 Default: 64k
 .IP \(bu 2
-Minimum: 3k
+Minimum: 9k
 .IP \(bu 2
 Flags: delayed
 .UNINDENT
@@ -1901,6 +1914,30 @@ Flags: delayed
 Bytes of auxillary workspace per thread.
 This workspace is used for certain temporary data structures during the operation of a worker thread.
 One use is for the io\-vectors for writing requests and responses to sockets, having too little space will result in more writev(2) system calls, having too much just wastes the space.
+.SH EXIT CODES
+.sp
+Varnish and bundled tools will, in most cases, exit with one of the
+following codes
+.INDENT 0.0
+.IP \(bu 2
+\fI0\fP OK
+.IP \(bu 2
+\fI1\fP Some error which could be system\-dependend and/or transient
+.IP \(bu 2
+\fI2\fP Serious configuration / parameter error \- retrying with the same
+configuration / parameters is most likely useless
+.UNINDENT
+.sp
+The \fIvarnishd\fP master process may also OR its exit code
+.INDENT 0.0
+.IP \(bu 2
+with \fI0x20\fP when the \fIvarnishd\fP child process died,
+.IP \(bu 2
+with \fI0x40\fP when the \fIvarnishd\fP child process was terminated by a
+signal and
+.IP \(bu 2
+with \fI0x80\fP when a core was dumped.
+.UNINDENT
 .SH SEE ALSO
 .INDENT 0.0
 .IP \(bu 2
@@ -1934,4 +1971,5 @@ itself. See LICENCE for details.
 Copyright (c) 2007\-2014 Varnish Software AS
 .UNINDENT
 .\" Generated by docutils manpage writer.
+.\" 
 .

@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>vmod_std &mdash; Varnish version 4.0.1 documentation</title>
+    <title>vmod_std &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_directors" href="vmod_directors.generated.html" />
     <link rel="prev" title="VMOD - Varnish Modules" href="vmod.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -73,8 +75,7 @@
 but which for reasons of architecture fit better in a VMOD.</p>
 <p>One particular class of functions in vmod_std is the conversions functions
 which all have the form:</p>
-<div class="highlight-python"><div class="highlight"><pre>TYPE type(STRING, TYPE)
-</pre></div>
+<div class="highlight-python"><pre>TYPE type(STRING, TYPE)</pre>
 </div>
 <p>These functions attempt to convert STRING to the TYPE, and if that fails,
 they return the second argument, which must have the given TYPE.</p>
@@ -94,7 +95,9 @@ they return the second argument, which must have the given TYPE.</p>
 <li><a class="reference internal" href="#func-random"><em>REAL random(REAL, REAL)</em></a></li>
 <li><a class="reference internal" href="#func-real"><em>REAL real(STRING, REAL)</em></a></li>
 <li><a class="reference internal" href="#func-real2time"><em>TIME real2time(REAL)</em></a></li>
+<li><a class="reference internal" href="#func-rollback"><em>VOID rollback(HTTP)</em></a></li>
 <li><a class="reference internal" href="#func-set-ip-tos"><em>VOID set_ip_tos(INT)</em></a></li>
+<li><a class="reference internal" href="#func-strstr"><em>STRING strstr(STRING, STRING)</em></a></li>
 <li><a class="reference internal" href="#func-syslog"><em>VOID syslog(INT, STRING_LIST)</em></a></li>
 <li><a class="reference internal" href="#func-time2integer"><em>INT time2integer(TIME)</em></a></li>
 <li><a class="reference internal" href="#func-time2real"><em>REAL time2real(TIME)</em></a></li>
@@ -308,6 +311,17 @@ fails, <em>fallback</em> will be returned.</dd>
 <dd>Returns the port number of an IP address.</dd>
 </dl>
 </div>
+<div class="section" id="void-rollback-http">
+<span id="func-rollback"></span><h4>VOID rollback(HTTP)<a class="headerlink" href="#void-rollback-http" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>VOID rollback(HTTP)</dd>
+<dt>Description</dt>
+<dd>Restore <em>h</em> HTTP headers to their original state.</dd>
+<dt>Example</dt>
+<dd>std.rollback(bereq);</dd>
+</dl>
+</div>
 <div class="section" id="void-timestamp-string">
 <span id="func-timestamp"></span><h4>VOID timestamp(STRING)<a class="headerlink" href="#void-timestamp-string" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
@@ -331,6 +345,23 @@ timestamps inserted automatically by Varnish more accurate.</dd>
 <dd>Sorts the querystring for cache normalization purposes.</dd>
 <dt>Example</dt>
 <dd>set req.url = std.querysort(req.url);</dd>
+</dl>
+</div>
+<div class="section" id="string-strstr-string-string">
+<span id="func-strstr"></span><h4>STRING strstr(STRING, STRING)<a class="headerlink" href="#string-strstr-string-string" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>STRING strstr(STRING, STRING)</dd>
+<dt>Description</dt>
+<dd><p class="first">Returns the substring if the second string is a substring of the first
+string. Note that the comparison is case sensitive. You can
+use the tolower function on both strings if you want case
+insensitivity.</p>
+<p class="last">If there is no match a NULL pointer is returned which would
+evaluate to false in an if-test.</p>
+</dd>
+<dt>Example</dt>
+<dd>if (std.strstr(req.url, req.http.x-restrict))</dd>
 </dl>
 </div>
 </div>
@@ -385,8 +416,10 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#real-time2real-time">REAL time2real(TIME)</a></li>
 <li><a class="reference internal" href="#bool-healthy-backend">BOOL healthy(BACKEND)</a></li>
 <li><a class="reference internal" href="#int-port-ip">INT port(IP)</a></li>
+<li><a class="reference internal" href="#void-rollback-http">VOID rollback(HTTP)</a></li>
 <li><a class="reference internal" href="#void-timestamp-string">VOID timestamp(STRING)</a></li>
 <li><a class="reference internal" href="#string-querysort-string">STRING querysort(STRING)</a></li>
+<li><a class="reference internal" href="#string-strstr-string-string">STRING strstr(STRING, STRING)</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
@@ -438,13 +471,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

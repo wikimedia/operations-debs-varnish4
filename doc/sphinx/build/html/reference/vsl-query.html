@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Varnish VSL Query Expressions &mdash; Varnish version 4.0.1 documentation</title>
+    <title>Varnish VSL Query Expressions &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="What&#39;s new in Varnish 4.0" href="../whats-new/index.html" />
     <link rel="prev" title="VSL" href="vsl.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="vsl.html" title="VSL"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -105,15 +107,14 @@ including non-transactional data will be reported.</p>
 </li>
 </ul>
 <p>Example transaction hierarchy</p>
-<div class="highlight-python"><div class="highlight"><pre>Lvl 1: Client request (cache miss)
+<div class="highlight-python"><pre>Lvl 1: Client request (cache miss)
   Lvl 2: Backend request
   Lvl 2: ESI subrequest (cache miss)
     Lvl 3: Backend request
     Lvl 3: Backend request (VCL restart)
     Lvl 3: ESI subrequest (cache miss)
       Lvl 4: Backend request
-  Lvl 2: ESI subrequest (cache hit)
-</pre></div>
+  Lvl 2: ESI subrequest (cache hit)</pre>
 </div>
 </div>
 <div class="section" id="query-language">
@@ -121,15 +122,13 @@ including non-transactional data will be reported.</p>
 <p>A query expression consists of record selection criteria, and
 optionally an operator and a value to match against the selected
 records.</p>
-<div class="highlight-python"><div class="highlight"><pre>&lt;record selection criteria&gt; &lt;operator&gt; &lt;operand&gt;
-</pre></div>
+<div class="highlight-python"><pre>&lt;record selection criteria&gt; &lt;operator&gt; &lt;operand&gt;</pre>
 </div>
 <div class="section" id="record-selection-criteria">
 <h3>Record selection criteria<a class="headerlink" href="#record-selection-criteria" title="Permalink to this headline">¶</a></h3>
 <p>The record selection criteria determines what kind records from the
 transaction group the expression applies to. Syntax:</p>
-<div class="highlight-python"><div class="highlight"><pre>{level}taglist:record-prefix[field]
-</pre></div>
+<div class="highlight-python"><pre>{level}taglist:record-prefix[field]</pre>
 </div>
 <p>Taglist is mandatory, the other components are optional.</p>
 <p>The level limits the expression to a transaction at that level. If
@@ -182,8 +181,7 @@ against.</p>
 double quotes, and for quoted operands a backslash can be used to
 escape the quotes.</p>
 <p>Unquoted operands can only consist of the following characters:</p>
-<div class="highlight-python"><div class="highlight"><pre>a-z A-Z 0-9 + - _ . *
-</pre></div>
+<div class="highlight-python"><pre>a-z A-Z 0-9 + - _ . *</pre>
 </div>
 <p>The following types of operands are available:</p>
 <ul>
@@ -228,24 +226,20 @@ following are available, in decreasing precedence:</p>
 <h2>QUERY EXPRESSION EXAMPLES<a class="headerlink" href="#query-expression-examples" title="Permalink to this headline">¶</a></h2>
 <ul>
 <li><p class="first">Transaction group contains a request URL that equals to &quot;/foo&quot;</p>
-<div class="highlight-python"><div class="highlight"><pre>ReqURL eq &quot;/foo&quot;
-</pre></div>
+<div class="highlight-python"><pre>ReqURL eq "/foo"</pre>
 </div>
 </li>
 <li><p class="first">Transaction group contains a request cookie header</p>
-<div class="highlight-python"><div class="highlight"><pre>ReqHeader:cookie
-</pre></div>
+<div class="highlight-python"><pre>ReqHeader:cookie</pre>
 </div>
 </li>
 <li><p class="first">Transaction group doesn't contain a request cookie header</p>
-<div class="highlight-python"><div class="highlight"><pre>not ReqHeader:cookie
-</pre></div>
+<div class="highlight-python"><pre>not ReqHeader:cookie</pre>
 </div>
 </li>
 <li><p class="first">Transaction group contains a request user-agent header that contains
 &quot;iPod&quot; and the request delivery time exceeds 1 second</p>
-<div class="highlight-python"><div class="highlight"><pre>ReqHeader:user-agent ~ &quot;iPod&quot; and ReqEnd[5] &gt; 1.
-</pre></div>
+<div class="highlight-python"><pre>ReqHeader:user-agent ~ "iPod" and ReqEnd[5] &gt; 1.</pre>
 </div>
 </li>
 <li><p class="first">Transaction group contains a backend response status larger than or
@@ -256,14 +250,12 @@ equal to 500</p>
 </li>
 <li><p class="first">Transaction group contains a request response status of 304, but
 where the request did not contain an if-modified-since header</p>
-<div class="highlight-python"><div class="highlight"><pre>ReqStatus == 304 and not ReqHeader:if-modified-since
-</pre></div>
+<div class="highlight-python"><pre>ReqStatus == 304 and not ReqHeader:if-modified-since</pre>
 </div>
 </li>
 <li><p class="first">Transactions that have had backend failures or long delivery time on
 their ESI subrequests. (Assumes request grouping mode).</p>
-<div class="highlight-python"><div class="highlight"><pre>BerespStatus &gt;= 500 or {2+}ReqEnd[5] &gt; 1.
-</pre></div>
+<div class="highlight-python"><pre>BerespStatus &gt;= 500 or {2+}ReqEnd[5] &gt; 1.</pre>
 </div>
 </li>
 </ul>
@@ -338,13 +330,13 @@ their ESI subrequests. (Assumes request grouping mode).</p>
         <li class="right" >
           <a href="vsl.html" title="VSL"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>
