@@ -47,6 +47,7 @@ struct parspec {
 #define WIZARD		(1<<4)
 #define PROTECTED	(1<<5)
 #define OBJ_STICKY	(1<<6)
+#define ONLY_ROOT	(1<<7)
 	const char	*def;
 	const char	*units;
 };
@@ -56,6 +57,7 @@ tweak_t tweak_bytes;
 tweak_t tweak_bytes_u;
 tweak_t tweak_double;
 tweak_t tweak_group;
+tweak_t tweak_group_cc;
 tweak_t tweak_listen_address;
 tweak_t tweak_poolparam;
 tweak_t tweak_string;
@@ -63,6 +65,8 @@ tweak_t tweak_timeout;
 tweak_t tweak_uint;
 tweak_t tweak_user;
 tweak_t tweak_waiter;
+tweak_t tweak_vsl_buffer;
+tweak_t tweak_vsl_reclen;
 
 int tweak_generic_uint(struct vsb *vsb, volatile unsigned *dest,
     const char *arg, const char *min, const char *max);

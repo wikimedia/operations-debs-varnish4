@@ -75,8 +75,8 @@ WS_Init(struct ws *ws, const char *id, void *space, unsigned len)
 	ws->magic = WS_MAGIC;
 	ws->s = space;
 	assert(PAOK(space));
+	len = PRNDDN(len);
 	ws->e = ws->s + len;
-	assert(PAOK(len));
 	ws->f = ws->s;
 	assert(id[0] & 0x40);
 	assert(strlen(id) < sizeof ws->id);
@@ -85,7 +85,7 @@ WS_Init(struct ws *ws, const char *id, void *space, unsigned len)
 }
 
 
-static void
+void
 WS_MarkOverflow(struct ws *ws)
 {
 	CHECK_OBJ_NOTNULL(ws, WS_MAGIC);
@@ -202,13 +202,11 @@ WS_Reserve(struct ws *ws, unsigned bytes)
 
 	WS_Assert(ws);
 	assert(ws->r == NULL);
-	if (bytes == 0)
-		b2 = ws->e - ws->f;
-	else if (bytes > ws->e - ws->f)
-		b2 = ws->e - ws->f;
-	else
-		b2 = bytes;
-	b2 = PRNDDN(b2);
+
+	b2 = PRNDDN(ws->e - ws->f);
+	if (bytes != 0 && bytes < b2)
+		b2 = PRNDUP(bytes);
+
 	xxxassert(ws->f + b2 <= ws->e);
 	ws->r = ws->f + b2;
 	DSL(DBG_WORKSPACE, 0, "WS_Reserve(%p, %u/%u) = %u",

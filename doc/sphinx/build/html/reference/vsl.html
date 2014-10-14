@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VSL &mdash; Varnish version 4.0.1 documentation</title>
+    <title>VSL &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Varnish VSL Query Expressions" href="vsl-query.html" />
     <link rel="prev" title="vmod_directors" href="vmod_directors.generated.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="vmod_directors.generated.html" title="vmod_directors"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -66,51 +68,47 @@ logging tools supplied with Varnish.</p>
 <dt>Backend - Backend selected</dt>
 <dd><p class="first">Logged when a connection is selected for handling a backend request.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s %s
+<div class="last highlight-python"><pre>%d %s %s
 |  |  |
 |  |  +- Backend display name
 |  +---- VCL name
-+------- Connection file descriptor
-</pre></div>
++------- Connection file descriptor</pre>
 </div>
 </dd>
 <dt>BackendClose - Backend connection closed</dt>
 <dd><p class="first">Logged when a backend connection is closed.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s [ %s ]
+<div class="last highlight-python"><pre>%d %s [ %s ]
 |  |    |
 |  |    +- Optional reason
 |  +------ Backend display name
-+--------- Connection file descriptor
-</pre></div>
++--------- Connection file descriptor</pre>
 </div>
 </dd>
 <dt>BackendOpen - Backend connection opened</dt>
 <dd><p class="first">Logged when a new backend connection is opened.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s %s %s
+<div class="last highlight-python"><pre>%d %s %s %s
 |  |  |  |
 |  |  |  +- Remote port
 |  |  +---- Remote address
 |  +------- Backend display name
-+---------- Connection file descriptor
-</pre></div>
++---------- Connection file descriptor</pre>
 </div>
 </dd>
 <dt>BackendReuse - Backend connection put up for reuse</dt>
 <dd><p class="first">Logged when a backend connection is put up for reuse by a later connection.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s
+<div class="last highlight-python"><pre>%d %s
 |  |
 |  +- Backend display name
-+---- Connection file descriptor
-</pre></div>
++---- Connection file descriptor</pre>
 </div>
 </dd>
 <dt>Backend_health - Backend health check</dt>
 <dd><p class="first">The result of a backend health probe.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %s %s %u %u %u %f %f %s
+<div class="last highlight-python"><pre>%s %s %s %u %u %u %f %f %s
 |  |  |  |  |  |  |  |  |
 |  |  |  |  |  |  |  |  +- Probe HTTP response
 |  |  |  |  |  |  |  +---- Average response time
@@ -120,43 +118,39 @@ logging tools supplied with Varnish.</p>
 |  |  |  +---------------- Number of good probes in window
 |  |  +------------------- Probe window bits
 |  +---------------------- Status message
-+------------------------- Backend name
-</pre></div>
++------------------------- Backend name</pre>
 </div>
 </dd>
 <dt>Begin - Marks the start of a VXID</dt>
 <dd><p class="first">The first record of a VXID transaction.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %d %s
+<div class="last highlight-python"><pre>%s %d %s
 |  |  |
 |  |  +- Reason
 |  +---- Parent vxid
-+------- Type (&quot;sess&quot;, &quot;req&quot; or &quot;bereq&quot;)
-</pre></div>
++------- Type ("sess", "req" or "bereq")</pre>
 </div>
 </dd>
 <dt>BereqAcct - Backend request accounting</dt>
 <dd><p class="first">Contains byte counters from backend request processing.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %d %d %d %d %d
+<div class="last highlight-python"><pre>%d %d %d %d %d %d
 |  |  |  |  |  |
 |  |  |  |  |  +- Total bytes received
 |  |  |  |  +---- Body bytes received
 |  |  |  +------- Header bytes received
 |  |  +---------- Total bytes transmitted
 |  +------------- Body bytes transmitted
-+---------------- Header bytes transmitted
-</pre></div>
++---------------- Header bytes transmitted</pre>
 </div>
 </dd>
 <dt>BereqHeader - Backend request header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
+<div class="last highlight-python"><pre>%s: %s
 |   |
 |   +- Header value
-+----- Header name
-</pre></div>
++----- Header name</pre>
 </div>
 </dd>
 <dt>BereqMethod - Backend request method</dt>
@@ -168,11 +162,10 @@ logging tools supplied with Varnish.</p>
 <dt>BerespHeader - Backend response header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
+<div class="last highlight-python"><pre>%s: %s
 |   |
 |   +- Header value
-+----- Header name
-</pre></div>
++----- Header name</pre>
 </div>
 </dd>
 <dt>BerespProtocol - Backend response protocol</dt>
@@ -190,10 +183,9 @@ logging tools supplied with Varnish.</p>
 <dt>ESI_BodyBytes - ESI body fragment byte counter</dt>
 <dd><p class="first">Contains the body byte count for this ESI body fragment. This number does not include any transfer encoding overhead.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d
+<div class="last highlight-python"><pre>%d
 |
-+- Body bytes
-</pre></div>
++- Body bytes</pre>
 </div>
 </dd>
 <dt>ESI_xmlerror - ESI parser error or warning message</dt>
@@ -225,7 +217,7 @@ logging tools supplied with Varnish.</p>
 <dd>Logged when no suitable candidate object is found for LRU force expiry.</dd>
 </dl>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>EXP_Rearm p=%p E=%f e=%f f=0x%x
+<div class="last highlight-python"><pre>EXP_Rearm p=%p E=%f e=%f f=0x%x
 EXP_Inbox p=%p e=%f f=0x%x
 EXP_Kill p=%p e=%f f=0x%x
 EXP_When p=%p e=%f f=0x%x
@@ -241,8 +233,7 @@ e=%f         Expiry time (unix epoch)
 E=%f         Old expiry time (unix epoch)
 f=0x%x       Objcore flags
 r=%d         Objcore refcount
-x=%u         Object VXID
-</pre></div>
+x=%u         Object VXID</pre>
 </div>
 </dd>
 <dt>FetchError - Error while fetching object</dt>
@@ -250,33 +241,30 @@ x=%u         Object VXID
 <dt>Fetch_Body - Body fetched from backend</dt>
 <dd><p class="first">Ready to fetch body from backend.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d (%s) %s
+<div class="last highlight-python"><pre>%d (%s) %s
 |   |    |
-|   |    +---- &#39;stream&#39; or &#39;-&#39;
+|   |    +---- 'stream' or '-'
 |   +--------- Text description of body fetch mode
-+------------- Body fetch mode
-</pre></div>
++------------- Body fetch mode</pre>
 </div>
 </dd>
 <dt>Gzip - G(un)zip performed on object</dt>
 <dd><p class="first">A Gzip record is emitted for each instance of gzip or gunzip work performed. Worst case, an ESI transaction stored in gzip'ed objects but delivered gunziped, will run into many of these.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%c %c %c %d %d %d %d %d
+<div class="highlight-python"><pre>%c %c %c %d %d %d %d %d
 |  |  |  |  |  |  |  |
 |  |  |  |  |  |  |  +- Bit length of compressed data
-|  |  |  |  |  |  +---- Bit location of &#39;last&#39; bit
+|  |  |  |  |  |  +---- Bit location of 'last' bit
 |  |  |  |  |  +------- Bit location of first deflate block
 |  |  |  |  +---------- Bytes output
 |  |  |  +------------- Bytes input
-|  |  +---------------- &#39;E&#39;: ESI, &#39;-&#39;: Plain object
-|  +------------------- &#39;F&#39;: Fetch, &#39;D&#39;: Deliver
-+---------------------- &#39;G&#39;: Gzip, &#39;U&#39;: Gunzip, &#39;u&#39;: Gunzip-test
-</pre></div>
+|  |  +---------------- 'E': ESI, '-': Plain object
+|  +------------------- 'F': Fetch, 'D': Deliver
++---------------------- 'G': Gzip, 'U': Gunzip, 'u': Gunzip-test</pre>
 </div>
 <p>Examples:</p>
-<div class="last highlight-python"><div class="highlight"><pre>U F E 182 159 80 80 1392
-G F E 159 173 80 1304 1314
-</pre></div>
+<div class="last highlight-python"><pre>U F E 182 159 80 80 1392
+G F E 159 173 80 1304 1314</pre>
 </div>
 </dd>
 <dt>Hash - Value added to hash</dt>
@@ -294,12 +282,11 @@ G F E 159 173 80 1304 1314
 <dt>Link - Links to a child VXID</dt>
 <dd><p class="first">Links this VXID to any child VXID it initiates.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %d %s
+<div class="last highlight-python"><pre>%s %d %s
 |  |  |
 |  |  +- Reason
 |  +---- Child vxid
-+------- Child type (&quot;req&quot; or &quot;bereq&quot;)
-</pre></div>
++------- Child type ("req" or "bereq")</pre>
 </div>
 </dd>
 <dt>LostHeader - Failed attempt to set HTTP header</dt>
@@ -307,11 +294,10 @@ G F E 159 173 80 1304 1314
 <dt>ObjHeader - Object  header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
+<div class="last highlight-python"><pre>%s: %s
 |   |
 |   +- Header value
-+----- Header name
-</pre></div>
++----- Header name</pre>
 </div>
 </dd>
 <dt>ObjProtocol - Object  protocol</dt>
@@ -323,37 +309,34 @@ G F E 159 173 80 1304 1314
 <dt>PipeAcct - Pipe byte counts</dt>
 <dd><p class="first">Contains byte counters for pipe sessions.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %d %d %d
+<div class="last highlight-python"><pre>%d %d %d %d
 |  |  |  |
 |  |  |  +------- Piped bytes to client
 |  |  +---------- Piped bytes from client
 |  +------------- Backend request headers
-+---------------- Client request headers
-</pre></div>
++---------------- Client request headers</pre>
 </div>
 </dd>
 <dt>ReqAcct - Request handling byte counts</dt>
 <dd><p class="first">Contains byte counts for the request handling. This record is not logged for ESI sub-requests, but the sub-requests' response body count is added to the main request.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %d %d %d %d %d
+<div class="last highlight-python"><pre>%d %d %d %d %d %d
 |  |  |  |  |  |
 |  |  |  |  |  +- Total bytes transmitted
 |  |  |  |  +---- Body bytes transmitted
 |  |  |  +------- Header bytes transmitted
 |  |  +---------- Total bytes received
 |  +------------- Body bytes received
-+---------------- Header bytes received
-</pre></div>
++---------------- Header bytes received</pre>
 </div>
 </dd>
 <dt>ReqHeader - Client request header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
+<div class="last highlight-python"><pre>%s: %s
 |   |
 |   +- Header value
-+----- Header name
-</pre></div>
++----- Header name</pre>
 </div>
 </dd>
 <dt>ReqMethod - Client request method</dt>
@@ -363,11 +346,10 @@ G F E 159 173 80 1304 1314
 <dt>ReqStart - Client request start</dt>
 <dd><p class="first">Start of request processing. Logs the client IP address and port number.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %s
+<div class="last highlight-python"><pre>%s %s
 |  |
 |  +- Port number
-+---- IP address
-</pre></div>
++---- IP address</pre>
 </div>
 </dd>
 <dt>ReqURL - Client request URL</dt>
@@ -375,11 +357,10 @@ G F E 159 173 80 1304 1314
 <dt>RespHeader - Client response header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
+<div class="last highlight-python"><pre>%s: %s
 |   |
 |   +- Header value
-+----- Header name
-</pre></div>
++----- Header name</pre>
 </div>
 </dd>
 <dt>RespProtocol - Client response protocol</dt>
@@ -391,41 +372,38 @@ G F E 159 173 80 1304 1314
 <dt>SessClose - Client connection closed</dt>
 <dd><p class="first">SessionClose is the last record for any client connection.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %f
+<div class="last highlight-python"><pre>%s %f
 |  |
 |  +- How long the session was open
-+---- Why the connection closed
-</pre></div>
++---- Why the connection closed</pre>
 </div>
 </dd>
 <dt>SessOpen - Client connection opened</dt>
 <dd><p class="first">The first record for a client connection, with the socket-endpoints of the connection.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %d %s %s %s %d
+<div class="last highlight-python"><pre>%s %d %s %s %s %d
 |  |  |  |  |  |
 |  |  |  |  |  +- File descriptor number
-|  |  |  |  +---- Local TCP port (&#39;-&#39; if !$log_local_addr)
-|  |  |  +------- Local IPv4/6 address (&#39;-&#39; if !$log_local_addr)
+|  |  |  |  +---- Local TCP port ('-' if !$log_local_addr)
+|  |  |  +------- Local IPv4/6 address ('-' if !$log_local_addr)
 |  |  +---------- Listen socket
 |  +------------- Client TCP socket
-+---------------- Client IPv4/6 address
-</pre></div>
++---------------- Client IPv4/6 address</pre>
 </div>
 </dd>
 <dt>Storage - Where object is stored</dt>
 <dd><p class="first">Type and name of the storage backend the object is stored in.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %s
+<div class="last highlight-python"><pre>%s %s
 |  |
 |  +- Name of storage backend
-+---- Type (&quot;malloc&quot;, &quot;file&quot;, &quot;persistent&quot; etc.)
-</pre></div>
++---- Type ("malloc", "file", "persistent" etc.)</pre>
 </div>
 </dd>
 <dt>TTL - TTL set on object</dt>
 <dd><p class="first">A TTL record is emitted whenever the ttl, grace or keep values for an object is set.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%s %d %d %d %d %d [ %d %u %u ]
+<div class="highlight-python"><pre>%s %d %d %d %d %d [ %d %u %u ]
 |  |  |  |  |  |    |  |  |
 |  |  |  |  |  |    |  |  +- Max-Age from Cache-Control header
 |  |  |  |  |  |    |  +---- Expires header
@@ -435,31 +413,28 @@ G F E 159 173 80 1304 1314
 |  |  |  +------------------ Keep
 |  |  +--------------------- Grace
 |  +------------------------ TTL
-+--------------------------- &quot;RFC&quot; or &quot;VCL&quot;
-</pre></div>
++--------------------------- "RFC" or "VCL"</pre>
 </div>
 <p>The last four fields are only present in &quot;RFC&quot; headers.</p>
 <p>Examples:</p>
-<div class="last highlight-python"><div class="highlight"><pre>RFC 19 -1 -1 1312966109 4 0 0 23
+<div class="last highlight-python"><pre>RFC 19 -1 -1 1312966109 4 0 0 23
 VCL 10 -1 -1 1312966109 4
 VCL 7 -1 -1 1312966111 6
 VCL 7 120 -1 1312966111 6
 VCL 7 120 3600 1312966111 6
-VCL 12 120 3600 1312966113 8
-</pre></div>
+VCL 12 120 3600 1312966113 8</pre>
 </div>
 </dd>
 <dt>Timestamp - Timing information</dt>
 <dd><p class="first">Contains timing information for the Varnish worker threads.</p>
 <p>Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %f %f %f
+<div class="last highlight-python"><pre>%s: %f %f %f
 |   |  |  |
 |   |  |  +- Time since last timestamp
 |   |  +---- Time since start of work unit
 |   +------- Absolute time of event
-+----------- Event label
-</pre></div>
++----------- Event label</pre>
 </div>
 </dd>
 <dt>VCL_Error - VCL execution error message</dt>
@@ -475,12 +450,11 @@ VCL 12 120 3600 1312966113 8
 <dt>VCL_trace - VCL trace data</dt>
 <dd><p class="first">Logs VCL execution trace data.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%u %u.%u
+<div class="highlight-python"><pre>%u %u.%u
 |  |  |
 |  |  +- VCL program line position
 |  +---- VCL program line number
-+------- VCL trace point index
-</pre></div>
++------- VCL trace point index</pre>
 </div>
 <p class="last">NB: This log record is masked by default.</p>
 </dd>
@@ -489,11 +463,10 @@ VCL 12 120 3600 1312966113 8
 <dt>WorkThread - Logs thread start/stop events</dt>
 <dd><p class="first">Logs worker thread creation and termination events.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%p %s
+<div class="highlight-python"><pre>%p %s
 |  |
 |  +- [start|end]
-+---- Worker struct pointer
-</pre></div>
++---- Worker struct pointer</pre>
 </div>
 <p class="last">NB: This log record is masked by default.</p>
 </dd>
@@ -561,7 +534,7 @@ streaming).</dd>
 <dt>Retry</dt>
 <dd>Backend request is being retried.</dd>
 <dt>Error</dt>
-<dd>Backend request failed to vcl_error.</dd>
+<dd>Backend request failed to vcl_backend_error.</dd>
 </dl>
 </div>
 </div>
@@ -650,13 +623,13 @@ Martin Blix Grydeland.</p>
         <li class="right" >
           <a href="vmod_directors.generated.html" title="vmod_directors"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

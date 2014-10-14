@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Misbehaving servers &mdash; Varnish version 4.0.1 documentation</title>
+    <title>Misbehaving servers &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="Using In-line C to extend Varnish" href="vcl-inline-c.html" />
     <link rel="prev" title="Hashing" href="vcl-hashing.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="vcl-hashing.html" title="Hashing"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
@@ -72,10 +74,9 @@ requests somewhat stale content.</p>
 <p>So, in order to serve stale content we must first have some content to
 serve. So to make Varnish keep all objects for 2 minutes beyond their
 TTL use the following VCL:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
+<div class="highlight-python"><pre>sub vcl_backend_response {
   set beresp.grace = 2m;
-}
-</pre></div>
+}</pre>
 </div>
 <p>Now Varnish will be allowed to serve objects that are up to two
 minutes out of date. When it does it will also schedule a refresh of
@@ -83,7 +84,7 @@ the object. This will happen asynchronously and the moment the new
 object is in it will replace the one we've already got.</p>
 <p>You can influence how this logic works by adding code in vcl_hit. The
 default looks like this::</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_hit {
+<div class="highlight-python"><pre>sub vcl_hit {
    if (obj.ttl &gt;= 0s) {
        // A pure unadultered hit, deliver it
        return (deliver);
@@ -95,19 +96,17 @@ default looks like this::</p>
    }
    // fetch &amp; deliver once we get the result
    return (fetch);
-}
-</pre></div>
+}</pre>
 </div>
 <p>The grace logic is pretty obvious here. If you have enabled
 <a class="reference internal" href="vcl-backends.html#users-guide-advanced-backend-servers-health"><em>Health checks</em></a> you can check if
 the backend is sick and only serve graced object then. Replace the
 second if-clause with something like this::</p>
-<div class="highlight-python"><div class="highlight"><pre>if (!std.healthy(req.backend_hint) &amp;&amp; (obj.ttl + obj.grace &gt; 0s)) {
+<div class="highlight-python"><pre>if (!std.healthy(req.backend_hint) &amp;&amp; (obj.ttl + obj.grace &gt; 0s)) {
       return (deliver);
 } else {
       return (fetch);
-}
-</pre></div>
+}</pre>
 </div>
 <dl class="docutils">
 <dt>So, to sum up, grace mode solves two problems:</dt>
@@ -174,14 +173,14 @@ second if-clause with something like this::</p>
         <li class="right" >
           <a href="vcl-hashing.html" title="Hashing"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

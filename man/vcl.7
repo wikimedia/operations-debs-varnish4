@@ -1,35 +1,8 @@
-.\" Man page generated from reStructuredText.
-.
 .TH VCL  "" "" ""
 .SH NAME
 VCL \- Varnish Configuration Language
+.\" Man page generated from reStructeredText.
 .
-.nr rst2man-indent-level 0
-.
-.de1 rstReportMargin
-\\$1 \\n[an-margin]
-level \\n[rst2man-indent-level]
-level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
--
-\\n[rst2man-indent0]
-\\n[rst2man-indent1]
-\\n[rst2man-indent2]
-..
-.de1 INDENT
-.\" .rstReportMargin pre:
-. RS \\$1
-. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
-. nr rst2man-indent-level +1
-.\" .rstReportMargin post:
-..
-.de UNINDENT
-. RE
-.\" indent \\n[an-margin]
-.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.nr rst2man-indent-level -1
-.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
-..
 .SH DESCRIPTION
 .sp
 The VCL language is a small domain\-specific language designed to be
@@ -94,8 +67,6 @@ Note that are no loops or iterators of any kind in VCL.
 These are the data types in Varnish. You can \fIset\fP or \fIunset\fP these.
 .sp
 Example:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -103,8 +74,6 @@ set req.http.User\-Agent = "unknown";
 unset req.http.Range;
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .SS Strings
 .sp
 Basic strings are enclosed in double quotes (" ... "), and may not contain
@@ -113,7 +82,7 @@ character including single double quotes ("), newline and other control
 characters except for the NUL (0x00) character.
 .SS Booleans
 .sp
-Booleans can be either \fItrue\fP or \fIfalse\fP\&.
+Booleans can be either \fItrue\fP or \fIfalse\fP.
 .SS Time
 .sp
 VCL has time. The function \fInow\fP returns a time. A duration can be
@@ -165,8 +134,6 @@ complete description please see the pcre(3) man page.
 .sp
 To send flags to the PCRE engine, such as to do case insensitive matching, add
 the flag within parens following a question mark, like this:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -176,28 +143,20 @@ if (req.http.host !~ "(?i)example.com$") {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .SS Include statement
 .sp
 To include a VCL file in another file use the include keyword:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
 include "foo.vcl";
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .SS Import statement
 .sp
 The \fIimport\fP statement is used to load Varnish Modules (VMODs.)
 .sp
 Example:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -207,15 +166,11 @@ sub vcl_recv {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .SS Backend definition
 .sp
 A backend declaration creates and initialises a named backend object. A
 declaration start with the keyword \fIbackend\fP followed by the name of the
 backend. The actual declaration is in curly brackets, in a key/value fashion.:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -224,10 +179,8 @@ backend name {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
-The only mandatory attribute is \fIhost\fP\&. The attributes will inherit
+The only mandatory attribute is \fIhost\fP. The attributes will inherit
 their defaults from the global parameters. The following attributes
 are available:
 .INDENT 0.0
@@ -264,14 +217,12 @@ connections.
 .UNINDENT
 .UNINDENT
 .sp
-Backends can be used with \fIdirectors\fP\&. Please see the
+Backends can be used with \fIdirectors\fP. Please see the
 vmod_directors(3) man page for more information.
 .SS Probes
 .sp
 Probes will query the backend for status on a regular basis and mark
 the backend as down it they fail. A probe is defined as this::
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -280,8 +231,6 @@ probe name {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
 There are no mandatory options. These are the options you can set:
 .INDENT 0.0
@@ -325,8 +274,6 @@ consider the backend healthy. Defaults to 3.
 .sp
 An Access Control List (ACL) declaration creates and initialises a named access
 control list which can later be used to match client addresses:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -337,8 +284,6 @@ acl localnetwork {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
 If an ACL entry specifies a host name which Varnish is unable to
 resolve, it will match any address it is compared to. Consequently,
@@ -347,8 +292,6 @@ compared to, which may not be what you intended. If the entry is
 enclosed in parentheses, however, it will simply be ignored.
 .sp
 To match an IP address against an ACL, simply use the match operator:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -357,15 +300,11 @@ if (client.ip ~ localnetwork) {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .SS VCL objects
 .sp
 A VCL object can be made with the \fInew\fP keyword.
 .sp
 Example:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -375,13 +314,9 @@ sub vcl_init {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .SS Subroutines
 .sp
 A subroutine is used to group code for legibility or reusability:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -392,16 +327,12 @@ sub pipe_if_local {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
 Subroutines in VCL do not take arguments, nor do they return
 values. The built in subroutines all have names beginning with vcl_,
 which is reserved.
 .sp
 To call a subroutine, use the call keyword followed by the subroutine\(aqs name:
-.INDENT 0.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -410,8 +341,6 @@ sub vcl_recv {
 }
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .SS Return statements
 .sp
 The ongoing vcl_* subroutine execution ends when a return(\fIaction\fP) statement
@@ -432,6 +361,17 @@ In VCL you have access to certain variable objects. These contain
 requests and responses currently being worked on. What variables are
 available depends on context.
 .SS bereq
+.sp
+bereq
+.INDENT 0.0
+.INDENT 3.5
+Type: HTTP
+.sp
+Readable from: backend
+.sp
+The entire backend request HTTP data structure
+.UNINDENT
+.UNINDENT
 .sp
 bereq.backend
 .INDENT 0.0
@@ -530,6 +470,8 @@ bereq.retries
 Type: INT
 .sp
 Readable from: backend
+.sp
+A count of how many times this request has been retried.
 .UNINDENT
 .UNINDENT
 .sp
@@ -568,6 +510,17 @@ Unique ID of this request.
 .UNINDENT
 .UNINDENT
 .SS beresp
+.sp
+beresp
+.INDENT 0.0
+.INDENT 3.5
+Type: HTTP
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+The entire backend response HTTP data structure
+.UNINDENT
+.UNINDENT
 .sp
 beresp.backend.ip
 .INDENT 0.0
@@ -649,8 +602,6 @@ Writable from: vcl_backend_response, vcl_backend_error
 Deliver the object to the client directly without
 fetching the whole object into varnish. If this
 request is pass\(aqed it will not be stored in memory.
-As of Varnish Cache 3.0 the object will marked as busy
-as it is delivered so only client can access the object.
 .UNINDENT
 .UNINDENT
 .sp
@@ -816,7 +767,7 @@ Type: DURATION
 .sp
 Readable from: vcl_hit
 .sp
-The object\(aqs grace period in seconds. obj.grace is writable.
+The object\(aqs grace period in seconds.
 .UNINDENT
 .UNINDENT
 .sp
@@ -897,7 +848,6 @@ Type: DURATION
 Readable from: vcl_hit
 .sp
 The object\(aqs remaining time to live, in seconds.
-obj.ttl is writable.
 .UNINDENT
 .UNINDENT
 .sp
@@ -910,6 +860,17 @@ Readable from: vcl_hit
 .UNINDENT
 .UNINDENT
 .SS req
+.sp
+req
+.INDENT 0.0
+.INDENT 3.5
+Type: HTTP
+.sp
+Readable from: client
+.sp
+The entire request HTTP data structure
+.UNINDENT
+.UNINDENT
 .sp
 req.backend_hint
 .INDENT 0.0
@@ -1078,6 +1039,17 @@ Unique ID of this request.
 .UNINDENT
 .SS resp
 .sp
+resp
+.INDENT 0.0
+.INDENT 3.5
+Type: HTTP
+.sp
+Readable from: vcl_deliver, vcl_synth
+.sp
+The entire response HTTP data structure
+.UNINDENT
+.UNINDENT
+.sp
 resp.http.
 .INDENT 0.0
 .INDENT 3.5
@@ -1136,7 +1108,7 @@ server.hostname
 .INDENT 3.5
 Type: STRING
 .sp
-Readable from: client
+Readable from: vcl_all
 .sp
 The host name of the server.
 .UNINDENT
@@ -1147,7 +1119,7 @@ server.identity
 .INDENT 3.5
 Type: STRING
 .sp
-Readable from: client
+Readable from: vcl_all
 .sp
 The identity of the server, as set by the \-i
 parameter.  If the \-i parameter is not passed to varnishd,
@@ -1218,21 +1190,18 @@ Run a VCL subroutine within the current scope.
 .TP
 .B hash_data(input)
 Adds an input to the hash input. In the built\-in VCL hash_data()
-is called on the host and URL of the \fIrequest\fP\&. Available in vcl_hash.
+is called on the host and URL of the \fIrequest\fP. Available in vcl_hash.
 .TP
 .B new()
 Instanciate a new VCL object. Available in vcl_init.
-.TP
-.B purge()
-Invalidate all variants of the current object using purge. Available in
-vcl_miss and vcl_hit.
 .TP
 .B return()
 End execution of the current VCL subroutine, and continue to the next step
 in the request handling state machine.
 .TP
 .B rollback()
-Restore request HTTP headers to their original state.
+Restore \fIreq\fP HTTP headers to their original state. This function is
+deprecated.  Use std.rollback() instead.
 .TP
 .B synthetic(STRING)
 Prepare a synthetic response body containing the STRING. Available in
@@ -1283,4 +1252,5 @@ Copyright (c) 2006 Verdens Gang AS
 Copyright (c) 2006\-2014 Varnish Software AS
 .UNINDENT
 .\" Generated by docutils manpage writer.
+.\" 
 .

@@ -112,7 +112,7 @@ returns =(
 	),
 	('deliver',
 		"C",
-		('restart', 'deliver',)
+		('synth', 'restart', 'deliver',)
 	),
 	('synth',
 		"C",
@@ -182,19 +182,26 @@ sp_variables = [
 	),
 	('server.hostname',
 		'STRING',
-		( 'client',),
+		( 'all',),
 		( ), """
 		The host name of the server.
 		"""
 	),
 	('server.identity',
 		'STRING',
-		( 'client',),
+		( 'all',),
 		( ), """
 		The identity of the server, as set by the -i
 		parameter.  If the -i parameter is not passed to varnishd,
 		server.identity will be set to the name of the instance, as
 		specified by the -n parameter.
+		"""
+	),
+	('req',
+		'HTTP',
+		( 'client',),
+		( ), """
+		The entire request HTTP data structure
 		"""
 	),
 	('req.method',
@@ -294,6 +301,13 @@ sp_variables = [
 		always (re)fetch from the backend.
 		"""
 	),
+	('bereq',
+		'HTTP',
+		( 'backend',),
+		( ), """
+		The entire backend request HTTP data structure
+		"""
+	),
 	('bereq.xid',
 		'STRING',
 		( 'backend',),
@@ -305,6 +319,7 @@ sp_variables = [
 		'INT',
 		( 'backend',),
 		( ), """
+		A count of how many times this request has been retried.
 		"""
 	),
 	('bereq.backend',
@@ -370,6 +385,13 @@ sp_variables = [
 		backend.  Not available in pipe mode.
 		"""
 	),
+	('beresp',
+		'HTTP',
+		( 'backend_response', 'backend_error'),
+		( ), """
+		The entire backend response HTTP data structure
+		"""
+	),
 	('beresp.proto',
 		'STRING',
 		( 'backend_response', 'backend_error'),
@@ -415,8 +437,6 @@ sp_variables = [
 		Deliver the object to the client directly without
 		fetching the whole object into varnish. If this
 		request is pass'ed it will not be stored in memory.
-		As of Varnish Cache 3.0 the object will marked as busy
-		as it is delivered so only client can access the object.
 		"""
 	),
 	('beresp.do_gzip',
@@ -531,14 +551,13 @@ sp_variables = [
 		( 'hit', ),
 		( ), """
 		The object's remaining time to live, in seconds.
-		obj.ttl is writable.
 		"""
 	),
 	('obj.grace',
 		'DURATION',
 		( 'hit', ),
 		( ), """
-		The object's grace period in seconds. obj.grace is writable.
+		The object's grace period in seconds.
 		"""
 	),
 	('obj.keep',
@@ -551,6 +570,13 @@ sp_variables = [
 		'BOOL',
 		( 'hit', ),
 		( ), """
+		"""
+	),
+	('resp',
+		'HTTP',
+		( 'deliver', 'synth'),
+		( ), """
+		The entire response HTTP data structure
 		"""
 	),
 	('resp.proto',
@@ -597,17 +623,17 @@ aliases = [
 
 stv_variables = (
 	('free_space',	'BYTES',	"0.", 'storage.<name>.free_space', """
-        Free space available in the named stevedore. Only available for
-        the malloc stevedore.
-        """),
+	Free space available in the named stevedore. Only available for
+	the malloc stevedore.
+	"""),
 	('used_space',	'BYTES',	"0.", 'storage.<name>.used_space', """
-        Used space in the named stevedore. Only available for the malloc
-        stevedore.
-        """),
+	Used space in the named stevedore. Only available for the malloc
+	stevedore.
+	"""),
 	('happy',	'BOOL',		"0", 'storage.<name>.happy', """
-        Health status for the named stevedore. Not available in any of the
-        current stevedores.
-        """),
+	Health status for the named stevedore. Not available in any of the
+	current stevedores.
+	"""),
 )
 
 #######################################################################
@@ -885,15 +911,19 @@ typedef void vcl_fini_f(struct cli *);
 typedef int vcl_func_f(const struct vrt_ctx *ctx);
 """)
 
+def tbl40(a, b):
+	while len(a.expandtabs()) < 40:
+		a += "\t"
+	return a + b
 
 fo.write("\n/* VCL Methods */\n")
-n = 0
+n = 1
 for i in returns:
-	fo.write("#define VCL_MET_%s\t\t(1U << %d)\n" % (i[0].upper(), n))
+	fo.write(tbl40("#define VCL_MET_%s" % i[0].upper(),  "(1U << %d)\n" % n))
 	n += 1
 
-fo.write("\n#define VCL_MET_MAX\t\t%d\n" % n)
-fo.write("\n#define VCL_MET_MASK\t\t0x%x\n" % ((1 << n) - 1))
+fo.write("\n" + tbl40("#define VCL_MET_MAX", "%d\n" % n))
+fo.write("\n" + tbl40("#define VCL_MET_MASK", "0x%x\n" % ((1 << n) - 1)))
 
 
 fo.write("\n/* VCL Returns */\n")
@@ -901,10 +931,10 @@ n = 0
 l = list(rets.keys())
 l.sort()
 for i in l:
-	fo.write("#define VCL_RET_%s\t\t%d\n" % (i.upper(), n))
+	fo.write(tbl40("#define VCL_RET_%s" % i.upper(), "%d\n" % n))
 	n += 1
 
-fo.write("\n#define VCL_RET_MAX\t\t%d\n" % n)
+fo.write("\n" + tbl40("#define VCL_RET_MAX", "%d\n" % n))
 
 
 fo.write("""
@@ -1188,11 +1218,11 @@ hdr="storage"
 fp_vclvar.write("\n" + hdr + "\n");
 fp_vclvar.write("~" * len(hdr) + "\n");
 for i in stv_variables:
-        fp_vclvar.write("\n" + i[3] + "\n\n")
-        fp_vclvar.write("\tType: " + i[1] + "\n\n")
-        fp_vclvar.write("\tReadable from: client, backend\n\n")
-        for j in i[4].split("\n"):
-                fp_vclvar.write("\t%s\n" % j.strip())
+	fp_vclvar.write("\n" + i[3] + "\n\n")
+	fp_vclvar.write("\tType: " + i[1] + "\n\n")
+	fp_vclvar.write("\tReadable from: client, backend\n\n")
+	for j in i[4].split("\n"):
+		fp_vclvar.write("\t%s\n" % j.strip())
 
 
 fp_vclvar.close()

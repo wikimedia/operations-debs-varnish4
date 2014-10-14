@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishlog &mdash; Varnish version 4.0.1 documentation</title>
+    <title>varnishlog &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishncsa" href="varnishncsa.html" />
     <link rel="prev" title="varnishhist" href="varnishhist.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="varnishhist.html" title="varnishhist"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -57,7 +59,7 @@
 <h2>Display Varnish logs<a class="headerlink" href="#display-varnish-logs" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="synopsis">
 <h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
-<p>varnishlog [-a] [-b] [-B] [-c] [-C] [-d] [-D] [-g &lt;session|request|vxid|raw&gt;] [-h] [-i taglist] [-I &lt;[taglist:]regex&gt;] [-L limit] [-n name] [-N filename] [-P file] [-q query] [-r filename] [-T seconds] [-v] [-V] [-w filename] [-x taglist] [-X &lt;[taglist:]regex&gt;] &lt;query expression&gt;</p>
+<p>varnishlog [-a] [-b] [-B] [-c] [-C] [-d] [-D] [-g &lt;session|request|vxid|raw&gt;] [-h] [-i taglist] [-k num] [-I &lt;[taglist:]regex&gt;] [-L limit] [-n name] [-N filename] [-P file] [-q query] [-r filename] [-T seconds] [-v] [-V] [-w filename] [-x taglist] [-X &lt;[taglist:]regex&gt;] &lt;query expression&gt;</p>
 </div>
 <div class="section" id="options">
 <h3>OPTIONS<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
@@ -99,6 +101,9 @@
 <td><p class="first">Include log records of these tags in output. Taglist is a comma-separated list of tag globs. Multiple -i options may be given.</p>
 <p class="last">If a tag include option is the first of any tag selection options, all tags are first marked excluded.</p>
 </td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-k <var>num</var></span></kbd></td>
+<td>Process this number of matching log transactions before exiting.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-I <var>&lt;[taglist:]regex&gt;</var></span></kbd></td>
 </tr>
@@ -142,18 +147,6 @@
 <kbd><span class="option">-X <var>&lt;[taglist:]regex&gt;</var></span></kbd></td>
 </tr>
 <tr><td>&nbsp;</td><td>Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent.</td></tr>
-<tr><td class="option-group">
-<kbd><span class="option">-k <var>num</var></span></kbd></td>
-<td><p class="first">Only show the first num log transactions (or log records
-in -g raw mode)</p>
-<p class="last">XXX: Not yet implemented</p>
-</td></tr>
-<tr><td class="option-group">
-<kbd><span class="option">-s <var>num</var></span></kbd></td>
-<td><p class="first">Skip the first num log transactions (or log records if
-in -g raw mode)</p>
-<p class="last">XXX: Not yet implemented</p>
-</td></tr>
 </tbody>
 </table>
 </div>
@@ -261,13 +254,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishhist.html" title="varnishhist"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

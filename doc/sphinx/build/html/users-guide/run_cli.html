@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>CLI - bossing Varnish around &mdash; Varnish version 4.0.1 documentation</title>
+    <title>CLI - bossing Varnish around &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="Starting and running Varnish" href="running.html" />
     <link rel="next" title="Storage backends" href="storage-backends.html" />
     <link rel="prev" title="Important command line arguments" href="command-line.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="command-line.html" title="Important command line arguments"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="running.html" accesskey="U">Starting and running Varnish</a> &raquo;</li> 
       </ul>
@@ -58,23 +60,19 @@
 interface.</p>
 <p>The easiest way to do this, is using <cite>varnishadm</cite> on the
 same machine as <cite>varnishd</cite> is running:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishadm help
-</pre></div>
+<div class="highlight-python"><pre>varnishadm help</pre>
 </div>
 <p>If you want to run <cite>varnishadm</cite> from a remote system, you can do it
 two ways.</p>
 <p>You can SSH into the <cite>varnishd</cite> computer and run <cite>varnishadm</cite>:</p>
-<div class="highlight-python"><div class="highlight"><pre>ssh $http_front_end varnishadm help
-</pre></div>
+<div class="highlight-python"><pre>ssh $http_front_end varnishadm help</pre>
 </div>
 <p>But you can also configure <cite>varnishd</cite> to accept remote CLI connections
 (using the '-T' and '-S' arguments):</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishd -T :6082 -S /etc/varnish_secret
-</pre></div>
+<div class="highlight-python"><pre>varnishd -T :6082 -S /etc/varnish_secret</pre>
 </div>
 <p>And then on the remote system run <cite>varnishadm</cite>:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishadm -T $http_front_end -S /etc/copy_of_varnish_secret help
-</pre></div>
+<div class="highlight-python"><pre>varnishadm -T $http_front_end -S /etc/copy_of_varnish_secret help</pre>
 </div>
 <p>but as you can see, SSH is much more convenient.</p>
 <p>If you run <cite>varnishadm</cite> without arguments, it will read CLI commands from
@@ -101,29 +99,25 @@ standard error if it is not 200.</p>
 is designated the &quot;active&quot; VCL program, and this is where
 all new requests start out.</p>
 <p>To load new VCL program:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.load some_name some_filename
-</pre></div>
+<div class="highlight-python"><pre>varnish&gt; vcl.load some_name some_filename</pre>
 </div>
 <p>Loading will read the VCL program from the file, and compile it. If
 the compilation fails, you will get an error messages:</p>
-<div class="highlight-python"><div class="highlight"><pre>.../mask is not numeric.
-(&#39;input&#39; Line 4 Pos 17)
-                &quot;192.168.2.0/24x&quot;,
+<div class="highlight-python"><pre>.../mask is not numeric.
+('input' Line 4 Pos 17)
+                "192.168.2.0/24x",
 ----------------#################-
 
 Running VCC-compiler failed, exit 1
-VCL compilation failed
-</pre></div>
+VCL compilation failed</pre>
 </div>
 <p>If compilation succeeds, the VCL program is loaded, and you can
 now make it the active VCL, whenever you feel like it:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.use some_name
-</pre></div>
+<div class="highlight-python"><pre>varnish&gt; vcl.use some_name</pre>
 </div>
 <p>If you find out that was a really bad idea, you can switch back
 to the previous VCL program again:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.use old_name
-</pre></div>
+<div class="highlight-python"><pre>varnish&gt; vcl.use old_name</pre>
 </div>
 <p>The switch is instantaneous, all new requests will start using the
 VCL you activated right away. The requests currently being processed complete
@@ -140,8 +134,7 @@ you know exactly what they are.</p>
 without having an exact list of what to throw out.</p>
 <p>Imagine for instance that the company logo changed and now you need
 Varnish to stop serving the old logo out of the cache:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; ban req.url ~ &quot;logo.*[.]png&quot;
-</pre></div>
+<div class="highlight-python"><pre>varnish&gt; ban req.url ~ "logo.*[.]png"</pre>
 </div>
 <p>should do that, and yes, that is a regular expression.</p>
 <p>We call this &quot;banning&quot; because the objects are still in the cache,
@@ -156,7 +149,7 @@ of wronly cached content.</p>
 <h3>Change parameters<a class="headerlink" href="#change-parameters" title="Permalink to this headline">¶</a></h3>
 <p>Parameters can be set on the command line with the '-p' argument,
 but they can also be examined and changed on the fly from the CLI:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; param.show prefer_ipv6
+<div class="highlight-python"><pre>varnish&gt; param.show prefer_ipv6
 200
 prefer_ipv6         off [bool]
                     Default is off
@@ -164,8 +157,7 @@ prefer_ipv6         off [bool]
                     which have both IPv4 and IPv6 addresses.
 
 varnish&gt; param.set prefer_ipv6 true
-200
-</pre></div>
+200</pre>
 </div>
 <p>In general it is not a good idea to modify parameters unless you
 have a good reason, such as performance tuning or security configuration.</p>
@@ -254,14 +246,14 @@ restart it, but you can disable that with the 'auto_restart' parameter.</p>
         <li class="right" >
           <a href="command-line.html" title="Important command line arguments"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="running.html" >Starting and running Varnish</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

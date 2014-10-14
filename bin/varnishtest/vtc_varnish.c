@@ -325,7 +325,7 @@ static void *
 varnish_thread(void *priv)
 {
 	struct varnish *v;
-	char buf[BUFSIZ];
+	char buf[65536];
 	struct pollfd *fds, fd;
 	int i;
 
@@ -576,11 +576,13 @@ varnish_wait(struct varnish *v)
 	void *p;
 	int status, r;
 	struct rusage ru;
+	char *resp;
 
 	if (v->cli_fd < 0)
 		return;
 	if (vtc_error)
 		(void)sleep(1);	/* give panic messages a chance */
+	varnish_ask_cli(v, "backend.list", &resp);
 	varnish_stop(v);
 	vtc_log(v->vl, 2, "Wait");
 	AZ(close(v->cli_fd));

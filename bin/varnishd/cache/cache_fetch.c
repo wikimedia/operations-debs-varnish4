@@ -164,6 +164,9 @@ vbf_beresp2obj(struct busyobj *bo)
 	else
 		obj->last_modified = floor(bo->exp.t_origin);
 
+	/* Disassociate the obj from the bo's workspace */
+	hp2->ws = NULL;
+
 	return (0);
 }
 
@@ -209,6 +212,10 @@ vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
 			    "If-None-Match: %s", p);
 		}
 	}
+
+	HTTP_Setup(bo->bereq, bo->ws, bo->vsl, SLT_BereqMethod);
+	bo->ws_bo = WS_Snapshot(bo->ws);
+	HTTP_Copy(bo->bereq, bo->bereq0);
 
 	VBO_setstate(bo, BOS_REQ_DONE);
 	return (F_STP_STARTFETCH);
@@ -264,11 +271,9 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	else
 		AZ(bo->req);
 
-	HTTP_Setup(bo->bereq, bo->ws, bo->vsl, SLT_BereqMethod);
-	HTTP_Copy(bo->bereq, bo->bereq0);
-
 	http_PrintfHeader(bo->bereq,
 	    "X-Varnish: %u", bo->vsl->wid & VSL_IDENTMASK);
+
 
 	VCL_backend_fetch_method(bo->vcl, wrk, NULL, bo, bo->bereq->ws);
 
@@ -708,7 +713,6 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 		bo->synth_body = NULL;
 		if (bo->retries++ < cache_param->max_retries)
 			return (F_STP_RETRY);
-		bo->synth_body = NULL;
 		return (F_STP_FAIL);
 	}
 
@@ -873,9 +877,9 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 	default:		WRONG("Wrong fetch mode");
 	}
 
-	VSLb(bo->vsl, SLT_Begin, "bereq %u %s ",
+	VSLb(bo->vsl, SLT_Begin, "bereq %u %s",
 	    req->vsl->wid & VSL_IDENTMASK, how);
-	VSLb(req->vsl, SLT_Link, "bereq %u %s ",
+	VSLb(req->vsl, SLT_Link, "bereq %u %s",
 	    bo->vsl->wid & VSL_IDENTMASK, how);
 
 	bo->refcount = 2;

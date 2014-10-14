@@ -271,7 +271,7 @@ VSC_F(threads_created,		uint64_t, 0, 'c', info,
 )
 
 VSC_F(threads_destroyed,	uint64_t, 0, 'c', info,
-    "Threads destoryed",
+    "Threads destroyed",
 	"Total number of threads destroyed in all pools."
 )
 
@@ -573,11 +573,11 @@ VSC_F(bans_lurker_contention,	uint64_t, 0, 'c', diag,
 )
 VSC_F(bans_persisted_bytes,	uint64_t, 0, 'g', diag,
     "Bytes used by the persisted ban lists",
-        "Number of bytes used by the persisted ban lists."
+	"Number of bytes used by the persisted ban lists."
 )
 VSC_F(bans_persisted_fragmentation,	uint64_t, 0, 'g', diag,
     "Extra bytes in persisted ban lists due to fragmentation",
-        "Number of extra bytes accumulated through dropped and"
+	"Number of extra bytes accumulated through dropped and"
 	" completed bans in the persistent ban lists."
 )
 

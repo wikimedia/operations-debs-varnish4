@@ -2,6 +2,16 @@
 bereq
 ~~~~~
 
+bereq
+
+	Type: HTTP
+
+	Readable from: backend
+
+	
+	The entire backend request HTTP data structure
+	
+
 bereq.backend
 
 	Type: BACKEND
@@ -94,6 +104,7 @@ bereq.retries
 	Readable from: backend
 
 	
+	A count of how many times this request has been retried.
 	
 
 bereq.uncacheable
@@ -131,6 +142,16 @@ bereq.xid
 
 beresp
 ~~~~~~
+
+beresp
+
+	Type: HTTP
+
+	Readable from: vcl_backend_response, vcl_backend_error
+
+	
+	The entire backend response HTTP data structure
+	
 
 beresp.backend.ip
 
@@ -207,8 +228,6 @@ beresp.do_stream
 	Deliver the object to the client directly without
 	fetching the whole object into varnish. If this
 	request is pass'ed it will not be stored in memory.
-	As of Varnish Cache 3.0 the object will marked as busy
-	as it is delivered so only client can access the object.
 	
 
 beresp.grace
@@ -369,7 +388,7 @@ obj.grace
 	Readable from: vcl_hit
 
 	
-	The object's grace period in seconds. obj.grace is writable.
+	The object's grace period in seconds.
 	
 
 obj.hits
@@ -444,7 +463,6 @@ obj.ttl
 
 	
 	The object's remaining time to live, in seconds.
-	obj.ttl is writable.
 	
 
 obj.uncacheable
@@ -458,6 +476,16 @@ obj.uncacheable
 
 req
 ~~~
+
+req
+
+	Type: HTTP
+
+	Readable from: client
+
+	
+	The entire request HTTP data structure
+	
 
 req.backend_hint
 
@@ -616,6 +644,16 @@ req.xid
 resp
 ~~~~
 
+resp
+
+	Type: HTTP
+
+	Readable from: vcl_deliver, vcl_synth
+
+	
+	The entire response HTTP data structure
+	
+
 resp.http.
 
 	Type: HEADER
@@ -671,7 +709,7 @@ server.hostname
 
 	Type: STRING
 
-	Readable from: client
+	Readable from: vcl_all
 
 	
 	The host name of the server.
@@ -681,7 +719,7 @@ server.identity
 
 	Type: STRING
 
-	Readable from: client
+	Readable from: vcl_all
 
 	
 	The identity of the server, as set by the -i

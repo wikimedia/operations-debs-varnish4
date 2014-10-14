@@ -11,6 +11,13 @@
 #include "vcc_compile.h"
 
 const struct var vcc_vars[] = {
+	{ "bereq", HTTP, 5,
+	    "VRT_r_bereq(ctx)",
+		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
+		 | VCL_MET_BACKEND_RESPONSE,
+	    NULL,	/* No writes allowed */
+		0,
+	},
 	{ "bereq.backend", BACKEND, 13,
 	    "VRT_r_bereq_backend(ctx)",
 		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
@@ -94,6 +101,12 @@ const struct var vcc_vars[] = {
 	    "VRT_r_bereq_xid(ctx)",
 		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
 		 | VCL_MET_BACKEND_RESPONSE,
+	    NULL,	/* No writes allowed */
+		0,
+	},
+	{ "beresp", HTTP, 6,
+	    "VRT_r_beresp(ctx)",
+		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_RESPONSE,
 	    NULL,	/* No writes allowed */
 		0,
 	},
@@ -269,6 +282,14 @@ const struct var vcc_vars[] = {
 	    NULL,	/* No writes allowed */
 		0,
 	},
+	{ "req", HTTP, 3,
+	    "VRT_r_req(ctx)",
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
 	{ "req.backend_hint", BACKEND, 16,
 	    "VRT_r_req_backend_hint(ctx)",
 		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
@@ -383,6 +404,12 @@ const struct var vcc_vars[] = {
 	    NULL,	/* No writes allowed */
 		0,
 	},
+	{ "resp", HTTP, 4,
+	    "VRT_r_resp(ctx)",
+		VCL_MET_DELIVER | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
 	{ "resp.http.", HEADER, 10,
 	    "HDR_RESP",
 		VCL_MET_DELIVER | VCL_MET_SYNTH,
@@ -409,7 +436,9 @@ const struct var vcc_vars[] = {
 	},
 	{ "server.hostname", STRING, 15,
 	    "VRT_r_server_hostname(ctx)",
-		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
+		 | VCL_MET_BACKEND_RESPONSE | VCL_MET_DELIVER | VCL_MET_FINI
+		 | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_INIT | VCL_MET_MISS
 		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
 		 | VCL_MET_RECV | VCL_MET_SYNTH,
 	    NULL,	/* No writes allowed */
@@ -417,7 +446,9 @@ const struct var vcc_vars[] = {
 	},
 	{ "server.identity", STRING, 15,
 	    "VRT_r_server_identity(ctx)",
-		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
+		 | VCL_MET_BACKEND_RESPONSE | VCL_MET_DELIVER | VCL_MET_FINI
+		 | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_INIT | VCL_MET_MISS
 		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
 		 | VCL_MET_RECV | VCL_MET_SYNTH,
 	    NULL,	/* No writes allowed */

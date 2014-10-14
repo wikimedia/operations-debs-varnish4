@@ -49,7 +49,9 @@ CONTENTS
 * :ref:`func_random`
 * :ref:`func_real`
 * :ref:`func_real2time`
+* :ref:`func_rollback`
 * :ref:`func_set_ip_tos`
+* :ref:`func_strstr`
 * :ref:`func_syslog`
 * :ref:`func_time2integer`
 * :ref:`func_time2real`
@@ -292,6 +294,19 @@ Prototype
 Description
 	Returns the port number of an IP address.
 
+.. _func_rollback:
+
+VOID rollback(HTTP)
+-------------------
+
+Prototype
+	VOID rollback(HTTP)
+
+Description
+	Restore *h* HTTP headers to their original state.
+Example
+	std.rollback(bereq);
+
 .. _func_timestamp:
 
 VOID timestamp(STRING)
@@ -318,9 +333,29 @@ Prototype
 
 Description
         Sorts the querystring for cache normalization purposes.
-
 Example
         set req.url = std.querysort(req.url);
+
+
+.. _func_strstr:
+
+STRING strstr(STRING, STRING)
+-----------------------------
+
+Prototype
+	STRING strstr(STRING, STRING)
+
+Description
+	Returns the substring if the second string is a substring of the first
+	string. Note that the comparison is case sensitive. You can
+	use the tolower function on both strings if you want case
+	insensitivity.
+
+        If there is no match a NULL pointer is returned which would
+        evaluate to false in an if-test.
+
+Example
+	if (std.strstr(req.url, req.http.x-restrict))
 
 
 

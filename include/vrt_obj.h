@@ -4,6 +4,8 @@
  * Edit and run generate.py instead
  */
 
+VCL_HTTP VRT_r_bereq(const struct vrt_ctx *);
+
 VCL_BACKEND VRT_r_bereq_backend(const struct vrt_ctx *);
 void VRT_l_bereq_backend(const struct vrt_ctx *, VCL_BACKEND);
 
@@ -32,6 +34,8 @@ VCL_STRING VRT_r_bereq_url(const struct vrt_ctx *);
 void VRT_l_bereq_url(const struct vrt_ctx *, const char *, ...);
 
 VCL_STRING VRT_r_bereq_xid(const struct vrt_ctx *);
+
+VCL_HTTP VRT_r_beresp(const struct vrt_ctx *);
 
 VCL_IP VRT_r_beresp_backend_ip(const struct vrt_ctx *);
 
@@ -98,6 +102,8 @@ VCL_DURATION VRT_r_obj_ttl(const struct vrt_ctx *);
 
 VCL_BOOL VRT_r_obj_uncacheable(const struct vrt_ctx *);
 
+VCL_HTTP VRT_r_req(const struct vrt_ctx *);
+
 VCL_BACKEND VRT_r_req_backend_hint(const struct vrt_ctx *);
 void VRT_l_req_backend_hint(const struct vrt_ctx *, VCL_BACKEND);
 
@@ -130,6 +136,8 @@ VCL_STRING VRT_r_req_url(const struct vrt_ctx *);
 void VRT_l_req_url(const struct vrt_ctx *, const char *, ...);
 
 VCL_STRING VRT_r_req_xid(const struct vrt_ctx *);
+
+VCL_HTTP VRT_r_resp(const struct vrt_ctx *);
 
 
 VCL_STRING VRT_r_resp_proto(const struct vrt_ctx *);

@@ -39,7 +39,6 @@ following VCL in place::
 		  if (!client.ip ~ purge) {
 			  return(synth(405,"Not allowed."));
 		  }
-                  # jump to hit/miss
 		  return (purge);
 	  }
   }
@@ -104,7 +103,7 @@ You can also add bans to Varnish via HTTP. Doing so requires a bit of VCL::
 			  return(synth(403, "Not allowed."));
 		  }
 		  ban("req.http.host == " + req.http.host +
-		        "&& req.url == " + req.url);
+		        " && req.url == " + req.url);
 
 		  # Throw a synthetic page so the
                   # request won't go to the backend.

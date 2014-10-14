@@ -4,7 +4,7 @@
 %define __find_provides %{_builddir}/varnish-%{version}%{?v_rc:-%{?v_rc}}/redhat/find-provides
 Summary: High-performance HTTP accelerator
 Name: varnish
-Version: 4.0.1
+Version: 4.0.2
 #Release: 0.20140328%{?v_rc}%{?dist}
 Release: 1%{?v_rc}%{?dist}
 License: BSD
@@ -14,17 +14,22 @@ URL: http://www.varnish-cache.org/
 Source0: %{name}-%{version}%{?vd_rc}.tar.gz
 #Source0: %{name}-trunk.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-# To build from git, start with a make dist, see redhat/README.redhat
-# You will need at least automake autoconf libtool
-#BuildRequires: automake autoconf libtool
-BuildRequires: ncurses-devel groff pcre-devel pkgconfig libedit-devel jemalloc-devel
+BuildRequires: automake
+BuildRequires: autoconf
+BuildRequires: jemalloc-devel
+BuildRequires: libedit-devel
+BuildRequires: libtool
+BuildRequires: ncurses-devel
+BuildRequires: pcre-devel
+BuildRequires: pkgconfig
 BuildRequires: python-docutils >= 0.6
-Requires: varnish-libs = %{version}-%{release}
+BuildRequires: python-sphinx
+Requires: jemalloc
+Requires: libedit
 Requires: logrotate
 Requires: ncurses
 Requires: pcre
-Requires: libedit
-Requires: jemalloc
+Requires: varnish-libs = %{version}-%{release}
 Requires(pre): shadow-utils
 Requires(post): /sbin/chkconfig, /usr/bin/uuidgen
 Requires(preun): /sbin/chkconfig
@@ -32,7 +37,7 @@ Requires(preun): /sbin/service
 %if %{undefined suse_version}
 Requires(preun): initscripts
 %endif
-%if 0%{?fedora} >= 17
+%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
 Requires(post): systemd-units
 Requires(post): systemd-sysv
 Requires(preun): systemd-units
@@ -163,7 +168,7 @@ install -D -m 0644 etc/example.vcl %{buildroot}%{_sysconfdir}/varnish/default.vc
 install -D -m 0644 redhat/varnish.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/varnish
 
 # systemd support
-%if 0%{?fedora} >= 17
+%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
 mkdir -p %{buildroot}%{_unitdir}
 install -D -m 0644 redhat/varnish.service %{buildroot}%{_unitdir}/varnish.service
 install -D -m 0644 redhat/varnish.params %{buildroot}%{_sysconfdir}/varnish/varnish.params
@@ -199,8 +204,8 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/varnish/default.vcl
 %config(noreplace) %{_sysconfdir}/logrotate.d/varnish
 
-# systemd from fedora 17
-%if 0%{?fedora} >= 17
+# systemd from fedora 17 and rhel 7
+%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
 %{_unitdir}/varnish.service
 %{_unitdir}/varnishncsa.service
 %{_unitdir}/varnishlog.service
@@ -254,7 +259,7 @@ getent passwd varnish >/dev/null || \
 exit 0
 
 %post
-%if 0%{?fedora} >= 17
+%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
 /bin/systemctl daemon-reload >/dev/null 2>&1 || :
 %else
 /sbin/chkconfig --add varnish
@@ -279,7 +284,7 @@ test -f /etc/varnish/secret || (uuidgen > /etc/varnish/secret && chmod 0600 /etc
 %preun
 if [ $1 -lt 1 ]; then
   # Package removal, not upgrade
-  %if 0%{?fedora} >= 17
+  %if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
   /bin/systemctl --no-reload disable varnish.service > /dev/null 2>&1 || :
   /bin/systemctl stop varnish.service > /dev/null 2>&1 || :
   %else
@@ -342,7 +347,7 @@ fi
 - Merged some changes from fedora
 - Upped general version to 3.0 prerelease in trunk
 
-* Wed Nov 04 2010 Ingvar Hagelund <ingvar@redpill-linpro.com> - 2.1.4-4
+* Thu Nov 04 2010 Ingvar Hagelund <ingvar@redpill-linpro.com> - 2.1.4-4
 - Added a patch fixing a missing echo in the init script that
   masked failure output from the script
 - Added a patch from upstream, fixing a problem with Content-Length
@@ -423,7 +428,7 @@ fi
 * Sun Jul 26 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.0.4-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_12_Mass_Rebuild
 
-* Thu May 04 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.4-2
+* Thu Jun 04 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.4-2
 - Added a s390 specific patch to libjemalloc.
 
 * Fri Mar 27 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.4-1
@@ -524,11 +529,11 @@ fi
 - Bumped the version number to 1.1.2.
 - Addeed build dependency on libxslt
 
-* Wed Sep 08 2007 Ingvar Hagelund <ingvar@linpro.no> - 1.1.1-3
+* Fri Sep 07 2007 Ingvar Hagelund <ingvar@linpro.no> - 1.1.1-3
 - Added a patch, changeset 1913 from svn trunk. This makes varnish
   more stable under specific loads. 
 
-* Tue Sep 06 2007 Ingvar Hagelund <ingvar@linpro.no> - 1.1.1-2
+* Thu Sep 06 2007 Ingvar Hagelund <ingvar@linpro.no> - 1.1.1-2
 - Removed autogen call (only diff from relase tarball)
 
 * Mon Aug 20 2007 Ingvar Hagelund <ingvar@linpro.no> - 1.1.1-1

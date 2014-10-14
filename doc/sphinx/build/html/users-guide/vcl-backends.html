@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Backend servers &mdash; Varnish version 4.0.1 documentation</title>
+    <title>Backend servers &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="Hashing" href="vcl-hashing.html" />
     <link rel="prev" title="actions" href="vcl-actions.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="vcl-actions.html" title="actions"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
@@ -66,11 +68,10 @@ your favorite text editor and open the relevant VCL file.</p>
 </pre></div>
 </div>
 <p>We remove the comment markings in this text stanza making the it look like.:</p>
-<div class="highlight-python"><div class="highlight"><pre>backend default {
-    .host = &quot;127.0.0.1&quot;;
-    .port = &quot;8080&quot;;
-}
-</pre></div>
+<div class="highlight-python"><pre>backend default {
+    .host = "127.0.0.1";
+    .port = "8080";
+}</pre>
 </div>
 <p>Now, this piece of configuration defines a backend in Varnish called
 <em>default</em>. When Varnish needs to get content from this backend it will
@@ -89,28 +90,25 @@ site. Lets say our Java application should handle URL beginning with
 <cite>/java/</cite>.</p>
 <p>We manage to get the thing up and running on port 8000. Now, lets have
 a look at the <cite>default.vcl</cite>.:</p>
-<div class="highlight-python"><div class="highlight"><pre>backend default {
-    .host = &quot;127.0.0.1&quot;;
-    .port = &quot;8080&quot;;
-}
-</pre></div>
+<div class="highlight-python"><pre>backend default {
+    .host = "127.0.0.1";
+    .port = "8080";
+}</pre>
 </div>
 <p>We add a new backend.:</p>
-<div class="highlight-python"><div class="highlight"><pre>backend java {
-    .host = &quot;127.0.0.1&quot;;
-    .port = &quot;8000&quot;;
-}
-</pre></div>
+<div class="highlight-python"><pre>backend java {
+    .host = "127.0.0.1";
+    .port = "8000";
+}</pre>
 </div>
 <p>Now we need tell Varnish where to send the difference URL. Lets look at <cite>vcl_recv</cite>.:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    if (req.url ~ &quot;^/java/&quot;) {
+<div class="highlight-python"><pre>sub vcl_recv {
+    if (req.url ~ "^/java/") {
         set req.backend_hint = java;
     } else {
         set req.backend_hint = default;
     }
-}
-</pre></div>
+}</pre>
 </div>
 <p>It's quite simple, really. Lets stop and think about this for a
 moment. As you can see you can define how you choose backends based on
@@ -126,25 +124,23 @@ explicitly. You set up the routing of incoming HTTP requests in
 <cite>vcl_recv</cite>. If you want this routing to be done on the basis of virtual
 hosts you just need to inspect <cite>req.http.host</cite>.</p>
 <p>You can have something like this::</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    if (req.http.host ~ &quot;foo.com&quot;) {
+<div class="highlight-python"><pre>sub vcl_recv {
+    if (req.http.host ~ "foo.com") {
         set req.backend_hint = foo;
-    } elsif (req.http.host ~ &quot;bar.com&quot;) {
+    } elsif (req.http.host ~ "bar.com") {
         set req.backend_hint = bar;
     }
-}
-</pre></div>
+}</pre>
 </div>
 <p>Note that the first regular expressions will match &quot;foo.com&quot;,
 &quot;www.foo.com&quot;, &quot;zoop.foo.com&quot; and any other host ending in &quot;foo.com&quot;. In
 this example this is intentional but you might want it to be a bit
 more tight, maybe relying on the <tt class="docutils literal"><span class="pre">==</span></tt> operator in stead, like this::</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    if (req.http.host == &quot;foo.com&quot; or req.http.host == &quot;www.foo.com&quot;) {
+<div class="highlight-python"><pre>sub vcl_recv {
+    if (req.http.host == "foo.com" || req.http.host == "www.foo.com") {
         set req.backend_hint = foo;
     }
-}
-</pre></div>
+}</pre>
 </div>
 </div>
 <div class="section" id="directors">
@@ -155,13 +151,13 @@ and resilience.</p>
 <p>You can define several backends and group them together in a
 director. This requires you to load a VMOD, a Varnish module, and then to
 call certain actions in <cite>vcl_init</cite>.:</p>
-<div class="highlight-python"><div class="highlight"><pre>import directors;    # load the directors
+<div class="highlight-python"><pre>import directors;    # load the directors
 
 backend server1 {
-    .host = &quot;192.168.0.10&quot;;
+    .host = "192.168.0.10";
 }
 backend server2 {
-    .host = &quot;192.168.0.10&quot;;
+    .host = "192.168.0.10";
 }
 
 sub vcl_init {
@@ -173,8 +169,7 @@ sub vcl_init {
 sub vcl_recv {
     # send all traffic to the bar director:
     set req.backend_hint = bar.backend();
-}
-</pre></div>
+}</pre>
 </div>
 <p>This director is a round-robin director. This means the director will
 distribute the incoming requests on a round-robin basis. There is
@@ -187,68 +182,55 @@ Checks come into play.</p>
 <div class="section" id="health-checks">
 <span id="users-guide-advanced-backend-servers-health"></span><h1>Health checks<a class="headerlink" href="#health-checks" title="Permalink to this headline">¶</a></h1>
 <p>Lets set up a director with two backends and health checks. First let
-us define the backends.:</p>
-<div class="highlight-python"><div class="highlight"><pre>backend server1 {
-    .host = &quot;server1.example.com&quot;;
+us define the backends:</p>
+<div class="highlight-python"><pre>backend server1 {
+    .host = "server1.example.com";
     .probe = {
-        .url = &quot;/&quot;;
+        .url = "/";
+        .timeout = 1s;
         .interval = 5s;
-        .timeout = 1 s;
         .window = 5;
         .threshold = 3;
     }
 }
 
 backend server2 {
-    .host = &quot;server2.example.com&quot;;
+    .host = "server2.example.com";
     .probe = {
-        .url = &quot;/&quot;;
+        .url = "/";
+        .timeout = 1s;
         .interval = 5s;
-        .timeout = 1 s;
         .window = 5;
         .threshold = 3;
     }
-}
-</pre></div>
+}</pre>
 </div>
-<p>What is new here is the <tt class="docutils literal"><span class="pre">probe</span></tt>. Varnish will check the health of each
-backend with a probe. The options are:</p>
-<dl class="docutils">
-<dt>url</dt>
-<dd>The URL Varnish will use to send a probe request.</dd>
-<dt>interval</dt>
-<dd>How often should we poll.</dd>
-<dt>timeout</dt>
-<dd>What is the timeout of the probe.</dd>
-<dt>window</dt>
-<dd>Varnish will retain up to this many probes when considering backend health.</dd>
-<dt>threshold</dt>
-<dd>How many of the <cite>.window</cite> last polls must be good for the backend to be
-declared healthy.</dd>
-<dt>initial</dt>
-<dd>How many of the probes that needs to be succesful when Varnish starts.
-Defaults to the same amount as the threshold.</dd>
-</dl>
+<p>What is new here is the <tt class="docutils literal"><span class="pre">probe</span></tt>.  In this example Varnish will check the
+health of each backend every 5 seconds, timing out after 1 second. Each
+poll will send a GET request to /. If 3 out of the last 5 polls succeeded
+the backend is considered healthy, otherwise it will be marked as sick.</p>
+<p>Refer to the <a class="reference internal" href="../reference/vcl.html#reference-vcl-probes"><em>Probes</em></a> section in the
+<a class="reference internal" href="../reference/vcl.html#reference-vcl"><em>VCL</em></a> documentation for more information.</p>
 <p>Now we define the 'director':</p>
-<div class="highlight-python"><div class="highlight"><pre>import directors;
+<div class="highlight-python"><pre>import directors;
 
 sub vcl_init {
     new vdir = directors.round_robin();
     vdir.add_backend(server1);
     vdir.add_backend(server2);
-}
-</pre></div>
+}</pre>
 </div>
-<p>You use this <cite>vdir</cite> director as a backend_hint for requests, just like you would
-with a simple backend. Varnish will not send traffic to hosts that are marked as
-unhealthy.</p>
-<p>Varnish can also serve stale content if all the backends are
-down. See <a class="reference internal" href="vcl-grace.html#users-guide-handling-misbehaving-servers"><em>Misbehaving servers</em></a> for more
-information on how to enable this.</p>
-<p>Please note that Varnish will keep health probes running for all loaded VCLs. Varnish
-will coalesce probes that seem identical - so be careful not to change the
-probe config if you do a lot of VCL loading. Unloading the VCL will discard the
-probes. For more information on how to do this please see ref:<cite>reference-vcl-director</cite>.</p>
+<p>You use this <cite>vdir</cite> director as a backend_hint for requests, just like
+you would with a simple backend. Varnish will not send traffic to hosts
+that are marked as unhealthy.</p>
+<p>Varnish can also serve stale content if all the backends are down. See
+<a class="reference internal" href="vcl-grace.html#users-guide-handling-misbehaving-servers"><em>Misbehaving servers</em></a> for more information on
+how to enable this.</p>
+<p>Please note that Varnish will keep health probes running for all loaded
+VCLs. Varnish will coalesce probes that seem identical - so be careful
+not to change the probe config if you do a lot of VCL loading. Unloading
+the VCL will discard the probes. For more information on how to do this
+please see ref:<cite>reference-vcl-director</cite>.</p>
 </div>
 
 
@@ -306,14 +288,14 @@ probes. For more information on how to do this please see ref:<cite>reference-vc
         <li class="right" >
           <a href="vcl-actions.html" title="actions"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

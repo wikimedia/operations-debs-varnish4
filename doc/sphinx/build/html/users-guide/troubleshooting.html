@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Troubleshooting Varnish &mdash; Varnish version 4.0.1 documentation</title>
+    <title>Troubleshooting Varnish &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Users Guide" href="index.html" />
     <link rel="next" title="The Varnish Reference Manual" href="../reference/index.html" />
     <link rel="prev" title="Content composition with Edge Side Includes" href="esi.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="esi.html" title="Content composition with Edge Side Includes"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Users Guide</a> &raquo;</li> 
       </ul>
     </div>  
@@ -71,7 +73,7 @@ permissions on <cite>/dev/null</cite> to other processes blocking the ports.</p>
 <p>Notice the '-d' parameter. It will give you some more information on what
 is going on. Let us see how Varnish will react when something else is
 listening on its port.:</p>
-<div class="highlight-python"><div class="highlight"><pre># varnishd -n foo -f /usr/local/etc/varnish/default.vcl -s malloc,1G -T 127.0.0.1:2000  -a 0.0.0.0:8080 -d
+<div class="highlight-python"><pre># varnishd -n foo -f /usr/local/etc/varnish/default.vcl -s malloc,1G -T 127.0.0.1:2000  -a 0.0.0.0:8080 -d
 storage_malloc: max size 1024 MB.
 Using old SHMFILE
 Platform: Linux,2.6.32-21-generic,i686,-smalloc,-hcritbit
@@ -79,19 +81,17 @@ Platform: Linux,2.6.32-21-generic,i686,-smalloc,-hcritbit
 -----------------------------
 Varnish Cache CLI.
 -----------------------------
-Type &#39;help&#39; for command list.
-Type &#39;quit&#39; to close CLI session.
-Type &#39;start&#39; to launch worker process.
-</pre></div>
+Type 'help' for command list.
+Type 'quit' to close CLI session.
+Type 'start' to launch worker process.</pre>
 </div>
 <p>Now Varnish is running but only the master process is running, in debug
 mode the cache does not start. Now you're on the console. You can
 instruct the master process to start the cache by issuing &quot;start&quot;.:</p>
-<div class="highlight-python"><div class="highlight"><pre>start
+<div class="highlight-python"><pre>start
 bind(): Address already in use
 300 22
-Could not open sockets
-</pre></div>
+Could not open sockets</pre>
 </div>
 <p>And here we have our problem. Something else is bound to the HTTP port
 of Varnish. If this doesn't help try <tt class="docutils literal"><span class="pre">strace</span></tt> or <tt class="docutils literal"><span class="pre">truss</span></tt> or come find us
@@ -104,7 +104,7 @@ crashes are caught by one of the many consistency checks we have included in the
 process will crash itself in a controlled manner, leaving a nice
 stack trace with the mother process.</p>
 <p>You can inspect any panic messages by typing <tt class="docutils literal"><span class="pre">panic.show</span></tt> in the CLI.:</p>
-<div class="highlight-python"><div class="highlight"><pre>panic.show
+<div class="highlight-python"><pre>panic.show
 Last panic at: Tue, 15 Mar 2011 13:09:05 GMT
 Assert error in ESI_Deliver(), cache_esi_deliver.c line 354:
   Condition(i == Z_OK || i == Z_STREAM_END) not true.
@@ -116,8 +116,7 @@ Backtrace:
   0x42f838: RES_WriteObj+248
   0x416a70: cnt_deliver+230
   0x4178fd: CNT_Session+31d
-  (..)
-</pre></div>
+  (..)</pre>
 </div>
 <p>The crash might be due to misconfiguration or a bug. If you suspect it
 is a bug you can use the output in a bug report, see the &quot;Trouble Tickets&quot; section in the Introduction chapter above.</p>
@@ -145,14 +144,12 @@ to get a stack trace of the thread that caused the segfault.</p>
 give you a clue. Since <cite>varnishlog</cite> logs a lot of data it might be hard
 to track the entries down. You can set <cite>varnishlog</cite> to log all your 503
 errors by issuing the following command:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ varnishlog -c -m TxStatus:503
-</pre></div>
+<div class="highlight-python"><pre>$ varnishlog -c -m TxStatus:503</pre>
 </div>
 <p>If the error happened just a short time ago the transaction might still
 be in the shared memory log segment. To get <cite>varnishlog</cite> to process the
 whole shared memory log just add the '-d' parameter:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ varnishlog -d -c -m TxStatus:503
-</pre></div>
+<div class="highlight-python"><pre>$ varnishlog -d -c -m TxStatus:503</pre>
 </div>
 <p>Please see the <cite>varnishlog</cite> man page for elaborations on further
 filtering capabilities and explanation of the various options.</p>
@@ -221,13 +218,13 @@ filtering capabilities and explanation of the various options.</p>
         <li class="right" >
           <a href="esi.html" title="Content composition with Edge Side Includes"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

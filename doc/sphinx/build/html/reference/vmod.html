@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VMOD - Varnish Modules &mdash; Varnish version 4.0.1 documentation</title>
+    <title>VMOD - Varnish Modules &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_std" href="vmod_std.generated.html" />
     <link rel="prev" title="VSM: Shared Memory Logging and Statistics" href="vsm.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -61,12 +63,11 @@ problems.</p>
 <p>This is where VMODs come into the picture:   A VMOD is a shared
 library with some C functions which can be called from VCL code.</p>
 <p>For instance:</p>
-<div class="highlight-python"><div class="highlight"><pre>import std;
+<div class="highlight-python"><pre>import std;
 
 sub vcl_deliver {
         set resp.http.foo = std.toupper(req.url);
-}
-</pre></div>
+}</pre>
 </div>
 <p>The &quot;std&quot; vmod is one you get with Varnish, it will always be there
 and we will put &quot;boutique&quot; functions in it, such as the &quot;toupper&quot;
@@ -91,12 +92,11 @@ VCL runtime (&quot;VRT&quot;) is defined in the vmod.vcc file which a python
 script called &quot;vmodtool.py&quot; turns into thaumaturgically challenged C
 data structures that does all the hard work.</p>
 <p>The std VMODs vmod.vcc file looks somewhat like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>$Module std 3
+<div class="highlight-python"><pre>$Module std 3
 $Init init_function
 $Function STRING toupper(STRING_LIST)
 $Function STRING tolower(STRING_LIST)
-$Function VOID set_ip_tos(INT)
-</pre></div>
+$Function VOID set_ip_tos(INT)</pre>
 </div>
 <p>The first line gives the name of the module, nothing special there.</p>
 <p>The second line specifies an optional &quot;Init&quot; function, which will
@@ -111,10 +111,9 @@ in a moment.</p>
 in VCL lingo, meaning that it cannot be used in expressions, right
 side of assignments and such places.  Instead it can be used as a
 primary action, something functions which return a value can not:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
+<div class="highlight-python"><pre>sub vcl_recv {
         std.set_ip_tos(32);
-}
-</pre></div>
+}</pre>
 </div>
 <p>Running vmodtool.py on the vmod.vcc file, produces an &quot;vcc_if.c&quot; and
 &quot;vcc_if.h&quot; files, which you must use to build your shared library
@@ -125,7 +124,7 @@ modify it, that voids your warranty instantly.</p>
 <p>But vcc_if.h is important for you, it contains the prototypes for
 the functions you want to export to VCL.</p>
 <p>For the std VMOD, the compiled vcc_if.h file looks like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>struct vrt_ctx;
+<div class="highlight-python"><pre>struct vrt_ctx;
 struct VCL_conf;
 struct vmod_priv;
 
@@ -133,8 +132,7 @@ VCL_STRING vmod_toupper(const struct vrt_ctx *, const char *, ...);
 VCL_STRING vmod_tolower(const struct vrt_ctx *, const char *, ...);
 VCL_VOID vmod_set_ip_tos(const struct vrt_ctx *, VCL_INT);
 
-int init_function(struct vmod_priv *, const struct VCL_conf *);
-</pre></div>
+int init_function(struct vmod_priv *, const struct VCL_conf *);</pre>
 </div>
 <p>Those are your C prototypes.  Notice the <tt class="docutils literal"><span class="pre">vmod_</span></tt> prefix on the function
 names and the C-types as arguments.</p>
@@ -187,8 +185,7 @@ doing text-processing in Varnish, and this is one way we
 to avoid that, by not editing separate pieces of a string
 together to one string, unless we have to.</p>
 <p>Consider this contrived example:</p>
-<div class="highlight-python"><div class="highlight"><pre>set bereq.http.foo = std.toupper(req.http.foo + req.http.bar);
-</pre></div>
+<div class="highlight-python"><pre>set bereq.http.foo = std.toupper(req.http.foo + req.http.bar);</pre>
 </div>
 <p>The usual way to do this, would be be to allocate memory for
 the concatenated string, then pass that to <tt class="docutils literal"><span class="pre">toupper()</span></tt> which in
@@ -257,12 +254,11 @@ if regular expressions are case-sensitive in this vmod or similar.</p>
 passed to the functions where argument type PRIV_VCL or PRIV_CALL
 is specified.</p>
 <p>This structure contains two members:</p>
-<div class="highlight-python"><div class="highlight"><pre>typedef void vmod_priv_free_f(void *);
+<div class="highlight-python"><pre>typedef void vmod_priv_free_f(void *);
 struct vmod_priv {
         void                    *priv;
         vmod_priv_free_f        *free;
-};
-</pre></div>
+};</pre>
 </div>
 <p>The &quot;priv&quot; element can be used for whatever the vmod code wants to
 use it for, it defaults to a NULL pointer.</p>
@@ -275,7 +271,7 @@ they are, the &quot;free&quot; function will be called with the &quot;priv&quot;
 as the only argument.</p>
 <p>In the common case where a private data structure is allocated with
 malloc would look like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (priv-&gt;priv == NULL) {
+<div class="highlight-python"><pre>if (priv-&gt;priv == NULL) {
         priv-&gt;priv = calloc(sizeof(struct myfoo), 1);
         AN(priv-&gt;priv);
         priv-&gt;priv = free;      /* free(3) */
@@ -287,8 +283,7 @@ malloc would look like this:</p>
 }
 if (foo &gt; 25) {
         ...
-}
-</pre></div>
+}</pre>
 </div>
 <p>The per-call vmod_privs are freed before the per-vcl vmod_priv.</p>
 </div>
@@ -323,6 +318,29 @@ unless they access VMOD specific global state, shared with other VCLs.</p>
 <p>Traffic in other VCLs which also import this VMOD, will be happening
 while housekeeping is going on.</p>
 </div>
+<div class="section" id="updating-vmods">
+<h2>Updating VMODs<a class="headerlink" href="#updating-vmods" title="Permalink to this headline">¶</a></h2>
+<p>A compiled VMOD is a shared library file which Varnish dlopen(3)'s
+using flags RTLD_NOW | RTLD_LOCAL.</p>
+<p>As a general rule, once a file is opened with dlopen(3) you should
+never modify it, but it is safe to rename it and put a new file
+under the name it had, which is how most tools installs and updates
+shared libraries.</p>
+<p>However, when you call dlopen(3) with the same filename multiple
+times it will give you the same single copy of the shared library
+file, without checking if it was updated in the meantime.</p>
+<p>This is obviously an oversight in the design of the dlopen(3) library
+function, but back in the late 1980ies nobody could imagine why a
+program would ever want to have multiple different versions of the
+same shared library mapped at the same time.</p>
+<p>Varnish does that, and therefore you must restart the worker process
+before Varnish will discover an updated VMOD.</p>
+<p>If you want to test a new version of a VMOD, while being able to
+instantly switch back to the old version, you will have to install
+each version with a distinct filename or in a distinct subdirectory
+and use <tt class="docutils literal"><span class="pre">import</span> <span class="pre">foo</span> <span class="pre">from</span> <span class="pre">&quot;...&quot;;</span></tt> to reference it in your VCL.</p>
+<p>We're not happy about this, but have found no sensible workarounds.</p>
+</div>
 </div>
 
 
@@ -340,6 +358,7 @@ while housekeeping is going on.</p>
 <li><a class="reference internal" href="#private-pointers">Private Pointers</a></li>
 <li><a class="reference internal" href="#init-functions">Init functions</a></li>
 <li><a class="reference internal" href="#when-to-lock-and-when-not-to-lock">When to lock, and when not to lock</a></li>
+<li><a class="reference internal" href="#updating-vmods">Updating VMODs</a></li>
 </ul>
 </li>
 </ul>
@@ -384,13 +403,13 @@ while housekeeping is going on.</p>
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

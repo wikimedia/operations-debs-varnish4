@@ -100,7 +100,7 @@ vsm_n_check(void)
 	struct stat st;
 	pid_t pid;
 	struct VSM_head vsmh;
-	int retval = 2;
+	int retval = 1;
 
 	fd = open(VSM_FILENAME, O_RDWR, 0644);
 	if (fd < 0)
@@ -217,7 +217,7 @@ mgt_SHM_Create(void)
 
 	if (p == MAP_FAILED) {
 		fprintf(stderr, "Mmap error %s: %s\n", fnbuf, strerror(errno));
-		exit (-1);
+		exit(1);
 	}
 
 	mgt_vsm_p = p;
@@ -246,17 +246,28 @@ mgt_SHM_Create(void)
 	AN(VSC_C_mgt);
 	*VSC_C_mgt = static_VSC_C_mgt;
 
-	if (rename(fnbuf, VSM_FILENAME)) {
-		fprintf(stderr, "Rename failed %s -> %s: %s\n",
-		    fnbuf, VSM_FILENAME, strerror(errno));
-		(void)unlink(fnbuf);
-		exit (-1);
-	}
-
 #ifdef __OpenBSD__
 	/* Commit changes, for OS's without coherent VM/buf */
 	AZ(msync(p, getpagesize(), MS_SYNC));
 #endif
+}
+
+/*--------------------------------------------------------------------
+ * Commit the VSM
+ */
+
+void
+mgt_SHM_Commit(void)
+{
+	char fnbuf[64];
+
+	bprintf(fnbuf, "%s.%jd", VSM_FILENAME, (intmax_t)getpid());
+	if (rename(fnbuf, VSM_FILENAME)) {
+		fprintf(stderr, "Rename failed %s -> %s: %s\n",
+		    fnbuf, VSM_FILENAME, strerror(errno));
+		(void)unlink(fnbuf);
+		exit(1);
+	}
 }
 
 /*--------------------------------------------------------------------
@@ -325,7 +336,7 @@ mgt_SHM_Init(void)
 	/* Collision check with already running varnishd */
 	i = vsm_n_check();
 	if (i)
-		exit(i);
+		exit(2);
 
 	/* Create our static VSM instance */
 	static_vsm = VSM_common_new(static_vsm_buf, sizeof static_vsm_buf);

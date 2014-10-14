@@ -34,15 +34,19 @@
 
 #include <stdio.h>
 
-#ifdef HAVE_EDIT_READLINE_READLINE_H
+#if defined(HAVE_EDIT_READLINE_READLINE_H)
 #  include <edit/readline/readline.h>
-#elif HAVE_READLINE_READLINE_H
+#elif defined(HAVE_LIBEDIT)
+#  include <editline/readline.h>
+#elif defined (HAVE_READLINE_READLINE_H)
 #  include <readline/readline.h>
 #  ifdef HAVE_READLINE_HISTORY_H
 #    include <readline/history.h>
+#  else
+#    error missing history.h - this should have got caught in configure
 #  endif
 #else
-#  include <editline/readline.h>
+#  error missing readline.h - this should have got caught in configure
 #endif
 
 #include <errno.h>
@@ -184,6 +188,7 @@ static void send_line(char *l)
 		cli_write(_line_sock, l);
 		cli_write(_line_sock, "\n");
 		add_history(l);
+		rl_callback_handler_install("varnish> ", send_line);
 	} else {
 		RL_EXIT(0);
 	}

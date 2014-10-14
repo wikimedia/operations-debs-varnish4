@@ -151,22 +151,22 @@ run_vcc(void *priv)
 		printf("%s", VSB_data(sb));
 	VSB_delete(sb);
 	if (csrc == NULL)
-		exit (1);
+		exit(2);
 
 	fd = open(vp->sf, O_WRONLY);
 	if (fd < 0) {
 		fprintf(stderr, "Cannot open %s", vp->sf);
-		exit (1);
+		exit(2);
 	}
 	l = strlen(csrc);
 	i = write(fd, csrc, l);
 	if (i != l) {
 		fprintf(stderr, "Cannot write %s", vp->sf);
-		exit (1);
+		exit(2);
 	}
 	AZ(close(fd));
 	free(csrc);
-	exit (0);
+	exit(0);
 }
 
 /*--------------------------------------------------------------------
@@ -228,7 +228,7 @@ run_dlopen(void *priv)
  */
 
 static char *
-mgt_run_cc(const char *vcl, struct vsb *sb, int C_flag)
+mgt_run_cc(const char *vcl, struct vsb *sb, int C_flag, unsigned *status)
 {
 	char *csrc;
 	struct vsb *cmdsb;
@@ -236,15 +236,22 @@ mgt_run_cc(const char *vcl, struct vsb *sb, int C_flag)
 	char of[sizeof sf + 1];
 	char *retval;
 	int sfd, i;
+	unsigned subs;
 	struct vcc_priv vp;
+
+	*status = 0;
 
 	/* Create temporary C source file */
 	sfd = VFIL_tmpfile(sf);
 	if (sfd < 0) {
 		VSB_printf(sb, "Failed to create %s: %s", sf, strerror(errno));
+		*status = 2;
 		return (NULL);
 	}
-	(void)fchown(sfd, mgt_param.uid, mgt_param.gid);
+	if (fchown(sfd, mgt_param.uid, mgt_param.gid) != 0)
+		if (geteuid() == 0)
+			VSB_printf(sb, "Failed to change owner on %s: %s\n",
+			    sf, strerror(errno));
 	AZ(close(sfd));
 
 
@@ -253,8 +260,10 @@ mgt_run_cc(const char *vcl, struct vsb *sb, int C_flag)
 	vp.magic = VCC_PRIV_MAGIC;
 	vp.sf = sf;
 	vp.vcl = vcl;
-	if (VSUB_run(sb, run_vcc, &vp, "VCC-compiler", -1)) {
+	subs = VSUB_run(sb, run_vcc, &vp, "VCC-compiler", -1);
+	if (subs) {
 		(void)unlink(sf);
+		*status = subs;
 		return (NULL);
 	}
 
@@ -277,33 +286,40 @@ mgt_run_cc(const char *vcl, struct vsb *sb, int C_flag)
 		VSB_printf(sb, "Failed to create %s: %s",
 		    of, strerror(errno));
 		(void)unlink(sf);
+		*status = 2;
 		return (NULL);
 	}
-	(void)fchown(i, mgt_param.uid, mgt_param.gid);
+	if (fchown(i, mgt_param.uid, mgt_param.gid) != 0)
+		if (geteuid() == 0)
+			VSB_printf(sb, "Failed to change owner on %s: %s\n",
+			    of, strerror(errno));
 	AZ(close(i));
 
 	/* Build the C-compiler command line */
 	cmdsb = mgt_make_cc_cmd(sf, of);
 
 	/* Run the C-compiler in a sub-shell */
-	i = VSUB_run(sb, run_cc, VSB_data(cmdsb), "C-compiler", 10);
+	subs = VSUB_run(sb, run_cc, VSB_data(cmdsb), "C-compiler", 10);
 
 	(void)unlink(sf);
 	VSB_delete(cmdsb);
 
-	if (!i)
-		i = VSUB_run(sb, run_dlopen, of, "dlopen", 10);
+	if (!subs)
+		subs = VSUB_run(sb, run_dlopen, of, "dlopen", 10);
 
 	/* Ensure the file is readable to the unprivileged user */
-	if (!i) {
+	if (!subs) {
 		i = chmod(of, 0755);
-		if (i)
+		if (i) {
 			VSB_printf(sb, "Failed to set permissions on %s: %s",
 			    of, strerror(errno));
+			subs = 2;
+		}
 	}
 
-	if (i) {
+	if (subs) {
 		(void)unlink(of);
+		*status = subs;
 		return (NULL);
 	}
 
@@ -315,13 +331,13 @@ mgt_run_cc(const char *vcl, struct vsb *sb, int C_flag)
 /*--------------------------------------------------------------------*/
 
 static char *
-mgt_VccCompile(struct vsb **sb, const char *b, int C_flag)
+mgt_VccCompile(struct vsb **sb, const char *b, int C_flag, unsigned *status)
 {
 	char *vf;
 
 	*sb = VSB_new_auto();
 	XXXAN(*sb);
-	vf = mgt_run_cc(b, *sb, C_flag);
+	vf = mgt_run_cc(b, *sb, C_flag, status);
 	AZ(VSB_finish(*sb));
 	return (vf);
 }
@@ -380,13 +396,14 @@ mgt_vcc_delbyname(const char *name)
 
 /*--------------------------------------------------------------------*/
 
-int
+unsigned
 mgt_vcc_default(const char *b_arg, const char *f_arg, char *vcl, int C_flag)
 {
 	char *vf;
 	struct vsb *sb;
 	struct vclprog *vp;
 	char buf[BUFSIZ];
+	unsigned status = 0;
 
 	/* XXX: annotate vcl with -b/-f arg so people know where it came from */
 	(void)f_arg;
@@ -411,7 +428,7 @@ mgt_vcc_default(const char *b_arg, const char *f_arg, char *vcl, int C_flag)
 	}
 	strcpy(buf, "boot");
 
-	vf = mgt_VccCompile(&sb, vcl, C_flag);
+	vf = mgt_VccCompile(&sb, vcl, C_flag, &status);
 	free(vcl);
 	if (VSB_len(sb) > 0)
 		fprintf(stderr, "%s", VSB_data(sb));
@@ -419,13 +436,13 @@ mgt_vcc_default(const char *b_arg, const char *f_arg, char *vcl, int C_flag)
 	if (C_flag && vf != NULL)
 		AZ(unlink(vf));
 	if (vf == NULL) {
+		assert(status != 0);
 		fprintf(stderr, "\nVCL compilation failed\n");
-		return (1);
 	} else {
 		vp = mgt_vcc_add(buf, vf);
 		vp->active = 1;
-		return (0);
 	}
+	return (status);
 }
 
 /*--------------------------------------------------------------------*/
@@ -511,11 +528,12 @@ mcf_config_inline(struct cli *cli, const char * const *av, void *priv)
 		return;
 	}
 
-	vf = mgt_VccCompile(&sb, av[3], 0);
+	vf = mgt_VccCompile(&sb, av[3], 0, &status);
 	if (VSB_len(sb) > 0)
 		VCLI_Out(cli, "%s\n", VSB_data(sb));
 	VSB_delete(sb);
 	if (vf == NULL) {
+		assert(status != 0);
 		VCLI_Out(cli, "VCL compilation failed");
 		VCLI_SetResult(cli, CLIS_PARAM);
 		return;
@@ -536,7 +554,7 @@ mcf_config_load(struct cli *cli, const char * const *av, void *priv)
 {
 	char *vf, *vcl;
 	struct vsb *sb;
-	unsigned status;
+	unsigned status = 0;
 	char *p = NULL;
 	struct vclprog *vp;
 
@@ -555,13 +573,14 @@ mcf_config_load(struct cli *cli, const char * const *av, void *priv)
 		return;
 	}
 
-	vf = mgt_VccCompile(&sb, vcl, 0);
+	vf = mgt_VccCompile(&sb, vcl, 0, &status);
 	free(vcl);
 
 	if (VSB_len(sb) > 0)
 		VCLI_Out(cli, "%s", VSB_data(sb));
 	VSB_delete(sb);
 	if (vf == NULL) {
+		assert(status != 0);
 		VCLI_Out(cli, "VCL compilation failed");
 		VCLI_SetResult(cli, CLIS_PARAM);
 		return;
@@ -669,38 +688,6 @@ mcf_config_list(struct cli *cli, const char * const *av, void *priv)
 				flg = "available";
 			VCLI_Out(cli, "%-10s %6s %s\n",
 			    flg, "N/A", vp->name);
-		}
-	}
-}
-
-/*
- * XXX: This should take an option argument to show all (include) files
- * XXX: This violates the principle of not loading VCL's in the master
- * XXX: process.
- */
-void
-mcf_config_show(struct cli *cli, const char * const *av, void *priv)
-{
-	struct vclprog *vp;
-	void *dlh, *sym;
-	const char **src;
-
-	(void)priv;
-	if ((vp = mcf_find_vcl(cli, av[2])) != NULL) {
-		if ((dlh = dlopen(vp->fname, RTLD_NOW | RTLD_LOCAL)) == NULL) {
-			VCLI_Out(cli, "failed to load %s: %s\n",
-			    vp->name, dlerror());
-			VCLI_SetResult(cli, CLIS_CANT);
-		} else if ((sym = dlsym(dlh, "srcbody")) == NULL) {
-			VCLI_Out(cli, "failed to locate source for %s: %s\n",
-			    vp->name, dlerror());
-			VCLI_SetResult(cli, CLIS_CANT);
-			AZ(dlclose(dlh));
-		} else {
-			src = sym;
-			VCLI_Out(cli, "%s", src[0]);
-			/* VCLI_Out(cli, src[1]); */
-			AZ(dlclose(dlh));
 		}
 	}
 }

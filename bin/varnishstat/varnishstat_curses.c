@@ -91,6 +91,15 @@ struct pt {
 	struct ma		ma_10, ma_100, ma_1000;
 };
 
+struct hitrate {
+	double lt;
+	uint64_t lhit, lmiss;
+	struct ma hr_10;
+	struct ma hr_100;
+	struct ma hr_1000;
+};
+static struct hitrate hitrate;
+
 static VTAILQ_HEAD(, pt) ptlist = VTAILQ_HEAD_INITIALIZER(ptlist);
 static int n_ptlist = 0;
 static int n_ptarray = 0;
@@ -117,6 +126,19 @@ static int redraw = 0;
 static int sample = 0;
 static double t_sample = 0.;
 static double interval = 1.;
+
+static void
+init_hitrate(void)
+{
+	memset(&hitrate, 0, sizeof (struct hitrate));
+	if (VSC_C_main != NULL) {
+		hitrate.lhit = VSC_C_main->cache_hit;
+		hitrate.lmiss = VSC_C_main->cache_miss;
+	}
+	hitrate.hr_10.nmax = 10;
+	hitrate.hr_100.nmax = 100;
+	hitrate.hr_1000.nmax = 1000;
+}
 
 static void
 update_ma(struct ma *ma, double val)
@@ -348,10 +370,6 @@ sample_points(void)
 {
 	struct pt *pt;
 
-	t_sample = VTIM_mono();
-	sample = 0;
-	redraw = 1;
-
 	VTAILQ_FOREACH(pt, &ptlist, list) {
 		AN(pt->vpt);
 		AN(pt->ptr);
@@ -387,6 +405,46 @@ sample_points(void)
 			}
 		}
 	}
+}
+
+static void
+sample_hitrate(void)
+{
+	double tv,dt;
+	double hr, mr, ratio;
+	uint64_t hit, miss;
+
+	if (VSC_C_main == NULL)
+		return;
+
+	tv = VTIM_mono();
+	dt = tv - hitrate.lt;
+	hitrate.lt= tv;
+
+	hit = VSC_C_main->cache_hit;
+	miss = VSC_C_main->cache_miss;
+	hr = (hit - hitrate.lhit) / dt;
+	mr = (miss - hitrate.lmiss) / dt;
+	hitrate.lhit = hit;
+	hitrate.lmiss = miss;
+
+	if (hr + mr != 0)
+		ratio = hr / (hr + mr);
+	else
+		ratio = 0;
+	update_ma(&hitrate.hr_10, ratio);
+	update_ma(&hitrate.hr_100, ratio);
+	update_ma(&hitrate.hr_1000, ratio);
+}
+
+static void
+sample_data(void)
+{
+	t_sample = VTIM_mono();
+	sample = 0;
+	redraw = 1;
+	sample_points();
+	sample_hitrate();
 }
 
 static void
@@ -489,6 +547,7 @@ draw_status(void)
 	AN(w_status);
 
 	werase(w_status);
+
 	if (VSC_C_mgt != NULL)
 		up_mgt = VSC_C_mgt->uptime;
 	if (VSC_C_main != NULL)
@@ -503,6 +562,14 @@ draw_status(void)
 
 	if (VSC_C_mgt == NULL)
 		mvwprintw(w_status, 0, COLS - strlen(discon), discon);
+	else if (COLS > 70) {
+		mvwprintw(w_status, 0, getmaxx(w_status) - 37,
+		    "Hitrate n: %8u %8u %8u", hitrate.hr_10.n, hitrate.hr_100.n,
+		    hitrate.hr_1000.n);
+		mvwprintw(w_status, 1, getmaxx(w_status) - 37,
+		    "   avg(n): %8.4f %8.4f %8.4f", hitrate.hr_10.acc,
+		    hitrate.hr_100.acc, hitrate.hr_1000.acc);
+	}
 
 	wnoutrefresh(w_status);
 }
@@ -840,7 +907,7 @@ handle_keypress(int ch)
 }
 
 void
-do_curses(struct VSM_data *vd, int delay)
+do_curses(struct VSM_data *vd, double delay)
 {
 	struct pollfd pollfd;
 	long t;
@@ -866,8 +933,10 @@ do_curses(struct VSM_data *vd, int delay)
 
 	VSC_C_mgt = VSC_Mgt(vd, &f_mgt);
 	VSC_C_main = VSC_Main(vd, &f_main);
+	init_hitrate();
 	while (keep_running) {
 		if (VSM_Abandoned(vd)) {
+			init_hitrate();
 			delete_pt_list();
 			VSM_Close(vd);
 			VSM_Open(vd);
@@ -881,7 +950,7 @@ do_curses(struct VSM_data *vd, int delay)
 		if (now - t_sample > interval)
 			sample = 1;
 		if (sample)
-			sample_points();
+			sample_data();
 		if (rebuild)
 			build_pt_array();
 		if (redraw)

@@ -156,18 +156,18 @@ vmod_log(const struct vrt_ctx *ctx, const char *fmt, ...)
 VCL_VOID __match_proto__(td_std_syslog)
 vmod_syslog(const struct vrt_ctx *ctx, VCL_INT fac, const char *fmt, ...)
 {
-	char *p;
 	unsigned u;
 	va_list ap;
+	txt t;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	u = WS_Reserve(ctx->ws, 0);
-	p = ctx->ws->f;
+	t.b = ctx->ws->f;
 	va_start(ap, fmt);
-	p = VRT_StringList(p, u, fmt, ap);
+	t.e = VRT_StringList(t.b, u, fmt, ap);
 	va_end(ap);
-	if (p != NULL)
-		syslog((int)fac, "%s", p);
+	if (t.e != NULL)
+		syslog((int)fac, "%s", t.b);
 	WS_Release(ctx->ws, 0);
 }
 
@@ -205,6 +205,12 @@ vmod_port(const struct vrt_ctx *ctx, VCL_IP ip)
 	return (VSA_Port(ip));
 }
 
+VCL_VOID __match_proto__(td_std_rollback)
+vmod_rollback(const struct vrt_ctx *ctx, VCL_HTTP hp)
+{
+	VRT_Rollback(ctx, hp);
+}
+
 VCL_VOID __match_proto__(td_std_timestamp)
 vmod_timestamp(const struct vrt_ctx *ctx, VCL_STRING label)
 {
@@ -219,8 +225,20 @@ vmod_timestamp(const struct vrt_ctx *ctx, VCL_STRING label)
 		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
 		VSLb_ts_busyobj(ctx->bo, label, VTIM_real());
 	} else if (ctx->req != NULL) {
-		/* Called from request vcl methdos */
+		/* Called from request vcl methods */
 		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 		VSLb_ts_req(ctx->req, label, VTIM_real());
 	}
+}
+
+
+VCL_STRING __match_proto__(td_std_strstr)
+vmod_strstr(const struct vrt_ctx *ctx, VCL_STRING mstr, VCL_STRING msubstr)
+{
+        CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+        if ((mstr == NULL) || (msubstr == NULL))
+		return (NULL);
+	else
+		return(strstr(mstr, msubstr));
 }

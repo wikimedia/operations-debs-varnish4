@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VCL &mdash; Varnish version 4.0.1 documentation</title>
+    <title>VCL &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Varnish CLI" href="varnish-cli.html" />
     <link rel="prev" title="The Varnish Reference Manual" href="index.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -108,9 +110,8 @@ with the <em>elseif</em> statement. (<em>elsif</em>/<em>elif</em>/<em>else if</e
 <h4>Strings, booleans, time, duration and integers<a class="headerlink" href="#strings-booleans-time-duration-and-integers" title="Permalink to this headline">¶</a></h4>
 <p>These are the data types in Varnish. You can <em>set</em> or <em>unset</em> these.</p>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre>set req.http.User-Agent = &quot;unknown&quot;;
-unset req.http.Range;
-</pre></div>
+<div class="highlight-python"><pre>set req.http.User-Agent = "unknown";
+unset req.http.Range;</pre>
 </div>
 <div class="section" id="strings">
 <h5>Strings<a class="headerlink" href="#strings" title="Permalink to this headline">¶</a></h5>
@@ -169,29 +170,26 @@ context they will return a string.</p>
 complete description please see the pcre(3) man page.</p>
 <p>To send flags to the PCRE engine, such as to do case insensitive matching, add
 the flag within parens following a question mark, like this:</p>
-<div class="highlight-python"><div class="highlight"><pre># If host is NOT example dot com..
-if (req.http.host !~ &quot;(?i)example.com$&quot;) {
+<div class="highlight-python"><pre># If host is NOT example dot com..
+if (req.http.host !~ "(?i)example.com$") {
     ...
-}
-</pre></div>
+}</pre>
 </div>
 </div>
 <div class="section" id="include-statement">
 <h4>Include statement<a class="headerlink" href="#include-statement" title="Permalink to this headline">¶</a></h4>
 <p>To include a VCL file in another file use the include keyword:</p>
-<div class="highlight-python"><div class="highlight"><pre>include &quot;foo.vcl&quot;;
-</pre></div>
+<div class="highlight-python"><pre>include "foo.vcl";</pre>
 </div>
 </div>
 <div class="section" id="import-statement">
 <h4>Import statement<a class="headerlink" href="#import-statement" title="Permalink to this headline">¶</a></h4>
 <p>The <em>import</em> statement is used to load Varnish Modules (VMODs.)</p>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre>import std;
+<div class="highlight-python"><pre>import std;
 sub vcl_recv {
-    std.log(&quot;foo&quot;);
-}
-</pre></div>
+    std.log("foo");
+}</pre>
 </div>
 </div>
 <div class="section" id="backend-definition">
@@ -199,10 +197,9 @@ sub vcl_recv {
 <p>A backend declaration creates and initialises a named backend object. A
 declaration start with the keyword <em>backend</em> followed by the name of the
 backend. The actual declaration is in curly brackets, in a key/value fashion.:</p>
-<div class="highlight-python"><div class="highlight"><pre>backend name {
-    .attribute = &quot;value&quot;;
-}
-</pre></div>
+<div class="highlight-python"><pre>backend name {
+    .attribute = "value";
+}</pre>
 </div>
 <p>The only mandatory attribute is <em>host</em>. The attributes will inherit
 their defaults from the global parameters. The following attributes
@@ -234,13 +231,12 @@ connections.</dd>
 vmod_directors(3) man page for more information.</p>
 </div>
 <div class="section" id="probes">
-<h4>Probes<a class="headerlink" href="#probes" title="Permalink to this headline">¶</a></h4>
+<span id="reference-vcl-probes"></span><h4>Probes<a class="headerlink" href="#probes" title="Permalink to this headline">¶</a></h4>
 <p>Probes will query the backend for status on a regular basis and mark
 the backend as down it they fail. A probe is defined as this::</p>
-<div class="highlight-python"><div class="highlight"><pre>probe name {
-     .attribute = &quot;value&quot;;
-}
-</pre></div>
+<div class="highlight-python"><pre>probe name {
+     .attribute = "value";
+}</pre>
 </div>
 <p>There are no mandatory options. These are the options you can set:</p>
 <blockquote>
@@ -275,12 +271,11 @@ consider the backend healthy. Defaults to 3.</dd>
 <h4>Access Control List (ACL)<a class="headerlink" href="#access-control-list-acl" title="Permalink to this headline">¶</a></h4>
 <p>An Access Control List (ACL) declaration creates and initialises a named access
 control list which can later be used to match client addresses:</p>
-<div class="highlight-python"><div class="highlight"><pre>acl localnetwork {
-    &quot;localhost&quot;;    # myself
-    &quot;192.0.2.0&quot;/24; # and everyone on the local network
-    ! &quot;192.0.2.23&quot;; # except for the dial-in router
-}
-</pre></div>
+<div class="highlight-python"><pre>acl localnetwork {
+    "localhost";    # myself
+    "192.0.2.0"/24; # and everyone on the local network
+    ! "192.0.2.23"; # except for the dial-in router
+}</pre>
 </div>
 <p>If an ACL entry specifies a host name which Varnish is unable to
 resolve, it will match any address it is compared to. Consequently,
@@ -288,41 +283,37 @@ if it is preceded by a negation mark, it will reject any address it is
 compared to, which may not be what you intended. If the entry is
 enclosed in parentheses, however, it will simply be ignored.</p>
 <p>To match an IP address against an ACL, simply use the match operator:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (client.ip ~ localnetwork) {
+<div class="highlight-python"><pre>if (client.ip ~ localnetwork) {
     return (pipe);
-}
-</pre></div>
+}</pre>
 </div>
 </div>
 <div class="section" id="vcl-objects">
 <h4>VCL objects<a class="headerlink" href="#vcl-objects" title="Permalink to this headline">¶</a></h4>
 <p>A VCL object can be made with the <em>new</em> keyword.</p>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_init {
+<div class="highlight-python"><pre>sub vcl_init {
     new b = directors.round_robin()
     b.add_backend(node1);
-}
-</pre></div>
+}</pre>
 </div>
 </div>
 <div class="section" id="subroutines">
 <h4>Subroutines<a class="headerlink" href="#subroutines" title="Permalink to this headline">¶</a></h4>
 <p>A subroutine is used to group code for legibility or reusability:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub pipe_if_local {
+<div class="highlight-python"><pre>sub pipe_if_local {
     if (client.ip ~ localnetwork) {
         return (pipe);
     }
-}
-</pre></div>
+}</pre>
 </div>
 <p>Subroutines in VCL do not take arguments, nor do they return
 values. The built in subroutines all have names beginning with vcl_,
 which is reserved.</p>
 <p>To call a subroutine, use the call keyword followed by the subroutine's name:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
+<div class="highlight-python"><pre>sub vcl_recv {
     call pipe_if_local;
-}
-</pre></div>
+}</pre>
 </div>
 <div class="section" id="return-statements">
 <h5>Return statements<a class="headerlink" href="#return-statements" title="Permalink to this headline">¶</a></h5>
@@ -346,6 +337,12 @@ requests and responses currently being worked on. What variables are
 available depends on context.</p>
 <div class="section" id="bereq">
 <h5>bereq<a class="headerlink" href="#bereq" title="Permalink to this headline">¶</a></h5>
+<p>bereq</p>
+<blockquote>
+<div><p>Type: HTTP</p>
+<p>Readable from: backend</p>
+<p>The entire backend request HTTP data structure</p>
+</div></blockquote>
 <p>bereq.backend</p>
 <blockquote>
 <div><p>Type: BACKEND</p>
@@ -400,6 +397,7 @@ the backend.  Not available in pipe mode.</p>
 <blockquote>
 <div><p>Type: INT</p>
 <p>Readable from: backend</p>
+<p>A count of how many times this request has been retried.</p>
 </div></blockquote>
 <p>bereq.uncacheable</p>
 <blockquote>
@@ -423,6 +421,12 @@ the backend.  Not available in pipe mode.</p>
 </div>
 <div class="section" id="beresp">
 <h5>beresp<a class="headerlink" href="#beresp" title="Permalink to this headline">¶</a></h5>
+<p>beresp</p>
+<blockquote>
+<div><p>Type: HTTP</p>
+<p>Readable from: vcl_backend_response, vcl_backend_error</p>
+<p>The entire backend response HTTP data structure</p>
+</div></blockquote>
 <p>beresp.backend.ip</p>
 <blockquote>
 <div><p>Type: IP</p>
@@ -470,9 +474,7 @@ and as such compression in Varnish is not needed.</p>
 <p>Writable from: vcl_backend_response, vcl_backend_error</p>
 <p>Deliver the object to the client directly without
 fetching the whole object into varnish. If this
-request is pass'ed it will not be stored in memory.
-As of Varnish Cache 3.0 the object will marked as busy
-as it is delivered so only client can access the object.</p>
+request is pass'ed it will not be stored in memory.</p>
 </div></blockquote>
 <p>beresp.grace</p>
 <blockquote>
@@ -571,7 +573,7 @@ used in string context it returns a formatted string.</p>
 <blockquote>
 <div><p>Type: DURATION</p>
 <p>Readable from: vcl_hit</p>
-<p>The object's grace period in seconds. obj.grace is writable.</p>
+<p>The object's grace period in seconds.</p>
 </div></blockquote>
 <p>obj.hits</p>
 <blockquote>
@@ -617,8 +619,7 @@ NB: obj.hits == 0 does <em>not</em> indicate a cache miss.</p>
 <blockquote>
 <div><p>Type: DURATION</p>
 <p>Readable from: vcl_hit</p>
-<p>The object's remaining time to live, in seconds.
-obj.ttl is writable.</p>
+<p>The object's remaining time to live, in seconds.</p>
 </div></blockquote>
 <p>obj.uncacheable</p>
 <blockquote>
@@ -628,6 +629,12 @@ obj.ttl is writable.</p>
 </div>
 <div class="section" id="req">
 <h5>req<a class="headerlink" href="#req" title="Permalink to this headline">¶</a></h5>
+<p>req</p>
+<blockquote>
+<div><p>Type: HTTP</p>
+<p>Readable from: client</p>
+<p>The entire request HTTP data structure</p>
+</div></blockquote>
 <p>req.backend_hint</p>
 <blockquote>
 <div><p>Type: BACKEND</p>
@@ -724,6 +731,12 @@ up content from each other to avoid potential deadlocks.</p>
 </div>
 <div class="section" id="resp">
 <h5>resp<a class="headerlink" href="#resp" title="Permalink to this headline">¶</a></h5>
+<p>resp</p>
+<blockquote>
+<div><p>Type: HTTP</p>
+<p>Readable from: vcl_deliver, vcl_synth</p>
+<p>The entire response HTTP data structure</p>
+</div></blockquote>
 <p>resp.http.</p>
 <blockquote>
 <div><p>Type: HEADER</p>
@@ -758,13 +771,13 @@ up content from each other to avoid potential deadlocks.</p>
 <p>server.hostname</p>
 <blockquote>
 <div><p>Type: STRING</p>
-<p>Readable from: client</p>
+<p>Readable from: vcl_all</p>
 <p>The host name of the server.</p>
 </div></blockquote>
 <p>server.identity</p>
 <blockquote>
 <div><p>Type: STRING</p>
-<p>Readable from: client</p>
+<p>Readable from: vcl_all</p>
 <p>The identity of the server, as set by the -i
 parameter.  If the -i parameter is not passed to varnishd,
 server.identity will be set to the name of the instance, as
@@ -817,14 +830,12 @@ ban mechanism.</dd>
 is called on the host and URL of the <em>request</em>. Available in vcl_hash.</dd>
 <dt>new()</dt>
 <dd>Instanciate a new VCL object. Available in vcl_init.</dd>
-<dt>purge()</dt>
-<dd>Invalidate all variants of the current object using purge. Available in
-vcl_miss and vcl_hit.</dd>
 <dt>return()</dt>
 <dd>End execution of the current VCL subroutine, and continue to the next step
 in the request handling state machine.</dd>
 <dt>rollback()</dt>
-<dd>Restore request HTTP headers to their original state.</dd>
+<dd>Restore <em>req</em> HTTP headers to their original state. This function is
+deprecated.  Use std.rollback() instead.</dd>
 <dt>synthetic(STRING)</dt>
 <dd>Prepare a synthetic response body containing the STRING. Available in
 vcl_synth and vcl_backend_error.</dd>
@@ -971,13 +982,13 @@ itself. See LICENSE for details.</p>
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>

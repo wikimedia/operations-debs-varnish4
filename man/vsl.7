@@ -1,35 +1,8 @@
-.\" Man page generated from reStructuredText.
-.
 .TH VSL  "" "" ""
 .SH NAME
 VSL \- Shared Memory Logging
+.\" Man page generated from reStructeredText.
 .
-.nr rst2man-indent-level 0
-.
-.de1 rstReportMargin
-\\$1 \\n[an-margin]
-level \\n[rst2man-indent-level]
-level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
--
-\\n[rst2man-indent0]
-\\n[rst2man-indent1]
-\\n[rst2man-indent2]
-..
-.de1 INDENT
-.\" .rstReportMargin pre:
-. RS \\$1
-. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
-. nr rst2man-indent-level +1
-.\" .rstReportMargin post:
-..
-.de UNINDENT
-. RE
-.\" indent \\n[an-margin]
-.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.nr rst2man-indent-level -1
-.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
-..
 .SH OVERVIEW
 .sp
 This document describes the format and content of all the Varnish shared memory
@@ -42,8 +15,6 @@ logging tools supplied with Varnish.
 Logged when a connection is selected for handling a backend request.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -54,15 +25,11 @@ The format is:
 +\-\-\-\-\-\-\- Connection file descriptor
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B BackendClose \- Backend connection closed
 Logged when a backend connection is closed.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -73,15 +40,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\- Connection file descriptor
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B BackendOpen \- Backend connection opened
 Logged when a new backend connection is opened.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -93,15 +56,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\- Connection file descriptor
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B BackendReuse \- Backend connection put up for reuse
 Logged when a backend connection is put up for reuse by a later connection.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -111,15 +70,11 @@ The format is:
 +\-\-\-\- Connection file descriptor
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B Backend_health \- Backend health check
 The result of a backend health probe.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -136,15 +91,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Backend name
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B Begin \- Marks the start of a VXID
 The first record of a VXID transaction.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -155,15 +106,11 @@ The format is:
 +\-\-\-\-\-\-\- Type ("sess", "req" or "bereq")
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B BereqAcct \- Backend request accounting
 Contains byte counters from backend request processing.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -177,15 +124,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Header bytes transmitted
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B BereqHeader \- Backend request header
 HTTP header contents.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -195,8 +138,6 @@ The format is:
 +\-\-\-\-\- Header name
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B BereqMethod \- Backend request method
 The HTTP request method used.
@@ -211,8 +152,6 @@ The HTTP request URL.
 HTTP header contents.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -222,8 +161,6 @@ The format is:
 +\-\-\-\-\- Header name
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B BerespProtocol \- Backend response protocol
 The HTTP protocol version information.
@@ -247,8 +184,6 @@ Debug messages can normally be ignored, but are sometimes helpful during trouble
 Contains the body byte count for this ESI body fragment. This number does not include any transfer encoding overhead.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -257,8 +192,6 @@ The format is:
 +\- Body bytes
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B ESI_xmlerror \- ESI parser error or warning message
 An error or warning was generated during parsing of an ESI object. The log record describes the problem encountered.
@@ -302,8 +235,6 @@ Logged when no suitable candidate object is found for LRU force expiry.
 .UNINDENT
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -326,8 +257,6 @@ r=%d         Objcore refcount
 x=%u         Object VXID
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B FetchError \- Error while fetching object
 Logs the error message of a failed fetch operation.
@@ -336,8 +265,6 @@ Logs the error message of a failed fetch operation.
 Ready to fetch body from backend.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -348,15 +275,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\- Body fetch mode
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B Gzip \- G(un)zip performed on object
 A Gzip record is emitted for each instance of gzip or gunzip work performed. Worst case, an ESI transaction stored in gzip\(aqed objects but delivered gunziped, will run into many of these.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -372,12 +295,8 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- \(aqG\(aq: Gzip, \(aqU\(aq: Gunzip, \(aqu\(aq: Gunzip\-test
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
 Examples:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -385,8 +304,6 @@ U F E 182 159 80 80 1392
 G F E 159 173 80 1304 1314
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B Hash \- Value added to hash
 This value was added to the object lookup hash.
@@ -409,8 +326,6 @@ Logs the size of a fetch object body.
 Links this VXID to any child VXID it initiates.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -421,8 +336,6 @@ The format is:
 +\-\-\-\-\-\-\- Child type ("req" or "bereq")
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B LostHeader \- Failed attempt to set HTTP header
 Logs the header name of a failed HTTP header operation due to resource exhaustion or configured limits.
@@ -431,8 +344,6 @@ Logs the header name of a failed HTTP header operation due to resource exhaustio
 HTTP header contents.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -442,8 +353,6 @@ The format is:
 +\-\-\-\-\- Header name
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B ObjProtocol \- Object  protocol
 The HTTP protocol version information.
@@ -458,8 +367,6 @@ The HTTP status code received.
 Contains byte counters for pipe sessions.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -471,15 +378,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Client request headers
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B ReqAcct \- Request handling byte counts
 Contains byte counts for the request handling. This record is not logged for ESI sub\-requests, but the sub\-requests\(aq response body count is added to the main request.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -493,15 +396,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Header bytes received
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B ReqHeader \- Client request header
 HTTP header contents.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -511,8 +410,6 @@ The format is:
 +\-\-\-\-\- Header name
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B ReqMethod \- Client request method
 The HTTP request method used.
@@ -524,8 +421,6 @@ The HTTP protocol version information.
 Start of request processing. Logs the client IP address and port number.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -535,8 +430,6 @@ The format is:
 +\-\-\-\- IP address
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B ReqURL \- Client request URL
 The HTTP request URL.
@@ -545,8 +438,6 @@ The HTTP request URL.
 HTTP header contents.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -556,8 +447,6 @@ The format is:
 +\-\-\-\-\- Header name
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B RespProtocol \- Client response protocol
 The HTTP protocol version information.
@@ -572,8 +461,6 @@ The HTTP status code received.
 SessionClose is the last record for any client connection.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -583,15 +470,11 @@ The format is:
 +\-\-\-\- Why the connection closed
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B SessOpen \- Client connection opened
 The first record for a client connection, with the socket\-endpoints of the connection.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -605,15 +488,11 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Client IPv4/6 address
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B Storage \- Where object is stored
 Type and name of the storage backend the object is stored in.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -623,15 +502,11 @@ The format is:
 +\-\-\-\- Type ("malloc", "file", "persistent" etc.)
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B TTL \- TTL set on object
 A TTL record is emitted whenever the ttl, grace or keep values for an object is set.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -648,14 +523,10 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- "RFC" or "VCL"
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
 The last four fields are only present in "RFC" headers.
 .sp
 Examples:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -667,8 +538,6 @@ VCL 7 120 3600 1312966111 6
 VCL 12 120 3600 1312966113 8
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B Timestamp \- Timing information
 Contains timing information for the Varnish worker threads.
@@ -676,8 +545,6 @@ Contains timing information for the Varnish worker threads.
 Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -689,8 +556,6 @@ The format is:
 +\-\-\-\-\-\-\-\-\-\-\- Event label
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .TP
 .B VCL_Error \- VCL execution error message
 Logs error messages generated during VCL execution.
@@ -711,8 +576,6 @@ Logs the VCL method terminating statement.
 Logs VCL execution trace data.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -723,8 +586,6 @@ The format is:
 +\-\-\-\-\-\-\- VCL trace point index
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
 NB: This log record is masked by default.
 .TP
@@ -735,8 +596,6 @@ Warnings and error messages genererated by the VSL API while reading the shared 
 Logs worker thread creation and termination events.
 .sp
 The format is:
-.INDENT 7.0
-.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -746,8 +605,6 @@ The format is:
 +\-\-\-\- Worker struct pointer
 .ft P
 .fi
-.UNINDENT
-.UNINDENT
 .sp
 NB: This log record is masked by default.
 .UNINDENT
@@ -824,7 +681,7 @@ Backend response body received.
 Backend request is being retried.
 .TP
 .B Error
-Backend request failed to vcl_error.
+Backend request failed to vcl_backend_error.
 .UNINDENT
 .SH HISTORY
 .sp
@@ -842,4 +699,5 @@ varnishncsa(1)
 varnishtop(1)
 .UNINDENT
 .\" Generated by docutils manpage writer.
+.\" 
 .

@@ -42,6 +42,7 @@
 #include "vrt.h"
 #include "vcli.h"
 #include "vcli_priv.h"
+#include "vtim.h"
 
 struct vcls {
 	unsigned		magic;
@@ -372,6 +373,40 @@ ccf_config_use(struct cli *cli, const char * const *av, void *priv)
 		VBE_UseHealth(vcl->conf->director[i]);
 }
 
+static void
+ccf_config_show(struct cli *cli, const char * const *av, void *priv)
+{
+	struct vcls *vcl;
+	int verbose = 0;
+	int i;
+
+	(void)priv;
+	if (!strcmp(av[2], "-v")) {
+		verbose = 1;
+		vcl = vcl_find(av[3]);
+	} else if (av[3] != NULL) {
+		VCLI_Out(cli, "Unknown options '%s'", av[2]);
+		VCLI_SetResult(cli, CLIS_PARAM);
+		return;
+	} else
+		vcl = vcl_find(av[2]);
+
+	if (vcl == NULL) {
+		VCLI_Out(cli, "No VCL named '%s'", av[2]);
+		VCLI_SetResult(cli, CLIS_PARAM);
+		return;
+	}
+	if (verbose) {
+		for (i = 0; i < vcl->conf->nsrc; i++)
+			VCLI_Out(cli, "// VCL.SHOW %d %zd %s\n%s\n",
+			    i, strlen(vcl->conf->srcbody[i]),
+			    vcl->conf->srcname[i],
+			    vcl->conf->srcbody[i]);
+	} else {
+		VCLI_Out(cli, "%s", vcl->conf->srcbody[0]);
+	}
+}
+
 /*--------------------------------------------------------------------
  * Method functions to call into VCL programs.
  *
@@ -402,6 +437,7 @@ vcl_call_method(struct worker *wrk, struct req *req, struct busyobj *bo,
 		ctx.req = req;
 		if (req->obj)
 			ctx.http_obj = req->obj->http;
+		ctx.now = req->t_prev;
 	}
 	if (bo != NULL) {
 		// AZ(req);
@@ -412,7 +448,10 @@ vcl_call_method(struct worker *wrk, struct req *req, struct busyobj *bo,
 		ctx.http_bereq = bo->bereq;
 		ctx.http_beresp = bo->beresp;
 		ctx.bo = bo;
+		ctx.now = bo->t_prev;
 	}
+	if (ctx.now == 0)
+		ctx.now = VTIM_real();
 	ctx.ws = ws;
 	ctx.method = method;
 	ctx.handling = &wrk->handling;
@@ -451,6 +490,7 @@ static struct cli_proto vcl_cmds[] = {
 	{ CLI_VCL_LIST,         "i", ccf_config_list },
 	{ CLI_VCL_DISCARD,      "i", ccf_config_discard },
 	{ CLI_VCL_USE,          "i", ccf_config_use },
+	{ CLI_VCL_SHOW,		"", ccf_config_show },
 	{ NULL }
 };
 

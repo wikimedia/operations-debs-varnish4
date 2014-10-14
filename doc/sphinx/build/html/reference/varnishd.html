@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -6,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.0.1 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.0.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.1',
+        VERSION:     '4.0.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -41,7 +43,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -138,10 +140,10 @@ from VCL</td></tr>
 <dl class="docutils">
 <dt>-l shl[,free[,fill]]</dt>
 <dd>Specifies size of shmlog file. shl is the store for the
-shared memory log records [80m], free is the store for other
-allocations [1m] and fill determines how the log is [+].
-Scaling suffixes like 'k', 'm' can be used up to
-(e)tabytes.  Default is 80 Megabytes.</dd>
+shared memory log records [80M], free is the store for other
+allocations [1M] and fill determines how the log is [+].
+Scaling suffixes like 'k', 'M' can be used up to
+(E)xabytes.  Default is 80 Megabytes.</dd>
 <dt>-M address:port</dt>
 <dd>Connect to this port and offer the command line interface.
 Think of it as a reverse shell. When running with -M and there is
@@ -300,6 +302,12 @@ effect immediately.</dd>
 parameter takes effect.</dd>
 <dt>reload</dt>
 <dd>The VCL programs must be reloaded for this parameter to take effect.</dd>
+<dt>experimental</dt>
+<dd>We're not really sure about this parameter, tell us what you find.</dd>
+<dt>wizard</dt>
+<dd>Do not touch unless you <em>really</em> know what you're doing.</dd>
+<dt>only_root</dt>
+<dd>Only works if varnishd is running as root.</dd>
 </dl>
 <p>Here is a list of all parameters, current as of last time we
 remembered to update the manual page.  This text is produced from the
@@ -656,10 +664,20 @@ Internal limits in the storage_file module makes increases above 128kb a dubious
 <blockquote>
 <div><ul class="simple">
 <li>Default: nogroup (65534)</li>
-<li>Flags: must_restart</li>
+<li>Flags: must_restart, only_root</li>
 </ul>
 </div></blockquote>
 <p>The unprivileged group to run as.</p>
+</div>
+<div class="section" id="group-cc">
+<span id="ref-param-group-cc"></span><h5>group_cc<a class="headerlink" href="#group-cc" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: &lt;not set&gt;</li>
+<li>Flags: only_root</li>
+</ul>
+</div></blockquote>
+<p>On some systems the C-compiler is restricted so not everybody can run it.  This parameter makes it possible to add an extra group to the sandbox process which runs the cc_command, in order to gain access to such a restricted C-compiler.</p>
 </div>
 <div class="section" id="gzip-buffer">
 <span id="ref-param-gzip-buffer"></span><h5>gzip_buffer<a class="headerlink" href="#gzip-buffer" title="Permalink to this headline">¶</a></h5>
@@ -1057,11 +1075,10 @@ This is mostly an anti-DoS measure, and setting it plenty high should not hurt, 
 <li>Units: bytes</li>
 <li>Default: 255b</li>
 <li>Minimum: 16b</li>
-<li>Maximum: 65535b</li>
+<li>Maximum: 4084</li>
 </ul>
 </div></blockquote>
-<p>Maximum number of bytes in SHM log record.
-Maximum is 65535 bytes.</p>
+<p>Old name for vsl_reclen, use that instead.</p>
 </div>
 <div class="section" id="shortlived">
 <span id="ref-param-shortlived"></span><h5>shortlived<a class="headerlink" href="#shortlived" title="Permalink to this headline">¶</a></h5>
@@ -1315,7 +1332,7 @@ Setting this too high results in worker threads not doing anything for their kee
 <blockquote>
 <div><ul class="simple">
 <li>Default: nobody (65534)</li>
-<li>Flags: must_restart</li>
+<li>Flags: must_restart, only_root</li>
 </ul>
 </div></blockquote>
 <p>The unprivileged user to run as.</p>
@@ -1375,13 +1392,12 @@ Allow 'import ... from ...'.</p>
 <div><ul class="simple">
 <li>Units: bytes</li>
 <li>Default: 4k</li>
-<li>Minimum: 1k</li>
+<li>Minimum: 267</li>
 </ul>
 </div></blockquote>
 <p>Bytes of (req-/backend-)workspace dedicated to buffering VSL records.
-At a bare minimum, this must be longer than the longest HTTP header to be logged.
-Setting this too high costs memory, setting it too low will cause more VSL flushes and likely increase lock-contention on the VSL mutex.
-Minimum is 1k bytes.</p>
+Setting this too high costs memory, setting it too low will cause more VSL flushes and likely increase lock-contention on the VSL mutex.</p>
+<p>The minimum tracks the vsl_reclen parameter + 12 bytes.</p>
 </div>
 <div class="section" id="vsl-mask">
 <span id="ref-param-vsl-mask"></span><h5>vsl_mask<a class="headerlink" href="#vsl-mask" title="Permalink to this headline">¶</a></h5>
@@ -1398,6 +1414,19 @@ Minimum is 1k bytes.</p>
 </dl>
 </div></blockquote>
 <p>Use +/- prefixe in front of VSL tag name, to mask/unmask individual VSL messages.</p>
+</div>
+<div class="section" id="vsl-reclen">
+<span id="ref-param-vsl-reclen"></span><h5>vsl_reclen<a class="headerlink" href="#vsl-reclen" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 255b</li>
+<li>Minimum: 16b</li>
+<li>Maximum: 4084b</li>
+</ul>
+</div></blockquote>
+<p>Maximum number of bytes in SHM log record.</p>
+<p>The maximum tracks the vsl_buffer parameter - 12 bytes.</p>
 </div>
 <div class="section" id="vsl-space">
 <span id="ref-param-vsl-space"></span><h5>vsl_space<a class="headerlink" href="#vsl-space" title="Permalink to this headline">¶</a></h5>
@@ -1451,7 +1480,7 @@ Minimum is 1k bytes.</p>
 <div><ul class="simple">
 <li>Units: bytes</li>
 <li>Default: 64k</li>
-<li>Minimum: 3k</li>
+<li>Minimum: 9k</li>
 <li>Flags: delayed</li>
 </ul>
 </div></blockquote>
@@ -1485,6 +1514,24 @@ This workspace is used for certain temporary data structures during the operatio
 One use is for the io-vectors for writing requests and responses to sockets, having too little space will result in more writev(2) system calls, having too much just wastes the space.</p>
 </div>
 </div>
+</div>
+<div class="section" id="exit-codes">
+<h3>EXIT CODES<a class="headerlink" href="#exit-codes" title="Permalink to this headline">¶</a></h3>
+<p>Varnish and bundled tools will, in most cases, exit with one of the
+following codes</p>
+<ul class="simple">
+<li><cite>0</cite> OK</li>
+<li><cite>1</cite> Some error which could be system-dependend and/or transient</li>
+<li><cite>2</cite> Serious configuration / parameter error - retrying with the same
+configuration / parameters is most likely useless</li>
+</ul>
+<p>The <cite>varnishd</cite> master process may also OR its exit code</p>
+<ul class="simple">
+<li>with <cite>0x20</cite> when the <cite>varnishd</cite> child process died,</li>
+<li>with <cite>0x40</cite> when the <cite>varnishd</cite> child process was terminated by a
+signal and</li>
+<li>with <cite>0x80</cite> when a core was dumped.</li>
+</ul>
 </div>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
@@ -1564,6 +1611,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#fetch-maxchunksize">fetch_maxchunksize</a></li>
 <li><a class="reference internal" href="#first-byte-timeout">first_byte_timeout</a></li>
 <li><a class="reference internal" href="#group">group</a></li>
+<li><a class="reference internal" href="#group-cc">group_cc</a></li>
 <li><a class="reference internal" href="#gzip-buffer">gzip_buffer</a></li>
 <li><a class="reference internal" href="#gzip-level">gzip_level</a></li>
 <li><a class="reference internal" href="#gzip-memlevel">gzip_memlevel</a></li>
@@ -1622,6 +1670,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#vmod-dir">vmod_dir</a></li>
 <li><a class="reference internal" href="#vsl-buffer">vsl_buffer</a></li>
 <li><a class="reference internal" href="#vsl-mask">vsl_mask</a></li>
+<li><a class="reference internal" href="#vsl-reclen">vsl_reclen</a></li>
 <li><a class="reference internal" href="#vsl-space">vsl_space</a></li>
 <li><a class="reference internal" href="#vsm-space">vsm_space</a></li>
 <li><a class="reference internal" href="#waiter">waiter</a></li>
@@ -1633,6 +1682,7 @@ itself. See LICENCE for details.</p>
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#exit-codes">EXIT CODES</a></li>
 <li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
 <li><a class="reference internal" href="#history">HISTORY</a></li>
 <li><a class="reference internal" href="#copyright">COPYRIGHT</a></li>
@@ -1682,13 +1732,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
 </html>
