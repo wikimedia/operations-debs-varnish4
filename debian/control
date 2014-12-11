@@ -35,6 +35,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
  libc6-dev | libc6.1-dev | libc-dev,
 Suggests: varnish-doc
 Replaces: libvarnishapi1 (<< 3.0.0-5)
+Provides: ${Varnish:ABI}, ${Varnish:strictABI}
 Description: state of the art, high-performance web accelerator
  Varnish Cache is a state of the art web accelerator written with
  performance and flexibility in mind.
