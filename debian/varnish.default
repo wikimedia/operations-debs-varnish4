@@ -102,7 +102,6 @@ DAEMON_OPTS="-a :6081 \
 #              -f ${VARNISH_VCL_CONF} \
 #              -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} \
 #              -t ${VARNISH_TTL} \
-#              -w ${VARNISH_MIN_THREADS},${VARNISH_MAX_THREADS},${VARNISH_THREAD_TIMEOUT} \
 # 	       -S ${VARNISH_SECRET_FILE} \
 #              -s ${VARNISH_STORAGE}"
 #
