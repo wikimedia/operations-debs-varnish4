@@ -5,6 +5,7 @@
  */
 
 struct vrt_ctx;
+#define VRT_CTX const struct vrt_ctx *ctx
 struct req;
 struct busyobj;
 struct ws;
@@ -13,7 +14,7 @@ struct worker;
 
 typedef int vcl_init_f(struct cli *);
 typedef void vcl_fini_f(struct cli *);
-typedef int vcl_func_f(const struct vrt_ctx *ctx);
+typedef int vcl_func_f(VRT_CTX);
 
 /* VCL Methods */
 #define VCL_MET_RECV			(1U << 1)

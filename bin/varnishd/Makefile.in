@@ -40,7 +40,7 @@ host_triplet = @host@
 target_triplet = @target@
 sbin_PROGRAMS = varnishd$(EXEEXT)
 subdir = bin/varnishd
-DIST_COMMON = $(nobase_pkgdatainclude_HEADERS) $(noinst_HEADERS) \
+DIST_COMMON = $(nobase_pkginclude_HEADERS) $(noinst_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
@@ -58,8 +58,7 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(sbindir)" \
-	"$(DESTDIR)$(pkgdataincludedir)"
+am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(pkgincludedir)"
 PROGRAMS = $(sbin_PROGRAMS)
 am_varnishd_OBJECTS = varnishd-cache_acceptor.$(OBJEXT) \
 	varnishd-cache_backend.$(OBJEXT) \
@@ -186,7 +185,7 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-HEADERS = $(nobase_pkgdatainclude_HEADERS) $(noinst_HEADERS)
+HEADERS = $(nobase_pkginclude_HEADERS) $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -421,10 +420,9 @@ varnishd_SOURCES = \
 	waiter/cache_waiter_ports.c 
 
 noinst_HEADERS = \
-	cache/cache_backend.h \
+	builtin_vcl.h \
 	cache/cache_esi.h \
 	common/heritage.h \
-	builtin_vcl.h \
 	hash/hash_slinger.h \
 	mgt/mgt.h \
 	mgt/mgt_cli.h \
@@ -435,8 +433,7 @@ noinst_HEADERS = \
 
 
 # Headers for use with vmods
-pkgdataincludedir = $(pkgdatadir)/include
-nobase_pkgdatainclude_HEADERS = \
+nobase_pkginclude_HEADERS = \
 	cache/cache.h \
 	cache/cache_backend.h \
 	common/common.h \
@@ -1714,27 +1711,27 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-nobase_pkgdataincludeHEADERS: $(nobase_pkgdatainclude_HEADERS)
+install-nobase_pkgincludeHEADERS: $(nobase_pkginclude_HEADERS)
 	@$(NORMAL_INSTALL)
-	test -z "$(pkgdataincludedir)" || $(MKDIR_P) "$(DESTDIR)$(pkgdataincludedir)"
-	@list='$(nobase_pkgdatainclude_HEADERS)'; test -n "$(pkgdataincludedir)" || list=; \
+	test -z "$(pkgincludedir)" || $(MKDIR_P) "$(DESTDIR)$(pkgincludedir)"
+	@list='$(nobase_pkginclude_HEADERS)'; test -n "$(pkgincludedir)" || list=; \
 	$(am__nobase_list) | while read dir files; do \
 	  xfiles=; for file in $$files; do \
 	    if test -f "$$file"; then xfiles="$$xfiles $$file"; \
 	    else xfiles="$$xfiles $(srcdir)/$$file"; fi; done; \
 	  test -z "$$xfiles" || { \
 	    test "x$$dir" = x. || { \
-	      echo "$(MKDIR_P) '$(DESTDIR)$(pkgdataincludedir)/$$dir'"; \
-	      $(MKDIR_P) "$(DESTDIR)$(pkgdataincludedir)/$$dir"; }; \
-	    echo " $(INSTALL_HEADER) $$xfiles '$(DESTDIR)$(pkgdataincludedir)/$$dir'"; \
-	    $(INSTALL_HEADER) $$xfiles "$(DESTDIR)$(pkgdataincludedir)/$$dir" || exit $$?; }; \
+	      echo "$(MKDIR_P) '$(DESTDIR)$(pkgincludedir)/$$dir'"; \
+	      $(MKDIR_P) "$(DESTDIR)$(pkgincludedir)/$$dir"; }; \
+	    echo " $(INSTALL_HEADER) $$xfiles '$(DESTDIR)$(pkgincludedir)/$$dir'"; \
+	    $(INSTALL_HEADER) $$xfiles "$(DESTDIR)$(pkgincludedir)/$$dir" || exit $$?; }; \
 	done
 
-uninstall-nobase_pkgdataincludeHEADERS:
+uninstall-nobase_pkgincludeHEADERS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(nobase_pkgdatainclude_HEADERS)'; test -n "$(pkgdataincludedir)" || list=; \
+	@list='$(nobase_pkginclude_HEADERS)'; test -n "$(pkgincludedir)" || list=; \
 	$(am__nobase_strip_setup); files=`$(am__nobase_strip)`; \
-	dir='$(DESTDIR)$(pkgdataincludedir)'; $(am__uninstall_files_from_dir)
+	dir='$(DESTDIR)$(pkgincludedir)'; $(am__uninstall_files_from_dir)
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -1822,7 +1819,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(PROGRAMS) $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(pkgdataincludedir)"; do \
+	for dir in "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(pkgincludedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -1879,7 +1876,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-nobase_pkgdataincludeHEADERS
+install-data-am: install-nobase_pkgincludeHEADERS
 
 install-dvi: install-dvi-am
 
@@ -1925,7 +1922,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-nobase_pkgdataincludeHEADERS \
+uninstall-am: uninstall-nobase_pkgincludeHEADERS \
 	uninstall-sbinPROGRAMS
 
 .MAKE: install-am install-strip
@@ -1937,13 +1934,13 @@ uninstall-am: uninstall-nobase_pkgdataincludeHEADERS \
 	install install-am install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
-	install-nobase_pkgdataincludeHEADERS install-pdf \
-	install-pdf-am install-ps install-ps-am install-sbinPROGRAMS \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-nobase_pkgdataincludeHEADERS uninstall-sbinPROGRAMS
+	install-nobase_pkgincludeHEADERS install-pdf install-pdf-am \
+	install-ps install-ps-am install-sbinPROGRAMS install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-nobase_pkgincludeHEADERS \
+	uninstall-sbinPROGRAMS
 
 
 #

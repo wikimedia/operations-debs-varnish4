@@ -101,23 +101,18 @@ v1d_dorange(struct req *req, struct busyobj *bo, const char *r)
 	else
 		len = req->obj->len;
 
-	if (strncmp(r, "bytes=", 6))
+	if (strncasecmp(r, "bytes=", 6))
 		return;
 	r += 6;
 
 	/* The low end of range */
 	has_low = low = 0;
-	if (!vct_isdigit(*r) && *r != '-')
-		return;
 	while (vct_isdigit(*r)) {
 		has_low = 1;
 		low *= 10;
 		low += *r - '0';
 		r++;
 	}
-
-	if (low >= len)
-		return;
 
 	if (*r != '-')
 		return;
@@ -131,22 +126,31 @@ v1d_dorange(struct req *req, struct busyobj *bo, const char *r)
 			high += *r - '0';
 			r++;
 		}
+		if (high < low)
+			return;
 		if (!has_low) {
 			low = len - high;
 			if (low < 0)
 				low = 0;
 			high = len - 1;
-		}
-	} else
+		} else if (high >= len)
+			high = len - 1;
+	} else if (has_low)
 		high = len - 1;
+	else
+		return;
+
 	if (*r != '\0')
 		return;
 
-	if (high >= len)
-		high = len - 1;
-
-	if (low > high)
+	if (low >= len) {
+		http_PrintfHeader(req->resp, "Content-Range: bytes */%jd",
+		    (intmax_t)len);
+		http_Unset(req->resp, H_Content_Length);
+		http_PutResponse(req->resp, "HTTP/1.1", 416, NULL);
+		req->wantbody = 0;
 		return;
+	}
 
 	http_PrintfHeader(req->resp, "Content-Range: bytes %jd-%jd/%jd",
 	    (intmax_t)low, (intmax_t)high, (intmax_t)len);
@@ -240,29 +244,23 @@ V1D_Deliver(struct req *req, struct busyobj *bo)
 
 	req->res_mode = 0;
 
-	if (!req->disable_esi && req->obj->esidata != NULL) {
-		/* In ESI mode, we can't know the aggregate length */
-		req->res_mode &= ~RES_LEN;
+	if (!req->disable_esi && req->obj->esidata != NULL)
 		req->res_mode |= RES_ESI;
+
+	if (req->esi_level > 0)
+		req->res_mode |= RES_ESI_CHILD;
+
+	if (req->res_mode & (RES_ESI_CHILD|RES_ESI)) {
+		/* In ESI mode, we can't know the aggregate length */
+		http_Unset(req->resp, H_Content_Length);
+		RFC2616_Weaken_Etag(req->resp);
 	} else if (req->resp->status == 304) {
-		req->res_mode &= ~RES_LEN;
 		http_Unset(req->resp, H_Content_Length);
 		req->wantbody = 0;
-	} else if (bo == NULL) {
-		/* XXX: Not happy with this convoluted test */
-		req->res_mode |= RES_LEN;
-		if (!(req->obj->objcore->flags & OC_F_PASS) ||
-		    req->obj->len != 0) {
-			http_Unset(req->resp, H_Content_Length);
-			http_PrintfHeader(req->resp,
-			    "Content-Length: %zd", req->obj->len);
-		}
-	}
-
-	if (req->esi_level > 0) {
-		/* Included ESI object, always CHUNKED or EOF */
-		req->res_mode &= ~RES_LEN;
-		req->res_mode |= RES_ESI_CHILD;
+	} else if (bo == NULL &&
+	    !http_GetHdr(req->resp, H_Content_Length, NULL)) {
+		http_PrintfHeader(req->resp, "Content-Length: %zd",
+		    req->obj->len);
 	}
 
 	if (cache_param->http_gzip_support && req->obj->gziped &&
@@ -272,31 +270,25 @@ V1D_Deliver(struct req *req, struct busyobj *bo)
 		 * XXX: we could cache that, but would still deliver
 		 * XXX: with multiple writes because of the gunzip buffer
 		 */
-		req->res_mode &= ~RES_LEN;
 		req->res_mode |= RES_GUNZIP;
+		http_Unset(req->resp, H_Content_Encoding);
+		http_Unset(req->resp, H_Content_Length);
 	}
 
-	if (!(req->res_mode & (RES_LEN|RES_CHUNKED|RES_EOF))) {
-		/* We havn't chosen yet, do so */
-		if (!req->wantbody) {
-			/* Nothing */
-		} else if (req->http->protover >= 11) {
+	if (http_GetHdr(req->resp, H_Content_Length, NULL))
+		req->res_mode |= RES_LEN;
+
+	if (req->wantbody && !(req->res_mode & RES_LEN)) {
+		if (req->http->protover >= 11) {
+			http_SetHeader(req->resp, "Transfer-Encoding: chunked");
 			req->res_mode |= RES_CHUNKED;
 		} else {
 			req->res_mode |= RES_EOF;
 			req->doclose = SC_TX_EOF;
 		}
 	}
+
 	VSLb(req->vsl, SLT_Debug, "RES_MODE %x", req->res_mode);
-
-	if (!(req->res_mode & RES_LEN))
-		http_Unset(req->resp, H_Content_Length);
-
-	if (req->res_mode & RES_GUNZIP)
-		http_Unset(req->resp, H_Content_Encoding);
-
-	if (req->res_mode & RES_CHUNKED)
-		http_SetHeader(req->resp, "Transfer-Encoding: chunked");
 
 	http_SetHeader(req->resp,
 	    req->doclose ? "Connection: close" : "Connection: keep-alive");
@@ -314,9 +306,6 @@ V1D_Deliver(struct req *req, struct busyobj *bo)
 			v1d_dorange(req, bo, r);
 	}
 
-	if (req->res_mode & RES_ESI)
-		RFC2616_Weaken_Etag(req->resp);
-
 	WRW_Reserve(req->wrk, &req->sp->fd, req->vsl, req->t_prev);
 
 	/*
@@ -325,6 +314,9 @@ V1D_Deliver(struct req *req, struct busyobj *bo)
 	if (!(req->res_mode & RES_ESI_CHILD))
 		req->resp_hdrbytes +=
 		    HTTP1_Write(req->wrk, req->resp, HTTP1_Resp);
+	if (DO_DEBUG(DBG_FLUSH_HEAD)) {
+		(void)WRW_Flush(req->wrk);
+	}
 
 	if (req->res_mode & RES_CHUNKED)
 		WRW_Chunked(req->wrk);
@@ -366,67 +358,41 @@ V1D_Deliver(struct req *req, struct busyobj *bo)
 void
 V1D_Deliver_Synth(struct req *req)
 {
-	char *r;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	AZ(req->obj);
 	AN(req->synth_body);
 
 	req->res_mode = 0;
-	if (req->resp->status == 304) {
-		req->res_mode &= ~RES_LEN;
-		http_Unset(req->resp, H_Content_Length);
+
+	http_Unset(req->resp, H_Content_Length);
+	if (req->esi_level > 0) {
+		req->res_mode |= RES_ESI_CHILD;
+	} else if (req->resp->status == 304) {
 		req->wantbody = 0;
 	} else {
-		req->res_mode |= RES_LEN;
-		http_Unset(req->resp, H_Content_Length);
 		http_PrintfHeader(req->resp, "Content-Length: %zd",
 		    VSB_len(req->synth_body));
+		req->res_mode |= RES_LEN;
 	}
 
-	if (req->esi_level > 0) {
-		/* Included ESI object, always CHUNKED or EOF */
-		req->res_mode &= ~RES_LEN;
-		req->res_mode |= RES_ESI_CHILD;
-	}
-
-	if (!(req->res_mode & (RES_LEN|RES_CHUNKED|RES_EOF))) {
-		/* We havn't chosen yet, do so */
-		if (!req->wantbody) {
-			/* Nothing */
-		} else if (req->http->protover >= 11) {
+	if (req->wantbody && !(req->res_mode & RES_LEN)) {
+		if (req->http->protover >= 11) {
+			http_SetHeader(req->resp, "Transfer-Encoding: chunked");
 			req->res_mode |= RES_CHUNKED;
 		} else {
 			req->res_mode |= RES_EOF;
 			req->doclose = SC_TX_EOF;
 		}
 	}
+
 	VSLb(req->vsl, SLT_Debug, "RES_MODE %x", req->res_mode);
-
-	if (!(req->res_mode & RES_LEN))
-		http_Unset(req->resp, H_Content_Length);
-
-	if (req->res_mode & RES_GUNZIP)
-		http_Unset(req->resp, H_Content_Encoding);
-
-	if (req->res_mode & RES_CHUNKED)
-		http_SetHeader(req->resp, "Transfer-Encoding: chunked");
 
 	http_SetHeader(req->resp,
 	    req->doclose ? "Connection: close" : "Connection: keep-alive");
 
 	req->vdps[0] = v1d_bytes;
 	req->vdp_nxt = 0;
-
-	if (
-	    req->wantbody &&
-	    !(req->res_mode & RES_ESI_CHILD) &&
-	    cache_param->http_range_support &&
-	    http_GetStatus(req->resp) == 200) {
-		http_SetHeader(req->resp, "Accept-Ranges: bytes");
-		if (http_GetHdr(req->http, H_Range, &r))
-			v1d_dorange(req, NULL, r);
-	}
 
 	WRW_Reserve(req->wrk, &req->sp->fd, req->vsl, req->t_prev);
 
@@ -436,6 +402,9 @@ V1D_Deliver_Synth(struct req *req)
 	if (!(req->res_mode & RES_ESI_CHILD))
 		req->resp_hdrbytes +=
 		    HTTP1_Write(req->wrk, req->resp, HTTP1_Resp);
+	if (DO_DEBUG(DBG_FLUSH_HEAD)) {
+		(void)WRW_Flush(req->wrk);
+	}
 
 	if (req->res_mode & RES_CHUNKED)
 		WRW_Chunked(req->wrk);

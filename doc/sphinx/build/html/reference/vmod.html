@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VMOD - Varnish Modules &mdash; Varnish version 4.0.2 documentation</title>
+    <title>VMOD - Varnish Modules &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_std" href="vmod_std.generated.html" />
     <link rel="prev" title="VSM: Shared Memory Logging and Statistics" href="vsm.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -274,7 +274,7 @@ malloc would look like this:</p>
 <div class="highlight-python"><pre>if (priv-&gt;priv == NULL) {
         priv-&gt;priv = calloc(sizeof(struct myfoo), 1);
         AN(priv-&gt;priv);
-        priv-&gt;priv = free;      /* free(3) */
+        priv-&gt;free = free;      /* free(3) */
         mystate = priv-&gt;priv;
         mystate-&gt;foo = 21;
         ...
@@ -403,7 +403,7 @@ and use <tt class="docutils literal"><span class="pre">import</span> <span class
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

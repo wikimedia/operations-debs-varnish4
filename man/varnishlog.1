@@ -5,7 +5,7 @@ varnishlog \- Display Varnish logs
 .
 .SH SYNOPSIS
 .sp
-varnishlog [\-a] [\-b] [\-B] [\-c] [\-C] [\-d] [\-D] [\-g <session|request|vxid|raw>] [\-h] [\-i taglist] [\-k num] [\-I <[taglist:]regex>] [\-L limit] [\-n name] [\-N filename] [\-P file] [\-q query] [\-r filename] [\-T seconds] [\-v] [\-V] [\-w filename] [\-x taglist] [\-X <[taglist:]regex>] <query expression>
+varnishlog [\-a] [\-b] [\-B] [\-c] [\-C] [\-d] [\-D] [\-g <session|request|vxid|raw>] [\-h] [\-i taglist] [\-I <[taglist:]regex>] [\-k num] [\-L limit] [\-n name] [\-N filename] [\-P file] [\-q query] [\-r filename] [\-T seconds] [\-v] [\-V] [\-w filename] [\-x taglist] [\-X <[taglist:]regex>]
 .SH OPTIONS
 .sp
 The following options are available:
@@ -43,13 +43,13 @@ Include log records of these tags in output. Taglist is a comma\-separated list 
 .sp
 If a tag include option is the first of any tag selection options, all tags are first marked excluded.
 .TP
-.BI \-k \ num
-Process this number of matching log transactions before exiting.
-.TP
 .BI \-I \ <[taglist:]regex>
 Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent.
 .sp
 If a tag include option is the first of any tag selection options, all tags are first marked excluded.
+.TP
+.BI \-k \ num
+Process this number of matching log transactions before exiting.
 .TP
 .BI \-L \ limit
 Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.

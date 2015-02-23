@@ -426,8 +426,7 @@ cnt_lookup(struct worker *wrk, struct req *req)
 	switch (wrk->handling) {
 	case VCL_RET_DELIVER:
 		if (boc != NULL) {
-			AZ(oc->flags & (OC_F_FAILED|OC_F_PASS));
-			AZ(oc->exp_flags & OC_EF_DYING);
+			AZ(oc->flags & OC_F_PASS);
 			AZ(boc->busyobj);
 			VBF_Fetch(wrk, req, boc, o, VBF_BACKGROUND);
 		} else {
@@ -628,6 +627,7 @@ cnt_pipe(struct worker *wrk, struct req *req)
 	assert(WRW_IsReleased(wrk));
 	http_Teardown(bo->bereq);
 	VBO_DerefBusyObj(wrk, &bo);
+	THR_SetBusyobj(NULL);
 	return (REQ_FSM_DONE);
 }
 
@@ -723,6 +723,7 @@ cnt_recv(struct worker *wrk, struct req *req)
 		 * This really should be done earlier, but we want to capture
 		 * it in the VSL log.
 		 */
+		http_CollectHdr(req->http, H_X_Forwarded_For);
 		if (http_GetHdr(req->http, H_X_Forwarded_For, &xff)) {
 			http_Unset(req->http, H_X_Forwarded_For);
 			http_PrintfHeader(req->http, "X-Forwarded-For: %s, %s",

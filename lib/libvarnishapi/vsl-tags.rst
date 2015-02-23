@@ -499,12 +499,12 @@ TTL - TTL set on object
 	
 	The format is::
 	
-		%s %d %d %d %d %d [ %d %u %u ]
-		|  |  |  |  |  |    |  |  |
-		|  |  |  |  |  |    |  |  +- Max-Age from Cache-Control header
-		|  |  |  |  |  |    |  +---- Expires header
-		|  |  |  |  |  |    +------- Date header
-		|  |  |  |  |  +------------ Age (incl Age: header value)
+		%s %d %d %d %d [ %d %d %u %u ]
+		|  |  |  |  |    |  |  |  |
+		|  |  |  |  |    |  |  |  +- Max-Age from Cache-Control header
+		|  |  |  |  |    |  |  +---- Expires header
+		|  |  |  |  |    |  +------- Date header
+		|  |  |  |  |    +---------- Age (incl Age: header value)
 		|  |  |  |  +--------------- Reference time for TTL
 		|  |  |  +------------------ Keep
 		|  |  +--------------------- Grace
@@ -515,12 +515,8 @@ TTL - TTL set on object
 	
 	Examples::
 	
-		RFC 19 -1 -1 1312966109 4 0 0 23
-		VCL 10 -1 -1 1312966109 4
-		VCL 7 -1 -1 1312966111 6
-		VCL 7 120 -1 1312966111 6
-		VCL 7 120 3600 1312966111 6
-		VCL 12 120 3600 1312966113 8
+		RFC 60 -1 -1 1312966109 1312966109 1312966109 0 60
+		VCL 120 10 0 1312966111
 	
 
 

@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.0.2 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -330,13 +330,13 @@ here, in order to conserve VM space.</p>
 </ul>
 </div></blockquote>
 <p>If we run out of resources, such as file descriptors or worker threads, the acceptor will sleep between accepts.
-This parameter (multiplicatively) reduce the sleep duration for each succesfull accept. (ie: 0.9 = reduce by 10%)</p>
+This parameter (multiplicatively) reduce the sleep duration for each successful accept. (ie: 0.9 = reduce by 10%)</p>
 </div>
 <div class="section" id="acceptor-sleep-incr">
 <span id="ref-param-acceptor-sleep-incr"></span><h5>acceptor_sleep_incr<a class="headerlink" href="#acceptor-sleep-incr" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 0.001</li>
 <li>Minimum: 0.000</li>
 <li>Maximum: 1.000</li>
@@ -350,7 +350,7 @@ This parameter control how much longer we sleep, each time we fail to accept a n
 <span id="ref-param-acceptor-sleep-max"></span><h5>acceptor_sleep_max<a class="headerlink" href="#acceptor-sleep-max" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 0.050</li>
 <li>Minimum: 0.000</li>
 <li>Maximum: 10.000</li>
@@ -378,13 +378,13 @@ This parameter limits how long it can sleep between attempts to accept new conne
 <li>Default: on</li>
 </ul>
 </div></blockquote>
-<p>Elimited older identical bans when new bans are created.  This test is CPU intensive and scales with the number and complexity of active (non-Gone) bans.  If identical bans are frequent, the amount of CPU needed to actually test  the bans will be similarly reduced.</p>
+<p>Eliminate older identical bans when new bans are created.  This test is CPU intensive and scales with the number and complexity of active (non-Gone) bans.  If identical bans are frequent, the amount of CPU needed to actually test  the bans will be similarly reduced.</p>
 </div>
 <div class="section" id="ban-lurker-age">
 <span id="ref-param-ban-lurker-age"></span><h5>ban_lurker_age<a class="headerlink" href="#ban-lurker-age" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 60.000</li>
 <li>Minimum: 0.000</li>
 </ul>
@@ -405,7 +405,7 @@ This parameter limits how long it can sleep between attempts to accept new conne
 <span id="ref-param-ban-lurker-sleep"></span><h5>ban_lurker_sleep<a class="headerlink" href="#ban-lurker-sleep" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 0.010</li>
 <li>Minimum: 0.000</li>
 </ul>
@@ -417,7 +417,7 @@ A value of zero disables the ban lurker.</p>
 <span id="ref-param-between-bytes-timeout"></span><h5>between_bytes_timeout<a class="headerlink" href="#between-bytes-timeout" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 60.000</li>
 <li>Minimum: 0.000</li>
 </ul>
@@ -467,7 +467,7 @@ NB: Must be specified with -p to have effect.</p>
 <li>Maximum: 99999999b</li>
 </ul>
 </div></blockquote>
-<p>Maximum size of CLI response.  If the response exceeds this limit, the reponse code will be 201 instead of 200 and the last line will indicate the truncation.</p>
+<p>Maximum size of CLI response.  If the response exceeds this limit, the response code will be 201 instead of 200 and the last line will indicate the truncation.</p>
 </div>
 <div class="section" id="cli-timeout">
 <span id="ref-param-cli-timeout"></span><h5>cli_timeout<a class="headerlink" href="#cli-timeout" title="Permalink to this headline">¶</a></h5>
@@ -484,7 +484,7 @@ NB: Must be specified with -p to have effect.</p>
 <span id="ref-param-clock-skew"></span><h5>clock_skew<a class="headerlink" href="#clock-skew" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 10</li>
 <li>Minimum: 0</li>
 </ul>
@@ -495,7 +495,7 @@ NB: Must be specified with -p to have effect.</p>
 <span id="ref-param-connect-timeout"></span><h5>connect_timeout<a class="headerlink" href="#connect-timeout" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 3.500</li>
 <li>Minimum: 0.000</li>
 </ul>
@@ -506,14 +506,14 @@ NB: Must be specified with -p to have effect.</p>
 <span id="ref-param-critbit-cooloff"></span><h5>critbit_cooloff<a class="headerlink" href="#critbit-cooloff" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 180.000</li>
 <li>Minimum: 60.000</li>
 <li>Maximum: 254.000</li>
 <li>Flags: wizard</li>
 </ul>
 </div></blockquote>
-<p>How long time the critbit hasher keeps deleted objheads on the cooloff list.</p>
+<p>How long the critbit hasher keeps deleted objheads on the cooloff list.</p>
 </div>
 <div class="section" id="debug">
 <span id="ref-param-debug"></span><h5>debug<a class="headerlink" href="#debug" title="Permalink to this headline">¶</a></h5>
@@ -550,6 +550,8 @@ NB: Must be specified with -p to have effect.</p>
 <dd>VSL Ban lurker</dd>
 <dt><em>esi_chop</em></dt>
 <dd>Chop ESI fetch to bits</dd>
+<dt><em>flush_head</em></dt>
+<dd>Flush after http1 head</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -628,7 +630,7 @@ NB: Must be specified with -p to have effect.</p>
 <blockquote>
 <div><ul class="simple">
 <li>Units: bytes</li>
-<li>Default: 128k</li>
+<li>Default: 16k</li>
 <li>Minimum: 4k</li>
 <li>Flags: experimental</li>
 </ul>
@@ -652,7 +654,7 @@ Internal limits in the storage_file module makes increases above 128kb a dubious
 <span id="ref-param-first-byte-timeout"></span><h5>first_byte_timeout<a class="headerlink" href="#first-byte-timeout" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 60.000</li>
 <li>Minimum: 0.000</li>
 </ul>
@@ -796,7 +798,7 @@ The memory for the request is allocated from the client workspace (param: worksp
 <li>Minimum: 0.25k</li>
 </ul>
 </div></blockquote>
-<p>Maximum number of bytes of HTTP backend resonse we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
+<p>Maximum number of bytes of HTTP backend response we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
 The memory for the request is allocated from the worker workspace (param: thread_pool_workspace) and this parameter limits how much of that the request is allowed to take up.</p>
 </div>
 <div class="section" id="ref-param-idle-send-timeout">
@@ -1084,7 +1086,7 @@ This is mostly an anti-DoS measure, and setting it plenty high should not hurt, 
 <span id="ref-param-shortlived"></span><h5>shortlived<a class="headerlink" href="#shortlived" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Units: s</li>
+<li>Units: seconds</li>
 <li>Default: 10.000</li>
 <li>Minimum: 0.000</li>
 </ul>
@@ -1178,7 +1180,7 @@ Set this to a few milliseconds if you see the 'threads_failed' counter grow too 
 </div></blockquote>
 <p>Wait this long after destroying a thread.</p>
 <p>This controls the decay of thread pools when idle(-ish).</p>
-<p>Minimum is 0.01 second.</p>
+<p>Minimum is 0.01 seconds.</p>
 </div>
 <div class="section" id="thread-pool-fail-delay">
 <span id="ref-param-thread-pool-fail-delay"></span><h5>thread_pool_fail_delay<a class="headerlink" href="#thread-pool-fail-delay" title="Permalink to this headline">¶</a></h5>
@@ -1312,7 +1314,7 @@ A connection is considered idle, until we receive a non-white-space character on
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>How long time the workerthread lingers on an idle session before handing it over to the waiter.
+<p>How long the worker thread lingers on an idle session before handing it over to the waiter.
 When sessions are reused, as much as half of all reuses happen within the first 100 msec of the previous request completing.
 Setting this too high results in worker threads not doing anything for their keep, setting it too low just means that more sessions take a detour around the waiter.</p>
 </div>
@@ -1325,7 +1327,7 @@ Setting this too high results in worker threads not doing anything for their kee
 <li>Minimum: 0.000</li>
 </ul>
 </div></blockquote>
-<p>Max time to receive clients request header, measured from first non-white-space character to double CRNL.</p>
+<p>Max time to receive clients request headers, measured from first non-white-space character to double CRNL.</p>
 </div>
 <div class="section" id="user">
 <span id="ref-param-user"></span><h5>user<a class="headerlink" href="#user" title="Permalink to this headline">¶</a></h5>
@@ -1509,7 +1511,7 @@ Setting this too high costs memory, setting it too low will cause more VSL flush
 <li>Flags: delayed</li>
 </ul>
 </div></blockquote>
-<p>Bytes of auxillary workspace per thread.
+<p>Bytes of auxiliary workspace per thread.
 This workspace is used for certain temporary data structures during the operation of a worker thread.
 One use is for the io-vectors for writing requests and responses to sockets, having too little space will result in more writev(2) system calls, having too much just wastes the space.</p>
 </div>
@@ -1732,7 +1734,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

@@ -38,7 +38,7 @@
  *				'c' - Counter, never decreases.
  *				'g' - Gauge, goes up and down
  *				'i' - Integer (deprecated, use 'g')
- *    e - Explantion:	Short explanation of field (for screen use)
+ *    e - Explanation:	Short explanation of field (for screen use)
  *    d - Description:	Long explanation of field (for doc use)
  *
  * Please describe Gauge variables as "Number of..." to indicate that
@@ -63,7 +63,7 @@
 
 VSC_F(uptime,			uint64_t, 0, 'a', info,
     "Child process uptime",
-	""
+	"How long the child process has been running."
 )
 
 
@@ -73,7 +73,7 @@ VSC_F(uptime,			uint64_t, 0, 'a', info,
 
 VSC_F(sess_conn,		uint64_t, 1, 'c', info,
     "Sessions accepted",
-	"Count of sessions succesfully accepted"
+	"Count of sessions successfully accepted"
 )
 
 VSC_F(sess_drop,		uint64_t, 1, 'c', info,
@@ -85,7 +85,7 @@ VSC_F(sess_fail,		uint64_t, 1, 'c', info,
     "Session accept failures",
 	"Count of failures to accept TCP connection."
 	"  Either the client changed its mind, or the kernel ran out of"
-	" some resource like filedescriptors."
+	" some resource like file descriptors."
 )
 
 VSC_F(sess_pipe_overflow,	uint64_t, 1, 'c', info,
@@ -108,7 +108,7 @@ VSC_F(client_req_411,		uint64_t, 1, 'a', info,
 
 VSC_F(client_req_413,		uint64_t, 1, 'a', info,
     "Client requests received, subject to 413 errors",
-	"413 means that HTTP headers execeeded length or count limits."
+	"413 means that HTTP headers exceeded length or count limits."
 )
 
 VSC_F(client_req_417,		uint64_t, 1, 'a', info,
@@ -117,8 +117,8 @@ VSC_F(client_req_417,		uint64_t, 1, 'a', info,
 )
 
 VSC_F(client_req,		uint64_t, 1, 'a', info,
-    "Good Client requests received",
-	""
+    "Good client requests received",
+	"The count of parseable client requests seen."
 )
 
 /*---------------------------------------------------------------------*/
@@ -150,7 +150,8 @@ VSC_F(cache_miss,		uint64_t, 1, 'a', info,
 
 VSC_F(backend_conn,		uint64_t, 0, 'a', info,
     "Backend conn. success",
-	""
+	"How many backend connections have successfully been"
+	" established."
 )
 
 VSC_F(backend_unhealthy,	uint64_t, 0, 'a', info,
@@ -236,8 +237,12 @@ VSC_F(fetch_304,		uint64_t, 1, 'c', info,
 	"beresp with no body because of 304 response."
 )
 VSC_F(fetch_failed,		uint64_t, 1, 'c', info,
-    "Fetch body failed",
-	"beresp body fetch failed."
+    "Fetch failed (all causes)",
+	"beresp fetch failed."
+)
+VSC_F(fetch_no_thread,		uint64_t, 1, 'c', info,
+    "Fetch failed (no thread)",
+	"beresp fetch failed, no thread available."
 )
 
 /*---------------------------------------------------------------------
@@ -248,21 +253,22 @@ VSC_F(fetch_failed,		uint64_t, 1, 'c', info,
 
 VSC_F(pools,			uint64_t, 0, 'g', info,
     "Number of thread pools",
-	"Number of thread pools.  See also param wthread_pools."
+	"Number of thread pools.  See also parameter thread_pools."
 	"  NB: Presently pools cannot be removed once created."
 )
 
 VSC_F(threads,			uint64_t, 0, 'g', info,
     "Total number of threads",
 	"Number of threads in all pools."
-	"  See also params thread_pools, thread_pool_min & thread_pool_max."
+	"  See also parameters thread_pools, thread_pool_min and"
+	" thread_pool_max."
 )
 
 VSC_F(threads_limited,		uint64_t, 0, 'c', info,
     "Threads hit max",
 	"Number of times more threads were needed, but limit was reached"
 	" in a thread pool."
-	"  See also param thread_pool_max."
+	"  See also parameter thread_pool_max."
 )
 
 VSC_F(threads_created,		uint64_t, 0, 'c', info,
@@ -279,19 +285,19 @@ VSC_F(threads_failed,		uint64_t, 0, 'c', info,
     "Thread creation failed",
 	"Number of times creating a thread failed."
 	"  See VSL::Debug for diagnostics."
-	"  See also param thread_fail_delay."
+	"  See also parameter thread_fail_delay."
 )
 
 VSC_F(thread_queue_len,		uint64_t, 0, 'g', info,
     "Length of session queue",
 	"Length of session queue waiting for threads."
 	"  NB: Only updates once per second."
-	"  See also param queue_max."
+	"  See also parameter queue_max."
 )
 
 VSC_F(busy_sleep,		uint64_t, 1, 'c', info,
     "Number of requests sent to sleep on busy objhdr",
-	"Number of requests sent to sleep without a worker threads because"
+	"Number of requests sent to sleep without a worker thread because"
 	" they found a busy object."
 )
 
@@ -304,55 +310,56 @@ VSC_F(busy_wakeup,		uint64_t, 1, 'c', info,
 VSC_F(sess_queued,		uint64_t, 0, 'c', info,
     "Sessions queued for thread",
 	"Number of times session was queued waiting for a thread."
-	"  See also param queue_max."
+	"  See also parameter queue_max."
 )
 
 VSC_F(sess_dropped,		uint64_t, 0, 'c', info,
     "Sessions dropped for thread",
 	"Number of times session was dropped because the queue were too"
-	" long already."
-	"  See also param queue_max."
+	" long already. See also parameter queue_max."
 )
 
 /*---------------------------------------------------------------------*/
 
 VSC_F(n_object,			uint64_t, 1, 'i', info,
-    "N struct object",
-	""
+    "object structs made",
+        "Number of object structs made"
 )
 VSC_F(n_vampireobject,		uint64_t, 1, 'i', diag,
-    "N unresurrected objects",
-	""
+    "unresurrected objects",
+	"Number of unresurrected objects"
 )
 VSC_F(n_objectcore,		uint64_t, 1, 'i', info,
-    "N struct objectcore",
-	""
+    "objectcore structs made",
+       "Number of objectcore structs made"
 )
 VSC_F(n_objecthead,		uint64_t, 1, 'i', info,
-    "N struct objecthead",
-	""
+    "objecthead structs made",
+        "Number of objecthead structs made"
 )
 VSC_F(n_waitinglist,		uint64_t, 1, 'i', debug,
-    "N struct waitinglist",
-	""
+    "waitinglist structs made",
+        "Number of waitinglist structs made"
 )
 
 VSC_F(n_backend,		uint64_t, 0, 'i', info,
-    "N backends",
-	""
+    "Number of backends",
+	"Number of backends known to us."
 )
 
 VSC_F(n_expired,		uint64_t, 0, 'i', info,
-    "N expired objects",
-	""
+    "Number of expired objects",
+	"Number of objects that expired from cache"
+	" because of old age."
 )
 VSC_F(n_lru_nuked,		uint64_t, 0, 'i', info,
-    "N LRU nuked objects",
-	""
+    "Number of LRU nuked objects",
+	"How many objects have been forcefully evicted"
+	" from storage to make room for a new object."
 )
 VSC_F(n_lru_moved,		uint64_t, 0, 'i', diag,
-    "N LRU moved objects",
-	""
+    "Number of LRU moved objects",
+        "Number of move operations done on the LRU list."
 )
 
 VSC_F(losthdr,			uint64_t, 0, 'a', info,
@@ -361,27 +368,27 @@ VSC_F(losthdr,			uint64_t, 0, 'a', info,
 )
 
 VSC_F(s_sess,			uint64_t, 1, 'a', info,
-    "Total Sessions",
+    "Total sessions seen",
 	""
 )
 VSC_F(s_req,			uint64_t, 1, 'a', info,
-    "Total Requests",
+    "Total requests seen",
 	""
 )
 VSC_F(s_pipe,			uint64_t, 1, 'a', info,
-    "Total pipe",
+    "Total pipe sessions seen",
 	""
 )
 VSC_F(s_pass,			uint64_t, 1, 'a', info,
-    "Total pass",
+    "Total pass-ed requests seen",
 	""
 )
 VSC_F(s_fetch,			uint64_t, 1, 'a', info,
-    "Total fetch",
+    "Total backend fetches initiated",
 	""
 )
 VSC_F(s_synth,			uint64_t, 1, 'a', info,
-    "Total synth",
+    "Total synthethic responses made",
 	""
 )
 VSC_F(s_req_hdrbytes,		uint64_t, 1, 'a', info,
@@ -397,7 +404,7 @@ VSC_F(s_resp_hdrbytes,		uint64_t, 1, 'a', info,
 	"Total response header bytes transmitted"
 )
 VSC_F(s_resp_bodybytes,		uint64_t, 1, 'a', info,
-    "Reponse body bytes",
+    "Response body bytes",
 	"Total response body bytes transmitted"
 )
 VSC_F(s_pipe_hdrbytes,		uint64_t, 0, 'a', info,
@@ -488,15 +495,15 @@ VSC_F(backend_req,		uint64_t, 0, 'a', info,
 /*--------------------------------------------------------------------*/
 
 VSC_F(n_vcl,			uint64_t, 0, 'a', info,
-    "N vcl total",
+    "Number of loaded VCLs in total",
 	""
 )
 VSC_F(n_vcl_avail,		uint64_t, 0, 'a', diag,
-    "N vcl available",
+    "Number of VCLs available",
 	""
 )
 VSC_F(n_vcl_discard,		uint64_t, 0, 'a', diag,
-    "N vcl discarded",
+    "Number of discarded VCLs",
 	""
 )
 
@@ -584,11 +591,11 @@ VSC_F(bans_persisted_fragmentation,	uint64_t, 0, 'g', diag,
 /*--------------------------------------------------------------------*/
 
 VSC_F(n_purges,			uint64_t, 0, 'i', info,
-    "Number of purge operations",
+    "Number of purge operations executed",
 	""
 )
 VSC_F(n_obj_purged,		uint64_t, 0, 'i', info,
-    "number of purged objects",
+    "Number of purged objects",
 	""
 )
 

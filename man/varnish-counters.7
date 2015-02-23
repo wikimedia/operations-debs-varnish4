@@ -1,35 +1,8 @@
-.\" Man page generated from reStructeredText.
-.
-.TH VARNISH-COUNTERS 7 "2011-09-20" "1.0" ""
+.TH VARNISH-COUNTERS  "" "" ""
 .SH NAME
 varnish-counters \- Varnish counter field definitions
+.\" Man page generated from reStructeredText.
 .
-.nr rst2man-indent-level 0
-.
-.de1 rstReportMargin
-\\$1 \\n[an-margin]
-level \\n[rst2man-indent-level]
-level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
--
-\\n[rst2man-indent0]
-\\n[rst2man-indent1]
-\\n[rst2man-indent2]
-..
-.de1 INDENT
-.\" .rstReportMargin pre:
-. RS \\$1
-. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
-. nr rst2man-indent-level +1
-.\" .rstReportMargin post:
-..
-.de UNINDENT
-. RE
-.\" indent \\n[an-margin]
-.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.nr rst2man-indent-level -1
-.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
-.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
-..
 .SH COUNTER LEVELS
 .INDENT 0.0
 .TP
@@ -43,18 +16,19 @@ Counters giving diagnostic information
 Counters giving Varnish internals debug information
 .UNINDENT
 .SH MAIN COUNTERS
-.sp
-uptime – Child process uptime (INFO)
 .INDENT 0.0
 .TP
+.B uptime – Child process uptime (INFO)
+How long the child process has been running.
+.TP
 .B sess_conn – Sessions accepted (INFO)
-Count of sessions succesfully accepted
+Count of sessions successfully accepted
 .TP
 .B sess_drop – Sessions dropped (INFO)
 Count of sessions silently dropped due to lack of worker thread.
 .TP
 .B sess_fail – Session accept failures (INFO)
-Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like filedescriptors.
+Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like file descriptors.
 .TP
 .B sess_pipe_overflow – Session pipe overflow (INFO)
 Count of sessions dropped due to the session pipe overflowing.
@@ -66,14 +40,13 @@ Count of sessions dropped due to the session pipe overflowing.
 411 means the client did not send a Content\-Lenght for the req.body.
 .TP
 .B client_req_413 – Client requests received, subject to 413 errors (INFO)
-413 means that HTTP headers execeeded length or count limits.
+413 means that HTTP headers exceeded length or count limits.
 .TP
 .B client_req_417 – Client requests received, subject to 417 errors (INFO)
 417 means that something went wrong with an Expect: header.
-.UNINDENT
-.sp
-client_req – Good Client requests received (INFO)
-.INDENT 0.0
+.TP
+.B client_req – Good client requests received (INFO)
+The count of parseable client requests seen.
 .TP
 .B cache_hit – Cache hits (INFO)
 Count of cache hits.   A cache hit indicates that an object has been delivered to a  client without fetching it from a backend server.
@@ -83,9 +56,10 @@ Count of hits for pass  A cache hit for pass indicates that Varnish is going to 
 .TP
 .B cache_miss – Cache misses (INFO)
 Count of misses  A cache miss indicates the object was fetched from the  backend before delivering it to the backend.
+.TP
+.B backend_conn – Backend conn. success (INFO)
+How many backend connections have successfully been established.
 .UNINDENT
-.sp
-backend_conn – Backend conn. success (INFO)
 .sp
 backend_unhealthy – Backend conn. not attempted (INFO)
 .sp
@@ -141,17 +115,20 @@ beresp with no body because of 204 response.
 .B fetch_304 – Fetch no body (304) (INFO)
 beresp with no body because of 304 response.
 .TP
-.B fetch_failed – Fetch body failed (INFO)
-beresp body fetch failed.
+.B fetch_failed – Fetch failed (all causes) (INFO)
+beresp fetch failed.
+.TP
+.B fetch_no_thread – Fetch failed (no thread) (INFO)
+beresp fetch failed, no thread available.
 .TP
 .B pools – Number of thread pools (INFO)
-Number of thread pools.  See also param wthread_pools.  NB: Presently pools cannot be removed once created.
+Number of thread pools.  See also parameter thread_pools.  NB: Presently pools cannot be removed once created.
 .TP
 .B threads – Total number of threads (INFO)
-Number of threads in all pools.  See also params thread_pools, thread_pool_min & thread_pool_max.
+Number of threads in all pools.  See also parameters thread_pools, thread_pool_min and thread_pool_max.
 .TP
 .B threads_limited – Threads hit max (INFO)
-Number of times more threads were needed, but limit was reached in a thread pool.  See also param thread_pool_max.
+Number of times more threads were needed, but limit was reached in a thread pool.  See also parameter thread_pool_max.
 .TP
 .B threads_created – Threads created (INFO)
 Total number of threads created in all pools.
@@ -160,55 +137,64 @@ Total number of threads created in all pools.
 Total number of threads destroyed in all pools.
 .TP
 .B threads_failed – Thread creation failed (INFO)
-Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also param thread_fail_delay.
+Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also parameter thread_fail_delay.
 .TP
 .B thread_queue_len – Length of session queue (INFO)
-Length of session queue waiting for threads.  NB: Only updates once per second.  See also param queue_max.
+Length of session queue waiting for threads.  NB: Only updates once per second.  See also parameter queue_max.
 .TP
 .B busy_sleep – Number of requests sent to sleep on busy objhdr (INFO)
-Number of requests sent to sleep without a worker threads because they found a busy object.
+Number of requests sent to sleep without a worker thread because they found a busy object.
 .TP
 .B busy_wakeup – Number of requests woken after sleep on busy objhdr (INFO)
 Number of requests taken of the busy object sleep list and and rescheduled.
 .TP
 .B sess_queued – Sessions queued for thread (INFO)
-Number of times session was queued waiting for a thread.  See also param queue_max.
+Number of times session was queued waiting for a thread.  See also parameter queue_max.
 .TP
 .B sess_dropped – Sessions dropped for thread (INFO)
-Number of times session was dropped because the queue were too long already.  See also param queue_max.
+Number of times session was dropped because the queue were too long already. See also parameter queue_max.
+.TP
+.B n_object – object structs made (INFO)
+Number of object structs made
+.TP
+.B n_vampireobject – unresurrected objects (DIAG)
+Number of unresurrected objects
+.TP
+.B n_objectcore – objectcore structs made (INFO)
+Number of objectcore structs made
+.TP
+.B n_objecthead – objecthead structs made (INFO)
+Number of objecthead structs made
+.TP
+.B n_waitinglist – waitinglist structs made (DEBUG)
+Number of waitinglist structs made
+.TP
+.B n_backend – Number of backends (INFO)
+Number of backends known to us.
+.TP
+.B n_expired – Number of expired objects (INFO)
+Number of objects that expired from cache because of old age.
+.TP
+.B n_lru_nuked – Number of LRU nuked objects (INFO)
+How many objects have been forcefully evicted from storage to make room for a new object.
+.TP
+.B n_lru_moved – Number of LRU moved objects (DIAG)
+Number of move operations done on the LRU list.
 .UNINDENT
-.sp
-n_object – N struct object (INFO)
-.sp
-n_vampireobject – N unresurrected objects (DIAG)
-.sp
-n_objectcore – N struct objectcore (INFO)
-.sp
-n_objecthead – N struct objecthead (INFO)
-.sp
-n_waitinglist – N struct waitinglist (DEBUG)
-.sp
-n_backend – N backends (INFO)
-.sp
-n_expired – N expired objects (INFO)
-.sp
-n_lru_nuked – N LRU nuked objects (INFO)
-.sp
-n_lru_moved – N LRU moved objects (DIAG)
 .sp
 losthdr – HTTP header overflows (INFO)
 .sp
-s_sess – Total Sessions (INFO)
+s_sess – Total sessions seen (INFO)
 .sp
-s_req – Total Requests (INFO)
+s_req – Total requests seen (INFO)
 .sp
-s_pipe – Total pipe (INFO)
+s_pipe – Total pipe sessions seen (INFO)
 .sp
-s_pass – Total pass (INFO)
+s_pass – Total pass\-ed requests seen (INFO)
 .sp
-s_fetch – Total fetch (INFO)
+s_fetch – Total backend fetches initiated (INFO)
 .sp
-s_synth – Total synth (INFO)
+s_synth – Total synthethic responses made (INFO)
 .INDENT 0.0
 .TP
 .B s_req_hdrbytes – Request header bytes (INFO)
@@ -220,7 +206,7 @@ Total request body bytes received
 .B s_resp_hdrbytes – Response header bytes (INFO)
 Total response header bytes transmitted
 .TP
-.B s_resp_bodybytes – Reponse body bytes (INFO)
+.B s_resp_bodybytes – Response body bytes (INFO)
 Total response body bytes transmitted
 .TP
 .B s_pipe_hdrbytes – Pipe request header bytes (INFO)
@@ -263,11 +249,11 @@ sms_bfree – SMS bytes freed (DIAG)
 .sp
 backend_req – Backend requests made (INFO)
 .sp
-n_vcl – N vcl total (INFO)
+n_vcl – Number of loaded VCLs in total (INFO)
 .sp
-n_vcl_avail – N vcl available (DIAG)
+n_vcl_avail – Number of VCLs available (DIAG)
 .sp
-n_vcl_discard – N vcl discarded (DIAG)
+n_vcl_discard – Number of discarded VCLs (DIAG)
 .INDENT 0.0
 .TP
 .B bans – Count of bans (INFO)
@@ -319,9 +305,9 @@ Number of bytes used by the persisted ban lists.
 Number of extra bytes accumulated through dropped and completed bans in the persistent ban lists.
 .UNINDENT
 .sp
-n_purges – Number of purge operations (INFO)
+n_purges – Number of purge operations executed (INFO)
 .sp
-n_obj_purged – number of purged objects (INFO)
+n_obj_purged – Number of purged objects (INFO)
 .INDENT 0.0
 .TP
 .B exp_mailed – Number of objects mailed to expiry thread (DIAG)
@@ -434,8 +420,6 @@ Total number of bytes forwarded to backend in pipe sessions
 .B pipe_in – Piped bytes from backend (INFO)
 Total number of bytes forwarded from backend in pipe sessions
 .UNINDENT
-.SH AUTHOR
-Tollef Fog Heen
 .\" Generated by docutils manpage writer.
 .\" 
 .

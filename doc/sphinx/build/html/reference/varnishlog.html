@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishlog &mdash; Varnish version 4.0.2 documentation</title>
+    <title>varnishlog &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishncsa" href="varnishncsa.html" />
     <link rel="prev" title="varnishhist" href="varnishhist.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="varnishhist.html" title="varnishhist"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -59,7 +59,7 @@
 <h2>Display Varnish logs<a class="headerlink" href="#display-varnish-logs" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="synopsis">
 <h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
-<p>varnishlog [-a] [-b] [-B] [-c] [-C] [-d] [-D] [-g &lt;session|request|vxid|raw&gt;] [-h] [-i taglist] [-k num] [-I &lt;[taglist:]regex&gt;] [-L limit] [-n name] [-N filename] [-P file] [-q query] [-r filename] [-T seconds] [-v] [-V] [-w filename] [-x taglist] [-X &lt;[taglist:]regex&gt;] &lt;query expression&gt;</p>
+<p>varnishlog [-a] [-b] [-B] [-c] [-C] [-d] [-D] [-g &lt;session|request|vxid|raw&gt;] [-h] [-i taglist] [-I &lt;[taglist:]regex&gt;] [-k num] [-L limit] [-n name] [-N filename] [-P file] [-q query] [-r filename] [-T seconds] [-v] [-V] [-w filename] [-x taglist] [-X &lt;[taglist:]regex&gt;]</p>
 </div>
 <div class="section" id="options">
 <h3>OPTIONS<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
@@ -101,15 +101,15 @@
 <td><p class="first">Include log records of these tags in output. Taglist is a comma-separated list of tag globs. Multiple -i options may be given.</p>
 <p class="last">If a tag include option is the first of any tag selection options, all tags are first marked excluded.</p>
 </td></tr>
-<tr><td class="option-group">
-<kbd><span class="option">-k <var>num</var></span></kbd></td>
-<td>Process this number of matching log transactions before exiting.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-I <var>&lt;[taglist:]regex&gt;</var></span></kbd></td>
 </tr>
 <tr><td>&nbsp;</td><td><p class="first">Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent.</p>
 <p class="last">If a tag include option is the first of any tag selection options, all tags are first marked excluded.</p>
 </td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-k <var>num</var></span></kbd></td>
+<td>Process this number of matching log transactions before exiting.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-L <var>limit</var></span></kbd></td>
 <td>Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.</td></tr>
@@ -254,7 +254,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishhist.html" title="varnishhist"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

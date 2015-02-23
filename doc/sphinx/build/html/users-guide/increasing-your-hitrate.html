@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Achieving a high hitrate &mdash; Varnish version 4.0.2 documentation</title>
+    <title>Achieving a high hitrate &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="Varnish and Website Performance" href="performance.html" />
     <link rel="next" title="Purging and banning" href="purging.html" />
     <link rel="prev" title="Varnish and Website Performance" href="performance.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &raquo;</li> 
       </ul>
@@ -73,17 +73,16 @@ client-side tool makes sense. Here are the ones we commonly use.</p>
 <div class="section" id="tool-varnishtop">
 <h2>Tool: varnishtop<a class="headerlink" href="#tool-varnishtop" title="Permalink to this headline">¶</a></h2>
 <p>You can use varnishtop to identify what URLs are hitting the backend
-the most. <tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">txurl</span></tt> is an essential command, showing
-you the top <cite>txurl</cite> requests Varnish is sending to the backend. You
-can see some other examples of <cite>varnishtop</cite> usage in
-<a class="reference internal" href="operation-statistics.html#users-guide-statistics"><em>Statistics</em></a>.</p>
+the most. <tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">BereqURL</span></tt> is an essential command, showing
+you the top requests Varnish is sending to the backend. You can see some
+other examples of <cite>varnishtop</cite> usage in <a class="reference internal" href="operation-statistics.html#users-guide-statistics"><em>Statistics</em></a>.</p>
 </div>
 <div class="section" id="tool-varnishlog">
 <h2>Tool: varnishlog<a class="headerlink" href="#tool-varnishlog" title="Permalink to this headline">¶</a></h2>
 <p>When you have identified an URL which is frequently sent to the
 backend you can use <cite>varnishlog</cite> to have a look at the request.
-<tt class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-c</span> <span class="pre">-m</span> <span class="pre">'RxURL:^/foo/bar</span></tt> will show you the requests
-coming from the client ('-c') matching <cite>/foo/bar</cite>.</p>
+<tt class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-q</span> <span class="pre">'ReqURL</span> <span class="pre">~</span> <span class="pre">&quot;^/foo/bar&quot;'</span></tt> will show you the requests
+coming from the client matching <cite>/foo/bar</cite>.</p>
 <p>For more information on how <cite>varnishlog</cite> works please see
 <a class="reference internal" href="operation-logging.html#users-guide-logging"><em>Logging in Varnish</em></a> or man <a class="reference internal" href="../reference/varnishlog.html#ref-varnishlog"><em>varnishlog</em></a>.</p>
 <p>For extended diagnostics headers, see
@@ -252,7 +251,8 @@ Cache-Control: public, max-age=600</pre>
 <div class="section" id="age">
 <h2>Age<a class="headerlink" href="#age" title="Permalink to this headline">¶</a></h2>
 <p>Varnish adds an 'Age' header to indicate how long the object has been
-kept inside Varnish. You can grep out 'Age' from <cite>varnishlog</cite> with <tt class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-i</span> <span class="pre">TxHeader</span> <span class="pre">-I</span> <span class="pre">^Age</span></tt>.</p>
+kept inside Varnish. You can grep out 'Age' from <cite>varnishlog</cite> with
+<tt class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-I</span> <span class="pre">RespHeader:^Age</span></tt>.</p>
 </div>
 <div class="section" id="pragma">
 <h2>Pragma<a class="headerlink" href="#pragma" title="Permalink to this headline">¶</a></h2>
@@ -336,8 +336,8 @@ Varnish to cache another version.</p>
 <p>To achieve a high hitrate whilst using Vary is there therefore
 crucial to normalize the headers the backends varies on. Remember,
 just a difference in casing can force different cache entries.</p>
-<p>The following VCL code will normalize the 'Accept-Language' headers,
-to one of either &quot;en&quot;, &quot;de&quot; or &quot;fr&quot;:</p>
+<p>The following VCL code will normalize the 'Accept-Language' header to
+either &quot;en&quot;, &quot;de&quot; or &quot;fr&quot;, in this order of precedence:</p>
 <div class="highlight-python"><pre>if (req.http.Accept-Language) {
     if (req.http.Accept-Language ~ "en") {
         set req.http.Accept-Language = "en";
@@ -352,8 +352,6 @@ to one of either &quot;en&quot;, &quot;de&quot; or &quot;fr&quot;:</p>
     }
 }</pre>
 </div>
-<p>The code sets the 'Accept-Encoding' header from the client to either
-gzip, deflate with a preference for gzip.</p>
 <div class="section" id="vary-parse-errors">
 <h2>Vary parse errors<a class="headerlink" href="#vary-parse-errors" title="Permalink to this headline">¶</a></h2>
 <p>Varnish will return a &quot;503 internal server error&quot; page when it fails
@@ -450,7 +448,7 @@ above code as a template.</p>
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" >Varnish and Website Performance</a> &raquo;</li> 
       </ul>

@@ -435,8 +435,8 @@ HSH_Lookup(struct req *req, struct objcore **ocp, struct objcore **bocp,
 			assert(oh->refcnt > 1);
 			assert(oc->objhead == oh);
 			oc->refcnt++;
-			if (oh->hits < LONG_MAX)
-				oh->hits++;
+			if (oc->hits < LONG_MAX)
+				oc->hits++;
 			Lck_Unlock(&oh->mtx);
 			assert(HSH_DerefObjHead(&wrk->stats, &oh));
 			*ocp = oc;
@@ -464,8 +464,8 @@ HSH_Lookup(struct req *req, struct objcore **ocp, struct objcore **bocp,
 			AZ(req->hash_ignore_busy);
 			retval = HSH_EXP;
 		}
-		if (oh->hits < LONG_MAX)
-			oh->hits++;
+		if (exp_oc->hits < LONG_MAX)
+			exp_oc->hits++;
 		Lck_Unlock(&oh->mtx);
 		if (retval == HSH_EXP)
 			assert(HSH_DerefObjHead(&wrk->stats, &oh));
@@ -520,6 +520,7 @@ hsh_rush(struct dstat *ds, struct objhead *oh)
 {
 	unsigned u;
 	struct req *req;
+	struct sess *sp;
 	struct waitinglist *wl;
 
 	CHECK_OBJ_NOTNULL(oh, OBJHEAD_MAGIC);
@@ -537,9 +538,25 @@ hsh_rush(struct dstat *ds, struct objhead *oh)
 		DSL(DBG_WAITINGLIST, req->vsl->wid, "off waiting list");
 		if (SES_ScheduleReq(req)) {
 			/*
-			 * We could not schedule the session, put it back.
+			 * In case of overloads, we ditch the entire
+			 * waiting list.
 			 */
-			VTAILQ_INSERT_HEAD(&wl->list, req, w_list);
+			while (1) {
+				AN (req->vcl);
+				VCL_Rel(&req->vcl);
+				sp = req->sp;
+				CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
+				CNT_AcctLogCharge(ds, req);
+				SES_ReleaseReq(req);
+				SES_Delete(sp, SC_OVERLOAD, NAN);
+				req = VTAILQ_FIRST(&wl->list);
+				if (req == NULL)
+					break;
+				CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+				VTAILQ_REMOVE(&wl->list, req, w_list);
+				DSL(DBG_WAITINGLIST, req->vsl->wid,
+				    "kill from waiting list");
+			}
 			break;
 		}
 	}

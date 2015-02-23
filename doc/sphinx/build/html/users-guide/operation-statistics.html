@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Statistics &mdash; Varnish version 4.0.2 documentation</title>
+    <title>Statistics &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="Reporting and statistics" href="report.html" />
     <link rel="next" title="Varnish and Website Performance" href="performance.html" />
     <link rel="prev" title="Logging in Varnish" href="operation-logging.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="operation-logging.html" title="Logging in Varnish"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="report.html" accesskey="U">Reporting and statistics</a> &raquo;</li> 
       </ul>
@@ -64,11 +64,10 @@ continuously updated list of the most commonly occurring log entries.</p>
 <p>With suitable filtering using the -I, -i, -X and -x options, it can be
 used to display a ranking of requested documents, clients, user
 agents, or any other information which is recorded in the log.</p>
-<p><tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">rxurl</span></tt> will show you what URLs are being asked for
-by the client. <tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">txurl</span></tt> will show you what your backend
-is being asked the most. <tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">RxHeader</span> <span class="pre">-I</span>
-<span class="pre">Accept-Encoding</span></tt> will show the most popular Accept-Encoding header
-the client are sending you.</p>
+<p><tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">ReqURL</span></tt> will show you what URLs are being asked for by
+the client. <tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">BereqURL</span></tt> will show you what your backend
+is being asked the most. <tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-I</span> <span class="pre">ReqHeader:Accept-Encoding</span></tt> will
+show the most popular Accept-Encoding header the client are sending you.</p>
 <p>For more information please see <a class="reference internal" href="../reference/varnishtop.html#ref-varnishtop"><em>varnishtop</em></a>.</p>
 </div>
 <div class="section" id="varnishhist">
@@ -153,7 +152,7 @@ the Varnish source code.</p>
         <li class="right" >
           <a href="operation-logging.html" title="Logging in Varnish"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="report.html" >Reporting and statistics</a> &raquo;</li> 
       </ul>

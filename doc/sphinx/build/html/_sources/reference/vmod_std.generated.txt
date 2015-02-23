@@ -37,6 +37,7 @@ they return the second argument, which must have the given TYPE.
 CONTENTS
 ========
 
+* :ref:`func_cache_req_body`
 * :ref:`func_collect`
 * :ref:`func_duration`
 * :ref:`func_fileread`
@@ -53,6 +54,7 @@ CONTENTS
 * :ref:`func_set_ip_tos`
 * :ref:`func_strstr`
 * :ref:`func_syslog`
+* :ref:`func_time`
 * :ref:`func_time2integer`
 * :ref:`func_time2real`
 * :ref:`func_timestamp`
@@ -65,10 +67,10 @@ STRING toupper(STRING_LIST)
 ---------------------------
 
 Prototype
-	STRING toupper(STRING_LIST)
+	STRING toupper(STRING_LIST s)
 
 Description
-	Converts the string *s* to upper case.
+	Converts the string *s* to uppercase.
 Example
 	set beresp.http.x-scream = std.toupper("yes!");
 
@@ -78,10 +80,10 @@ STRING tolower(STRING_LIST)
 ---------------------------
 
 Prototype
-	STRING tolower(STRING_LIST)
+	STRING tolower(STRING_LIST s)
 
 Description
-	Converts the string *s* to lower case.
+	Converts the string *s* to lowercase.
 Example
 	set beresp.http.x-nice = std.tolower("VerY");
 
@@ -91,11 +93,11 @@ VOID set_ip_tos(INT)
 --------------------
 
 Prototype
-	VOID set_ip_tos(INT)
+	VOID set_ip_tos(INT tos)
 
 Description
-	Sets the Type-of-Service flag for the current session. Please
-	note that the TOS flag is not removed by the end of the
+	Sets the IP type-of-service (TOS) field for the current session to *tos*.
+	Please note that the TOS field is not removed by the end of the
 	request so probably want to set it on every request should you
 	utilize it.
 Example
@@ -109,10 +111,10 @@ REAL random(REAL, REAL)
 -----------------------
 
 Prototype
-	REAL random(REAL, REAL)
+	REAL random(REAL lo, REAL hi)
 
 Description
-	Returns a random REAL number between *a* and *b*.
+	Returns a random real number between *lo* and *hi*.
 Example
 	set beresp.http.x-random-number = std.random(1, 100);
 
@@ -122,10 +124,10 @@ VOID log(STRING_LIST)
 ---------------------
 
 Prototype
-	VOID log(STRING_LIST)
+	VOID log(STRING_LIST s)
 
 Description
-	Logs *string* to the shared memory log, using VSL tag *SLT_VCL_Log*.
+	Logs the string *s* to the shared memory log, using VSL tag *SLT_VCL_Log*.
 Example
 	std.log("Something fishy is going on with the vhost " + req.host);
 
@@ -135,10 +137,10 @@ VOID syslog(INT, STRING_LIST)
 -----------------------------
 
 Prototype
-	VOID syslog(INT, STRING_LIST)
+	VOID syslog(INT priority, STRING_LIST s)
 
 Description
-	Logs *string* to syslog marked with *priority*.  See your
+	Logs the string *s* to syslog marked with *priority*.  See your
 	system's syslog.h file for the legal values of *priority*.
 Example
 	std.syslog(8 + 1, "Something is wrong");
@@ -165,12 +167,13 @@ VOID collect(HEADER)
 --------------------
 
 Prototype
-	VOID collect(HEADER)
+	VOID collect(HEADER hdr)
 
 Description
-	Collapses the header, joining the headers into one.
+	Collapses the header *hdr*, joining them into one.
 Example
 	std.collect(req.http.cookie);
+
 	This will collapse several Cookie: headers into one, long
 	cookie header.
 
@@ -180,12 +183,12 @@ DURATION duration(STRING, DURATION)
 -----------------------------------
 
 Prototype
-	DURATION duration(STRING, DURATION)
+	DURATION duration(STRING s, DURATION fallback)
 
 Description
 	Converts the string *s* to seconds. *s* must be quantified
 	with ms (milliseconds), s (seconds), m (minutes), h (hours),
-	d (days), w (weeks) or y (years) units. If *s* fails to parse,
+	d (days), w (weeks) or y (years) units. If conversion fails,
 	*fallback* will be returned.
 Example
 	set beresp.ttl = std.duration("1w", 3600s);
@@ -196,13 +199,15 @@ INT integer(STRING, INT)
 ------------------------
 
 Prototype
-	INT integer(STRING, INT)
+	INT integer(STRING s, INT fallback)
 
 Description
-	Converts the string *s* to an integer.  If *s* fails to parse,
+	Converts the string *s* to an integer.	If conversion fails,
 	*fallback* will be returned.
 Example
-	if (std.integer(beresp.http.x-foo, 0) > 5) { ... }
+	| if (std.integer(beresp.http.x-foo, 0) > 5) {
+	| 	...
+	| }
 
 .. _func_ip:
 
@@ -210,14 +215,16 @@ IP ip(STRING, IP)
 -----------------
 
 Prototype
-	IP ip(STRING, IP)
+	IP ip(STRING s, IP fallback)
 
 Description
-	Converts string *s* to the first IP number returned by
+	Converts the string *s* to the first IP number returned by
 	the system library function getaddrinfo(3).  If conversion
 	fails, *fallback* will be returned.
 Example
-	if (std.ip(req.http.X-forwarded-for, "0.0.0.0") ~ my_acl) { ... }
+	| if (std.ip(req.http.X-forwarded-for, "0.0.0.0") ~ my_acl) {
+	| 	...
+	| }
 
 .. _func_real:
 
@@ -225,10 +232,10 @@ REAL real(STRING, REAL)
 -----------------------
 
 Prototype
-	REAL real(STRING, REAL)
+	REAL real(STRING s, REAL fallback)
 
 Description
-	Converts the string *s* to a real.  If *s* fails to parse,
+	Converts the string *s* to a real.  If conversion fails,
 	*fallback* will be returned.
 Example
 	set req.http.x-real = std.real(req.http.x-foo, 0.0);
@@ -239,7 +246,7 @@ TIME real2time(REAL)
 --------------------
 
 Prototype
-	TIME real2time(REAL)
+	TIME real2time(REAL r)
 
 Description
 	Converts the real *r* to a time.
@@ -252,7 +259,7 @@ INT time2integer(TIME)
 ----------------------
 
 Prototype
-	INT time2integer(TIME)
+	INT time2integer(TIME t)
 
 Description
 	Converts the time *t* to a integer.
@@ -265,7 +272,7 @@ REAL time2real(TIME)
 --------------------
 
 Prototype
-	REAL time2real(TIME)
+	REAL time2real(TIME t)
 
 Description
 	Converts the time *t* to a real.
@@ -278,10 +285,10 @@ BOOL healthy(BACKEND)
 ---------------------
 
 Prototype
-	BOOL healthy(BACKEND)
+	BOOL healthy(BACKEND be)
 
 Description
-	Returns true if the backend is healthy.
+	Returns `true` if the backend *be* is healthy.
 
 .. _func_port:
 
@@ -289,10 +296,10 @@ INT port(IP)
 ------------
 
 Prototype
-	INT port(IP)
+	INT port(IP ip)
 
 Description
-	Returns the port number of an IP address.
+	Returns the port number of the IP address *ip*.
 
 .. _func_rollback:
 
@@ -300,10 +307,10 @@ VOID rollback(HTTP)
 -------------------
 
 Prototype
-	VOID rollback(HTTP)
+	VOID rollback(HTTP h)
 
 Description
-	Restore *h* HTTP headers to their original state.
+	Restores the *h* HTTP headers to their original state.
 Example
 	std.rollback(bereq);
 
@@ -313,13 +320,13 @@ VOID timestamp(STRING)
 ----------------------
 
 Prototype
-	VOID timestamp(STRING)
+	VOID timestamp(STRING s)
 
 Description
-	Introduces a timestamp in the log with the current time. Uses
-	the argument as the timespamp label. This is useful to time
-	the execution of lengthy VCL procedures, and makes the
-	timestamps inserted automatically by Varnish more accurate.
+	Introduces a timestamp in the log with the current time, using
+	the string *s* as the label. This is useful to time the execution
+	of lengthy VCL procedures, and makes the timestamps inserted
+	automatically by Varnish more accurate.
 Example
 	std.timestamp("curl-request");
 
@@ -332,10 +339,27 @@ Prototype
 	STRING querysort(STRING)
 
 Description
-        Sorts the querystring for cache normalization purposes.
+	Sorts the query string for cache normalization purposes.
 Example
         set req.url = std.querysort(req.url);
 
+.. _func_cache_req_body:
+
+VOID cache_req_body(BYTES)
+--------------------------
+
+Prototype
+	VOID cache_req_body(BYTES size)
+
+Description
+	Cache the req.body if it is smaller than *size*.
+
+	Caching the req.body makes it possible to retry pass
+	operations (POST, PUT).
+Example
+	std.cache_req_body(1KB);
+
+	This will cache the req.body if its size is smaller than 1KB.
 
 .. _func_strstr:
 
@@ -343,20 +367,42 @@ STRING strstr(STRING, STRING)
 -----------------------------
 
 Prototype
-	STRING strstr(STRING, STRING)
+	STRING strstr(STRING s1, STRING s2)
 
 Description
-	Returns the substring if the second string is a substring of the first
-	string. Note that the comparison is case sensitive. You can
-	use the tolower function on both strings if you want case
-	insensitivity.
+	Returns the first occurrence of the string *s2* in the string
+	*s1*, or an empty string if not found.
 
-        If there is no match a NULL pointer is returned which would
-        evaluate to false in an if-test.
-
+	Note that the comparison is case sensitive.
 Example
-	if (std.strstr(req.url, req.http.x-restrict))
+	| if (std.strstr(req.url, req.http.x-restrict)) {
+	| 	...
+	| }
 
+.. _func_time:
+
+TIME time(STRING, TIME)
+-----------------------
+
+Prototype
+	TIME time(STRING s, TIME fallback)
+
+Description
+	Converts the string *s* to a time.  If conversion fails,
+	*fallback* will be returned.
+
+	Supported formats:
+
+	| "Sun, 06 Nov 1994 08:49:37 GMT"
+	| "Sunday, 06-Nov-94 08:49:37 GMT"
+	| "Sun Nov  6 08:49:37 1994"
+	| "1994-11-06T08:49:37"
+	| "784111777.00"
+	| "784111777"
+Example
+	| if (std.time(resp.http.last-modified, now) < now - 1w) {
+	| 	...
+	| }
 
 
 SEE ALSO

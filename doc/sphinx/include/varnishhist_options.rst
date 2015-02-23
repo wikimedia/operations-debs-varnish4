@@ -32,7 +32,7 @@
 
 -P <size|responsetime|tag:field_num:min:max>
 
-	Either specify "size" or "responstime" profile or create a new one. Define the tag we'll look for, and the field number of the value we are interested in. min and max are the boundaries of the graph (these are power of tens).
+	Either specify "size" or "responsetime" profile or create a new one. Define the tag we'll look for, and the field number of the value we are interested in. min and max are the boundaries of the graph (these are power of tens).
 
 -q query
 

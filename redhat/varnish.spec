@@ -1,15 +1,15 @@
-%define XXXv_rc rc1
+%define XXXv_rc rc3
 %define vd_rc %{?v_rc:-%{?v_rc}}
 %define    _use_internal_dependency_generator 0
 %define __find_provides %{_builddir}/varnish-%{version}%{?v_rc:-%{?v_rc}}/redhat/find-provides
 Summary: High-performance HTTP accelerator
 Name: varnish
-Version: 4.0.2
+Version: 4.0.3
 #Release: 0.20140328%{?v_rc}%{?dist}
 Release: 1%{?v_rc}%{?dist}
 License: BSD
 Group: System Environment/Daemons
-URL: http://www.varnish-cache.org/
+URL: https://www.varnish-cache.org/
 #Source0: http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
 Source0: %{name}-%{version}%{?vd_rc}.tar.gz
 #Source0: %{name}-trunk.tar.gz
@@ -102,7 +102,9 @@ Documentation files for %name
 	export PCRE_LIBS="`pcre-config --libs`"
 %endif
 
-export CFLAGS="$CFLAGS -Wp,-D_FORTIFY_SOURCE=0"
+%if 0%{?rhel} == 6
+export CFLAGS="$CFLAGS -O2 -g -Wp,-D_FORTIFY_SOURCE=0"
+%endif
 
 # Remove "--disable static" if you want to build static libraries
 # jemalloc is not compatible with Red Hat's ppc64 RHEL kernel :-(

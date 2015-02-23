@@ -166,6 +166,24 @@ sub vcl_recv {
 }
 .ft P
 .fi
+.SS Comments
+.sp
+Single lines of VCL can be commented out using // or #. Multi\-line blocks can
+be commented out with /* block /*.
+.sp
+Example:
+.sp
+.nf
+.ft C
+sub vcl_recv {
+    // Single line of out\-commented VCL.
+    # Another way of commenting out a single line.
+    /*
+        Multi\-line block of commented\-out VCL.
+    */
+}
+.ft P
+.fi
 .SS Backend definition
 .sp
 A backend declaration creates and initialises a named backend object. A
@@ -482,7 +500,9 @@ Type: BOOL
 .sp
 Readable from: backend
 .sp
-Writable from: backend
+Indicates whether this request is uncacheable due
+to a pass in the client side or a hit on an existing
+uncacheable object (aka hit\-for\-pass).
 .UNINDENT
 .UNINDENT
 .sp
@@ -639,6 +659,14 @@ Type: DURATION
 Readable from: vcl_backend_response, vcl_backend_error
 .sp
 Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Set to a period to enable conditional backend requests.
+.sp
+The keep time is cache lifetime in addition to the ttl.
+.sp
+Objects with ttl expired but with keep time left may be used
+to issue conditional (If\-Modified\-Since / If\-None\-Match)
+requests to the backend to refresh them.
 .UNINDENT
 .UNINDENT
 .sp
@@ -717,6 +745,14 @@ Type: BOOL
 Readable from: vcl_backend_response, vcl_backend_error
 .sp
 Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Inherited from bereq.uncacheable, see there.
+.sp
+Setting this variable makes the object uncacheable, which may
+get stored as a hit\-for\-pass object in the cache.
+.sp
+Clearing the variable has no effect and will log the warning
+"Ignoring attempt to reset beresp.uncacheable".
 .UNINDENT
 .UNINDENT
 .SS client
@@ -767,7 +803,7 @@ Type: DURATION
 .sp
 Readable from: vcl_hit
 .sp
-The object\(aqs grace period in seconds.
+The object\(aqs remaining grace period in seconds.
 .UNINDENT
 .UNINDENT
 .sp
@@ -778,12 +814,8 @@ Type: INT
 .sp
 Readable from: vcl_hit, vcl_deliver
 .sp
-The count of cache\-hits on this hash\-key since it was
-last instantiated.  This counts cache\-hits across all
-Vary:\-ants on this hash\-key.
-The counter will only be reset to zero if/when all objects
-with this hash\-key have disappeared from cache.
-NB: obj.hits == 0 does \fInot\fP indicate a cache miss.
+The count of cache\-hits on this object. A value of 0 indicates a
+cache miss.
 .UNINDENT
 .UNINDENT
 .sp
@@ -804,6 +836,8 @@ obj.keep
 Type: DURATION
 .sp
 Readable from: vcl_hit
+.sp
+The object\(aqs remaining keep period in seconds.
 .UNINDENT
 .UNINDENT
 .sp
@@ -856,7 +890,9 @@ obj.uncacheable
 .INDENT 3.5
 Type: BOOL
 .sp
-Readable from: vcl_hit
+Readable from: vcl_deliver
+.sp
+Whether the object is uncacheable (pass or hit\-for\-pass).
 .UNINDENT
 .UNINDENT
 .SS req

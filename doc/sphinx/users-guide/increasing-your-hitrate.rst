@@ -24,10 +24,9 @@ Tool: varnishtop
 ~~~~~~~~~~~~~~~~
 
 You can use varnishtop to identify what URLs are hitting the backend
-the most. ``varnishtop -i txurl`` is an essential command, showing
-you the top `txurl` requests Varnish is sending to the backend. You
-can see some other examples of `varnishtop` usage in
-:ref:`users-guide-statistics`.
+the most. ``varnishtop -i BereqURL`` is an essential command, showing
+you the top requests Varnish is sending to the backend. You can see some
+other examples of `varnishtop` usage in :ref:`users-guide-statistics`.
 
 
 Tool: varnishlog
@@ -35,8 +34,8 @@ Tool: varnishlog
 
 When you have identified an URL which is frequently sent to the
 backend you can use `varnishlog` to have a look at the request.
-``varnishlog -c -m 'RxURL:^/foo/bar`` will show you the requests
-coming from the client ('-c') matching `/foo/bar`.
+``varnishlog -q 'ReqURL ~ "^/foo/bar"'`` will show you the requests
+coming from the client matching `/foo/bar`.
 
 For more information on how `varnishlog` works please see
 :ref:`users-guide-logging` or man :ref:`ref-varnishlog`.
@@ -241,7 +240,8 @@ Age
 ~~~
 
 Varnish adds an 'Age' header to indicate how long the object has been
-kept inside Varnish. You can grep out 'Age' from `varnishlog` with ``varnishlog -i TxHeader -I ^Age``.
+kept inside Varnish. You can grep out 'Age' from `varnishlog` with
+``varnishlog -I RespHeader:^Age``.
 
 Pragma
 ~~~~~~
@@ -343,8 +343,8 @@ To achieve a high hitrate whilst using Vary is there therefore
 crucial to normalize the headers the backends varies on. Remember,
 just a difference in casing can force different cache entries.
 
-The following VCL code will normalize the 'Accept-Language' headers,
-to one of either "en", "de" or "fr"::
+The following VCL code will normalize the 'Accept-Language' header to
+either "en", "de" or "fr", in this order of precedence::
 
     if (req.http.Accept-Language) {
         if (req.http.Accept-Language ~ "en") {
@@ -359,9 +359,6 @@ to one of either "en", "de" or "fr"::
             unset req.http.Accept-Language
         }
     }
-
-The code sets the 'Accept-Encoding' header from the client to either
-gzip, deflate with a preference for gzip.
 
 Vary parse errors
 ~~~~~~~~~~~~~~~~~

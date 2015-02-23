@@ -126,11 +126,12 @@ Clear the last panic, if any.
 .B storage.list
 List storage devices
 .TP
-.B backend.list
-List all backends
+.B backend.list [<backend_expression>]
+List backends.
 .TP
-.B backend.set_health matcher state
-Set health status on a backend
+.B backend.set_health <backend_expression> <state>
+Set health status on the backends.
+State is any of auto, healthy or sick values.
 .TP
 .B ban <field> <operator> <arg> [&& <field> <oper> <arg>]...
 All objects where the all the conditions match will be marked obsolete.
@@ -138,6 +139,12 @@ All objects where the all the conditions match will be marked obsolete.
 .B ban.list
 List the active bans.
 .UNINDENT
+.SS Backend Expression
+.sp
+A backend expression can be a backend name or a combination of backend
+name, IP address and port in "name(IP address:port)" format. All fields
+are optional. If no exact matching backend is found, partial matching
+will be attempted based on the provided name, IP address and port fields.
 .SS Ban Expressions
 .sp
 A ban expression consists of one or more conditions.  A condition

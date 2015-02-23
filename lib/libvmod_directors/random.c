@@ -46,7 +46,6 @@ struct vmod_directors_random {
 #define VMOD_DIRECTORS_RANDOM_MAGIC		0x4732d092
 	struct vdir				*vd;
 	unsigned				n_backend;
-	struct vbitmap				*vbm;
 };
 
 static unsigned __match_proto__(vdi_healthy)
@@ -75,7 +74,7 @@ vmod_rr_getfd(const struct director *dir, struct busyobj *bo)
 }
 
 VCL_VOID __match_proto__()
-vmod_random__init(const struct vrt_ctx *ctx, struct vmod_directors_random **rrp,
+vmod_random__init(VRT_CTX, struct vmod_directors_random **rrp,
     const char *vcl_name)
 {
 	struct vmod_directors_random *rr;
@@ -85,8 +84,6 @@ vmod_random__init(const struct vrt_ctx *ctx, struct vmod_directors_random **rrp,
 	AZ(*rrp);
 	ALLOC_OBJ(rr, VMOD_DIRECTORS_RANDOM_MAGIC);
 	AN(rr);
-	rr->vbm = vbit_init(8);
-	AN(rr->vbm);
 	*rrp = rr;
 	vdir_new(&rr->vd, vcl_name, vmod_rr_healthy, vmod_rr_getfd, rr);
 }
@@ -100,12 +97,11 @@ vmod_random__fini(struct vmod_directors_random **rrp)
 	*rrp = NULL;
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_RANDOM_MAGIC);
 	vdir_delete(&rr->vd);
-	vbit_destroy(rr->vbm);
 	FREE_OBJ(rr);
 }
 
 VCL_VOID __match_proto__()
-vmod_random_add_backend(const struct vrt_ctx *ctx,
+vmod_random_add_backend(VRT_CTX,
     struct vmod_directors_random *rr, VCL_BACKEND be, double w)
 {
 
@@ -116,7 +112,7 @@ vmod_random_add_backend(const struct vrt_ctx *ctx,
 }
 
 VCL_BACKEND __match_proto__()
-vmod_random_backend(const struct vrt_ctx *ctx, struct vmod_directors_random *rr)
+vmod_random_backend(VRT_CTX, struct vmod_directors_random *rr)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_RANDOM_MAGIC);

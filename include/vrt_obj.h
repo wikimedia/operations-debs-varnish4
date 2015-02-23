@@ -4,156 +4,155 @@
  * Edit and run generate.py instead
  */
 
-VCL_HTTP VRT_r_bereq(const struct vrt_ctx *);
+VCL_HTTP VRT_r_bereq(VRT_CTX);
 
-VCL_BACKEND VRT_r_bereq_backend(const struct vrt_ctx *);
-void VRT_l_bereq_backend(const struct vrt_ctx *, VCL_BACKEND);
+VCL_BACKEND VRT_r_bereq_backend(VRT_CTX);
+void VRT_l_bereq_backend(VRT_CTX, VCL_BACKEND);
 
-VCL_DURATION VRT_r_bereq_between_bytes_timeout(const struct vrt_ctx *);
-void VRT_l_bereq_between_bytes_timeout(const struct vrt_ctx *, VCL_DURATION);
+VCL_DURATION VRT_r_bereq_between_bytes_timeout(VRT_CTX);
+void VRT_l_bereq_between_bytes_timeout(VRT_CTX, VCL_DURATION);
 
-VCL_DURATION VRT_r_bereq_connect_timeout(const struct vrt_ctx *);
-void VRT_l_bereq_connect_timeout(const struct vrt_ctx *, VCL_DURATION);
+VCL_DURATION VRT_r_bereq_connect_timeout(VRT_CTX);
+void VRT_l_bereq_connect_timeout(VRT_CTX, VCL_DURATION);
 
-VCL_DURATION VRT_r_bereq_first_byte_timeout(const struct vrt_ctx *);
-void VRT_l_bereq_first_byte_timeout(const struct vrt_ctx *, VCL_DURATION);
-
-
-VCL_STRING VRT_r_bereq_method(const struct vrt_ctx *);
-void VRT_l_bereq_method(const struct vrt_ctx *, const char *, ...);
-
-VCL_STRING VRT_r_bereq_proto(const struct vrt_ctx *);
-void VRT_l_bereq_proto(const struct vrt_ctx *, const char *, ...);
-
-VCL_INT VRT_r_bereq_retries(const struct vrt_ctx *);
-
-VCL_BOOL VRT_r_bereq_uncacheable(const struct vrt_ctx *);
-void VRT_l_bereq_uncacheable(const struct vrt_ctx *, VCL_BOOL);
-
-VCL_STRING VRT_r_bereq_url(const struct vrt_ctx *);
-void VRT_l_bereq_url(const struct vrt_ctx *, const char *, ...);
-
-VCL_STRING VRT_r_bereq_xid(const struct vrt_ctx *);
-
-VCL_HTTP VRT_r_beresp(const struct vrt_ctx *);
-
-VCL_IP VRT_r_beresp_backend_ip(const struct vrt_ctx *);
-
-VCL_STRING VRT_r_beresp_backend_name(const struct vrt_ctx *);
-
-VCL_BOOL VRT_r_beresp_do_esi(const struct vrt_ctx *);
-void VRT_l_beresp_do_esi(const struct vrt_ctx *, VCL_BOOL);
-
-VCL_BOOL VRT_r_beresp_do_gunzip(const struct vrt_ctx *);
-void VRT_l_beresp_do_gunzip(const struct vrt_ctx *, VCL_BOOL);
-
-VCL_BOOL VRT_r_beresp_do_gzip(const struct vrt_ctx *);
-void VRT_l_beresp_do_gzip(const struct vrt_ctx *, VCL_BOOL);
-
-VCL_BOOL VRT_r_beresp_do_stream(const struct vrt_ctx *);
-void VRT_l_beresp_do_stream(const struct vrt_ctx *, VCL_BOOL);
-
-VCL_DURATION VRT_r_beresp_grace(const struct vrt_ctx *);
-void VRT_l_beresp_grace(const struct vrt_ctx *, VCL_DURATION);
+VCL_DURATION VRT_r_bereq_first_byte_timeout(VRT_CTX);
+void VRT_l_bereq_first_byte_timeout(VRT_CTX, VCL_DURATION);
 
 
-VCL_DURATION VRT_r_beresp_keep(const struct vrt_ctx *);
-void VRT_l_beresp_keep(const struct vrt_ctx *, VCL_DURATION);
+VCL_STRING VRT_r_bereq_method(VRT_CTX);
+void VRT_l_bereq_method(VRT_CTX, const char *, ...);
 
-VCL_STRING VRT_r_beresp_proto(const struct vrt_ctx *);
-void VRT_l_beresp_proto(const struct vrt_ctx *, const char *, ...);
+VCL_STRING VRT_r_bereq_proto(VRT_CTX);
+void VRT_l_bereq_proto(VRT_CTX, const char *, ...);
 
-VCL_STRING VRT_r_beresp_reason(const struct vrt_ctx *);
-void VRT_l_beresp_reason(const struct vrt_ctx *, const char *, ...);
+VCL_INT VRT_r_bereq_retries(VRT_CTX);
 
-VCL_INT VRT_r_beresp_status(const struct vrt_ctx *);
-void VRT_l_beresp_status(const struct vrt_ctx *, VCL_INT);
+VCL_BOOL VRT_r_bereq_uncacheable(VRT_CTX);
 
-VCL_STRING VRT_r_beresp_storage_hint(const struct vrt_ctx *);
-void VRT_l_beresp_storage_hint(const struct vrt_ctx *, const char *, ...);
+VCL_STRING VRT_r_bereq_url(VRT_CTX);
+void VRT_l_bereq_url(VRT_CTX, const char *, ...);
 
-VCL_DURATION VRT_r_beresp_ttl(const struct vrt_ctx *);
-void VRT_l_beresp_ttl(const struct vrt_ctx *, VCL_DURATION);
+VCL_STRING VRT_r_bereq_xid(VRT_CTX);
 
-VCL_BOOL VRT_r_beresp_uncacheable(const struct vrt_ctx *);
-void VRT_l_beresp_uncacheable(const struct vrt_ctx *, VCL_BOOL);
+VCL_HTTP VRT_r_beresp(VRT_CTX);
 
-VCL_STRING VRT_r_client_identity(const struct vrt_ctx *);
-void VRT_l_client_identity(const struct vrt_ctx *, const char *, ...);
+VCL_IP VRT_r_beresp_backend_ip(VRT_CTX);
 
-VCL_IP VRT_r_client_ip(const struct vrt_ctx *);
+VCL_STRING VRT_r_beresp_backend_name(VRT_CTX);
 
-VCL_TIME VRT_r_now(const struct vrt_ctx *);
+VCL_BOOL VRT_r_beresp_do_esi(VRT_CTX);
+void VRT_l_beresp_do_esi(VRT_CTX, VCL_BOOL);
 
-VCL_DURATION VRT_r_obj_grace(const struct vrt_ctx *);
+VCL_BOOL VRT_r_beresp_do_gunzip(VRT_CTX);
+void VRT_l_beresp_do_gunzip(VRT_CTX, VCL_BOOL);
 
-VCL_INT VRT_r_obj_hits(const struct vrt_ctx *);
+VCL_BOOL VRT_r_beresp_do_gzip(VRT_CTX);
+void VRT_l_beresp_do_gzip(VRT_CTX, VCL_BOOL);
 
+VCL_BOOL VRT_r_beresp_do_stream(VRT_CTX);
+void VRT_l_beresp_do_stream(VRT_CTX, VCL_BOOL);
 
-VCL_DURATION VRT_r_obj_keep(const struct vrt_ctx *);
-
-VCL_STRING VRT_r_obj_proto(const struct vrt_ctx *);
-
-VCL_STRING VRT_r_obj_reason(const struct vrt_ctx *);
-
-VCL_INT VRT_r_obj_status(const struct vrt_ctx *);
-
-VCL_DURATION VRT_r_obj_ttl(const struct vrt_ctx *);
-
-VCL_BOOL VRT_r_obj_uncacheable(const struct vrt_ctx *);
-
-VCL_HTTP VRT_r_req(const struct vrt_ctx *);
-
-VCL_BACKEND VRT_r_req_backend_hint(const struct vrt_ctx *);
-void VRT_l_req_backend_hint(const struct vrt_ctx *, VCL_BACKEND);
-
-VCL_BOOL VRT_r_req_can_gzip(const struct vrt_ctx *);
-
-VCL_BOOL VRT_r_req_esi(const struct vrt_ctx *);
-void VRT_l_req_esi(const struct vrt_ctx *, VCL_BOOL);
-
-VCL_INT VRT_r_req_esi_level(const struct vrt_ctx *);
-
-VCL_BOOL VRT_r_req_hash_always_miss(const struct vrt_ctx *);
-void VRT_l_req_hash_always_miss(const struct vrt_ctx *, VCL_BOOL);
-
-VCL_BOOL VRT_r_req_hash_ignore_busy(const struct vrt_ctx *);
-void VRT_l_req_hash_ignore_busy(const struct vrt_ctx *, VCL_BOOL);
+VCL_DURATION VRT_r_beresp_grace(VRT_CTX);
+void VRT_l_beresp_grace(VRT_CTX, VCL_DURATION);
 
 
-VCL_STRING VRT_r_req_method(const struct vrt_ctx *);
-void VRT_l_req_method(const struct vrt_ctx *, const char *, ...);
+VCL_DURATION VRT_r_beresp_keep(VRT_CTX);
+void VRT_l_beresp_keep(VRT_CTX, VCL_DURATION);
 
-VCL_STRING VRT_r_req_proto(const struct vrt_ctx *);
-void VRT_l_req_proto(const struct vrt_ctx *, const char *, ...);
+VCL_STRING VRT_r_beresp_proto(VRT_CTX);
+void VRT_l_beresp_proto(VRT_CTX, const char *, ...);
 
-VCL_INT VRT_r_req_restarts(const struct vrt_ctx *);
+VCL_STRING VRT_r_beresp_reason(VRT_CTX);
+void VRT_l_beresp_reason(VRT_CTX, const char *, ...);
 
-VCL_DURATION VRT_r_req_ttl(const struct vrt_ctx *);
-void VRT_l_req_ttl(const struct vrt_ctx *, VCL_DURATION);
+VCL_INT VRT_r_beresp_status(VRT_CTX);
+void VRT_l_beresp_status(VRT_CTX, VCL_INT);
 
-VCL_STRING VRT_r_req_url(const struct vrt_ctx *);
-void VRT_l_req_url(const struct vrt_ctx *, const char *, ...);
+VCL_STRING VRT_r_beresp_storage_hint(VRT_CTX);
+void VRT_l_beresp_storage_hint(VRT_CTX, const char *, ...);
 
-VCL_STRING VRT_r_req_xid(const struct vrt_ctx *);
+VCL_DURATION VRT_r_beresp_ttl(VRT_CTX);
+void VRT_l_beresp_ttl(VRT_CTX, VCL_DURATION);
 
-VCL_HTTP VRT_r_resp(const struct vrt_ctx *);
+VCL_BOOL VRT_r_beresp_uncacheable(VRT_CTX);
+void VRT_l_beresp_uncacheable(VRT_CTX, VCL_BOOL);
+
+VCL_STRING VRT_r_client_identity(VRT_CTX);
+void VRT_l_client_identity(VRT_CTX, const char *, ...);
+
+VCL_IP VRT_r_client_ip(VRT_CTX);
+
+VCL_TIME VRT_r_now(VRT_CTX);
+
+VCL_DURATION VRT_r_obj_grace(VRT_CTX);
+
+VCL_INT VRT_r_obj_hits(VRT_CTX);
 
 
-VCL_STRING VRT_r_resp_proto(const struct vrt_ctx *);
-void VRT_l_resp_proto(const struct vrt_ctx *, const char *, ...);
+VCL_DURATION VRT_r_obj_keep(VRT_CTX);
 
-VCL_STRING VRT_r_resp_reason(const struct vrt_ctx *);
-void VRT_l_resp_reason(const struct vrt_ctx *, const char *, ...);
+VCL_STRING VRT_r_obj_proto(VRT_CTX);
 
-VCL_INT VRT_r_resp_status(const struct vrt_ctx *);
-void VRT_l_resp_status(const struct vrt_ctx *, VCL_INT);
+VCL_STRING VRT_r_obj_reason(VRT_CTX);
 
-VCL_STRING VRT_r_server_hostname(const struct vrt_ctx *);
+VCL_INT VRT_r_obj_status(VRT_CTX);
 
-VCL_STRING VRT_r_server_identity(const struct vrt_ctx *);
+VCL_DURATION VRT_r_obj_ttl(VRT_CTX);
 
-VCL_IP VRT_r_server_ip(const struct vrt_ctx *);
+VCL_BOOL VRT_r_obj_uncacheable(VRT_CTX);
+
+VCL_HTTP VRT_r_req(VRT_CTX);
+
+VCL_BACKEND VRT_r_req_backend_hint(VRT_CTX);
+void VRT_l_req_backend_hint(VRT_CTX, VCL_BACKEND);
+
+VCL_BOOL VRT_r_req_can_gzip(VRT_CTX);
+
+VCL_BOOL VRT_r_req_esi(VRT_CTX);
+void VRT_l_req_esi(VRT_CTX, VCL_BOOL);
+
+VCL_INT VRT_r_req_esi_level(VRT_CTX);
+
+VCL_BOOL VRT_r_req_hash_always_miss(VRT_CTX);
+void VRT_l_req_hash_always_miss(VRT_CTX, VCL_BOOL);
+
+VCL_BOOL VRT_r_req_hash_ignore_busy(VRT_CTX);
+void VRT_l_req_hash_ignore_busy(VRT_CTX, VCL_BOOL);
+
+
+VCL_STRING VRT_r_req_method(VRT_CTX);
+void VRT_l_req_method(VRT_CTX, const char *, ...);
+
+VCL_STRING VRT_r_req_proto(VRT_CTX);
+void VRT_l_req_proto(VRT_CTX, const char *, ...);
+
+VCL_INT VRT_r_req_restarts(VRT_CTX);
+
+VCL_DURATION VRT_r_req_ttl(VRT_CTX);
+void VRT_l_req_ttl(VRT_CTX, VCL_DURATION);
+
+VCL_STRING VRT_r_req_url(VRT_CTX);
+void VRT_l_req_url(VRT_CTX, const char *, ...);
+
+VCL_STRING VRT_r_req_xid(VRT_CTX);
+
+VCL_HTTP VRT_r_resp(VRT_CTX);
+
+
+VCL_STRING VRT_r_resp_proto(VRT_CTX);
+void VRT_l_resp_proto(VRT_CTX, const char *, ...);
+
+VCL_STRING VRT_r_resp_reason(VRT_CTX);
+void VRT_l_resp_reason(VRT_CTX, const char *, ...);
+
+VCL_INT VRT_r_resp_status(VRT_CTX);
+void VRT_l_resp_status(VRT_CTX, VCL_INT);
+
+VCL_STRING VRT_r_server_hostname(VRT_CTX);
+
+VCL_STRING VRT_r_server_identity(VRT_CTX);
+
+VCL_IP VRT_r_server_ip(VRT_CTX);
 
 double VRT_Stv_free_space(const char *);
 double VRT_Stv_used_space(const char *);

@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>vmod_std &mdash; Varnish version 4.0.2 documentation</title>
+    <title>vmod_std &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_directors" href="vmod_directors.generated.html" />
     <link rel="prev" title="VMOD - Varnish Modules" href="vmod.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -83,6 +83,7 @@ they return the second argument, which must have the given TYPE.</p>
 <div class="section" id="contents">
 <h3>CONTENTS<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
+<li><a class="reference internal" href="#func-cache-req-body"><em>VOID cache_req_body(BYTES)</em></a></li>
 <li><a class="reference internal" href="#func-collect"><em>VOID collect(HEADER)</em></a></li>
 <li><a class="reference internal" href="#func-duration"><em>DURATION duration(STRING, DURATION)</em></a></li>
 <li><a class="reference internal" href="#func-fileread"><em>STRING fileread(PRIV_CALL, STRING)</em></a></li>
@@ -99,6 +100,7 @@ they return the second argument, which must have the given TYPE.</p>
 <li><a class="reference internal" href="#func-set-ip-tos"><em>VOID set_ip_tos(INT)</em></a></li>
 <li><a class="reference internal" href="#func-strstr"><em>STRING strstr(STRING, STRING)</em></a></li>
 <li><a class="reference internal" href="#func-syslog"><em>VOID syslog(INT, STRING_LIST)</em></a></li>
+<li><a class="reference internal" href="#func-time"><em>TIME time(STRING, TIME)</em></a></li>
 <li><a class="reference internal" href="#func-time2integer"><em>INT time2integer(TIME)</em></a></li>
 <li><a class="reference internal" href="#func-time2real"><em>REAL time2real(TIME)</em></a></li>
 <li><a class="reference internal" href="#func-timestamp"><em>VOID timestamp(STRING)</em></a></li>
@@ -109,9 +111,9 @@ they return the second argument, which must have the given TYPE.</p>
 <span id="func-toupper"></span><h4>STRING toupper(STRING_LIST)<a class="headerlink" href="#string-toupper-string-list" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>STRING toupper(STRING_LIST)</dd>
+<dd>STRING toupper(STRING_LIST s)</dd>
 <dt>Description</dt>
-<dd>Converts the string <em>s</em> to upper case.</dd>
+<dd>Converts the string <em>s</em> to uppercase.</dd>
 <dt>Example</dt>
 <dd>set beresp.http.x-scream = std.toupper(&quot;yes!&quot;);</dd>
 </dl>
@@ -120,9 +122,9 @@ they return the second argument, which must have the given TYPE.</p>
 <span id="func-tolower"></span><h4>STRING tolower(STRING_LIST)<a class="headerlink" href="#string-tolower-string-list" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>STRING tolower(STRING_LIST)</dd>
+<dd>STRING tolower(STRING_LIST s)</dd>
 <dt>Description</dt>
-<dd>Converts the string <em>s</em> to lower case.</dd>
+<dd>Converts the string <em>s</em> to lowercase.</dd>
 <dt>Example</dt>
 <dd>set beresp.http.x-nice = std.tolower(&quot;VerY&quot;);</dd>
 </dl>
@@ -131,10 +133,10 @@ they return the second argument, which must have the given TYPE.</p>
 <span id="func-set-ip-tos"></span><h4>VOID set_ip_tos(INT)<a class="headerlink" href="#void-set-ip-tos-int" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>VOID set_ip_tos(INT)</dd>
+<dd>VOID set_ip_tos(INT tos)</dd>
 <dt>Description</dt>
-<dd>Sets the Type-of-Service flag for the current session. Please
-note that the TOS flag is not removed by the end of the
+<dd>Sets the IP type-of-service (TOS) field for the current session to <em>tos</em>.
+Please note that the TOS field is not removed by the end of the
 request so probably want to set it on every request should you
 utilize it.</dd>
 <dt>Example</dt>
@@ -152,9 +154,9 @@ utilize it.</dd>
 <span id="func-random"></span><h4>REAL random(REAL, REAL)<a class="headerlink" href="#real-random-real-real" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>REAL random(REAL, REAL)</dd>
+<dd>REAL random(REAL lo, REAL hi)</dd>
 <dt>Description</dt>
-<dd>Returns a random REAL number between <em>a</em> and <em>b</em>.</dd>
+<dd>Returns a random real number between <em>lo</em> and <em>hi</em>.</dd>
 <dt>Example</dt>
 <dd>set beresp.http.x-random-number = std.random(1, 100);</dd>
 </dl>
@@ -163,9 +165,9 @@ utilize it.</dd>
 <span id="func-log"></span><h4>VOID log(STRING_LIST)<a class="headerlink" href="#void-log-string-list" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>VOID log(STRING_LIST)</dd>
+<dd>VOID log(STRING_LIST s)</dd>
 <dt>Description</dt>
-<dd>Logs <em>string</em> to the shared memory log, using VSL tag <em>SLT_VCL_Log</em>.</dd>
+<dd>Logs the string <em>s</em> to the shared memory log, using VSL tag <em>SLT_VCL_Log</em>.</dd>
 <dt>Example</dt>
 <dd>std.log(&quot;Something fishy is going on with the vhost &quot; + req.host);</dd>
 </dl>
@@ -174,9 +176,9 @@ utilize it.</dd>
 <span id="func-syslog"></span><h4>VOID syslog(INT, STRING_LIST)<a class="headerlink" href="#void-syslog-int-string-list" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>VOID syslog(INT, STRING_LIST)</dd>
+<dd>VOID syslog(INT priority, STRING_LIST s)</dd>
 <dt>Description</dt>
-<dd>Logs <em>string</em> to syslog marked with <em>priority</em>.  See your
+<dd>Logs the string <em>s</em> to syslog marked with <em>priority</em>.  See your
 system's syslog.h file for the legal values of <em>priority</em>.</dd>
 <dt>Example</dt>
 <dd>std.syslog(8 + 1, &quot;Something is wrong&quot;);</dd>
@@ -200,24 +202,25 @@ account. Also, files are not re-read.</dd>
 <span id="func-collect"></span><h4>VOID collect(HEADER)<a class="headerlink" href="#void-collect-header" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>VOID collect(HEADER)</dd>
+<dd>VOID collect(HEADER hdr)</dd>
 <dt>Description</dt>
-<dd>Collapses the header, joining the headers into one.</dd>
+<dd>Collapses the header <em>hdr</em>, joining them into one.</dd>
 <dt>Example</dt>
-<dd>std.collect(req.http.cookie);
-This will collapse several Cookie: headers into one, long
-cookie header.</dd>
+<dd><p class="first">std.collect(req.http.cookie);</p>
+<p class="last">This will collapse several Cookie: headers into one, long
+cookie header.</p>
+</dd>
 </dl>
 </div>
 <div class="section" id="duration-duration-string-duration">
 <span id="func-duration"></span><h4>DURATION duration(STRING, DURATION)<a class="headerlink" href="#duration-duration-string-duration" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>DURATION duration(STRING, DURATION)</dd>
+<dd>DURATION duration(STRING s, DURATION fallback)</dd>
 <dt>Description</dt>
 <dd>Converts the string <em>s</em> to seconds. <em>s</em> must be quantified
 with ms (milliseconds), s (seconds), m (minutes), h (hours),
-d (days), w (weeks) or y (years) units. If <em>s</em> fails to parse,
+d (days), w (weeks) or y (years) units. If conversion fails,
 <em>fallback</em> will be returned.</dd>
 <dt>Example</dt>
 <dd>set beresp.ttl = std.duration(&quot;1w&quot;, 3600s);</dd>
@@ -227,34 +230,48 @@ d (days), w (weeks) or y (years) units. If <em>s</em> fails to parse,
 <span id="func-integer"></span><h4>INT integer(STRING, INT)<a class="headerlink" href="#int-integer-string-int" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>INT integer(STRING, INT)</dd>
+<dd>INT integer(STRING s, INT fallback)</dd>
 <dt>Description</dt>
-<dd>Converts the string <em>s</em> to an integer.  If <em>s</em> fails to parse,
+<dd>Converts the string <em>s</em> to an integer.  If conversion fails,
 <em>fallback</em> will be returned.</dd>
 <dt>Example</dt>
-<dd>if (std.integer(beresp.http.x-foo, 0) &gt; 5) { ... }</dd>
+<dd><div class="first last line-block">
+<div class="line">if (std.integer(beresp.http.x-foo, 0) &gt; 5) {</div>
+<div class="line-block">
+<div class="line">...</div>
+</div>
+<div class="line">}</div>
+</div>
+</dd>
 </dl>
 </div>
 <div class="section" id="ip-ip-string-ip">
 <span id="func-ip"></span><h4>IP ip(STRING, IP)<a class="headerlink" href="#ip-ip-string-ip" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>IP ip(STRING, IP)</dd>
+<dd>IP ip(STRING s, IP fallback)</dd>
 <dt>Description</dt>
-<dd>Converts string <em>s</em> to the first IP number returned by
+<dd>Converts the string <em>s</em> to the first IP number returned by
 the system library function getaddrinfo(3).  If conversion
 fails, <em>fallback</em> will be returned.</dd>
 <dt>Example</dt>
-<dd>if (std.ip(req.http.X-forwarded-for, &quot;0.0.0.0&quot;) ~ my_acl) { ... }</dd>
+<dd><div class="first last line-block">
+<div class="line">if (std.ip(req.http.X-forwarded-for, &quot;0.0.0.0&quot;) ~ my_acl) {</div>
+<div class="line-block">
+<div class="line">...</div>
+</div>
+<div class="line">}</div>
+</div>
+</dd>
 </dl>
 </div>
 <div class="section" id="real-real-string-real">
 <span id="func-real"></span><h4>REAL real(STRING, REAL)<a class="headerlink" href="#real-real-string-real" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>REAL real(STRING, REAL)</dd>
+<dd>REAL real(STRING s, REAL fallback)</dd>
 <dt>Description</dt>
-<dd>Converts the string <em>s</em> to a real.  If <em>s</em> fails to parse,
+<dd>Converts the string <em>s</em> to a real.  If conversion fails,
 <em>fallback</em> will be returned.</dd>
 <dt>Example</dt>
 <dd>set req.http.x-real = std.real(req.http.x-foo, 0.0);</dd>
@@ -264,7 +281,7 @@ fails, <em>fallback</em> will be returned.</dd>
 <span id="func-real2time"></span><h4>TIME real2time(REAL)<a class="headerlink" href="#time-real2time-real" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>TIME real2time(REAL)</dd>
+<dd>TIME real2time(REAL r)</dd>
 <dt>Description</dt>
 <dd>Converts the real <em>r</em> to a time.</dd>
 <dt>Example</dt>
@@ -275,7 +292,7 @@ fails, <em>fallback</em> will be returned.</dd>
 <span id="func-time2integer"></span><h4>INT time2integer(TIME)<a class="headerlink" href="#int-time2integer-time" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>INT time2integer(TIME)</dd>
+<dd>INT time2integer(TIME t)</dd>
 <dt>Description</dt>
 <dd>Converts the time <em>t</em> to a integer.</dd>
 <dt>Example</dt>
@@ -286,7 +303,7 @@ fails, <em>fallback</em> will be returned.</dd>
 <span id="func-time2real"></span><h4>REAL time2real(TIME)<a class="headerlink" href="#real-time2real-time" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>REAL time2real(TIME)</dd>
+<dd>REAL time2real(TIME t)</dd>
 <dt>Description</dt>
 <dd>Converts the time <em>t</em> to a real.</dd>
 <dt>Example</dt>
@@ -297,27 +314,27 @@ fails, <em>fallback</em> will be returned.</dd>
 <span id="func-healthy"></span><h4>BOOL healthy(BACKEND)<a class="headerlink" href="#bool-healthy-backend" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>BOOL healthy(BACKEND)</dd>
+<dd>BOOL healthy(BACKEND be)</dd>
 <dt>Description</dt>
-<dd>Returns true if the backend is healthy.</dd>
+<dd>Returns <cite>true</cite> if the backend <em>be</em> is healthy.</dd>
 </dl>
 </div>
 <div class="section" id="int-port-ip">
 <span id="func-port"></span><h4>INT port(IP)<a class="headerlink" href="#int-port-ip" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>INT port(IP)</dd>
+<dd>INT port(IP ip)</dd>
 <dt>Description</dt>
-<dd>Returns the port number of an IP address.</dd>
+<dd>Returns the port number of the IP address <em>ip</em>.</dd>
 </dl>
 </div>
 <div class="section" id="void-rollback-http">
 <span id="func-rollback"></span><h4>VOID rollback(HTTP)<a class="headerlink" href="#void-rollback-http" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>VOID rollback(HTTP)</dd>
+<dd>VOID rollback(HTTP h)</dd>
 <dt>Description</dt>
-<dd>Restore <em>h</em> HTTP headers to their original state.</dd>
+<dd>Restores the <em>h</em> HTTP headers to their original state.</dd>
 <dt>Example</dt>
 <dd>std.rollback(bereq);</dd>
 </dl>
@@ -326,12 +343,12 @@ fails, <em>fallback</em> will be returned.</dd>
 <span id="func-timestamp"></span><h4>VOID timestamp(STRING)<a class="headerlink" href="#void-timestamp-string" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>VOID timestamp(STRING)</dd>
+<dd>VOID timestamp(STRING s)</dd>
 <dt>Description</dt>
-<dd>Introduces a timestamp in the log with the current time. Uses
-the argument as the timespamp label. This is useful to time
-the execution of lengthy VCL procedures, and makes the
-timestamps inserted automatically by Varnish more accurate.</dd>
+<dd>Introduces a timestamp in the log with the current time, using
+the string <em>s</em> as the label. This is useful to time the execution
+of lengthy VCL procedures, and makes the timestamps inserted
+automatically by Varnish more accurate.</dd>
 <dt>Example</dt>
 <dd>std.timestamp(&quot;curl-request&quot;);</dd>
 </dl>
@@ -342,26 +359,75 @@ timestamps inserted automatically by Varnish more accurate.</dd>
 <dt>Prototype</dt>
 <dd>STRING querysort(STRING)</dd>
 <dt>Description</dt>
-<dd>Sorts the querystring for cache normalization purposes.</dd>
+<dd>Sorts the query string for cache normalization purposes.</dd>
 <dt>Example</dt>
 <dd>set req.url = std.querysort(req.url);</dd>
+</dl>
+</div>
+<div class="section" id="void-cache-req-body-bytes">
+<span id="func-cache-req-body"></span><h4>VOID cache_req_body(BYTES)<a class="headerlink" href="#void-cache-req-body-bytes" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>VOID cache_req_body(BYTES size)</dd>
+<dt>Description</dt>
+<dd><p class="first">Cache the req.body if it is smaller than <em>size</em>.</p>
+<p class="last">Caching the req.body makes it possible to retry pass
+operations (POST, PUT).</p>
+</dd>
+<dt>Example</dt>
+<dd><p class="first">std.cache_req_body(1KB);</p>
+<p class="last">This will cache the req.body if its size is smaller than 1KB.</p>
+</dd>
 </dl>
 </div>
 <div class="section" id="string-strstr-string-string">
 <span id="func-strstr"></span><h4>STRING strstr(STRING, STRING)<a class="headerlink" href="#string-strstr-string-string" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
 <dt>Prototype</dt>
-<dd>STRING strstr(STRING, STRING)</dd>
+<dd>STRING strstr(STRING s1, STRING s2)</dd>
 <dt>Description</dt>
-<dd><p class="first">Returns the substring if the second string is a substring of the first
-string. Note that the comparison is case sensitive. You can
-use the tolower function on both strings if you want case
-insensitivity.</p>
-<p class="last">If there is no match a NULL pointer is returned which would
-evaluate to false in an if-test.</p>
+<dd><p class="first">Returns the first occurrence of the string <em>s2</em> in the string
+<em>s1</em>, or an empty string if not found.</p>
+<p class="last">Note that the comparison is case sensitive.</p>
 </dd>
 <dt>Example</dt>
-<dd>if (std.strstr(req.url, req.http.x-restrict))</dd>
+<dd><div class="first last line-block">
+<div class="line">if (std.strstr(req.url, req.http.x-restrict)) {</div>
+<div class="line-block">
+<div class="line">...</div>
+</div>
+<div class="line">}</div>
+</div>
+</dd>
+</dl>
+</div>
+<div class="section" id="time-time-string-time">
+<span id="func-time"></span><h4>TIME time(STRING, TIME)<a class="headerlink" href="#time-time-string-time" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>TIME time(STRING s, TIME fallback)</dd>
+<dt>Description</dt>
+<dd><p class="first">Converts the string <em>s</em> to a time.  If conversion fails,
+<em>fallback</em> will be returned.</p>
+<p>Supported formats:</p>
+<div class="last line-block">
+<div class="line">&quot;Sun, 06 Nov 1994 08:49:37 GMT&quot;</div>
+<div class="line">&quot;Sunday, 06-Nov-94 08:49:37 GMT&quot;</div>
+<div class="line">&quot;Sun Nov  6 08:49:37 1994&quot;</div>
+<div class="line">&quot;1994-11-06T08:49:37&quot;</div>
+<div class="line">&quot;784111777.00&quot;</div>
+<div class="line">&quot;784111777&quot;</div>
+</div>
+</dd>
+<dt>Example</dt>
+<dd><div class="first last line-block">
+<div class="line">if (std.time(resp.http.last-modified, now) &lt; now - 1w) {</div>
+<div class="line-block">
+<div class="line">...</div>
+</div>
+<div class="line">}</div>
+</div>
+</dd>
 </dl>
 </div>
 </div>
@@ -419,7 +485,9 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#void-rollback-http">VOID rollback(HTTP)</a></li>
 <li><a class="reference internal" href="#void-timestamp-string">VOID timestamp(STRING)</a></li>
 <li><a class="reference internal" href="#string-querysort-string">STRING querysort(STRING)</a></li>
+<li><a class="reference internal" href="#void-cache-req-body-bytes">VOID cache_req_body(BYTES)</a></li>
 <li><a class="reference internal" href="#string-strstr-string-string">STRING strstr(STRING, STRING)</a></li>
+<li><a class="reference internal" href="#time-time-string-time">TIME time(STRING, TIME)</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
@@ -471,7 +539,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

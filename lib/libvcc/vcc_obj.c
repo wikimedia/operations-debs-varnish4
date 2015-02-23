@@ -85,9 +85,8 @@ const struct var vcc_vars[] = {
 	    "VRT_r_bereq_uncacheable(ctx)",
 		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
 		 | VCL_MET_BACKEND_RESPONSE,
-	    "VRT_l_bereq_uncacheable(ctx, ",
-		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
-		 | VCL_MET_BACKEND_RESPONSE,
+	    NULL,	/* No writes allowed */
+		0,
 	},
 	{ "bereq.url", STRING, 9,
 	    "VRT_r_bereq_url(ctx)",
@@ -278,7 +277,7 @@ const struct var vcc_vars[] = {
 	},
 	{ "obj.uncacheable", BOOL, 15,
 	    "VRT_r_obj_uncacheable(ctx)",
-		VCL_MET_HIT,
+		VCL_MET_DELIVER,
 	    NULL,	/* No writes allowed */
 		0,
 	},

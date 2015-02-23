@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Upgrading to Varnish 4 &mdash; Varnish version 4.0.2 documentation</title>
+    <title>Upgrading to Varnish 4 &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="What&#39;s new in Varnish 4.0" href="index.html" />
     <link rel="next" title="Poul-Hennings random outbursts" href="../phk/index.html" />
     <link rel="prev" title="Changes in Varnish 4" href="changes.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="changes.html" title="Changes in Varnish 4"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">What's new in Varnish 4.0</a> &raquo;</li> 
       </ul>
     </div>  
@@ -178,10 +178,7 @@ The <cite>purge;</cite> keyword has been retired.</p>
 </div>
 <div class="section" id="obj-is-now-read-only">
 <h3>obj is now read-only<a class="headerlink" href="#obj-is-now-read-only" title="Permalink to this headline">¶</a></h3>
-<p><cite>obj</cite> is now read-only. <cite>obj.hits</cite>, if enabled in VCL, now counts per
-objecthead, not per object. <cite>obj.last_use</cite> has been retired.</p>
-<p>Note that obj.hits may not be reset in some cases where bans are in use. See
-bug <a class="reference external" href="https://www.varnish-cache.org/trac/ticket/1492">1492</a> for details.</p>
+<p><cite>obj</cite> is now read-only.  <cite>obj.last_use</cite> has been retired.</p>
 </div>
 <div class="section" id="some-return-values-have-been-replaced">
 <h3>Some return values have been replaced<a class="headerlink" href="#some-return-values-have-been-replaced" title="Permalink to this headline">¶</a></h3>
@@ -213,12 +210,20 @@ to indicate uncacheable content from the backend.</p>
 <h3>The <cite>remove</cite> keyword is gone<a class="headerlink" href="#the-remove-keyword-is-gone" title="Permalink to this headline">¶</a></h3>
 <p>Replaced by <cite>unset</cite>.</p>
 </div>
+<div class="section" id="x-forwarded-for-is-now-set-before-vcl-recv">
+<h3>X-Forwarded-For is now set before vcl_recv<a class="headerlink" href="#x-forwarded-for-is-now-set-before-vcl-recv" title="Permalink to this headline">¶</a></h3>
+<p>In many cases, people unintentionally removed X-Forwarded-For when
+implementing their own vcl_recv. Therefore it has been moved to before
+vcl_recv, so if you don't want an IP added to it, you should remove it
+in vcl_recv.</p>
+</div>
 </div>
 <div class="section" id="changes-to-existing-parameters">
 <h2>Changes to existing parameters<a class="headerlink" href="#changes-to-existing-parameters" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="session-linger">
 <h3>session_linger<a class="headerlink" href="#session-linger" title="Permalink to this headline">¶</a></h3>
-<p><cite>session_linger</cite> has been renamed to <cite>timeout_linger</cite>.</p>
+<p><cite>session_linger</cite> has been renamed to <cite>timeout_linger</cite> and it is in
+seconds now (previously was milliseconds).</p>
 </div>
 <div class="section" id="sess-timeout">
 <h3>sess_timeout<a class="headerlink" href="#sess-timeout" title="Permalink to this headline">¶</a></h3>
@@ -233,6 +238,15 @@ elsewhere in 4.0.</p>
 <p>If you are using a lot of VMODs,  you may need to increase
 either <cite>workspace_backend</cite> and <cite>workspace_client</cite> based on where
 your VMOD is doing its work.</p>
+</div>
+<div class="section" id="thread-pool-purge-delay">
+<h3>thread_pool_purge_delay<a class="headerlink" href="#thread-pool-purge-delay" title="Permalink to this headline">¶</a></h3>
+<p><cite>thread_pool_purge_delay</cite> has been renamed to <cite>thread_pool_destroy_delay</cite>
+and it is in seconds now (previously was milliseconds).</p>
+</div>
+<div class="section" id="thread-pool-add-delay-and-thread-pool-fail-delay">
+<h3>thread_pool_add_delay and thread_pool_fail_delay<a class="headerlink" href="#thread-pool-add-delay-and-thread-pool-fail-delay" title="Permalink to this headline">¶</a></h3>
+<p>They are in seconds now (previously were milliseconds).</p>
 </div>
 </div>
 <div class="section" id="new-parameters-since-3-0">
@@ -285,12 +299,15 @@ query language.</p>
 <li><a class="reference internal" href="#backend-restarts-are-now-retry">Backend restarts are now retry</a></li>
 <li><a class="reference internal" href="#default-builtin-vcl-changes">default/builtin VCL changes</a></li>
 <li><a class="reference internal" href="#the-remove-keyword-is-gone">The <cite>remove</cite> keyword is gone</a></li>
+<li><a class="reference internal" href="#x-forwarded-for-is-now-set-before-vcl-recv">X-Forwarded-For is now set before vcl_recv</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#changes-to-existing-parameters">Changes to existing parameters</a><ul>
 <li><a class="reference internal" href="#session-linger">session_linger</a></li>
 <li><a class="reference internal" href="#sess-timeout">sess_timeout</a></li>
 <li><a class="reference internal" href="#sess-workspace">sess_workspace</a></li>
+<li><a class="reference internal" href="#thread-pool-purge-delay">thread_pool_purge_delay</a></li>
+<li><a class="reference internal" href="#thread-pool-add-delay-and-thread-pool-fail-delay">thread_pool_add_delay and thread_pool_fail_delay</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#new-parameters-since-3-0">New parameters since 3.0</a><ul>
@@ -345,7 +362,7 @@ query language.</p>
         <li class="right" >
           <a href="changes.html" title="Changes in Varnish 4"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >What's new in Varnish 4.0</a> &raquo;</li> 
       </ul>
     </div>
