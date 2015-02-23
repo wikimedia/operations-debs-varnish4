@@ -1,4 +1,114 @@
 ============================================
+Changes from 4.0.3-rc3 to 4.0.3 (2015-02-17)
+============================================
+
+* No changes.
+
+================================================
+Changes from 4.0.3-rc2 to 4.0.3-rc3 (2015-02-11)
+================================================
+
+- Superseded objects are now expired immediately.
+
+Bugs fixed
+----------
+
+- 1462_ - Use first/last log entry in varnishncsa.
+- 1539_ - Avoid panic when expiry thread modifies a candidate object.
+- 1637_ - Fail the fetch processing if the vep callback failed.
+- 1665_ - Be more accurate when computing client RX_TIMEOUT.
+- 1672_ - Do not panic on unsolicited 304 response to non-200 bereq.
+
+.. _1462: https://www.varnish-cache.org/trac/ticket/1462
+.. _1539: https://www.varnish-cache.org/trac/ticket/1539
+.. _1637: https://www.varnish-cache.org/trac/ticket/1637
+.. _1665: https://www.varnish-cache.org/trac/ticket/1665
+.. _1672: https://www.varnish-cache.org/trac/ticket/1672
+
+
+================================================
+Changes from 4.0.3-rc1 to 4.0.3-rc2 (2015-01-28)
+================================================
+
+Changes since 4.0.3-rc1:
+
+- Assorted documentation updates.
+
+Bugs fixed
+----------
+
+- 1479_ - Fix out-of-tree builds.
+- 1566_ - Escape VCL string question marks.
+- 1616_ - Correct header file placement.
+- 1620_ - Fail miss properly if out of backend threads. (Also 1621_)
+- 1628_ - Avoid dereferencing null in VBO_DerefBusyObj().
+- 1629_ - Ditch rest of waiting list on failure to reschedule.
+- 1660_ - Don't attempt range delivery on a synth response
+
+.. _1479: https://www.varnish-cache.org/trac/ticket/1479
+.. _1566: https://www.varnish-cache.org/trac/ticket/1578
+.. _1616: https://www.varnish-cache.org/trac/ticket/1616
+.. _1620: https://www.varnish-cache.org/trac/ticket/1620
+.. _1621: https://www.varnish-cache.org/trac/ticket/1621
+.. _1628: https://www.varnish-cache.org/trac/ticket/1628
+.. _1629: https://www.varnish-cache.org/trac/ticket/1629
+.. _1660: https://www.varnish-cache.org/trac/ticket/1660
+
+
+============================================
+Changes from 4.0.2 to 4.0.3-rc1 (2015-01-15)
+============================================
+
+Changes since 4.0.2:
+
+- Support older autoconf (< 2.63b) (el5)
+- A lot of minor documentation fixes.
+- bereq.uncacheable is now read-only.
+- obj.uncacheable is now readable in vcl_deliver.
+- [varnishadm] Prefer exact matches for backend.set_healthy. Bug 1349_.
+- Hard-coded -sfile default size is removed.
+- [packaging] EL6 packages are once again built with -O2.
+- [parameter] fetch_chunksize default is reduced to 16KB. (from 128KB)
+- Added std.time() which converts strings to VCL_TIME.
+- [packaging] packages now Provide strictABI (gitref) and ABI (VRT major/minor) for VMOD use.
+
+Bugs fixed
+----------
+
+* 1378_ - Properly escape non-printable characters in varnishncsa.
+* 1596_ - Delay HSH_Complete() until the storage sanity functions has finished.
+* 1506_ - Keep Content-Length from backend if we can.
+* 1602_ - Fix a cornercase related to empty pass objects.
+* 1607_ - Don't leak reqs on failure to revive from waitinglist.
+* 1610_ - Update forgotten varnishlog example to 4.0 syntax.
+* 1612_ - Fix a cornercase related to empty pass objects.
+* 1623_ - Fix varnishhist -d segfault.
+* 1636_ - Outdated paragraph in Vary: documentation
+* 1638_ - Fix panic when retrying a failed backend fetch.
+* 1639_ - Restore the default SIGSEGV handler during pan_ic
+* 1647_ - Relax an assertion for the IMS update candidate object.
+* 1648_ - Avoid partial IMS updates to replace old object.
+* 1650_ - Collapse multiple X-Forwarded-For headers
+
+.. _1349: https://www.varnish-cache.org/trac/ticket/1349
+.. _1378: https://www.varnish-cache.org/trac/ticket/1378
+.. _1596: https://www.varnish-cache.org/trac/ticket/1596
+.. _1506: https://www.varnish-cache.org/trac/ticket/1506
+.. _1602: https://www.varnish-cache.org/trac/ticket/1602
+.. _1607: https://www.varnish-cache.org/trac/ticket/1607
+.. _1610: https://www.varnish-cache.org/trac/ticket/1610
+.. _1612: https://www.varnish-cache.org/trac/ticket/1612
+.. _1623: https://www.varnish-cache.org/trac/ticket/1623
+.. _1636: https://www.varnish-cache.org/trac/ticket/1636
+.. _1638: https://www.varnish-cache.org/trac/ticket/1638
+.. _1639: https://www.varnish-cache.org/trac/ticket/1639
+.. _1647: https://www.varnish-cache.org/trac/ticket/1647
+.. _1648: https://www.varnish-cache.org/trac/ticket/1648
+.. _1650: https://www.varnish-cache.org/trac/ticket/1650
+
+
+
+============================================
 Changes from 4.0.2-rc1 to 4.0.2 (2014-10-08)
 ============================================
 
@@ -6,6 +116,7 @@ New since 4.0.2-rc1:
 
 - [varnishlog] -k argument is back. (exit after n records)
 - [varnishadm] vcl.show is now listed in help.
+
 
 ============================================
 Changes from 4.0.1 to 4.0.2-rc1 (2014-09-23)
@@ -58,6 +169,7 @@ Bugs fixed
 * 1567_ - Compile on systems without SO_SNDTIMEO/SO_RCVTIMEO.
 * 1512_ - Changes to bereq are lost between v_b_r and v_b_f.
 * 1563_ - Increase varnishtest read timeout.
+* 1561_ - Never call a VDP with zero length unless done.
 * 1562_ - Fail correctly when rereading a failed client request body.
 * 1521_ - VCL compilation fails on OSX x86_64.
 * 1547_ - Panic when increasing shm_reclen.
@@ -90,6 +202,7 @@ Bugs fixed
 .. _1567: https://www.varnish-cache.org/trac/ticket/1567
 .. _1512: https://www.varnish-cache.org/trac/ticket/1512
 .. _1563: https://www.varnish-cache.org/trac/ticket/1563
+.. _1561: https://www.varnish-cache.org/trac/ticket/1561
 .. _1562: https://www.varnish-cache.org/trac/ticket/1562
 .. _1521: https://www.varnish-cache.org/trac/ticket/1521
 .. _1547: https://www.varnish-cache.org/trac/ticket/1547
@@ -186,10 +299,8 @@ Bugs fixed
 .. _1501: https://www.varnish-cache.org/trac/ticket/1501
 .. _1495: https://www.varnish-cache.org/trac/ticket/1495
 .. _1510: https://www.varnish-cache.org/trac/ticket/1510
-.. _1514: https://www.varnish-cache.org/trac/ticket/1514
 .. _1518: https://www.varnish-cache.org/trac/ticket/1518
 .. _1519: https://www.varnish-cache.org/trac/ticket/1519
-
 
 
 ==============================================
@@ -218,9 +329,9 @@ Bugs fixed
 .. _1467: https://www.varnish-cache.org/trac/ticket/1467
 
 
-=====================================
-Changes from 4.0.0 TP2 to 4.0.0 beta1
-=====================================
+==================================================
+Changes from 4.0.0 TP2 to 4.0.0 beta1 (2014-03-27)
+==================================================
 
 New since TP2:
 
@@ -276,10 +387,9 @@ Bugs fixed
 .. _1405: https://www.varnish-cache.org/trac/ticket/1405
 
 
-
-===================================
-Changes from 4.0.0 TP1 to 4.0.0 TP2
-===================================
+================================================
+Changes from 4.0.0 TP1 to 4.0.0 TP2 (2014-01-23)
+================================================
 
 New since from 4.0.0 TP1
 ------------------------
@@ -332,9 +442,41 @@ Open issues
 .. _1268: https://www.varnish-cache.org/trac/ticket/1268
 
 
-================================
-Changes from 3.0.5 rc 1 to 3.0.5
-================================
+===========================================
+Changes from 3.0.6rc1 to 3.0.6 (2014-10-16)
+===========================================
+
+- Minor changes to documentation.
+- [varnishadm] Add termcap workaround for libedit. Bug 1531_.
+
+
+===========================================
+Changes from 3.0.5 to 3.0.6rc1 (2014-06-24)
+===========================================
+
+- Document storage.<name>.* VCL variables. Bug 1514_.
+- Fix memory alignment panic when http_max_hdr is not a multiple of 4. Bug 1327_.
+- Avoid negative ReqEnd timestamps with ESI. Bug 1297_.
+- %D format for varnishncsa is now an integer (as documented)
+- Fix compile errors with clang.
+- Clear objectcore flags earlier in ban lurker to avoid spinning thread. Bug 1470_.
+- Patch embedded jemalloc to avoid segfault. Bug 1448_.
+- Allow backend names to start with if, include or else. Bug 1439_.
+- Stop handling gzip after gzip body end. Bug 1086_.
+- Document %D and %T for varnishncsa.
+
+.. _1514: http://varnish-cache.org/trac/ticket/1514
+.. _1327: http://varnish-cache.org/trac/ticket/1327
+.. _1297: http://varnish-cache.org/trac/ticket/1297
+.. _1470: http://varnish-cache.org/trac/ticket/1470
+.. _1448: http://varnish-cache.org/trac/ticket/1448
+.. _1439: http://varnish-cache.org/trac/ticket/1439
+.. _1086: http://varnish-cache.org/trac/ticket/1086
+
+
+=============================================
+Changes from 3.0.5 rc 1 to 3.0.5 (2013-12-02)
+=============================================
 
 varnishd
 --------
@@ -343,6 +485,7 @@ varnishd
   server.ip is accessed after a client has closed the connection. `Bug #1376`
 
 .. _bug #1376: http://varnish-cache.org/trac/ticket/1376
+
 
 ================================
 Changes from 3.0.4 to 3.0.5 rc 1
@@ -381,9 +524,10 @@ varnishadm
 
 .. _bug #1314: http://varnish-cache.org/trac/ticket/1314
 
-================================
-Changes from 3.0.4 rc 1 to 3.0.4
-================================
+
+=============================================
+Changes from 3.0.4 rc 1 to 3.0.4 (2013-06-14)
+=============================================
 
 varnishd
 --------
@@ -396,6 +540,7 @@ varnishd
 
 .. _bug #1285: http://varnish-cache.org/trac/ticket/1285
 .. _bug #1312: http://varnish-cache.org/trac/ticket/1312
+
 
 ================================
 Changes from 3.0.3 to 3.0.4 rc 1
@@ -455,9 +600,10 @@ Other
   least on i386.
 - Make libvarnish prefer exact hits when looking for VSL tags.
 
-===========================
-Changes from 3.0.2 to 3.0.3
-===========================
+
+========================================
+Changes from 3.0.2 to 3.0.3 (2012-08-20)
+========================================
 
 Varnishd
 --------
@@ -571,9 +717,10 @@ Other
 
 .. _bug #1003: http://varnish-cache.org/trac/ticket/1003
 
-================================
-Changes from 3.0.2 rc 1 to 3.0.2
-================================
+
+=============================================
+Changes from 3.0.2 rc 1 to 3.0.2 (2011-10-26)
+=============================================
 
 Varnishd
 --------
@@ -601,9 +748,10 @@ Other
 
 - Some Solaris portability updates.
 
-================================
-Changes from 3.0.1 to 3.0.2 rc 1
-================================
+
+=============================================
+Changes from 3.0.1 to 3.0.2 rc 1 (2011-10-06)
+=============================================
 
 Varnishd
 --------
@@ -662,9 +810,10 @@ Other
 
 - Some Solaris portability updates.
 
-================================
-Changes from 3.0.1 rc 1 to 3.0.1
-================================
+
+=============================================
+Changes from 3.0.1 rc 1 to 3.0.1 (2011-08-30)
+=============================================
 
 Varnishd
 --------
@@ -693,9 +842,10 @@ Other
 
 - Documentation updates
 
-================================
-Changes from 3.0.0 to 3.0.1 rc 1
-================================
+
+=============================================
+Changes from 3.0.0 to 3.0.1 rc 1 (2011-08-24)
+=============================================
 
 Varnishd
 --------
@@ -769,9 +919,10 @@ Other
 
 .. _bug #961: http://varnish-cache.org/trac/ticket/961
 
-================================
-Changes from 3.0 beta 2 to 3.0.0
-================================
+
+=============================================
+Changes from 3.0 beta 2 to 3.0.0 (2011-06-16)
+=============================================
 
 Varnishd
 --------
@@ -795,6 +946,7 @@ varnishadm
   reason.
 
 .. _bug #935: http://varnish-cache.org/trac/ticket/935
+
 
 =====================================
 Changes from 3.0 beta 1 to 3.0 beta 2
@@ -846,6 +998,7 @@ VMODs
 -----
 
 - The std module now has proper documentation, including a manual page
+
 
 ================================
 Changes from 2.1.5 to 3.0 beta 1
@@ -1090,9 +1243,10 @@ Other
 - The documentation has been improved all over and should now be in
   much better shape than before
 
-===========================
-Changes from 2.1.4 to 2.1.5
-===========================
+
+========================================
+Changes from 2.1.4 to 2.1.5 (2011-01-25)
+========================================
 
 varnishd
 --------
@@ -1163,6 +1317,7 @@ varnishtest
 -----------
 
 -  Remove no longer existing -L option.
+
 
 ===========================
 Changes from 2.1.3 to 2.1.4
@@ -1313,6 +1468,7 @@ libvarnishapi
 
 -  The -X parameter didn't work correctly. This has been fixed.
 
+
 ===========================
 Changes from 2.1.1 to 2.1.2
 ===========================
@@ -1324,6 +1480,7 @@ varnishd
    bug which would append garbage to objects larger than the chunk size,
    by default 128k. Browsers would do the right thing due to
    Content-Length, but some load balancers would get very confused.
+
 
 ===========================
 Changes from 2.1.1 to 2.1.1
@@ -1556,6 +1713,7 @@ varnishadm
 -  varnishadm now knows how to respond to the secret from a secured
    varnishd
 
+
 ===========================
 Changes from 2.0.5 to 2.0.6
 ===========================
@@ -1584,6 +1742,7 @@ varnishd
    useful on 32 bit systems with their limited address space.
 
 -  Document the -C option to varnishd.
+
 
 ===========================
 Changes from 2.0.4 to 2.0.5
@@ -1682,6 +1841,7 @@ varnishtop
 -  varnishtop previously did not print the name of the tag, which made
    it very hard to understand. We now print out the tag name.
 
+
 ===========================
 Changes from 2.0.3 to 2.0.4
 ===========================
@@ -1738,6 +1898,7 @@ varnishtest
    do not go unnoticed.
 
 -  Make it possible to send NULL bytes through the testing framework.
+
 
 ===========================
 Changes from 2.0.2 to 2.0.3
@@ -1873,6 +2034,7 @@ varnishreplay
 -  varnishreplay did not work correctly on Linux, due to a too small
    stack. This has now been fixed.
 
+
 ===========================
 Changes from 2.0.1 to 2.0.2
 ===========================
@@ -1906,6 +2068,7 @@ Red Hat spec file
 ----------------~
 
 -  A typo in the spec file made the .rpm file names wrong.
+
 
 =========================
 Changes from 1.1.2 to 2.0
@@ -2026,6 +2189,7 @@ Build system
 -  The C compiler invocation is decided by the configure script and can
    now be overridden by passing VCC\_CC when running configure.
 
+
 ===========================
 Changes from 1.1.1 to 1.1.2
 ===========================
@@ -2129,6 +2293,7 @@ Build system
    the default state directory would be garbage and a state directory
    would have to be specified manually with -n. This has been corrected.
 
+
 =========================
 Changes from 1.1 to 1.1.1
 =========================
@@ -2212,6 +2377,7 @@ Build system
 -  The libcompat library has been renamed to libvarnishcompat and is now
    dynamic rather than static. This simplifies the build process and
    resolves an issue with the Mac OS X linker.
+
 
 =========================
 Changes from 1.0.4 to 1.1
@@ -2372,6 +2538,7 @@ varnishtop
    respond correctly to window resize events, and one-shot mode (-1)
    actually works. In addition, the name of the Varnish instance being
    watched is displayed in the upper right corner in curses mode.
+
 
 ===========================
 Changes from 1.0.3 to 1.0.4

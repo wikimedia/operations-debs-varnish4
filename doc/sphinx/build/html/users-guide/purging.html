@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Purging and banning &mdash; Varnish version 4.0.2 documentation</title>
+    <title>Purging and banning &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="Varnish and Website Performance" href="performance.html" />
     <link rel="next" title="Compression" href="compression.html" />
     <link rel="prev" title="Achieving a high hitrate" href="increasing-your-hitrate.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="increasing-your-hitrate.html" title="Achieving a high hitrate"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &raquo;</li> 
       </ul>
@@ -114,7 +114,7 @@ prevent new content from entering the cache or being served.</p>
 <p>Support for bans is built into Varnish and available in the CLI
 interface. To ban every png object belonging on example.com, issue
 the following command:</p>
-<div class="highlight-python"><pre>ban req.http.host == "example.com" &amp;&amp; req.url ~ "\.png$"</pre>
+<div class="highlight-python"><pre>ban req.http.host == "example.com" &amp;&amp; req.url ~ "\\.png$"</pre>
 </div>
 <p>Quite powerful, really.</p>
 <p>Bans are checked when we hit an object in the cache, but before we
@@ -248,7 +248,7 @@ some other means.</p>
         <li class="right" >
           <a href="increasing-your-hitrate.html" title="Achieving a high hitrate"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" >Varnish and Website Performance</a> &raquo;</li> 
       </ul>

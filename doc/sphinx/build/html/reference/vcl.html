@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VCL &mdash; Varnish version 4.0.2 documentation</title>
+    <title>VCL &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Varnish CLI" href="varnish-cli.html" />
     <link rel="prev" title="The Varnish Reference Manual" href="index.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -189,6 +189,20 @@ if (req.http.host !~ "(?i)example.com$") {
 <div class="highlight-python"><pre>import std;
 sub vcl_recv {
     std.log("foo");
+}</pre>
+</div>
+</div>
+<div class="section" id="comments">
+<h4>Comments<a class="headerlink" href="#comments" title="Permalink to this headline">¶</a></h4>
+<p>Single lines of VCL can be commented out using // or #. Multi-line blocks can
+be commented out with /* block /*.</p>
+<p>Example:</p>
+<div class="highlight-python"><pre>sub vcl_recv {
+    // Single line of out-commented VCL.
+    # Another way of commenting out a single line.
+    /*
+        Multi-line block of commented-out VCL.
+    */
 }</pre>
 </div>
 </div>
@@ -403,7 +417,9 @@ the backend.  Not available in pipe mode.</p>
 <blockquote>
 <div><p>Type: BOOL</p>
 <p>Readable from: backend</p>
-<p>Writable from: backend</p>
+<p>Indicates whether this request is uncacheable due
+to a pass in the client side or a hit on an existing
+uncacheable object (aka hit-for-pass).</p>
 </div></blockquote>
 <p>bereq.url</p>
 <blockquote>
@@ -495,6 +511,11 @@ request is pass'ed it will not be stored in memory.</p>
 <div><p>Type: DURATION</p>
 <p>Readable from: vcl_backend_response, vcl_backend_error</p>
 <p>Writable from: vcl_backend_response, vcl_backend_error</p>
+<p>Set to a period to enable conditional backend requests.</p>
+<p>The keep time is cache lifetime in addition to the ttl.</p>
+<p>Objects with ttl expired but with keep time left may be used
+to issue conditional (If-Modified-Since / If-None-Match)
+requests to the backend to refresh them.</p>
 </div></blockquote>
 <p>beresp.proto</p>
 <blockquote>
@@ -538,6 +559,11 @@ beresp.ttl is writable.</p>
 <div><p>Type: BOOL</p>
 <p>Readable from: vcl_backend_response, vcl_backend_error</p>
 <p>Writable from: vcl_backend_response, vcl_backend_error</p>
+<p>Inherited from bereq.uncacheable, see there.</p>
+<p>Setting this variable makes the object uncacheable, which may
+get stored as a hit-for-pass object in the cache.</p>
+<p>Clearing the variable has no effect and will log the warning
+&quot;Ignoring attempt to reset beresp.uncacheable&quot;.</p>
 </div></blockquote>
 </div>
 <div class="section" id="client">
@@ -573,18 +599,14 @@ used in string context it returns a formatted string.</p>
 <blockquote>
 <div><p>Type: DURATION</p>
 <p>Readable from: vcl_hit</p>
-<p>The object's grace period in seconds.</p>
+<p>The object's remaining grace period in seconds.</p>
 </div></blockquote>
 <p>obj.hits</p>
 <blockquote>
 <div><p>Type: INT</p>
 <p>Readable from: vcl_hit, vcl_deliver</p>
-<p>The count of cache-hits on this hash-key since it was
-last instantiated.  This counts cache-hits across all
-Vary:-ants on this hash-key.
-The counter will only be reset to zero if/when all objects
-with this hash-key have disappeared from cache.
-NB: obj.hits == 0 does <em>not</em> indicate a cache miss.</p>
+<p>The count of cache-hits on this object. A value of 0 indicates a
+cache miss.</p>
 </div></blockquote>
 <p>obj.http.</p>
 <blockquote>
@@ -596,6 +618,7 @@ NB: obj.hits == 0 does <em>not</em> indicate a cache miss.</p>
 <blockquote>
 <div><p>Type: DURATION</p>
 <p>Readable from: vcl_hit</p>
+<p>The object's remaining keep period in seconds.</p>
 </div></blockquote>
 <p>obj.proto</p>
 <blockquote>
@@ -624,7 +647,8 @@ NB: obj.hits == 0 does <em>not</em> indicate a cache miss.</p>
 <p>obj.uncacheable</p>
 <blockquote>
 <div><p>Type: BOOL</p>
-<p>Readable from: vcl_hit</p>
+<p>Readable from: vcl_deliver</p>
+<p>Whether the object is uncacheable (pass or hit-for-pass).</p>
 </div></blockquote>
 </div>
 <div class="section" id="req">
@@ -908,6 +932,7 @@ itself. See LICENSE for details.</p>
 <li><a class="reference internal" href="#regular-expressions">Regular Expressions</a></li>
 <li><a class="reference internal" href="#include-statement">Include statement</a></li>
 <li><a class="reference internal" href="#import-statement">Import statement</a></li>
+<li><a class="reference internal" href="#comments">Comments</a></li>
 <li><a class="reference internal" href="#backend-definition">Backend definition</a></li>
 <li><a class="reference internal" href="#probes">Probes</a></li>
 <li><a class="reference internal" href="#access-control-list-acl">Access Control List (ACL)</a></li>
@@ -982,7 +1007,7 @@ itself. See LICENSE for details.</p>
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

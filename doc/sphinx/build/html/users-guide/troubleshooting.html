@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Troubleshooting Varnish &mdash; Varnish version 4.0.2 documentation</title>
+    <title>Troubleshooting Varnish &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Users Guide" href="index.html" />
     <link rel="next" title="The Varnish Reference Manual" href="../reference/index.html" />
     <link rel="prev" title="Content composition with Edge Side Includes" href="esi.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="esi.html" title="Content composition with Edge Side Includes"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Users Guide</a> &raquo;</li> 
       </ul>
     </div>  
@@ -144,15 +144,16 @@ to get a stack trace of the thread that caused the segfault.</p>
 give you a clue. Since <cite>varnishlog</cite> logs a lot of data it might be hard
 to track the entries down. You can set <cite>varnishlog</cite> to log all your 503
 errors by issuing the following command:</p>
-<div class="highlight-python"><pre>$ varnishlog -c -m TxStatus:503</pre>
+<div class="highlight-python"><pre>$ varnishlog -q 'RespStatus == 503' -g request</pre>
 </div>
 <p>If the error happened just a short time ago the transaction might still
 be in the shared memory log segment. To get <cite>varnishlog</cite> to process the
 whole shared memory log just add the '-d' parameter:</p>
-<div class="highlight-python"><pre>$ varnishlog -d -c -m TxStatus:503</pre>
+<div class="highlight-python"><pre>$ varnishlog -d -q 'RespStatus == 503' -g request</pre>
 </div>
-<p>Please see the <cite>varnishlog</cite> man page for elaborations on further
-filtering capabilities and explanation of the various options.</p>
+<p>Please see the <cite>vsl-query</cite> and <cite>varnishlog</cite> man pages for elaborations
+on further filtering capabilities and explanation of the various
+options.</p>
 </div>
 <div class="section" id="varnish-doesn-t-cache">
 <h2>Varnish doesn't cache<a class="headerlink" href="#varnish-doesn-t-cache" title="Permalink to this headline">¶</a></h2>
@@ -218,7 +219,7 @@ filtering capabilities and explanation of the various options.</p>
         <li class="right" >
           <a href="esi.html" title="Content composition with Edge Side Includes"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li> 
       </ul>
     </div>

@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Using In-line C to extend Varnish &mdash; Varnish version 4.0.2 documentation</title>
+    <title>Using inline C to extend Varnish &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="VCL Examples" href="vcl-examples.html" />
     <link rel="prev" title="Misbehaving servers" href="vcl-grace.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vcl-grace.html" title="Misbehaving servers"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
@@ -54,13 +54,13 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="using-in-line-c-to-extend-varnish">
-<h1>Using In-line C to extend Varnish<a class="headerlink" href="#using-in-line-c-to-extend-varnish" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="using-inline-c-to-extend-varnish">
+<h1>Using inline C to extend Varnish<a class="headerlink" href="#using-inline-c-to-extend-varnish" title="Permalink to this headline">¶</a></h1>
 <p>(Here there be dragons. Big and mean ones.)</p>
-<p>You can use <em>in-line C</em> to extend Varnish. Please note that you can
+<p>You can use <em>inline C</em> to extend Varnish. Please note that you can
 seriously mess up Varnish this way. The C code runs within the Varnish
 Cache process so if your code generates a segfault the cache will crash.</p>
-<p>One of the first uses of In-line C was logging to <cite>syslog</cite>.:</p>
+<p>One of the first uses of inline C was logging to <cite>syslog</cite>.:</p>
 <div class="highlight-python"><pre># The include statements must be outside the subroutines.
 C{
         #include &lt;syslog.h&gt;
@@ -72,6 +72,8 @@ sub vcl_something {
         }C
 }</pre>
 </div>
+<p>To use inline C you need to enable it with the <tt class="docutils literal"><span class="pre">vcc_allow_inline_c</span></tt>
+parameter.</p>
 </div>
 
 
@@ -120,7 +122,7 @@ sub vcl_something {
         <li class="right" >
           <a href="vcl-grace.html" title="Misbehaving servers"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>

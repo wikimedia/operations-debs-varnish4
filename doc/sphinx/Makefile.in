@@ -221,15 +221,15 @@ BUILDDIR = build
 # Internal variables.
 PAPEROPT_a4 = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(srcdir)
+ALLSPHINXOPTS = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(distdir)
 EXTRA_DIST = conf.py index.rst include glossary installation phk \
-	reference tutorial users-guide whats-new $(BUILT_SOURCES)
+	tutorial users-guide whats-new $(BUILT_SOURCES)
 BUILT_SOURCES = include/params.rst include/varnishncsa_options.rst \
 	include/varnishncsa_synopsis.rst \
 	include/varnishlog_options.rst include/varnishlog_synopsis.rst \
 	include/varnishtop_options.rst include/varnishtop_synopsis.rst \
 	include/varnishhist_options.rst \
-	include/varnishhist_synopsis.rst \
+	include/varnishhist_synopsis.rst reference \
 	reference/vmod_std.generated.rst \
 	reference/vmod_directors.generated.rst
 MAINTAINERCLEANFILES = $(EXTRA_DIST)
@@ -541,11 +541,15 @@ include/varnishhist_options.rst: $(top_builddir)/bin/varnishhist/varnishhist_opt
 include/varnishhist_synopsis.rst: $(top_builddir)/bin/varnishhist/varnishhist_opt2rst
 	$(top_builddir)/bin/varnishhist/varnishhist_opt2rst synopsis > $@
 
-reference/vmod_std.generated.rst: $(top_srcdir)/lib/libvmod_std/vmod_std.rst
-	cp $? $@
+.PHONY: reference
+reference:
+	test -d $@ || mkdir $@
 
-reference/vmod_directors.generated.rst: $(top_srcdir)/lib/libvmod_directors/vmod_directors.rst
-	cp $? $@
+reference/vmod_std.generated.rst: reference $(top_builddir)/lib/libvmod_std/vmod_std.rst
+	cp $(top_builddir)/lib/libvmod_std/vmod_std.rst $@
+
+reference/vmod_directors.generated.rst: reference $(top_builddir)/lib/libvmod_directors/vmod_directors.rst
+	cp $(top_builddir)/lib/libvmod_directors/vmod_directors.rst $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

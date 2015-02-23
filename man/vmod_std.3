@@ -62,6 +62,8 @@ they return the second argument, which must have the given TYPE.
 .SH CONTENTS
 .INDENT 0.0
 .IP \(bu 2
+VOID cache_req_body(BYTES)
+.IP \(bu 2
 VOID collect(HEADER)
 .IP \(bu 2
 DURATION duration(STRING, DURATION)
@@ -94,6 +96,8 @@ STRING strstr(STRING, STRING)
 .IP \(bu 2
 VOID syslog(INT, STRING_LIST)
 .IP \(bu 2
+TIME time(STRING, TIME)
+.IP \(bu 2
 INT time2integer(TIME)
 .IP \(bu 2
 REAL time2real(TIME)
@@ -108,10 +112,10 @@ STRING toupper(STRING_LIST)
 .INDENT 0.0
 .TP
 .B Prototype
-STRING toupper(STRING_LIST)
+STRING toupper(STRING_LIST s)
 .TP
 .B Description
-Converts the string \fIs\fP to upper case.
+Converts the string \fIs\fP to uppercase.
 .TP
 .B Example
 set beresp.http.x\-scream = std.toupper("yes!");
@@ -120,10 +124,10 @@ set beresp.http.x\-scream = std.toupper("yes!");
 .INDENT 0.0
 .TP
 .B Prototype
-STRING tolower(STRING_LIST)
+STRING tolower(STRING_LIST s)
 .TP
 .B Description
-Converts the string \fIs\fP to lower case.
+Converts the string \fIs\fP to lowercase.
 .TP
 .B Example
 set beresp.http.x\-nice = std.tolower("VerY");
@@ -132,11 +136,11 @@ set beresp.http.x\-nice = std.tolower("VerY");
 .INDENT 0.0
 .TP
 .B Prototype
-VOID set_ip_tos(INT)
+VOID set_ip_tos(INT tos)
 .TP
 .B Description
-Sets the Type\-of\-Service flag for the current session. Please
-note that the TOS flag is not removed by the end of the
+Sets the IP type\-of\-service (TOS) field for the current session to \fItos\fP.
+Please note that the TOS field is not removed by the end of the
 request so probably want to set it on every request should you
 utilize it.
 .TP
@@ -154,10 +158,10 @@ std.set_ip_tos(0x0);
 .INDENT 0.0
 .TP
 .B Prototype
-REAL random(REAL, REAL)
+REAL random(REAL lo, REAL hi)
 .TP
 .B Description
-Returns a random REAL number between \fIa\fP and \fIb\fP.
+Returns a random real number between \fIlo\fP and \fIhi\fP.
 .TP
 .B Example
 set beresp.http.x\-random\-number = std.random(1, 100);
@@ -166,10 +170,10 @@ set beresp.http.x\-random\-number = std.random(1, 100);
 .INDENT 0.0
 .TP
 .B Prototype
-VOID log(STRING_LIST)
+VOID log(STRING_LIST s)
 .TP
 .B Description
-Logs \fIstring\fP to the shared memory log, using VSL tag \fISLT_VCL_Log\fP.
+Logs the string \fIs\fP to the shared memory log, using VSL tag \fISLT_VCL_Log\fP.
 .TP
 .B Example
 std.log("Something fishy is going on with the vhost " + req.host);
@@ -178,10 +182,10 @@ std.log("Something fishy is going on with the vhost " + req.host);
 .INDENT 0.0
 .TP
 .B Prototype
-VOID syslog(INT, STRING_LIST)
+VOID syslog(INT priority, STRING_LIST s)
 .TP
 .B Description
-Logs \fIstring\fP to syslog marked with \fIpriority\fP.  See your
+Logs the string \fIs\fP to syslog marked with \fIpriority\fP.  See your
 system\(aqs syslog.h file for the legal values of \fIpriority\fP.
 .TP
 .B Example
@@ -206,13 +210,14 @@ set beresp.http.x\-served\-by = std.fileread("/etc/hostname");
 .INDENT 0.0
 .TP
 .B Prototype
-VOID collect(HEADER)
+VOID collect(HEADER hdr)
 .TP
 .B Description
-Collapses the header, joining the headers into one.
+Collapses the header \fIhdr\fP, joining them into one.
 .TP
 .B Example
 std.collect(req.http.cookie);
+.sp
 This will collapse several Cookie: headers into one, long
 cookie header.
 .UNINDENT
@@ -220,12 +225,12 @@ cookie header.
 .INDENT 0.0
 .TP
 .B Prototype
-DURATION duration(STRING, DURATION)
+DURATION duration(STRING s, DURATION fallback)
 .TP
 .B Description
 Converts the string \fIs\fP to seconds. \fIs\fP must be quantified
 with ms (milliseconds), s (seconds), m (minutes), h (hours),
-d (days), w (weeks) or y (years) units. If \fIs\fP fails to parse,
+d (days), w (weeks) or y (years) units. If conversion fails,
 \fIfallback\fP will be returned.
 .TP
 .B Example
@@ -235,37 +240,51 @@ set beresp.ttl = std.duration("1w", 3600s);
 .INDENT 0.0
 .TP
 .B Prototype
-INT integer(STRING, INT)
+INT integer(STRING s, INT fallback)
 .TP
 .B Description
-Converts the string \fIs\fP to an integer.  If \fIs\fP fails to parse,
+Converts the string \fIs\fP to an integer.  If conversion fails,
 \fIfallback\fP will be returned.
 .TP
 .B Example
-if (std.integer(beresp.http.x\-foo, 0) > 5) { ... }
+.nf
+if (std.integer(beresp.http.x\-foo, 0) > 5) {
+.in +2
+...
+.in -2
+}
+.fi
+.sp
 .UNINDENT
 .SS IP ip(STRING, IP)
 .INDENT 0.0
 .TP
 .B Prototype
-IP ip(STRING, IP)
+IP ip(STRING s, IP fallback)
 .TP
 .B Description
-Converts string \fIs\fP to the first IP number returned by
+Converts the string \fIs\fP to the first IP number returned by
 the system library function getaddrinfo(3).  If conversion
 fails, \fIfallback\fP will be returned.
 .TP
 .B Example
-if (std.ip(req.http.X\-forwarded\-for, "0.0.0.0") ~ my_acl) { ... }
+.nf
+if (std.ip(req.http.X\-forwarded\-for, "0.0.0.0") ~ my_acl) {
+.in +2
+...
+.in -2
+}
+.fi
+.sp
 .UNINDENT
 .SS REAL real(STRING, REAL)
 .INDENT 0.0
 .TP
 .B Prototype
-REAL real(STRING, REAL)
+REAL real(STRING s, REAL fallback)
 .TP
 .B Description
-Converts the string \fIs\fP to a real.  If \fIs\fP fails to parse,
+Converts the string \fIs\fP to a real.  If conversion fails,
 \fIfallback\fP will be returned.
 .TP
 .B Example
@@ -275,7 +294,7 @@ set req.http.x\-real = std.real(req.http.x\-foo, 0.0);
 .INDENT 0.0
 .TP
 .B Prototype
-TIME real2time(REAL)
+TIME real2time(REAL r)
 .TP
 .B Description
 Converts the real \fIr\fP to a time.
@@ -287,7 +306,7 @@ set req.http.x\-time = std.real2time(1140618699.00);
 .INDENT 0.0
 .TP
 .B Prototype
-INT time2integer(TIME)
+INT time2integer(TIME t)
 .TP
 .B Description
 Converts the time \fIt\fP to a integer.
@@ -299,7 +318,7 @@ set req.http.x\-int = std.time2integer(now);
 .INDENT 0.0
 .TP
 .B Prototype
-REAL time2real(TIME)
+REAL time2real(TIME t)
 .TP
 .B Description
 Converts the time \fIt\fP to a real.
@@ -311,28 +330,28 @@ set req.http.x\-real = std.time2real(now);
 .INDENT 0.0
 .TP
 .B Prototype
-BOOL healthy(BACKEND)
+BOOL healthy(BACKEND be)
 .TP
 .B Description
-Returns true if the backend is healthy.
+Returns \fItrue\fP if the backend \fIbe\fP is healthy.
 .UNINDENT
 .SS INT port(IP)
 .INDENT 0.0
 .TP
 .B Prototype
-INT port(IP)
+INT port(IP ip)
 .TP
 .B Description
-Returns the port number of an IP address.
+Returns the port number of the IP address \fIip\fP.
 .UNINDENT
 .SS VOID rollback(HTTP)
 .INDENT 0.0
 .TP
 .B Prototype
-VOID rollback(HTTP)
+VOID rollback(HTTP h)
 .TP
 .B Description
-Restore \fIh\fP HTTP headers to their original state.
+Restores the \fIh\fP HTTP headers to their original state.
 .TP
 .B Example
 std.rollback(bereq);
@@ -341,13 +360,13 @@ std.rollback(bereq);
 .INDENT 0.0
 .TP
 .B Prototype
-VOID timestamp(STRING)
+VOID timestamp(STRING s)
 .TP
 .B Description
-Introduces a timestamp in the log with the current time. Uses
-the argument as the timespamp label. This is useful to time
-the execution of lengthy VCL procedures, and makes the
-timestamps inserted automatically by Varnish more accurate.
+Introduces a timestamp in the log with the current time, using
+the string \fIs\fP as the label. This is useful to time the execution
+of lengthy VCL procedures, and makes the timestamps inserted
+automatically by Varnish more accurate.
 .TP
 .B Example
 std.timestamp("curl\-request");
@@ -359,28 +378,80 @@ std.timestamp("curl\-request");
 STRING querysort(STRING)
 .TP
 .B Description
-Sorts the querystring for cache normalization purposes.
+Sorts the query string for cache normalization purposes.
 .TP
 .B Example
 set req.url = std.querysort(req.url);
+.UNINDENT
+.SS VOID cache_req_body(BYTES)
+.INDENT 0.0
+.TP
+.B Prototype
+VOID cache_req_body(BYTES size)
+.TP
+.B Description
+Cache the req.body if it is smaller than \fIsize\fP.
+.sp
+Caching the req.body makes it possible to retry pass
+operations (POST, PUT).
+.TP
+.B Example
+std.cache_req_body(1KB);
+.sp
+This will cache the req.body if its size is smaller than 1KB.
 .UNINDENT
 .SS STRING strstr(STRING, STRING)
 .INDENT 0.0
 .TP
 .B Prototype
-STRING strstr(STRING, STRING)
+STRING strstr(STRING s1, STRING s2)
 .TP
 .B Description
-Returns the substring if the second string is a substring of the first
-string. Note that the comparison is case sensitive. You can
-use the tolower function on both strings if you want case
-insensitivity.
+Returns the first occurrence of the string \fIs2\fP in the string
+\fIs1\fP, or an empty string if not found.
 .sp
-If there is no match a NULL pointer is returned which would
-evaluate to false in an if\-test.
+Note that the comparison is case sensitive.
 .TP
 .B Example
-if (std.strstr(req.url, req.http.x\-restrict))
+.nf
+if (std.strstr(req.url, req.http.x\-restrict)) {
+.in +2
+...
+.in -2
+}
+.fi
+.sp
+.UNINDENT
+.SS TIME time(STRING, TIME)
+.INDENT 0.0
+.TP
+.B Prototype
+TIME time(STRING s, TIME fallback)
+.TP
+.B Description
+Converts the string \fIs\fP to a time.  If conversion fails,
+\fIfallback\fP will be returned.
+.sp
+Supported formats:
+.nf
+"Sun, 06 Nov 1994 08:49:37 GMT"
+"Sunday, 06\-Nov\-94 08:49:37 GMT"
+"Sun Nov  6 08:49:37 1994"
+"1994\-11\-06T08:49:37"
+"784111777.00"
+"784111777"
+.fi
+.sp
+.TP
+.B Example
+.nf
+if (std.time(resp.http.last\-modified, now) < now \- 1w) {
+.in +2
+...
+.in -2
+}
+.fi
+.sp
 .UNINDENT
 .SH SEE ALSO
 .INDENT 0.0

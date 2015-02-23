@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Varnish CLI &mdash; Varnish version 4.0.2 documentation</title>
+    <title>Varnish CLI &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishadm" href="varnishadm.html" />
     <link rel="prev" title="VCL" href="vcl.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vcl.html" title="VCL"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -148,15 +148,23 @@ be entered with the \xnn syntax.</p>
 <dd>Clear the last panic, if any.</dd>
 <dt>storage.list</dt>
 <dd>List storage devices</dd>
-<dt>backend.list</dt>
-<dd>List all backends</dd>
-<dt>backend.set_health matcher state</dt>
-<dd>Set health status on a backend</dd>
+<dt>backend.list [&lt;backend_expression&gt;]</dt>
+<dd>List backends.</dd>
+<dt>backend.set_health &lt;backend_expression&gt; &lt;state&gt;</dt>
+<dd>Set health status on the backends.
+State is any of auto, healthy or sick values.</dd>
 <dt>ban &lt;field&gt; &lt;operator&gt; &lt;arg&gt; [&amp;&amp; &lt;field&gt; &lt;oper&gt; &lt;arg&gt;]...</dt>
 <dd>All objects where the all the conditions match will be marked obsolete.</dd>
 <dt>ban.list</dt>
 <dd>List the active bans.</dd>
 </dl>
+</div>
+<div class="section" id="backend-expression">
+<h4>Backend Expression<a class="headerlink" href="#backend-expression" title="Permalink to this headline">¶</a></h4>
+<p>A backend expression can be a backend name or a combination of backend
+name, IP address and port in &quot;name(IP address:port)&quot; format. All fields
+are optional. If no exact matching backend is found, partial matching
+will be attempted based on the provided name, IP address and port fields.</p>
 </div>
 <div class="section" id="ban-expressions">
 <h4>Ban Expressions<a class="headerlink" href="#ban-expressions" title="Permalink to this headline">¶</a></h4>
@@ -301,6 +309,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#description">DESCRIPTION</a><ul>
 <li><a class="reference internal" href="#syntax">Syntax</a></li>
 <li><a class="reference internal" href="#commands">Commands</a></li>
+<li><a class="reference internal" href="#backend-expression">Backend Expression</a></li>
 <li><a class="reference internal" href="#ban-expressions">Ban Expressions</a></li>
 <li><a class="reference internal" href="#scripting">Scripting</a></li>
 <li><a class="reference internal" href="#how-s-psk-authentication-works">How -S/PSK Authentication Works</a></li>
@@ -356,7 +365,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="vcl.html" title="VCL"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

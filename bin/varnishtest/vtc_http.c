@@ -168,6 +168,25 @@ http_find_header(char * const *hh, const char *hdr)
 }
 
 /**********************************************************************
+ * count header
+ */
+
+static int
+http_count_header(char * const *hh, const char *hdr)
+{
+	int n, l, r = 0;
+
+	l = strlen(hdr);
+
+	for (n = 3; hh[n] != NULL; n++) {
+		if (strncasecmp(hdr, hh[n], l) || hh[n][l] != ':')
+			continue;
+		r++;
+	}
+	return (r);
+}
+
+/**********************************************************************
  * Expect
  */
 
@@ -205,18 +224,16 @@ cmd_var_resolve(struct http *hp, char *spec)
 	} else
 		return (spec);
 	hdr = http_find_header(hh, hdr);
-	if (hdr != NULL)
-		return (hdr);
-	return ("<undef>");
+	return (hdr);
 }
 
 static void
 cmd_http_expect(CMD_ARGS)
 {
 	struct http *hp;
-	const char *lhs;
+	const char *lhs, *clhs;
 	char *cmp;
-	const char *rhs;
+	const char *rhs, *crhs;
 	vre_t *vre;
 	const char *error;
 	int erroroffset;
@@ -233,14 +250,27 @@ cmd_http_expect(CMD_ARGS)
 	AN(av[2]);
 	AZ(av[3]);
 	lhs = cmd_var_resolve(hp, av[0]);
-	if (lhs == NULL)
-		lhs = "<missing>";
 	cmp = av[1];
 	rhs = cmd_var_resolve(hp, av[2]);
-	if (rhs == NULL)
-		rhs = "<missing>";
-	if (!strcmp(cmp, "==")) {
-		retval = strcmp(lhs, rhs) == 0;
+
+	clhs = lhs ? lhs : "<undef>";
+	crhs = rhs ? rhs : "<undef>";
+
+	if (!strcmp(cmp, "~") || !strcmp(cmp, "!~")) {
+		vre = VRE_compile(crhs, 0, &error, &erroroffset);
+		if (vre == NULL)
+			vtc_log(hp->vl, 0, "REGEXP error: %s (@%d) (%s)",
+			    error, erroroffset, crhs);
+		i = VRE_exec(vre, clhs, strlen(clhs), 0, 0, NULL, 0, 0);
+		retval = (i >= 0 && *cmp == '~') || (i < 0 && *cmp == '!');
+		VRE_free(&vre);
+	} else if (!strcmp(cmp, "==")) {
+		retval = strcmp(clhs, crhs) == 0;
+	} else if (!strcmp(cmp, "!=")) {
+		retval = strcmp(clhs, crhs) != 0;
+	} else if (lhs == NULL || rhs == NULL) {
+		// fail inequality comparisons if either side is undef'ed
+		retval = 0;
 	} else if (!strcmp(cmp, "<")) {
 		retval = strcmp(lhs, rhs) < 0;
 	} else if (!strcmp(cmp, "<=")) {
@@ -249,24 +279,15 @@ cmd_http_expect(CMD_ARGS)
 		retval = strcmp(lhs, rhs) >= 0;
 	} else if (!strcmp(cmp, ">")) {
 		retval = strcmp(lhs, rhs) > 0;
-	} else if (!strcmp(cmp, "!=")) {
-		retval = strcmp(lhs, rhs) != 0;
-	} else if (!strcmp(cmp, "~") || !strcmp(cmp, "!~")) {
-		vre = VRE_compile(rhs, 0, &error, &erroroffset);
-		if (vre == NULL)
-			vtc_log(hp->vl, 0, "REGEXP error: %s (@%d) (%s)",
-			    error, erroroffset, rhs);
-		i = VRE_exec(vre, lhs, strlen(lhs), 0, 0, NULL, 0, 0);
-		retval = (i >= 0 && *cmp == '~') || (i < 0 && *cmp == '!');
-		VRE_free(&vre);
 	}
+
 	if (retval == -1)
 		vtc_log(hp->vl, 0,
 		    "EXPECT %s (%s) %s %s (%s) test not implemented",
-		    av[0], lhs, av[1], av[2], rhs);
+		    av[0], clhs, av[1], av[2], crhs);
 	else
 		vtc_log(hp->vl, retval ? 4 : 0, "EXPECT %s (%s) %s \"%s\" %s",
-		    av[0], lhs, cmp, rhs, retval ? "match" : "failed");
+		    av[0], clhs, cmp, crhs, retval ? "match" : "failed");
 }
 
 /**********************************************************************
@@ -446,11 +467,11 @@ http_swallow_body(struct http *hp, char * const *hh, int body)
 	char *p;
 	int i, l, ll;
 
+	hp->body = hp->rxbuf + hp->prxbuf;
 	ll = 0;
 	p = http_find_header(hh, "content-length");
 	if (p != NULL) {
-		hp->body = hp->rxbuf + hp->prxbuf;
-		l = strtoul(p, NULL, 0);
+		l = strtoul(p, NULL, 10);
 		(void)http_rxchar(hp, l, 0);
 		vtc_dump(hp->vl, 4, "body", hp->body, l);
 		hp->bodyl = l;
@@ -468,7 +489,6 @@ http_swallow_body(struct http *hp, char * const *hh, int body)
 		return;
 	}
 	if (body) {
-		hp->body = hp->rxbuf + hp->prxbuf;
 		do  {
 			i = http_rxchar(hp, 1, 1);
 			ll += i;
@@ -535,7 +555,9 @@ cmd_http_rxresp(CMD_ARGS)
 			    "Unknown http rxresp spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 0);
-	hp->body = hp->rxbuf + hp->prxbuf;
+	if (http_count_header(hp->resp, "Content-Length") > 1)
+		vtc_log(hp->vl, 0,
+		    "Multiple Content-Length headers.\n");
 	if (!has_obj)
 		return;
 	else if (!strcmp(hp->resp[1], "200"))
@@ -561,6 +583,9 @@ cmd_http_rxresphdrs(CMD_ARGS)
 		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 0);
+	if (http_count_header(hp->resp, "Content-Length") > 1)
+		vtc_log(hp->vl, 0,
+		    "Multiple Content-Length headers.\n");
 }
 
 
@@ -819,7 +844,9 @@ cmd_http_rxreq(CMD_ARGS)
 		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 1);
-	hp->body = hp->rxbuf + hp->prxbuf;
+	if (http_count_header(hp->req, "Content-Length") > 1)
+		vtc_log(hp->vl, 0,
+		    "Multiple Content-Length headers.\n");
 	http_swallow_body(hp, hp->req, 0);
 	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 }
@@ -839,10 +866,13 @@ cmd_http_rxreqhdrs(CMD_ARGS)
 		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 1);
+	if (http_count_header(hp->req, "Content-Length") > 1)
+		vtc_log(hp->vl, 0,
+		    "Multiple Content-Length headers.\n");
 }
 
 static void
-cmd_http_rxbody(CMD_ARGS)
+cmd_http_rxreqbody(CMD_ARGS)
 {
 	struct http *hp;
 
@@ -850,12 +880,30 @@ cmd_http_rxbody(CMD_ARGS)
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
 	ONLY_SERVER(hp, av);
-	AZ(strcmp(av[0], "rxbody"));
+	AZ(strcmp(av[0], "rxreqbody"));
 	av++;
 
 	for(; *av != NULL; av++)
 		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
 	http_swallow_body(hp, hp->req, 0);
+	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
+}
+
+static void
+cmd_http_rxrespbody(CMD_ARGS)
+{
+	struct http *hp;
+
+	(void)cmd;
+	(void)vl;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_CLIENT(hp, av);
+	AZ(strcmp(av[0], "rxrespbody"));
+	av++;
+
+	for(; *av != NULL; av++)
+		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
+	http_swallow_body(hp, hp->resp, 0);
 	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 }
 
@@ -1193,12 +1241,13 @@ static const struct cmds http_cmds[] = {
 
 	{ "rxreq",		cmd_http_rxreq },
 	{ "rxreqhdrs",		cmd_http_rxreqhdrs },
+	{ "rxreqbody",		cmd_http_rxreqbody },
 	{ "rxchunk",		cmd_http_rxchunk },
-	{ "rxbody",		cmd_http_rxbody },
 
 	{ "txresp",		cmd_http_txresp },
 	{ "rxresp",		cmd_http_rxresp },
 	{ "rxresphdrs",		cmd_http_rxresphdrs },
+	{ "rxrespbody",		cmd_http_rxrespbody },
 	{ "gunzip",		cmd_http_gunzip_body },
 	{ "expect",		cmd_http_expect },
 	{ "send",		cmd_http_send },

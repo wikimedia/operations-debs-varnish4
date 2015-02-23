@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VSL &mdash; Varnish version 4.0.2 documentation</title>
+    <title>VSL &mdash; Varnish version 4.0.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.0.2',
+        VERSION:     '4.0.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.0.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.0.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Varnish VSL Query Expressions" href="vsl-query.html" />
     <link rel="prev" title="vmod_directors" href="vmod_directors.generated.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vmod_directors.generated.html" title="vmod_directors"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -403,12 +403,12 @@ G F E 159 173 80 1304 1314</pre>
 <dt>TTL - TTL set on object</dt>
 <dd><p class="first">A TTL record is emitted whenever the ttl, grace or keep values for an object is set.</p>
 <p>The format is:</p>
-<div class="highlight-python"><pre>%s %d %d %d %d %d [ %d %u %u ]
-|  |  |  |  |  |    |  |  |
-|  |  |  |  |  |    |  |  +- Max-Age from Cache-Control header
-|  |  |  |  |  |    |  +---- Expires header
-|  |  |  |  |  |    +------- Date header
-|  |  |  |  |  +------------ Age (incl Age: header value)
+<div class="highlight-python"><pre>%s %d %d %d %d [ %d %d %u %u ]
+|  |  |  |  |    |  |  |  |
+|  |  |  |  |    |  |  |  +- Max-Age from Cache-Control header
+|  |  |  |  |    |  |  +---- Expires header
+|  |  |  |  |    |  +------- Date header
+|  |  |  |  |    +---------- Age (incl Age: header value)
 |  |  |  |  +--------------- Reference time for TTL
 |  |  |  +------------------ Keep
 |  |  +--------------------- Grace
@@ -417,12 +417,8 @@ G F E 159 173 80 1304 1314</pre>
 </div>
 <p>The last four fields are only present in &quot;RFC&quot; headers.</p>
 <p>Examples:</p>
-<div class="last highlight-python"><pre>RFC 19 -1 -1 1312966109 4 0 0 23
-VCL 10 -1 -1 1312966109 4
-VCL 7 -1 -1 1312966111 6
-VCL 7 120 -1 1312966111 6
-VCL 7 120 3600 1312966111 6
-VCL 12 120 3600 1312966113 8</pre>
+<div class="last highlight-python"><pre>RFC 60 -1 -1 1312966109 1312966109 1312966109 0 60
+VCL 120 10 0 1312966111</pre>
 </div>
 </dd>
 <dt>Timestamp - Timing information</dt>
@@ -623,7 +619,7 @@ Martin Blix Grydeland.</p>
         <li class="right" >
           <a href="vmod_directors.generated.html" title="vmod_directors"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.0.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.0.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

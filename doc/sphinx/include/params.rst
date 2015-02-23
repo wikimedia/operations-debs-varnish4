@@ -11,13 +11,13 @@ acceptor_sleep_decay
 	* Flags: experimental
 
 If we run out of resources, such as file descriptors or worker threads, the acceptor will sleep between accepts.
-This parameter (multiplicatively) reduce the sleep duration for each succesfull accept. (ie: 0.9 = reduce by 10%)
+This parameter (multiplicatively) reduce the sleep duration for each successful accept. (ie: 0.9 = reduce by 10%)
 
 .. _ref_param_acceptor_sleep_incr:
 
 acceptor_sleep_incr
 ~~~~~~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 0.001
 	* Minimum: 0.000
 	* Maximum: 1.000
@@ -30,7 +30,7 @@ This parameter control how much longer we sleep, each time we fail to accept a n
 
 acceptor_sleep_max
 ~~~~~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 0.050
 	* Minimum: 0.000
 	* Maximum: 10.000
@@ -55,13 +55,13 @@ ban_dups
 	* Units: bool
 	* Default: on
 
-Elimited older identical bans when new bans are created.  This test is CPU intensive and scales with the number and complexity of active (non-Gone) bans.  If identical bans are frequent, the amount of CPU needed to actually test  the bans will be similarly reduced.
+Eliminate older identical bans when new bans are created.  This test is CPU intensive and scales with the number and complexity of active (non-Gone) bans.  If identical bans are frequent, the amount of CPU needed to actually test  the bans will be similarly reduced.
 
 .. _ref_param_ban_lurker_age:
 
 ban_lurker_age
 ~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 60.000
 	* Minimum: 0.000
 
@@ -80,7 +80,7 @@ How many objects the ban lurker examines before taking a ban_lurker_sleep.  Use 
 
 ban_lurker_sleep
 ~~~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 0.010
 	* Minimum: 0.000
 
@@ -91,7 +91,7 @@ A value of zero disables the ban lurker.
 
 between_bytes_timeout
 ~~~~~~~~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 60.000
 	* Minimum: 0.000
 
@@ -136,7 +136,7 @@ cli_limit
 	* Minimum: 128b
 	* Maximum: 99999999b
 
-Maximum size of CLI response.  If the response exceeds this limit, the reponse code will be 201 instead of 200 and the last line will indicate the truncation.
+Maximum size of CLI response.  If the response exceeds this limit, the response code will be 201 instead of 200 and the last line will indicate the truncation.
 
 .. _ref_param_cli_timeout:
 
@@ -152,7 +152,7 @@ Timeout for the childs replies to CLI requests from the mgt_param.
 
 clock_skew
 ~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 10
 	* Minimum: 0
 
@@ -162,7 +162,7 @@ How much clockskew we are willing to accept between the backend and our own cloc
 
 connect_timeout
 ~~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 3.500
 	* Minimum: 0.000
 
@@ -172,13 +172,13 @@ Default connection timeout for backend connections. We only try to connect to th
 
 critbit_cooloff
 ~~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 180.000
 	* Minimum: 60.000
 	* Maximum: 254.000
 	* Flags: wizard
 
-How long time the critbit hasher keeps deleted objheads on the cooloff list.
+How long the critbit hasher keeps deleted objheads on the cooloff list.
 
 .. _ref_param_debug:
 
@@ -219,6 +219,9 @@ Use +/- prefix to set/reset individual bits:
 
 	*esi_chop*
 		Chop ESI fetch to bits
+
+	*flush_head*
+		Flush after http1 head
 
 .. _ref_param_default_grace:
 
@@ -292,7 +295,7 @@ Use +/- prefix to enable/disable individual feature:
 fetch_chunksize
 ~~~~~~~~~~~~~~~
 	* Units: bytes
-	* Default: 128k
+	* Default: 16k
 	* Minimum: 4k
 	* Flags: experimental
 
@@ -314,7 +317,7 @@ The maximum chunksize we attempt to allocate from storage. Making this too large
 
 first_byte_timeout
 ~~~~~~~~~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 60.000
 	* Minimum: 0.000
 
@@ -444,7 +447,7 @@ http_resp_size
 	* Default: 32k
 	* Minimum: 0.25k
 
-Maximum number of bytes of HTTP backend resonse we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
+Maximum number of bytes of HTTP backend response we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
 The memory for the request is allocated from the worker workspace (param: thread_pool_workspace) and this parameter limits how much of that the request is allowed to take up.
 
 .. _ref_param_idle_send_timeout:
@@ -707,7 +710,7 @@ Old name for vsl_reclen, use that instead.
 
 shortlived
 ~~~~~~~~~~
-	* Units: s
+	* Units: seconds
 	* Default: 10.000
 	* Minimum: 0.000
 
@@ -797,7 +800,7 @@ Wait this long after destroying a thread.
 
 This controls the decay of thread pools when idle(-ish).
 
-Minimum is 0.01 second.
+Minimum is 0.01 seconds.
 
 .. _ref_param_thread_pool_fail_delay:
 
@@ -934,7 +937,7 @@ timeout_linger
 	* Minimum: 0.000
 	* Flags: experimental
 
-How long time the workerthread lingers on an idle session before handing it over to the waiter.
+How long the worker thread lingers on an idle session before handing it over to the waiter.
 When sessions are reused, as much as half of all reuses happen within the first 100 msec of the previous request completing.
 Setting this too high results in worker threads not doing anything for their keep, setting it too low just means that more sessions take a detour around the waiter.
 
@@ -946,7 +949,7 @@ timeout_req
 	* Default: 2.000
 	* Minimum: 0.000
 
-Max time to receive clients request header, measured from first non-white-space character to double CRNL.
+Max time to receive clients request headers, measured from first non-white-space character to double CRNL.
 
 .. _ref_param_user:
 
@@ -1114,7 +1117,7 @@ workspace_thread
 	* Maximum: 8k
 	* Flags: delayed
 
-Bytes of auxillary workspace per thread.
+Bytes of auxiliary workspace per thread.
 This workspace is used for certain temporary data structures during the operation of a worker thread.
 One use is for the io-vectors for writing requests and responses to sockets, having too little space will result in more writev(2) system calls, having too much just wastes the space.
 

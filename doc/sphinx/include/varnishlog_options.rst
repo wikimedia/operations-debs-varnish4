@@ -40,15 +40,15 @@
 	
 	If a tag include option is the first of any tag selection options, all tags are first marked excluded.
 
--k num
-
-	Process this number of matching log transactions before exiting.
-
 -I <[taglist:]regex>
 
 	Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent.
 	
 	If a tag include option is the first of any tag selection options, all tags are first marked excluded.
+
+-k num
+
+	Process this number of matching log transactions before exiting.
 
 -L limit
 

@@ -113,9 +113,10 @@ bereq.uncacheable
 
 	Readable from: backend
 
-	Writable from: backend
-
 	
+	Indicates whether this request is uncacheable due
+	to a pass in the client side or a hit on an existing
+	uncacheable object (aka hit-for-pass).
 	
 
 bereq.url
@@ -263,6 +264,13 @@ beresp.keep
 	Writable from: vcl_backend_response, vcl_backend_error
 
 	
+	Set to a period to enable conditional backend requests.
+	
+	The keep time is cache lifetime in addition to the ttl.
+	
+	Objects with ttl expired but with keep time left may be used
+	to issue conditional (If-Modified-Since / If-None-Match)
+	requests to the backend to refresh them.
 	
 
 beresp.proto
@@ -336,6 +344,13 @@ beresp.uncacheable
 	Writable from: vcl_backend_response, vcl_backend_error
 
 	
+	Inherited from bereq.uncacheable, see there.
+	
+	Setting this variable makes the object uncacheable, which may
+	get stored as a hit-for-pass object in the cache.
+	
+	Clearing the variable has no effect and will log the warning
+	"Ignoring attempt to reset beresp.uncacheable".
 	
 
 client
@@ -388,7 +403,7 @@ obj.grace
 	Readable from: vcl_hit
 
 	
-	The object's grace period in seconds.
+	The object's remaining grace period in seconds.
 	
 
 obj.hits
@@ -398,12 +413,8 @@ obj.hits
 	Readable from: vcl_hit, vcl_deliver
 
 	
-	The count of cache-hits on this hash-key since it was
-	last instantiated.  This counts cache-hits across all
-	Vary:-ants on this hash-key.
-	The counter will only be reset to zero if/when all objects
-	with this hash-key have disappeared from cache.
-	NB: obj.hits == 0 does *not* indicate a cache miss.
+	The count of cache-hits on this object. A value of 0 indicates a
+	cache miss.
 	
 
 obj.http.
@@ -423,6 +434,7 @@ obj.keep
 	Readable from: vcl_hit
 
 	
+	The object's remaining keep period in seconds.
 	
 
 obj.proto
@@ -469,9 +481,10 @@ obj.uncacheable
 
 	Type: BOOL
 
-	Readable from: vcl_hit
+	Readable from: vcl_deliver
 
 	
+	Whether the object is uncacheable (pass or hit-for-pass).
 	
 
 req

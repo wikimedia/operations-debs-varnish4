@@ -359,7 +359,10 @@ sp_variables = [
 	('bereq.uncacheable',
 		'BOOL',
 		( 'backend', ),
-		( 'backend', ), """
+		( ), """
+		Indicates whether this request is uncacheable due
+		to a pass in the client side or a hit on an existing
+		uncacheable object (aka hit-for-pass).
 		"""
 	),
 	('bereq.connect_timeout',
@@ -461,6 +464,13 @@ sp_variables = [
 		'BOOL',
 		( 'backend_response', 'backend_error'),
 		( 'backend_response', 'backend_error'), """
+		Inherited from bereq.uncacheable, see there.
+
+		Setting this variable makes the object uncacheable, which may
+		get stored as a hit-for-pass object in the cache.
+
+		Clearing the variable has no effect and will log the warning
+		"Ignoring attempt to reset beresp.uncacheable".
 		"""
 	),
 	('beresp.ttl',
@@ -482,6 +492,13 @@ sp_variables = [
 		'DURATION',
 		( 'backend_response', 'backend_error'),
 		( 'backend_response', 'backend_error'), """
+		Set to a period to enable conditional backend requests.
+
+		The keep time is cache lifetime in addition to the ttl.
+
+		Objects with ttl expired but with keep time left may be used
+		to issue conditional (If-Modified-Since / If-None-Match)
+		requests to the backend to refresh them.
 		"""
 	),
 	('beresp.backend.name',
@@ -531,13 +548,9 @@ sp_variables = [
 		'INT',
 		( 'hit', 'deliver',),
 		( ), """
-		The count of cache-hits on this hash-key since it was
-		last instantiated.  This counts cache-hits across all
-		Vary:-ants on this hash-key.
-		The counter will only be reset to zero if/when all objects
-		with this hash-key have disappeared from cache.
-		NB: obj.hits == 0 does *not* indicate a cache miss.
-		"""
+                The count of cache-hits on this object. A value of 0 indicates a
+		cache miss.
+                """
 	),
 	('obj.http.',
 		'HEADER',
@@ -557,19 +570,21 @@ sp_variables = [
 		'DURATION',
 		( 'hit', ),
 		( ), """
-		The object's grace period in seconds.
+		The object's remaining grace period in seconds.
 		"""
 	),
 	('obj.keep',
 		'DURATION',
 		( 'hit', ),
 		( ), """
+		The object's remaining keep period in seconds.
 		"""
 	),
 	('obj.uncacheable',
 		'BOOL',
-		( 'hit', ),
+		( 'deliver', ),
 		( ), """
+		Whether the object is uncacheable (pass or hit-for-pass).
 		"""
 	),
 	('resp',
@@ -900,6 +915,7 @@ file_header(fo)
 
 fo.write("""
 struct vrt_ctx;
+#define VRT_CTX const struct vrt_ctx *ctx
 struct req;
 struct busyobj;
 struct ws;
@@ -908,7 +924,7 @@ struct worker;
 
 typedef int vcl_init_f(struct cli *);
 typedef void vcl_fini_f(struct cli *);
-typedef int vcl_func_f(const struct vrt_ctx *ctx);
+typedef int vcl_func_f(VRT_CTX);
 """)
 
 def tbl40(a, b):
@@ -1042,7 +1058,7 @@ def one_var(nm, spec):
 		fo.write('\t    "VRT_r_%s(ctx)",\n' % cnam)
 		if nm == i[0]:
 			fh.write("VCL_" + typ +
-			    " VRT_r_%s(const struct vrt_ctx *);\n" % cnam )
+			    " VRT_r_%s(VRT_CTX);\n" % cnam )
 	restrict(fo, spec[2])
 
 	if len(spec[3]) == 0:
@@ -1055,7 +1071,7 @@ def one_var(nm, spec):
 		fo.write('\t    "VRT_l_%s(ctx, ",\n' % cnam)
 		if nm == i[0]:
 			fh.write(
-			    "void VRT_l_%s(const struct vrt_ctx *, " % cnam)
+			    "void VRT_l_%s(VRT_CTX, " % cnam)
 			if typ != "STRING":
 				fh.write("VCL_" + typ + ");\n")
 			else:

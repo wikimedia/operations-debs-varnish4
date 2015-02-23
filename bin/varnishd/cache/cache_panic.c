@@ -37,6 +37,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "cache.h"
 #include "common/heritage.h"
@@ -340,7 +341,7 @@ pan_req(const struct req *req)
 		    "  err_code = %d, err_reason = %s,\n", req->err_code,
 		    req->err_reason ? req->err_reason : "(null)");
 
-	VSB_printf(pan_vsp, "  restarts = %d, esi_level = %d\n",
+	VSB_printf(pan_vsp, "  restarts = %d, esi_level = %d,\n",
 	    req->restarts, req->esi_level);
 
 	if (req->sp != NULL)
@@ -429,10 +430,21 @@ pan_ic(const char *func, const char *file, int line, const char *cond,
 	const char *q;
 	struct req *req;
 	struct busyobj *bo;
+	struct sigaction sa;
 
 	AZ(pthread_mutex_lock(&panicstr_mtx)); /* Won't be released,
 						  we're going to die
 						  anyway */
+
+	/*
+	 * should we trigger a SIGSEGV while handling a panic, our sigsegv
+	 * handler would hide the panic, so we need to reset the handler to
+	 * default
+	 */
+	memset(&sa, 0, sizeof sa);
+	sa.sa_handler = SIG_DFL;
+	(void)sigaction(SIGSEGV, &sa, NULL);
+
 	switch(kind) {
 	case VAS_WRONG:
 		VSB_printf(pan_vsp,
@@ -468,6 +480,7 @@ pan_ic(const char *func, const char *file, int line, const char *cond,
 	if (q != NULL)
 		VSB_printf(pan_vsp, "thread = (%s)\n", q);
 
+	VSB_printf(pan_vsp, "version = %s\n", VCS_version);
 	VSB_printf(pan_vsp, "ident = %s,%s\n",
 	    VSB_data(vident) + 1, WAIT_GetName());
 
