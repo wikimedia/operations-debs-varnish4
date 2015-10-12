@@ -15,7 +15,7 @@ secret_file=/etc/varnish/secret
 
 varnish_setup_user() {
     if ! getent passwd $1 2>&1 >/dev/null; then
-        adduser --quiet --system --no-create-home --group $1
+        adduser --quiet --system --no-create-home --home /nonexistent --group $1
     fi
 }
 
