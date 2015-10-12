@@ -1,4 +1,4 @@
-varnish (4.1.0-1) UNRELEASED; urgency=medium
+varnish (4.1.0-1) unstable; urgency=medium
 
   [ Tollef Fog Heen ]
   * Under systemd, ensure varnishlog/varnishncsa are running before trying
@@ -6,8 +6,13 @@ varnish (4.1.0-1) UNRELEASED; urgency=medium
 
   [ Stig Sandbeck Mathisen ]
   * Imported upstream release 4.1.0-1
+  * [23c5db9] Build depend on graphviz for doc
+  * [c49f79e] Adjust varnish doc install source
+  * [94a0031] Use Pre-Depends: ${misc:Pre-Depends} (lintian)
+  * [e5ef8d1] Give the varnish user a home in /nonexistent
+  * [e678ca3] Add new symbols for libvarnishapi1
 
- -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 12 Oct 2015 13:02:39 +0200
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 12 Oct 2015 14:23:28 +0200
 
 varnish (4.0.3-1) unstable; urgency=medium
 
