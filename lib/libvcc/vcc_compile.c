@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -134,6 +134,7 @@ New_IniFin(struct vcc *tl)
 	p->magic = INIFIN_MAGIC;
 	p->ini = VSB_new_auto();
 	p->fin = VSB_new_auto();
+	p->event = VSB_new_auto();
 	p->n = ++tl->ninifin;
 	VTAILQ_INSERT_TAIL(&tl->inifin, p, list);
 	return (p);
@@ -249,15 +250,41 @@ EncToken(struct vsb *sb, const struct token *t)
  */
 
 static void
-LocTable(const struct vcc *tl)
+EmitCoordinates(const struct vcc *tl, struct vsb *vsb)
 {
 	struct token *t;
 	unsigned lin, pos;
 	struct source *sp;
 	const char *p;
 
-	Fh(tl, 0, "\n#define VGC_NREFS %u\n", tl->cnt + 1);
-	Fc(tl, 0, "\nstatic struct vrt_ref VGC_ref[VGC_NREFS] = {\n");
+	VSB_printf(vsb, "/* ---===### Source Code ###===---*/\n");
+
+	VSB_printf(vsb, "\n#define VGC_NSRCS %u\n", tl->nsources);
+
+	VSB_printf(vsb, "\nstatic const char *srcname[VGC_NSRCS] = {\n");
+	VTAILQ_FOREACH(sp, &tl->sources, list) {
+		VSB_printf(vsb, "\t");
+		EncString(vsb, sp->name, NULL, 0);
+		VSB_printf(vsb, ",\n");
+	}
+	VSB_printf(vsb, "};\n");
+
+	VSB_printf(vsb, "\nstatic const char *srcbody[%u] = {\n", tl->nsources);
+	VTAILQ_FOREACH(sp, &tl->sources, list) {
+		VSB_printf(vsb, "    /* ");
+		EncString(vsb, sp->name, NULL, 0);
+		VSB_printf(vsb, "*/\n");
+		VSB_printf(vsb, "\t");
+		EncString(vsb, sp->b, sp->e, 1);
+		VSB_printf(vsb, ",\n");
+	}
+	VSB_printf(vsb, "};\n\n");
+
+	VSB_printf(vsb, "/* ---===### Location Counters ###===---*/\n");
+
+	VSB_printf(vsb, "\n#define VGC_NREFS %u\n", tl->cnt + 1);
+
+	VSB_printf(vsb, "\nstatic struct vrt_ref VGC_ref[VGC_NREFS] = {\n");
 	lin = 1;
 	pos = 0;
 	sp = 0;
@@ -285,49 +312,87 @@ LocTable(const struct vcc *tl)
 				pos++;
 
 		}
-		Fc(tl, 0, "  [%3u] = { %d, %8tu, %4u, %3u, 0, ",
+		VSB_printf(vsb, "  [%3u] = { %u, %8tu, %4u, %3u, ",
 		    t->cnt, sp->idx, t->b - sp->b, lin, pos + 1);
 		if (t->tok == CSRC)
-			Fc(tl, 0, " \"C{\"},\n");
+			VSB_printf(vsb, " \"C{\"},\n");
 		else
-			Fc(tl, 0, " \"%.*s\" },\n", PF(t));
+			VSB_printf(vsb, " \"%.*s\" },\n", PF(t));
 	}
-	Fc(tl, 0, "};\n");
+	VSB_printf(vsb, "};\n\n");
 }
 
-/*--------------------------------------------------------------------*/
+/*--------------------------------------------------------------------
+ * Init/Fini/Event
+ *
+ * We call Fini-s in the opposite order of init-s.
+ * Other events are called in same order as init-s, no matter which
+ * event it might be.
+ */
 
 static void
-EmitInitFunc(const struct vcc *tl)
+EmitInitFini(const struct vcc *tl)
 {
 	struct inifin *p;
 
-	Fc(tl, 0, "\nstatic int\nVGC_Init(struct cli *cli)\n{\n\n");
+	Fh(tl, 0, "\nstatic unsigned vgc_inistep;\n");
+
+	/*
+	 * INIT
+	 */
+	Fc(tl, 0, "\nstatic int\nVGC_Load(VRT_CTX)\n{\n\n");
+	Fc(tl, 0, "\tvgc_inistep = 0;\n\n");
 	VTAILQ_FOREACH(p, &tl->inifin, list) {
 		AZ(VSB_finish(p->ini));
+		assert(p->n > 0);
 		if (VSB_len(p->ini))
 			Fc(tl, 0, "\t/* %u */\n%s\n", p->n, VSB_data(p->ini));
+		Fc(tl, 0, "\tvgc_inistep = %u;\n\n", p->n);
 		VSB_delete(p->ini);
+	}
+
+	Fc(tl, 0, "\t(void)VGC_function_vcl_init(ctx);\n");
+	Fc(tl, 0, "\treturn(*ctx->handling == VCL_RET_OK ? 0: -1);\n");
+	Fc(tl, 0, "}\n");
+
+	/*
+	 * FINI
+	 */
+	Fc(tl, 0, "\nstatic int\nVGC_Discard(VRT_CTX)\n{\n\n");
+
+	Fc(tl, 0, "\t(void)VGC_function_vcl_fini(ctx);\n\n");
+	VTAILQ_FOREACH_REVERSE(p, &tl->inifin, inifinhead, list) {
+		AZ(VSB_finish(p->fin));
+		if (VSB_len(p->fin)) {
+			Fc(tl, 0, "\t/* %u */\n", p->n);
+			Fc(tl, 0, "\tif (vgc_inistep >= %u) {\n", p->n);
+			Fc(tl, 0, "%s\n", VSB_data(p->fin));
+			Fc(tl, 0, "\t}\n\n");
+		}
+		VSB_delete(p->fin);
 	}
 
 	Fc(tl, 0, "\treturn(0);\n");
 	Fc(tl, 0, "}\n");
-}
 
-static void
-EmitFiniFunc(const struct vcc *tl)
-{
-	struct inifin *p;
-
-	Fc(tl, 0, "\nstatic void\nVGC_Fini(struct cli *cli)\n{\n\n");
-
-	VTAILQ_FOREACH_REVERSE(p, &tl->inifin, inifinhead, list) {
-		AZ(VSB_finish(p->fin));
-		if (VSB_len(p->fin))
-			Fc(tl, 0, "\t/* %u */\n%s\n", p->n, VSB_data(p->fin));
-		VSB_delete(p->fin);
+	/*
+	 * EVENTS
+	 */
+	Fc(tl, 0, "\nstatic int\n");
+	Fc(tl, 0, "VGC_Event(VRT_CTX, enum vcl_event_e ev)\n");
+	Fc(tl, 0, "{\n");
+	Fc(tl, 0, "\tif (ev == VCL_EVENT_LOAD)\n");
+	Fc(tl, 0, "\t\treturn(VGC_Load(ctx));\n");
+	Fc(tl, 0, "\tif (ev == VCL_EVENT_DISCARD)\n");
+	Fc(tl, 0, "\t\treturn(VGC_Discard(ctx));\n");
+	Fc(tl, 0, "\n");
+	VTAILQ_FOREACH(p, &tl->inifin, list) {
+		AZ(VSB_finish(p->event));
+		if (VSB_len(p->event))
+			Fc(tl, 0, "\t/* %u */\n%s\n", p->n, VSB_data(p->event));
+		VSB_delete(p->event);
 	}
-
+	Fc(tl, 0, "\treturn (0);\n");
 	Fc(tl, 0, "}\n");
 }
 
@@ -336,41 +401,15 @@ EmitFiniFunc(const struct vcc *tl)
 static void
 EmitStruct(const struct vcc *tl)
 {
-	struct source *sp;
-
-	Fc(tl, 0, "\nextern const char *srcname[];\n");
-	Fc(tl, 0, "\nconst char *srcname[%u] = {\n", tl->nsources);
-	VTAILQ_FOREACH(sp, &tl->sources, list) {
-		Fc(tl, 0, "\t");
-		EncString(tl->fc, sp->name, NULL, 0);
-		Fc(tl, 0, ",\n");
-	}
-	Fc(tl, 0, "};\n");
-
-	Fc(tl, 0, "\nextern const char *srcbody[];\n");
-	Fc(tl, 0, "\nconst char *srcbody[%u] = {\n", tl->nsources);
-	VTAILQ_FOREACH(sp, &tl->sources, list) {
-		Fc(tl, 0, "    /* ");
-		EncString(tl->fc, sp->name, NULL, 0);
-		Fc(tl, 0, "*/\n");
-		Fc(tl, 0, "\t");
-		EncString(tl->fc, sp->b, sp->e, 1);
-		Fc(tl, 0, ",\n");
-	}
-	Fc(tl, 0, "};\n");
-
-	Fc(tl, 0, "\nstatic struct director\t*directors[%d];\n",
-	    tl->ndirector);
-
 	Fc(tl, 0, "\nconst struct VCL_conf VCL_conf = {\n");
 	Fc(tl, 0, "\t.magic = VCL_CONF_MAGIC,\n");
-	Fc(tl, 0, "\t.init_vcl = VGC_Init,\n");
-	Fc(tl, 0, "\t.fini_vcl = VGC_Fini,\n");
-	Fc(tl, 0, "\t.ndirector = %d,\n", tl->ndirector);
-	Fc(tl, 0, "\t.director = directors,\n");
+	Fc(tl, 0, "\t.event_vcl = VGC_Event,\n");
+	Fc(tl, 0, "\t.default_director = &%s,\n", tl->default_director);
+	if (tl->default_probe != NULL)
+		Fc(tl, 0, "\t.default_probe = &%s,\n", tl->default_probe);
 	Fc(tl, 0, "\t.ref = VGC_ref,\n");
 	Fc(tl, 0, "\t.nref = VGC_NREFS,\n");
-	Fc(tl, 0, "\t.nsrc = %u,\n", tl->nsources);
+	Fc(tl, 0, "\t.nsrc = VGC_NSRCS,\n");
 	Fc(tl, 0, "\t.srcname = srcname,\n");
 	Fc(tl, 0, "\t.srcbody = srcbody,\n");
 #define VCL_MET_MAC(l,u,b) \
@@ -508,7 +547,6 @@ vcc_NewVcc(const struct vcc *tl0)
 	VTAILQ_INIT(&tl->sources);
 
 	tl->nsources = 0;
-	tl->ndirector = 1;
 
 	/* General C code */
 	tl->fc = VSB_new_auto();
@@ -573,7 +611,8 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 	struct vcc *tl;
 	struct symbol *sym;
 	const struct var *v;
-	struct inifin *ifp;
+	struct vsb *vsb;
+
 	char *of;
 	int i;
 
@@ -598,14 +637,9 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 	sym = VCC_AddSymbolStr(tl, "storage.", SYM_WILDCARD);
 	sym->wildcard = vcc_Stv_Wildcard;
 
-	vcl_output_lang_h(tl->fh);
-	Fh(tl, 0, "/* ---===### VCC generated code ###===---*/\n");
+	Fh(tl, 0, "/* ---===### VCC generated .h code ###===---*/\n");
+	Fc(tl, 0, "\n/* ---===### VCC generated .c code ###===---*/\n");
 	Fh(tl, 0, "\nextern const struct VCL_conf VCL_conf;\n");
-
-	/* Macro for accessing directors */
-	Fh(tl, 0, "#define VGCDIR(n) VCL_conf.director[VGC_backend_##n]\n");
-
-	Fh(tl, 0, "#define __match_proto__(xxx)		/*lint -e{818} */\n");
 
 	/* Register and lex the main source */
 	VTAILQ_INSERT_TAIL(&tl->sources, sp, list);
@@ -640,7 +674,7 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 		return (vcc_DestroyTokenList(tl, NULL));
 
 	/* Check if we have any backends at all */
-	if (tl->ndirector == 1) {
+	if (tl->default_director == NULL) {
 		VSB_printf(tl->sb,
 		    "No backends or directors found in VCL program, "
 		    "at least one is necessary.\n");
@@ -649,11 +683,7 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 	}
 
 	/* Configure the default director */
-	ifp = New_IniFin(tl);
-	VSB_printf(ifp->ini,
-	    "\tVCL_conf.director[0] = VCL_conf.director[%d];",
-	    tl->defaultdir);
-	vcc_AddRef(tl, tl->t_defaultdir, SYM_BACKEND);
+	vcc_AddRef(tl, tl->t_default_director, SYM_BACKEND);
 
 	/* Check for orphans */
 	if (vcc_CheckReferences(tl))
@@ -668,9 +698,10 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 		return (vcc_DestroyTokenList(tl, NULL));
 
 	/* Emit method functions */
+	Fh(tl, 1, "\n");
 	for (i = 1; i < VCL_MET_MAX; i++) {
-		Fh(tl, 1, "\nint __match_proto__(vcl_func_f)\n");
 		Fh(tl, 1,
+		    "int __match_proto__(vcl_func_f) "
 		    "VGC_function_%s(VRT_CTX);\n",
 		    method_tab[i].name);
 		Fc(tl, 1, "\nint __match_proto__(vcl_func_f)\n");
@@ -679,25 +710,44 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 		    method_tab[i].name);
 		AZ(VSB_finish(tl->fm[i]));
 		Fc(tl, 1, "{\n");
+		/*
+		 * We want vmods to be able set a FAIL return value
+		 * in members called from vcl_init, so set OK up front
+		 * and return with whatever was set last.
+		 */
+		if (method_tab[i].bitval == VCL_MET_INIT)
+			Fc(tl, 1, "  VRT_handling(ctx, VCL_RET_OK);\n");
 		Fc(tl, 1, "%s", VSB_data(tl->fm[i]));
+		if (method_tab[i].bitval == VCL_MET_INIT)
+			Fc(tl, 1, "  return(1);\n");
 		Fc(tl, 1, "}\n");
 	}
 
-	LocTable(tl);
-
-	EmitInitFunc(tl);
-
-	EmitFiniFunc(tl);
+	EmitInitFini(tl);
 
 	EmitStruct(tl);
 
-	/* Combine it all in the fh vsb */
-	AZ(VSB_finish(tl->fc));
-	VSB_cat(tl->fh, VSB_data(tl->fc));
-	AZ(VSB_finish(tl->fh));
+	/* Combine it all */
 
-	of = strdup(VSB_data(tl->fh));
+	vsb = VSB_new_auto();
+	AN(vsb);
+
+	vcl_output_lang_h(vsb);
+
+	EmitCoordinates(tl, vsb);
+
+	AZ(VSB_finish(tl->fh));
+	VSB_cat(vsb, VSB_data(tl->fh));
+
+	AZ(VSB_finish(tl->fc));
+	VSB_cat(vsb, VSB_data(tl->fc));
+
+	AZ(VSB_finish(vsb));
+
+	of = strdup(VSB_data(vsb));
 	AN(of);
+
+	VSB_delete(vsb);
 
 	/* done */
 	return (vcc_DestroyTokenList(tl, of));

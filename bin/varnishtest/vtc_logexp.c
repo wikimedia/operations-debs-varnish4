@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2008-2014 Varnish Software AS
+ * Copyright (c) 2008-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -33,6 +33,16 @@
  *   -g <grouping-mode>
  *   -q <query>
  *
+ *   vsl arguments (vsl_arg.c)
+ *   -b                   Only display backend records
+ *   -c                   Only display client records
+ *   -C                   Caseless regular expressions
+ *   -i <taglist>         Include tags
+ *   -I <[taglist:]regex> Include by regex
+ *   -L <limit>           Incomplete transaction limit
+ *   -T <seconds>         Transaction end timeout
+ *
+ *
  * logexpect lN -v <id> [-g <grouping>] [-d 0|1] [-q query] {
  *    expect <skip> <vxid> <tag> <regex>
  * }
@@ -51,13 +61,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <errno.h>
 
 #include "vapi/vsm.h"
 #include "vapi/vsl.h"
 #include "vtim.h"
-#include "vqueue.h"
-#include "vas.h"
 #include "vre.h"
 
 #include "vtc.h"
@@ -127,7 +134,8 @@ logexp_delete(struct logexp *le)
 {
 	CHECK_OBJ_NOTNULL(le, LOGEXP_MAGIC);
 	AZ(le->run);
-	AZ(le->vsl);
+	AN(le->vsl);
+	VSL_Delete(le->vsl);
 	AZ(le->vslq);
 	logexp_delete_tests(le);
 	free(le->name);
@@ -153,7 +161,9 @@ logexp_new(const char *name)
 	le->d_arg = 0;
 	le->g_arg = VSL_g_vxid;
 	le->vsm = VSM_New();
+	le->vsl = VSL_New();
 	AN(le->vsm);
+	AN(le->vsl);
 
 	VTAILQ_INSERT_TAIL(&logexps, le, list);
 	return (le);
@@ -172,7 +182,7 @@ logexp_next(struct logexp *le)
 
 	CHECK_OBJ_ORNULL(le->test, LOGEXP_TEST_MAGIC);
 	if (le->test)
-		vtc_log(le->vl, 3, "tst| %s", VSB_data(le->test->str));
+		vtc_log(le->vl, 3, "waitfor| %s", VSB_data(le->test->str));
 }
 
 static int __match_proto__(VSLQ_dispatch_f)
@@ -183,7 +193,7 @@ logexp_dispatch(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	struct VSL_transaction *t;
 	int i;
 	int ok, skip;
-	int vxid, tag, type, len, lvl;
+	int vxid, tag, type, len;
 	const char *legend, *data;
 
 	(void)vsl;
@@ -228,21 +238,19 @@ logexp_dispatch(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				le->test->skip_max > le->skip_cnt))
 				skip = 1;
 
-			if (ok) {
-				lvl = 4;
-				legend = "ok";
-			} else if (skip) {
-				lvl = 4;
-				legend = "skp";
-			} else {
-				lvl = 0;
+			if (ok)
+				legend = "match";
+			else if (skip)
+				legend = NULL;
+			else
 				legend = "err";
-			}
 			type = VSL_CLIENT(t->c->rec.ptr) ? 'c' :
 			    VSL_BACKEND(t->c->rec.ptr) ? 'b' : '-';
 
-			vtc_log(le->vl, lvl, "%3s| %10u %-15s %c %.*s",
-			    legend, vxid, VSL_tags[tag], type, len, data);
+			if (legend != NULL)
+				vtc_log(le->vl, 4, "%3s| %10u %-15s %c %.*s",
+				    legend, vxid, VSL_tags[tag], type, len,
+				    data);
 
 			if (ok) {
 				le->vxid_last = vxid;
@@ -252,9 +260,12 @@ logexp_dispatch(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				if (le->test == NULL)
 					/* End of test script */
 					return (1);
-			}
-			if (skip)
+			} else if (skip)
 				le->skip_cnt++;
+			else {
+				/* Signal fail */
+				return (2);
+			}
 		}
 	}
 
@@ -280,9 +291,11 @@ logexp_thread(void *priv)
 	logexp_next(le);
 	while (le->test) {
 		i = VSLQ_Dispatch(le->vslq, logexp_dispatch, le);
-		if (i < 0)
-			vtc_log(le->vl, 0, "dispatch: %d", i);
-		if (i == 0 && le->test)
+		if (i == 2)
+			vtc_log(le->vl, 0, "bad| expectation failed");
+		else if (i < 0)
+			vtc_log(le->vl, 0, "bad| dispatch failed (%d)", i);
+		else if (i == 0 && le->test)
 			VTIM_sleep(0.01);
 	}
 	vtc_log(le->vl, 4, "end|");
@@ -299,10 +312,6 @@ logexp_close(struct logexp *le)
 	if (le->vslq)
 		VSLQ_Delete(&le->vslq);
 	AZ(le->vslq);
-	if (le->vsl) {
-		VSL_Delete(le->vsl);
-		le->vsl = NULL;
-	}
 	VSM_Close(le->vsm);
 }
 
@@ -312,7 +321,7 @@ logexp_start(struct logexp *le)
 	struct VSL_cursor *c;
 
 	CHECK_OBJ_NOTNULL(le, LOGEXP_MAGIC);
-	AZ(le->vsl);
+	AN(le->vsl);
 	AZ(le->vslq);
 
 	if (le->n_arg == NULL) {
@@ -328,7 +337,6 @@ logexp_start(struct logexp *le)
 		vtc_log(le->vl, 0, "VSM_Open: %s", VSM_Error(le->vsm));
 		return;
 	}
-	le->vsl = VSL_New();
 	AN(le->vsl);
 	c = VSL_CursorVSM(le->vsl, le->vsm,
 	    (le->d_arg ? 0 : VSL_COPT_TAIL) | VSL_COPT_BATCH);
@@ -442,7 +450,6 @@ cmd_logexp_expect(CMD_ARGS)
 	test->tag = tag;
 	test->vre = vre;
 	VTAILQ_INSERT_TAIL(&le->tests, test, list);
-	vtc_log(vl, 4, "%s", VSB_data(test->str));
 }
 
 static const struct cmds logexp_cmds[] = {
@@ -453,16 +460,11 @@ static const struct cmds logexp_cmds[] = {
 static void
 logexp_spec(struct logexp *le, const char *spec)
 {
-	char *s;
-
 	CHECK_OBJ_NOTNULL(le, LOGEXP_MAGIC);
 
 	logexp_delete_tests(le);
 
-	s = strdup(spec);
-	AN(s);
-	parse_string(s, logexp_cmds, le, le->vl);
-	free(s);
+	parse_string(spec, logexp_cmds, le, le->vl);
 }
 
 void
@@ -584,6 +586,14 @@ cmd_logexp(CMD_ARGS)
 			continue;
 		}
 		if (**av == '-') {
+			if (av[1] != NULL) {
+				if (VSL_Arg(le->vsl, av[0][1], av[1])) {
+					av++;
+					continue;
+				}
+				vtc_log(le->vl, 0, "%s", VSL_Error(le->vsl));
+				return;
+			}
 			vtc_log(le->vl, 0, "Unknown logexp argument: %s", *av);
 			return;
 		}

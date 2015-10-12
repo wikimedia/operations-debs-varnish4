@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -35,7 +35,6 @@
 #include "common/params.h"
 
 #include "mgt/mgt_param.h"
-#include "waiter/waiter.h"
 
 
 #define MEMPOOL_TEXT							\
@@ -45,22 +44,11 @@
 	"\tmax_age\tmax age of free element."
 
 struct parspec mgt_parspec[] = {
-	{ "user", tweak_user, NULL, NULL, NULL,
-		"The unprivileged user to run as.",
-		MUST_RESTART | ONLY_ROOT,
-		"" },
-	{ "group", tweak_group, NULL, NULL, NULL,
-		"The unprivileged group to run as.",
-		MUST_RESTART | ONLY_ROOT,
-		"" },
-	{ "group_cc", tweak_group_cc, NULL, NULL, NULL,
-		"On some systems the C-compiler is restricted so not"
-		" everybody can run it.  This parameter makes it possible"
-		" to add an extra group to the sandbox process which runs the"
-		" cc_command, in order to gain access to such a restricted"
-		" C-compiler.",
-		ONLY_ROOT,
-		"" },
+#define PARAM(nm, ty, mi, ma, de, un, fl, st, lt, fn)		\
+	{ #nm, tweak_##ty, &mgt_param.nm, mi, ma, st, fl, de, un },
+#include "tbl/params.h"
+#undef PARAM
+
 	{ "default_ttl", tweak_timeout, &mgt_param.default_ttl,
 		"0", NULL,
 		"The TTL assigned to objects if neither the backend nor "
@@ -86,10 +74,12 @@ struct parspec mgt_parspec[] = {
 	{ "workspace_session",
 		tweak_bytes_u, &mgt_param.workspace_session,
 		"256", NULL,
-		"Bytes of workspace for session and TCP connection addresses."
+		"Allocation size for session structure and workspace.  "
+		"  The workspace is primarily used for TCP connection "
+		"addresses."
 		"  If larger than 4k, use a multiple of 4k for VM efficiency.",
 		DELAYED_EFFECT,
-		"384", "bytes" },
+		"512", "bytes" },
 	{ "workspace_client",
 		tweak_bytes_u, &mgt_param.workspace_client,
 		"9k", NULL,
@@ -188,16 +178,10 @@ struct parspec mgt_parspec[] = {
 	{ "timeout_idle", tweak_timeout, &mgt_param.timeout_idle,
 		"0", NULL,
 		"Idle timeout for client connections.\n"
-		"A connection is considered idle, until we receive"
-		" a non-white-space character on it.",
+		"A connection is considered idle, until we have "
+		"received the full request headers.",
 		0,
 		"5", "seconds" },
-	{ "timeout_req", tweak_timeout, &mgt_param.timeout_req,
-		"0", NULL,
-		"Max time to receive clients request headers, measured"
-		" from first non-white-space character to double CRNL.",
-		0,
-		"2", "seconds" },
 	{ "pipe_timeout", tweak_timeout, &mgt_param.pipe_timeout,
 		"0", NULL,
 		"Idle timeout for PIPE sessions. "
@@ -209,7 +193,7 @@ struct parspec mgt_parspec[] = {
 		"0", NULL,
 		"Send timeout for client connections. "
 		"If the HTTP response hasn't been transmitted in this many\n"
-                "seconds the session is closed.\n"
+		"seconds the session is closed.\n"
 		"See setsockopt(2) under SO_SNDTIMEO for more information.",
 		DELAYED_EFFECT,
 		"600", "seconds" },
@@ -217,15 +201,10 @@ struct parspec mgt_parspec[] = {
 		"0", NULL,
 		"Time to wait with no data sent. "
 		"If no data has been transmitted in this many\n"
-                "seconds the session is closed.\n"
+		"seconds the session is closed.\n"
 		"See setsockopt(2) under SO_SNDTIMEO for more information.",
 		DELAYED_EFFECT,
 		"60", "seconds" },
-	{ "auto_restart", tweak_bool, &mgt_param.auto_restart,
-		NULL, NULL,
-		"Restart child process automatically if it dies.",
-		0,
-		"on", "bool" },
 	{ "nuke_limit",
 		tweak_uint, &mgt_param.nuke_limit,
 		"0", NULL,
@@ -251,20 +230,6 @@ struct parspec mgt_parspec[] = {
 		"fragmentation.",
 		EXPERIMENTAL,
 		"256m", "bytes" },
-#ifdef HAVE_ACCEPT_FILTERS
-	{ "accept_filter", tweak_bool, &mgt_param.accept_filter,
-		NULL, NULL,
-		"Enable kernel accept-filters, (if available in the kernel).",
-		MUST_RESTART,
-		"on", "bool" },
-#endif
-	{ "listen_address", tweak_listen_address, NULL,
-		NULL, NULL,
-		"Whitespace separated list of network endpoints where "
-		"Varnish will accept requests.\n"
-		"Possible formats: host, host:port, :port",
-		MUST_RESTART,
-		":80" },
 	{ "listen_depth", tweak_uint, &mgt_param.listen_depth,
 		"0", NULL,
 		"Listen queue depth.",
@@ -343,55 +308,6 @@ struct parspec mgt_parspec[] = {
 		"backend request.",
 		0,
 		"3.5", "seconds" },
-	{ "first_byte_timeout", tweak_timeout,
-		&mgt_param.first_byte_timeout,
-		"0", NULL,
-		"Default timeout for receiving first byte from backend. "
-		"We only wait for this many seconds for the first "
-		"byte before giving up. A value of 0 means it will never time "
-		"out. "
-		"VCL can override this default value for each backend and "
-		"backend request. This parameter does not apply to pipe.",
-		0,
-		"60", "seconds" },
-	{ "between_bytes_timeout", tweak_timeout,
-		&mgt_param.between_bytes_timeout,
-		"0", NULL,
-		"Default timeout between bytes when receiving data from "
-		"backend. "
-		"We only wait for this many seconds between bytes "
-		"before giving up. A value of 0 means it will never time out. "
-		"VCL can override this default value for each backend request "
-		"and backend request. This parameter does not apply to pipe.",
-		0,
-		"60", "seconds" },
-	{ "acceptor_sleep_max", tweak_timeout,
-		&mgt_param.acceptor_sleep_max,
-		"0", "10",
-		"If we run out of resources, such as file descriptors or "
-		"worker threads, the acceptor will sleep between accepts.\n"
-		"This parameter limits how long it can sleep between "
-		"attempts to accept new connections.",
-		EXPERIMENTAL,
-		"0.050", "seconds" },
-	{ "acceptor_sleep_incr", tweak_timeout,
-		&mgt_param.acceptor_sleep_incr,
-		"0", "1",
-		"If we run out of resources, such as file descriptors or "
-		"worker threads, the acceptor will sleep between accepts.\n"
-		"This parameter control how much longer we sleep, each time "
-		"we fail to accept a new connection.",
-		EXPERIMENTAL,
-		"0.001", "seconds" },
-	{ "acceptor_sleep_decay", tweak_double,
-		&mgt_param.acceptor_sleep_decay,
-		"0", "1",
-		"If we run out of resources, such as file descriptors or "
-		"worker threads, the acceptor will sleep between accepts.\n"
-		"This parameter (multiplicatively) reduce the sleep duration "
-		"for each successful accept. (ie: 0.9 = reduce by 10%)",
-		EXPERIMENTAL,
-		"0.900", "" },
 	{ "clock_skew", tweak_uint, &mgt_param.clock_skew,
 		"0", NULL,
 		"How much clockskew we are willing to accept between the "
@@ -426,53 +342,11 @@ struct parspec mgt_parspec[] = {
 		"more sessions take a detour around the waiter.",
 		EXPERIMENTAL,
 		"0.050", "seconds" },
-	{ "waiter", tweak_waiter, NULL,
-		NULL, NULL,
-		"Select the waiter kernel interface.",
-		WIZARD | MUST_RESTART,
-		WAITER_DEFAULT, NULL },
-	{ "ban_dups", tweak_bool, &mgt_param.ban_dups,
-		NULL, NULL,
-		"Eliminate older identical bans when new bans are created."
-		"  This test is CPU intensive and scales with the number and"
-		" complexity of active (non-Gone) bans.  If identical bans"
-		" are frequent, the amount of CPU needed to actually test "
-		" the bans will be similarly reduced.",
-		0,
-		"on", "bool" },
 	{ "syslog_cli_traffic", tweak_bool, &mgt_param.syslog_cli_traffic,
 		NULL, NULL,
 		"Log all CLI traffic to syslog(LOG_INFO).",
 		0,
 		"on", "bool" },
-	{ "ban_lurker_age", tweak_timeout,
-		&mgt_param.ban_lurker_age,
-		"0", NULL,
-		"The ban lurker does not process bans until they are this"
-		" old.  Right when a ban is added, the most frequently hit"
-		" objects will get tested against it as part of object"
-		" lookup.  This parameter prevents the ban-lurker from"
-		" kicking in, until the rush is over.",
-		0,
-		"60", "seconds" },
-	{ "ban_lurker_sleep", tweak_timeout,
-		&mgt_param.ban_lurker_sleep,
-		"0", NULL,
-		"The ban lurker thread sleeps between work batches, in order"
-		" to not monopolize CPU power."
-		"  When nothing is done, it sleeps a fraction of a second"
-		" before looking for new work to do.\n"
-		"A value of zero disables the ban lurker.",
-		0,
-		"0.01", "seconds" },
-	{ "ban_lurker_batch", tweak_uint,
-		&mgt_param.ban_lurker_batch,
-		"1", NULL,
-		"How many objects the ban lurker examines before taking a"
-		" ban_lurker_sleep.  Use this to pace the ban lurker so it"
-		" does not eat too much CPU.",
-		0,
-		"1000", "" },
 	{ "http_range_support", tweak_bool, &mgt_param.http_range_support,
 		NULL, NULL,
 		"Enable support for HTTP Range headers.",
@@ -506,7 +380,7 @@ struct parspec mgt_parspec[] = {
 		"8", ""},
 	{ "gzip_buffer",
 		tweak_bytes_u, &mgt_param.gzip_buffer,
-	        "2048", NULL,
+		"2048", NULL,
 		"Size of malloc buffer used for gzip processing.\n"
 		"These buffers are used for in-transit data,"
 		" for instance gunzip'ed data being sent to a client."
@@ -531,10 +405,11 @@ struct parspec mgt_parspec[] = {
 		"180", "seconds" },
 	{ "sigsegv_handler", tweak_bool, &mgt_param.sigsegv_handler,
 		NULL, NULL,
-		"Install a signal handler which tries to dump debug "
-		"information on segmentation faults.",
+		"Install a signal handler which tries to dump debug"
+		" information on segmentation faults, bus errors and abort"
+		" signals.",
 		MUST_RESTART,
-		"off", "bool" },
+		"on", "bool" },
 	{ "vcl_dir", tweak_string, &mgt_vcl_dir,
 		NULL, NULL,
 		"Directory from which relative VCL filenames (vcl.load and "
@@ -548,7 +423,12 @@ struct parspec mgt_parspec[] = {
 		0,
 		VARNISH_VMOD_DIR,
 		NULL },
-
+	{ "vcl_cooldown", tweak_timeout, &mgt_param.vcl_cooldown,
+		"0", NULL,
+		"How long a VCL is kept warm after being replaced as the"
+		" active VCL (granularity approximately 30 seconds).",
+		0,
+		"600", "seconds" },
 	{ "vcc_err_unref", tweak_bool, &mgt_vcc_err_unref,
 		NULL, NULL,
 		"Unreferenced VCL objects result in error.",
@@ -571,19 +451,29 @@ struct parspec mgt_parspec[] = {
 	{ "pcre_match_limit", tweak_uint,
 		&mgt_param.vre_limits.match,
 		"1", NULL,
-		"The limit for the  number of internal matching function"
-		" calls in a pcre_exec() execution.",
+		"The limit for the number of calls to the internal match()"
+		" function in pcre_exec().\n\n"
+		"(See: PCRE_EXTRA_MATCH_LIMIT in pcre docs.)\n\n"
+		"This parameter limits how much CPU time"
+		" regular expression matching can soak up.",
 		0,
 		"10000", ""},
-
 	{ "pcre_match_limit_recursion", tweak_uint,
 		&mgt_param.vre_limits.match_recursion,
 		"1", NULL,
-		"The limit for the  number of internal matching function"
-		" recursions in a pcre_exec() execution.",
+		"The recursion depth-limit for the internal match() function"
+		" in a pcre_exec().\n\n"
+		"(See: PCRE_EXTRA_MATCH_LIMIT_RECURSION in pcre docs.)\n\n"
+		"This puts an upper limit on the amount of stack used"
+		" by PCRE for certain classes of regular expressions.\n\n"
+		"We have set the default value low in order to"
+		" prevent crashes, at the cost of possible regexp"
+		" matching failures.\n\n"
+		"Matching failures will show up in the log as VCL_Error"
+		" messages with regexp errors -27 or -21.\n\n"
+		"Testcase r01576 can be useful when tuning this parameter.",
 		0,
-		"10000", ""},
-
+		"20", ""},
 	{ "vsl_space", tweak_bytes,
 		&mgt_param.vsl_space,
 		"1M", NULL,
@@ -605,22 +495,6 @@ struct parspec mgt_parspec[] = {
 		"  Making it too large just costs memory resources.",
 		MUST_RESTART,
 		"1M", "bytes"},
-
-	{ "busyobj_worker_cache", tweak_bool,
-		&mgt_param.bo_cache,
-		NULL, NULL,
-		"Cache free busyobj per worker thread. "
-		"Disable this if you have very high hitrates and want "
-		"to save the memory of one busyobj per worker thread.",
-		0,
-		"off", "bool"},
-
-	{ "pool_vbc", tweak_poolparam, &mgt_param.vbc_pool,
-		NULL, NULL,
-		"Parameters for backend connection memory pool.\n"
-		MEMPOOL_TEXT,
-		0,
-		"10,100,10", ""},
 
 	{ "pool_req", tweak_poolparam, &mgt_param.req_pool,
 		NULL, NULL,

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2014 Varnish Software AS
+ * Copyright (c) 2012-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -33,8 +33,18 @@
 
 #include "cache/cache.h"
 
+#include "vcl.h"
 #include "vrt.h"
+#include "vsb.h"
+#include "vtim.h"
 #include "vcc_if.h"
+
+struct priv_vcl {
+	unsigned		magic;
+#define PRIV_VCL_MAGIC		0x8E62FA9D
+	char			*foo;
+	uintptr_t		exp_cb;
+};
 
 VCL_VOID __match_proto__(td_debug_panic)
 vmod_panic(VRT_CTX, const char *str, ...)
@@ -46,7 +56,7 @@ vmod_panic(VRT_CTX, const char *str, ...)
 	va_start(ap, str);
 	b = VRT_String(ctx->ws, "PANIC: ", str, ap);
 	va_end(ap);
-	VAS_Fail("VCL", "", 0, b, 0, VAS_VCL);
+	VAS_Fail("VCL", "", 0, b, VAS_VCL);
 }
 
 VCL_STRING __match_proto__(td_debug_author)
@@ -65,16 +75,6 @@ vmod_author(VRT_CTX, VCL_ENUM id)
 	WRONG("Illegal VMOD enum");
 }
 
-int
-init_function(struct vmod_priv *priv, const struct VCL_conf *cfg)
-{
-	(void)cfg;
-
-	priv->priv = strdup("FOO");
-	priv->free = free;
-	return (0);
-}
-
 VCL_VOID __match_proto__(td_debug_test_priv_call)
 vmod_test_priv_call(VRT_CTX, struct vmod_priv *priv)
 {
@@ -88,12 +88,40 @@ vmod_test_priv_call(VRT_CTX, struct vmod_priv *priv)
 	}
 }
 
-VCL_VOID __match_proto__(td_debug_test_priv_vcl)
-vmod_test_priv_vcl(VRT_CTX, struct vmod_priv *priv)
+VCL_STRING __match_proto__(td_debug_test_priv_task)
+vmod_test_priv_task(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	assert(!strcmp(priv->priv, "FOO"));
+	if (priv->priv == NULL) {
+		priv->priv = strdup(s);
+		priv->free = free;
+	}
+	return (priv->priv);
+}
+
+VCL_STRING __match_proto__(td_debug_test_priv_top)
+vmod_test_priv_top(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (priv->priv == NULL) {
+		priv->priv = strdup(s);
+		priv->free = free;
+	}
+	return (priv->priv);
+}
+
+VCL_VOID __match_proto__(td_debug_test_priv_vcl)
+vmod_test_priv_vcl(VRT_CTX, struct vmod_priv *priv)
+{
+	struct priv_vcl *priv_vcl;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(priv);
+	CAST_OBJ_NOTNULL(priv_vcl, priv->priv, PRIV_VCL_MAGIC);
+	AN(priv_vcl->foo);
+	assert(!strcmp(priv_vcl->foo, "FOO"));
 }
 
 VCL_BLOB
@@ -146,4 +174,188 @@ vmod_rot52(VRT_CTX, VCL_HTTP hp)
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 
 	http_PrintfHeader(hp, "Encrypted: ROT52");
+}
+
+VCL_STRING
+vmod_argtest(VRT_CTX, VCL_STRING one, VCL_REAL two, VCL_STRING three,
+    VCL_STRING comma)
+{
+	char buf[100];
+
+	bprintf(buf, "%s %g %s %s", one, two, three, comma);
+	return WS_Copy(ctx->ws, buf, -1);
+}
+
+VCL_INT
+vmod_vre_limit(VRT_CTX)
+{
+	(void)ctx;
+	return (cache_param->vre_limits.match);
+}
+
+static void __match_proto__(exp_callback_f)
+exp_cb(struct worker *wrk, struct objcore *oc, enum exp_event_e ev, void *priv)
+{
+	const struct priv_vcl *priv_vcl;
+	const char *what;
+
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	CAST_OBJ_NOTNULL(priv_vcl, priv, PRIV_VCL_MAGIC);
+	switch (ev) {
+	case EXP_INSERT: what = "insert"; break;
+	case EXP_INJECT: what = "inject"; break;
+	case EXP_REMOVE: what = "remove"; break;
+	default: WRONG("Wrong exp_event");
+	}
+	VSL(SLT_Debug, 0, "exp_cb: event %s 0x%jx", what,
+	    (intmax_t)(uintptr_t)oc);
+}
+
+VCL_VOID __match_proto__()
+vmod_register_exp_callback(VRT_CTX, struct vmod_priv *priv)
+{
+	struct priv_vcl *priv_vcl;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CAST_OBJ_NOTNULL(priv_vcl, priv->priv, PRIV_VCL_MAGIC);
+	AZ(priv_vcl->exp_cb);
+	priv_vcl->exp_cb = EXP_Register_Callback(exp_cb, priv_vcl);
+	VSL(SLT_Debug, 0, "exp_cb: registered");
+}
+
+VCL_VOID __match_proto__()
+vmod_init_fail(VRT_CTX)
+{
+
+	AN(ctx->msg);
+	VSB_printf(ctx->msg, "Planned failure in vcl_init{}");
+	VRT_handling(ctx, VCL_RET_FAIL);
+}
+
+static void __match_proto__(vmod_priv_free_f)
+priv_vcl_free(void *priv)
+{
+	struct priv_vcl *priv_vcl;
+
+	CAST_OBJ_NOTNULL(priv_vcl, priv, PRIV_VCL_MAGIC);
+	AN(priv_vcl->foo);
+	free(priv_vcl->foo);
+	if (priv_vcl->exp_cb != 0) {
+		EXP_Deregister_Callback(&priv_vcl->exp_cb);
+		VSL(SLT_Debug, 0, "exp_cb: deregistered");
+	}
+	FREE_OBJ(priv_vcl);
+	AZ(priv_vcl);
+}
+
+int __match_proto__(vmod_event_f)
+event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
+{
+	struct priv_vcl *priv_vcl;
+	const char *ev;
+
+	switch (e) {
+		case VCL_EVENT_COLD: ev = "VCL_EVENT_COLD"; break;
+		case VCL_EVENT_WARM: ev = "VCL_EVENT_WARM"; break;
+		case VCL_EVENT_USE:  ev = "VCL_EVENT_USE";  break;
+		default: ev = NULL;
+	}
+
+	if (ev != NULL)
+		VSL(SLT_Debug, 0, "%s: %s", VCL_Name(ctx->vcl), ev);
+
+	if (e != VCL_EVENT_LOAD)
+		return (0);
+
+	AN(ctx->msg);
+	if (cache_param->nuke_limit == 42) {
+		VSB_printf(ctx->msg, "nuke_limit is not the answer.");
+		return (-1);
+	}
+
+	ALLOC_OBJ(priv_vcl, PRIV_VCL_MAGIC);
+	AN(priv_vcl);
+	priv_vcl->foo = strdup("FOO");
+	AN(priv_vcl->foo);
+	priv->priv = priv_vcl;
+	priv->free = priv_vcl_free;
+	return (0);
+}
+
+VCL_VOID __match_proto__(td_debug_sleep)
+vmod_sleep(VRT_CTX, VCL_DURATION t)
+{
+
+	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
+	VTIM_sleep(t);
+}
+
+static struct ws *wsfind(VRT_CTX, VCL_ENUM which) {
+	if (!strcmp(which, "client")) {
+		return ctx->ws;
+	} else if (!strcmp(which, "backend")) {
+		return ctx->bo->ws;
+	} else if (!strcmp(which, "session")) {
+		return ctx->req->sp->ws;
+	} else if (!strcmp(which, "thread")) {
+		return ctx->req->wrk->aws;
+	} else
+		WRONG("No such workspace.");
+}
+
+void
+vmod_workspace_allocate(VRT_CTX, VCL_ENUM which, VCL_INT size)
+{
+	struct ws *ws;
+	char *s;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	ws = wsfind(ctx, which);
+
+	WS_Assert(ws);
+	AZ(ws->r);
+
+	s = WS_Alloc(ws, size);
+	if (!s)
+		return;
+	memset(s, '\0', size);
+}
+
+VCL_INT
+vmod_workspace_free(VRT_CTX, VCL_ENUM which)
+{
+	struct ws *ws;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	ws = wsfind(ctx, which);
+
+	WS_Assert(ws);
+	AZ(ws->r);
+
+	return pdiff(ws->f, ws->e);
+}
+
+VCL_BOOL
+vmod_workspace_overflowed(VRT_CTX, VCL_ENUM which)
+{
+	struct ws *ws;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	ws = wsfind(ctx, which);
+	WS_Assert(ws);
+
+	return (WS_Overflowed(ws));
+}
+
+void
+vmod_workspace_overflow(VRT_CTX, VCL_ENUM which)
+{
+	struct ws *ws;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	ws = wsfind(ctx, which);
+	WS_Assert(ws);
+
+	WS_MarkOverflow(ws);
 }

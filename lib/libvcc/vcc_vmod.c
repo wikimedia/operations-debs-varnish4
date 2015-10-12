@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2014 Varnish Software AS
+ * Copyright (c) 2010-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -177,29 +177,36 @@ vcc_ParseImport(struct vcc *tl)
 	AN(vmd);
 	AN(vmd->file_id);
 	VSB_printf(ifp->ini, "\t    \"%s\",\n", vmd->file_id);
-	VSB_printf(ifp->ini, "\t    cli))\n");
+	VSB_printf(ifp->ini, "\t    ctx))\n");
 	VSB_printf(ifp->ini, "\t\treturn(1);");
 
 	/* XXX: zero the function pointer structure ?*/
-	VSB_printf(ifp->fin, "\tVRT_priv_fini(&vmod_priv_%.*s);", PF(mod));
-	VSB_printf(ifp->fin, "\n\tVRT_Vmod_Fini(&VGC_vmod_%.*s);", PF(mod));
+	VSB_printf(ifp->fin, "\t\tVRT_priv_fini(&vmod_priv_%.*s);", PF(mod));
+	VSB_printf(ifp->fin, "\n\t\tVRT_Vmod_Fini(&VGC_vmod_%.*s);", PF(mod));
 
 	ifp = NULL;
 
 	spec = vmd->spec;
 	for (; *spec != NULL; spec++) {
 		p = *spec;
-		if (!strcmp(p, "OBJ")) {
+		if (!strcmp(p, "$OBJ")) {
 			p += strlen(p) + 1;
 			sym = VCC_AddSymbolStr(tl, p, SYM_OBJECT);
 			XXXAN(sym);
 			sym->args = p;
-		} else if (!strcmp(p, "INIT")) {
+		} else if (!strcmp(p, "$EVENT")) {
 			p += strlen(p) + 1;
 			if (ifp == NULL)
 				ifp = New_IniFin(tl);
 			VSB_printf(ifp->ini,
-			    "\t%s(&vmod_priv_%.*s, &VCL_conf);",
+			    "\tif (%s(ctx, &vmod_priv_%.*s, VCL_EVENT_LOAD))\n"
+			    "\t\treturn(1);",
+			    p, PF(mod));
+			VSB_printf(ifp->fin,
+			    "\t\t(void)%s(ctx, &vmod_priv_%.*s,\n"
+			    "\t\t    VCL_EVENT_DISCARD);\n", p, PF(mod));
+			VSB_printf(ifp->event,
+			    "\t(void)%s(ctx, &vmod_priv_%.*s, ev);\n",
 			    p, PF(mod));
 		} else {
 			sym = VCC_AddSymbolStr(tl, p, SYM_FUNC);
@@ -218,7 +225,7 @@ vcc_ParseImport(struct vcc *tl)
 	}
 
 	Fh(tl, 0, "\n/* --- BEGIN VMOD %.*s --- */\n\n", PF(mod));
-	Fh(tl, 0, "static void *VGC_vmod_%.*s;\n", PF(mod));
+	Fh(tl, 0, "static struct vmod *VGC_vmod_%.*s;\n", PF(mod));
 	Fh(tl, 0, "static struct vmod_priv vmod_priv_%.*s;\n", PF(mod));
 	Fh(tl, 0, "\n%s\n", vmd->proto);
 	Fh(tl, 0, "\n/* --- END VMOD %.*s --- */\n\n", PF(mod));

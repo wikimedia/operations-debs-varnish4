@@ -21,6 +21,7 @@ bereq.backend
 	Writable from: vcl_pipe, backend
 
 	
+	This is the backend or director we attempt to fetch from.
 	
 
 bereq.between_bytes_timeout
@@ -152,6 +153,28 @@ beresp
 
 	
 	The entire backend response HTTP data structure
+	
+
+beresp.age
+
+	Type: DURATION
+
+	Readable from: vcl_backend_response, vcl_backend_error
+
+	
+	The age of the object.
+	
+
+beresp.backend
+
+	Type: BACKEND
+
+	Readable from: vcl_backend_response, vcl_backend_error
+
+	
+	This is the backend we fetched from.  If bereq.backend
+	was set to a director, this will be the backend selected
+	by the director.
 	
 
 beresp.backend.ip
@@ -332,7 +355,6 @@ beresp.ttl
 
 	
 	The object's remaining time to live, in seconds.
-	beresp.ttl is writable.
 	
 
 beresp.uncacheable
@@ -351,6 +373,18 @@ beresp.uncacheable
 	
 	Clearing the variable has no effect and will log the warning
 	"Ignoring attempt to reset beresp.uncacheable".
+	
+
+beresp.was_304
+
+	Type: BOOL
+
+	Readable from: vcl_backend_response, vcl_backend_error
+
+	
+	Boolean. If this is a successful 304 response to a
+	backend conditional request refreshing an existing
+	cache object.
 	
 
 client
@@ -379,6 +413,19 @@ client.ip
 	The client's IP address.
 	
 
+local
+~~~~~
+
+local.ip
+
+	Type: IP
+
+	Readable from: client
+
+	
+	The IP address of the local end of the TCP connection.
+	
+
 now
 ~~~
 
@@ -395,6 +442,16 @@ now
 
 obj
 ~~~
+
+obj.age
+
+	Type: DURATION
+
+	Readable from: vcl_hit
+
+	
+	The age of the object.
+	
 
 obj.grace
 
@@ -485,6 +542,21 @@ obj.uncacheable
 
 	
 	Whether the object is uncacheable (pass or hit-for-pass).
+	
+
+remote
+~~~~~~
+
+remote.ip
+
+	Type: IP
+
+	Readable from: client
+
+	
+	The IP address of the other end of the TCP connection.
+	This can either be the clients IP, or the outgoing IP
+	of a proxy server.
 	
 
 req
@@ -654,6 +726,56 @@ req.xid
 	Unique ID of this request.
 	
 
+req_top
+~~~~~~~
+
+req_top.http.
+
+	Type: HEADER
+
+	Readable from: client
+
+	
+	HTTP headers of the top-level request in a tree of ESI requests.
+	Identical to req.http. in non-ESI requests.
+	
+
+req_top.method
+
+	Type: STRING
+
+	Readable from: client
+
+	
+	The request method of the top-level request in a tree
+	of ESI requests. (e.g. "GET", "HEAD").
+	Identical to req.method in non-ESI requests.
+	
+
+req_top.proto
+
+	Type: STRING
+
+	Readable from: client
+
+	
+	HTTP protocol version of the top-level request in a tree of
+	ESI requests.
+	Identical to req.proto in non-ESI requests.
+	
+
+req_top.url
+
+	Type: STRING
+
+	Readable from: client
+
+	
+	The requested URL of the top-level request in a tree
+	of ESI requests.
+	Identical to req.url in non-ESI requests.
+	
+
 resp
 ~~~~
 
@@ -677,6 +799,17 @@ resp.http.
 
 	
 	The corresponding HTTP header.
+	
+
+resp.is_streaming
+
+	Type: BOOL
+
+	Readable from: vcl_deliver, vcl_synth
+
+	
+	Returns true when the response will be streamed
+	from the backend.
 	
 
 resp.proto

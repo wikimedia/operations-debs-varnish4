@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #-
-# Copyright (c) 2010-2014 Varnish Software AS
+# Copyright (c) 2010-2015 Varnish Software AS
 # All rights reserved.
 #
 # Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -58,6 +58,9 @@ ctypes = {
 	'IP':		"VCL_IP",
 	'PRIV_CALL':	"struct vmod_priv *",
 	'PRIV_VCL':	"struct vmod_priv *",
+	'PRIV_TASK':	"struct vmod_priv *",
+	'PRIV_TOP':	"struct vmod_priv *",
+	'PROBE':	"VCL_PROBE",
 	'REAL':		"VCL_REAL",
 	'STRING':	"VCL_STRING",
 	'STRING_LIST':	"const char *, ...",
@@ -101,6 +104,15 @@ def lwrap(s, w=72):
 		l.append(p + s)
 	return l
 
+def quote(s):
+	t = ""
+	for i in s:
+		if i == '"':
+			t += '\\"'
+		else:
+			t += i
+	return t
+
 #######################################################################
 
 def is_c_name(s):
@@ -142,18 +154,19 @@ class Vmod(object):
 		self.nam = nam
 		self.dnam = dnam
 		self.sec = sec
-		self.init = None
+		self.event = None
 		self.funcs = list()
 		self.objs = list()
 		self.doc_str = []
 		self.doc_order = []
 
-	def set_init(self, nam):
-		if self.init != None:
-			raise ParseError("Module %s already has Init", self.nam)
+	def set_event(self, nam):
+		if self.event != None:
+			raise ParseError("Module %s already has $Event",
+			    self.nam)
 		if not is_c_name(nam):
-			raise ParseError("Init name '%s' is illegal", nam)
-		self.init = nam
+			raise ParseError("$Event name '%s' is illegal", nam)
+		self.event = nam
 
 	def add_func(self, fn):
 		self.funcs.append(fn)
@@ -174,11 +187,11 @@ class Vmod(object):
 		for f in self.funcs:
 			for i in lwrap(f.c_proto()):
 				fo.write(i + "\n")
-		if self.init != None:
+		if self.event != None:
 			fo.write("\n")
-			fo.write("int " + self.init)
-			fo.write(
-			    "(struct vmod_priv *, const struct VCL_conf *);\n")
+			fo.write("#ifdef VCL_MET_MAX\n")
+			fo.write("vmod_event_f " + self.event + ";\n")
+			fo.write("#endif\n")
 
 	def c_typedefs_(self):
 		l = list()
@@ -205,6 +218,7 @@ class Vmod(object):
 
 		vfn = 'Vmod_%s_Func' % self.nam
 
+		fo.write("/*lint -esym(754, %s::*) */\n" % vfn)
 		fo.write("\nstatic const struct %s Vmod_Func =" % vfn)
 		fo.write(self.c_initializer())
 		fo.write("\n")
@@ -223,7 +237,7 @@ class Vmod(object):
 		fo.write("\n")
 
 		nm = "Vmod_" + self.nam + "_Data"
-		fo.write("extern const struct vmod_data " + nm + ";\n\n")
+		fo.write("/*lint -esym(759, %s) */\n" % nm)
 		fo.write("const struct vmod_data " + nm + " = {\n")
 		fo.write("\t.vrt_major = VRT_MAJOR_VERSION,\n");
 		fo.write("\t.vrt_minor = VRT_MINOR_VERSION,\n");
@@ -254,8 +268,8 @@ class Vmod(object):
 			s += f.c_initializer()
 
 		s += "\n\t/* Init/Fini */\n"
-		if self.init != None:
-			s += "\t" + self.init + ",\n"
+		if self.event != None:
+			s += "\t" + self.event + ",\n"
 		s += "};"
 
 		return s
@@ -270,13 +284,14 @@ class Vmod(object):
 			s += f.c_struct(self.nam)
 
 		s += "\n\t/* Init/Fini */\n"
-		if self.init != None:
-			s += "\tvmod_init_f\t*_init;\n"
+		if self.event != None:
+			s += "\tvmod_event_f\t*_event;\n"
 		s += '}'
 		return s
 
 	def c_strspec(self):
-		s = "static const char * const Vmod_Spec[] = {\n"
+		s = "/*lint -save -e786 -e840 */\n"
+		s += "static const char * const Vmod_Spec[] = {\n"
 
 		for o in self.objs:
 			s += o.c_strspec(self.nam) + ",\n\n"
@@ -286,19 +301,22 @@ class Vmod(object):
 		for f in self.funcs:
 			s += f.c_strspec(self.nam) + ',\n\n'
 
-		if self.init != None:
+		if self.event != None:
 			s += "\t/* Init/Fini */\n"
-			s += '\t"INIT\\0Vmod_' + self.nam + '_Func._init",\n'
+			s += '\t"$EVENT\\0Vmod_' + self.nam + '_Func._event",\n'
 
 		s += "\t0\n"
 		s += "};\n"
+		s += "/*lint -restore */\n"
 		return s
 
 	def doc(self, l):
 		self.doc_str.append(l)
 
 	def doc_dump(self, fo, suf):
+		fo.write(".. role:: ref(emphasis)\n\n")
 		i = "vmod_" + self.nam
+		fo.write(".. _" + i + "(" + self.sec + "):\n\n")
 		fo.write("=" * len(i) + "\n")
 		fo.write(i + "\n")
 		fo.write("=" * len(i) + "\n")
@@ -512,7 +530,7 @@ class Obj(object):
 
 	def c_strspec(self, modnam):
 		s = "\t/* Object " + self.nam + " */\n"
-		s += '\t"OBJ\\0"\n'
+		s += '\t"$OBJ\\0"\n'
 		s += self.init.c_strspec(modnam, pfx="\t\t") + '\n'
 		s += '\t\t"' + self.st + '\\0"\n'
 		s += self.fini.c_strspec(modnam, pfx="\t\t") + '\n'
@@ -554,16 +572,23 @@ class Arg(object):
 		self.nam = nam
 		self.typ = typ
 		self.det = det
+		self.val = None
 
 	def __repr__(self):
 		return "<ARG %s %s %s>" % (self.nam, self.typ, str(self.det))
 
 	def c_strspec(self):
 		if self.det == None:
-			return self.typ + "\\0"
+			s = self.typ + "\\0"
 		else:
-			return self.det
-		return "??"
+			s = self.det
+		if self.nam != None:
+			s += '"\n\t\t    "\\1' + self.nam + '\\0'
+		if self.val != None:
+			# The space before the value is important to
+			# terminate the \2 escape sequence
+			s += '"\n\t\t\t"\\2 ' + quote(self.val) + "\\0"
+		return s
 
 #######################################################################
 #
@@ -590,6 +615,44 @@ def parse_enum2(tl):
 			    "Expected \"}\" or \",\" not \"%s\"" % t.str)
 	s += "\\0"
 	return Arg("ENUM", det=s)
+
+def parse_arg(tl, al):
+	t = tl.get_token()
+	assert t != None
+
+	if t.str == ")":
+		return t
+
+	if t.str == "ENUM":
+		al.append(parse_enum2(tl))
+	elif t.str in ctypes:
+		al.append(Arg(t.str))
+	else:
+		raise Exception("ARG? %s", t.str)
+
+	t = tl.get_token()
+	if t.str == "," or t.str == ")":
+		return t
+
+	if not is_c_name(t.str):
+		raise ParseError(
+		    'Expected ")", "," or argument name, not "%s"' % t.str)
+
+	al[-1].nam = t.str
+	t = tl.get_token()
+
+	if t.str == "," or t.str == ")":
+		return t
+
+	if t.str != "=":
+		raise ParseError(
+		    'Expected ")", "," or "=", not "%s"' % t.str)
+
+	t = tl.get_token()
+	al[-1].val = t.str
+
+	t = tl.get_token()
+	return t
 
 #######################################################################
 #
@@ -628,33 +691,13 @@ def parse_func(tl, rt_type=None, pobj=None):
 	if t.str != "(":
 		raise ParseError("Expected \"(\" got \"%s\"", t.str)
 
-	t = None
 	while True:
-		if t == None:
-			t = tl.get_token()
-		assert t != None
+		t = parse_arg(tl, al)
+		if t.str == ")":
+			break
+		if t.str != ",":
+			raise ParseError("End Of Input looking for ')' or ','")
 
-		if t.str == "ENUM":
-			al.append(parse_enum2(tl))
-		elif t.str in ctypes:
-			al.append(Arg(t.str))
-		elif t.str == ")":
-			break
-		else:
-			raise Exception("ARG? %s", t.str)
-		t = tl.get_token()
-		if is_c_name(t.str):
-			al[-1].nam = t.str
-			t = tl.get_token()
-		if t.str == ",":
-			t = None
-		elif t.str == ")":
-			break
-		else:
-			raise ParseError(
-			    "Expected \")\" or \",\" not \"%s\"" % t.str)
-	if t.str != ")":
-		raise ParseError("End Of Input looking for ')'")
 	f = Func(fname, rt_type, al)
 
 	return f
@@ -697,7 +740,23 @@ class FileSection(object):
 			return
 		l = re.sub("[ \t]*#.*$", "", l)
 		l = re.sub("[ \t]*\n", "", l)
-		l = re.sub("([(){},])", r' \1 ', l)
+
+		if re.match("['\"]", l):
+			m = re.match("(['\"]).*?(\\1)", l)
+			if not m:
+				raise FormatError("Unbalanced quote",
+				    "Unbalanced quote on line %d" % ln)
+			self.tl.append(Token(ln, 0, l[:m.end()]))
+			self.l.insert(0, (ln, l[m.end():]))
+			return
+
+		m = re.search("['\"]", l)
+		if m:
+			rest = l[m.start():]
+			self.l.insert(0, (ln, rest))
+			l = l[:m.start()]
+
+		l = re.sub("([(){},=])", r' \1 ', l)
 		if l == "":
 			return
 		for j in l.split():
@@ -711,9 +770,9 @@ class FileSection(object):
 		if t.str == "$Module":
 			o = parse_module(self)
 			vx.append(o)
-		elif t.str == "$Init":
+		elif t.str == "$Event":
 			x = self.get_token()
-			vx[0].set_init(x.str)
+			vx[0].set_event(x.str)
 			o = None
 		elif t.str == "$Function":
 			if len(vx) == 2:
@@ -811,14 +870,6 @@ def runmain(inputvcc, outputname="vcc_if"):
 	#######################################################################
 	# Break into sections
 
-	keywords = {
-		"$Module":	True,
-		"$Function":	True,
-		"$Object":	True,
-		"$Method":	True,
-		"$Init":	True,
-	}
-
 	sl = []
 	sc = FileSection()
 	sl.append(sc)
@@ -826,7 +877,7 @@ def runmain(inputvcc, outputname="vcc_if"):
 		ln += 1
 		l = lines.pop(0)
 		j = l.split()
-		if len(j) > 0 and j[0] in keywords:
+		if len(j) > 0 and re.match("^\$", j[0]):
 			sc = FileSection()
 			sl.append(sc)
 		sc.add_line(ln, l)
@@ -859,13 +910,14 @@ def runmain(inputvcc, outputname="vcc_if"):
 	write_c_file_warning(fc)
 	write_c_file_warning(fh)
 
-	fh.write('struct VCL_conf;\n')
-	fh.write('struct vmod_priv;\n')
-	fh.write("\n")
+	fh.write('struct vmod_priv;\n\n')
+
+	fh.write('extern const struct vmod_data Vmod_%s_Data;\n\n' % vx[0].nam)
 
 	vx[0].c_proto(fh)
 
 	fc.write('#include "config.h"\n')
+	fc.write('#include "vcl.h"\n')
 	fc.write('#include "vrt.h"\n')
 	fc.write('#include "vcc_if.h"\n')
 	fc.write('#include "vmod_abi.h"\n')

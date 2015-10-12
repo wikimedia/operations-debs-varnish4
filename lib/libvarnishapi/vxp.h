@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -27,11 +27,6 @@
  * SUCH DAMAGE.
  *
  */
-
-#include <sys/types.h>
-
-#include "vqueue.h"
-#include "vre.h"
 
 #include "vxp_tokens.h"
 

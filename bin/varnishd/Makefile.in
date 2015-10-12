@@ -63,51 +63,62 @@ PROGRAMS = $(sbin_PROGRAMS)
 am_varnishd_OBJECTS = varnishd-cache_acceptor.$(OBJEXT) \
 	varnishd-cache_backend.$(OBJEXT) \
 	varnishd-cache_backend_cfg.$(OBJEXT) \
-	varnishd-cache_backend_poll.$(OBJEXT) \
+	varnishd-cache_backend_probe.$(OBJEXT) \
+	varnishd-cache_backend_tcp.$(OBJEXT) \
 	varnishd-cache_ban.$(OBJEXT) varnishd-cache_busyobj.$(OBJEXT) \
-	varnishd-cache_cli.$(OBJEXT) varnishd-cache_dir.$(OBJEXT) \
+	varnishd-cache_cli.$(OBJEXT) \
+	varnishd-cache_deliver_proc.$(OBJEXT) \
+	varnishd-cache_director.$(OBJEXT) \
 	varnishd-cache_esi_deliver.$(OBJEXT) \
 	varnishd-cache_esi_fetch.$(OBJEXT) \
 	varnishd-cache_esi_parse.$(OBJEXT) \
 	varnishd-cache_expire.$(OBJEXT) varnishd-cache_fetch.$(OBJEXT) \
 	varnishd-cache_fetch_proc.$(OBJEXT) \
 	varnishd-cache_gzip.$(OBJEXT) varnishd-cache_hash.$(OBJEXT) \
-	varnishd-cache_http.$(OBJEXT) \
-	varnishd-cache_http1_fetch.$(OBJEXT) \
-	varnishd-cache_http1_fsm.$(OBJEXT) \
-	varnishd-cache_http1_proto.$(OBJEXT) \
-	varnishd-cache_lck.$(OBJEXT) varnishd-cache_main.$(OBJEXT) \
-	varnishd-cache_mempool.$(OBJEXT) varnishd-cache_obj.$(OBJEXT) \
-	varnishd-cache_panic.$(OBJEXT) varnishd-cache_pipe.$(OBJEXT) \
-	varnishd-cache_pool.$(OBJEXT) varnishd-cache_req_fsm.$(OBJEXT) \
-	varnishd-cache_http1_deliver.$(OBJEXT) \
+	varnishd-cache_http.$(OBJEXT) varnishd-cache_lck.$(OBJEXT) \
+	varnishd-cache_main.$(OBJEXT) varnishd-cache_mempool.$(OBJEXT) \
+	varnishd-cache_obj.$(OBJEXT) varnishd-cache_panic.$(OBJEXT) \
+	varnishd-cache_pool.$(OBJEXT) varnishd-cache_req.$(OBJEXT) \
+	varnishd-cache_req_body.$(OBJEXT) \
+	varnishd-cache_req_fsm.$(OBJEXT) \
 	varnishd-cache_rfc2616.$(OBJEXT) \
+	varnishd-cache_range.$(OBJEXT) \
 	varnishd-cache_session.$(OBJEXT) \
 	varnishd-cache_shmlog.$(OBJEXT) varnishd-cache_vary.$(OBJEXT) \
 	varnishd-cache_vcl.$(OBJEXT) varnishd-cache_vrt.$(OBJEXT) \
+	varnishd-cache_vrt_priv.$(OBJEXT) \
 	varnishd-cache_vrt_re.$(OBJEXT) \
 	varnishd-cache_vrt_var.$(OBJEXT) \
 	varnishd-cache_vrt_vmod.$(OBJEXT) varnishd-cache_wrk.$(OBJEXT) \
-	varnishd-cache_wrw.$(OBJEXT) varnishd-cache_ws.$(OBJEXT) \
-	varnishd-common_vsm.$(OBJEXT) varnishd-common_vsc.$(OBJEXT) \
-	varnishd-hash_classic.$(OBJEXT) \
-	varnishd-hash_critbit.$(OBJEXT) varnishd-hash_mgt.$(OBJEXT) \
+	varnishd-cache_ws.$(OBJEXT) varnishd-common_vsm.$(OBJEXT) \
+	varnishd-common_vsc.$(OBJEXT) varnishd-hash_classic.$(OBJEXT) \
+	varnishd-hash_critbit.$(OBJEXT) varnishd-mgt_hash.$(OBJEXT) \
 	varnishd-hash_simple_list.$(OBJEXT) \
-	varnishd-mgt_child.$(OBJEXT) varnishd-mgt_cli.$(OBJEXT) \
+	varnishd-cache_http1_deliver.$(OBJEXT) \
+	varnishd-cache_http1_fetch.$(OBJEXT) \
+	varnishd-cache_http1_fsm.$(OBJEXT) \
+	varnishd-cache_http1_line.$(OBJEXT) \
+	varnishd-cache_http1_pipe.$(OBJEXT) \
+	varnishd-cache_http1_proto.$(OBJEXT) \
+	varnishd-cache_http1_vfp.$(OBJEXT) \
+	varnishd-mgt_acceptor.$(OBJEXT) varnishd-mgt_child.$(OBJEXT) \
+	varnishd-mgt_cli.$(OBJEXT) varnishd-mgt_jail.$(OBJEXT) \
+	varnishd-mgt_jail_unix.$(OBJEXT) \
+	varnishd-mgt_jail_solaris.$(OBJEXT) \
 	varnishd-mgt_main.$(OBJEXT) varnishd-mgt_param.$(OBJEXT) \
 	varnishd-mgt_param_tbl.$(OBJEXT) \
 	varnishd-mgt_param_bits.$(OBJEXT) \
 	varnishd-mgt_param_tcp.$(OBJEXT) \
 	varnishd-mgt_param_tweak.$(OBJEXT) varnishd-mgt_pool.$(OBJEXT) \
-	varnishd-mgt_sandbox.$(OBJEXT) \
-	varnishd-mgt_sandbox_solaris.$(OBJEXT) \
 	varnishd-mgt_shmem.$(OBJEXT) varnishd-mgt_vcc.$(OBJEXT) \
-	varnishd-stevedore.$(OBJEXT) varnishd-stevedore_mgt.$(OBJEXT) \
+	varnishd-mgt_vcl.$(OBJEXT) \
+	varnishd-cache_proxy_proto.$(OBJEXT) \
+	varnishd-stevedore.$(OBJEXT) varnishd-mgt_stevedore.$(OBJEXT) \
 	varnishd-stevedore_utils.$(OBJEXT) \
 	varnishd-storage_file.$(OBJEXT) \
 	varnishd-storage_malloc.$(OBJEXT) \
 	varnishd-storage_persistent.$(OBJEXT) \
-	varnishd-storage_persistent_mgt.$(OBJEXT) \
+	varnishd-mgt_storage_persistent.$(OBJEXT) \
 	varnishd-storage_persistent_silo.$(OBJEXT) \
 	varnishd-storage_persistent_subr.$(OBJEXT) \
 	varnishd-storage_umem.$(OBJEXT) varnishd-mgt_waiter.$(OBJEXT) \
@@ -209,6 +220,7 @@ DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
 DL_LIBS = @DL_LIBS@
+DOT = @DOT@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -236,6 +248,7 @@ LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
@@ -345,11 +358,13 @@ varnishd_SOURCES = \
 	cache/cache_acceptor.c \
 	cache/cache_backend.c \
 	cache/cache_backend_cfg.c \
-	cache/cache_backend_poll.c \
+	cache/cache_backend_probe.c \
+	cache/cache_backend_tcp.c \
 	cache/cache_ban.c \
 	cache/cache_busyobj.c \
 	cache/cache_cli.c \
-	cache/cache_dir.c \
+	cache/cache_deliver_proc.c \
+	cache/cache_director.c \
 	cache/cache_esi_deliver.c \
 	cache/cache_esi_fetch.c \
 	cache/cache_esi_parse.c \
@@ -359,38 +374,47 @@ varnishd_SOURCES = \
 	cache/cache_gzip.c \
 	cache/cache_hash.c \
 	cache/cache_http.c \
-	cache/cache_http1_fetch.c \
-	cache/cache_http1_fsm.c \
-	cache/cache_http1_proto.c \
 	cache/cache_lck.c \
 	cache/cache_main.c \
 	cache/cache_mempool.c \
 	cache/cache_obj.c \
 	cache/cache_panic.c \
-	cache/cache_pipe.c \
 	cache/cache_pool.c \
+	cache/cache_req.c \
+	cache/cache_req_body.c \
 	cache/cache_req_fsm.c \
-	cache/cache_http1_deliver.c \
 	cache/cache_rfc2616.c \
+	cache/cache_range.c \
 	cache/cache_session.c \
 	cache/cache_shmlog.c \
 	cache/cache_vary.c \
 	cache/cache_vcl.c \
 	cache/cache_vrt.c \
+	cache/cache_vrt_priv.c \
 	cache/cache_vrt_re.c \
 	cache/cache_vrt_var.c \
 	cache/cache_vrt_vmod.c \
 	cache/cache_wrk.c \
-	cache/cache_wrw.c \
 	cache/cache_ws.c \
 	common/common_vsm.c \
 	common/common_vsc.c \
 	hash/hash_classic.c \
 	hash/hash_critbit.c \
-	hash/hash_mgt.c \
+	hash/mgt_hash.c \
 	hash/hash_simple_list.c \
+	http1/cache_http1_deliver.c \
+	http1/cache_http1_fetch.c \
+	http1/cache_http1_fsm.c \
+	http1/cache_http1_line.c \
+	http1/cache_http1_pipe.c \
+	http1/cache_http1_proto.c \
+	http1/cache_http1_vfp.c \
+	mgt/mgt_acceptor.c \
 	mgt/mgt_child.c \
 	mgt/mgt_cli.c \
+	mgt/mgt_jail.c \
+	mgt/mgt_jail_unix.c \
+	mgt/mgt_jail_solaris.c \
 	mgt/mgt_main.c \
 	mgt/mgt_param.c \
 	mgt/mgt_param_tbl.c \
@@ -398,17 +422,17 @@ varnishd_SOURCES = \
 	mgt/mgt_param_tcp.c \
 	mgt/mgt_param_tweak.c \
 	mgt/mgt_pool.c \
-	mgt/mgt_sandbox.c \
-	mgt/mgt_sandbox_solaris.c \
 	mgt/mgt_shmem.c \
 	mgt/mgt_vcc.c \
+	mgt/mgt_vcl.c \
+	proxy/cache_proxy_proto.c \
 	storage/stevedore.c \
-	storage/stevedore_mgt.c \
+	storage/mgt_stevedore.c \
 	storage/stevedore_utils.c \
 	storage/storage_file.c \
 	storage/storage_malloc.c \
 	storage/storage_persistent.c \
-	storage/storage_persistent_mgt.c \
+	storage/mgt_storage_persistent.c \
 	storage/storage_persistent_silo.c \
 	storage/storage_persistent_subr.c \
 	storage/storage_umem.c \
@@ -422,25 +446,33 @@ varnishd_SOURCES = \
 noinst_HEADERS = \
 	builtin_vcl.h \
 	cache/cache_esi.h \
+	cache/cache_pool.h \
+	cache/cache_priv.h \
 	common/heritage.h \
 	hash/hash_slinger.h \
+	http1/cache_http1.h \
 	mgt/mgt.h \
 	mgt/mgt_cli.h \
 	mgt/mgt_param.h \
 	storage/storage.h \
 	storage/storage_persistent.h \
-	waiter/waiter.h
+	waiter/waiter_priv.h \
+	waiter/mgt_waiter.h
 
 
 # Headers for use with vmods
 nobase_pkginclude_HEADERS = \
 	cache/cache.h \
+	cache/cache_filter.h \
 	cache/cache_backend.h \
+	cache/cache_director.h \
 	common/common.h \
-	common/params.h
+	common/params.h \
+	waiter/waiter.h
 
 varnishd_CFLAGS = \
 	@PCRE_CFLAGS@ \
+	-DVARNISHD_IS_NOT_A_VMOD \
         -DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"' \
 	-DVARNISH_VMOD_DIR='"${pkglibdir}/vmods"' \
 	-DVARNISH_VCL_DIR='"${varnishconfdir}"'
@@ -461,7 +493,7 @@ all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -486,9 +518,9 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-$(top_srcdir)/configure:  $(am__configure_deps)
+$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 install-sbinPROGRAMS: $(sbin_PROGRAMS)
@@ -547,11 +579,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_acceptor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_backend.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_backend_cfg.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_backend_poll.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_backend_probe.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_backend_tcp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_ban.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_busyobj.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_cli.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_dir.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_deliver_proc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_director.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_esi_deliver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_esi_fetch.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_esi_parse.Po@am__quote@
@@ -564,14 +598,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_http1_deliver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_http1_fetch.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_http1_fsm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_http1_line.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_http1_pipe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_http1_proto.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_http1_vfp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_lck.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_mempool.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_obj.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_panic.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_pipe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_pool.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_proxy_proto.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_range.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_req.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_req_body.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_req_fsm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_rfc2616.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_session.Po@am__quote@
@@ -579,6 +619,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_vary.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_vcl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_vrt.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_vrt_priv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_vrt_re.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_vrt_var.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_vrt_vmod.Po@am__quote@
@@ -588,16 +629,19 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_waiter_poll.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_waiter_ports.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_wrk.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_wrw.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_ws.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-common_vsc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-common_vsm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-hash_classic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-hash_critbit.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-hash_mgt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-hash_simple_list.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_acceptor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_child.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_cli.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_hash.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_jail.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_jail_solaris.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_jail_unix.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_param.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_param_bits.Po@am__quote@
@@ -605,18 +649,17 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_param_tcp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_param_tweak.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_pool.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_sandbox.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_sandbox_solaris.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_shmem.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_stevedore.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_storage_persistent.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_vcc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_vcl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-mgt_waiter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-stevedore.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-stevedore_mgt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-stevedore_utils.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-storage_file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-storage_malloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-storage_persistent.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-storage_persistent_mgt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-storage_persistent_silo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-storage_persistent_subr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-storage_umem.Po@am__quote@
@@ -684,19 +727,33 @@ varnishd-cache_backend_cfg.obj: cache/cache_backend_cfg.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_backend_cfg.obj `if test -f 'cache/cache_backend_cfg.c'; then $(CYGPATH_W) 'cache/cache_backend_cfg.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_backend_cfg.c'; fi`
 
-varnishd-cache_backend_poll.o: cache/cache_backend_poll.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_backend_poll.o -MD -MP -MF $(DEPDIR)/varnishd-cache_backend_poll.Tpo -c -o varnishd-cache_backend_poll.o `test -f 'cache/cache_backend_poll.c' || echo '$(srcdir)/'`cache/cache_backend_poll.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_backend_poll.Tpo $(DEPDIR)/varnishd-cache_backend_poll.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_backend_poll.c' object='varnishd-cache_backend_poll.o' libtool=no @AMDEPBACKSLASH@
+varnishd-cache_backend_probe.o: cache/cache_backend_probe.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_backend_probe.o -MD -MP -MF $(DEPDIR)/varnishd-cache_backend_probe.Tpo -c -o varnishd-cache_backend_probe.o `test -f 'cache/cache_backend_probe.c' || echo '$(srcdir)/'`cache/cache_backend_probe.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_backend_probe.Tpo $(DEPDIR)/varnishd-cache_backend_probe.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_backend_probe.c' object='varnishd-cache_backend_probe.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_backend_poll.o `test -f 'cache/cache_backend_poll.c' || echo '$(srcdir)/'`cache/cache_backend_poll.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_backend_probe.o `test -f 'cache/cache_backend_probe.c' || echo '$(srcdir)/'`cache/cache_backend_probe.c
 
-varnishd-cache_backend_poll.obj: cache/cache_backend_poll.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_backend_poll.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_backend_poll.Tpo -c -o varnishd-cache_backend_poll.obj `if test -f 'cache/cache_backend_poll.c'; then $(CYGPATH_W) 'cache/cache_backend_poll.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_backend_poll.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_backend_poll.Tpo $(DEPDIR)/varnishd-cache_backend_poll.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_backend_poll.c' object='varnishd-cache_backend_poll.obj' libtool=no @AMDEPBACKSLASH@
+varnishd-cache_backend_probe.obj: cache/cache_backend_probe.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_backend_probe.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_backend_probe.Tpo -c -o varnishd-cache_backend_probe.obj `if test -f 'cache/cache_backend_probe.c'; then $(CYGPATH_W) 'cache/cache_backend_probe.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_backend_probe.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_backend_probe.Tpo $(DEPDIR)/varnishd-cache_backend_probe.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_backend_probe.c' object='varnishd-cache_backend_probe.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_backend_poll.obj `if test -f 'cache/cache_backend_poll.c'; then $(CYGPATH_W) 'cache/cache_backend_poll.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_backend_poll.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_backend_probe.obj `if test -f 'cache/cache_backend_probe.c'; then $(CYGPATH_W) 'cache/cache_backend_probe.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_backend_probe.c'; fi`
+
+varnishd-cache_backend_tcp.o: cache/cache_backend_tcp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_backend_tcp.o -MD -MP -MF $(DEPDIR)/varnishd-cache_backend_tcp.Tpo -c -o varnishd-cache_backend_tcp.o `test -f 'cache/cache_backend_tcp.c' || echo '$(srcdir)/'`cache/cache_backend_tcp.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_backend_tcp.Tpo $(DEPDIR)/varnishd-cache_backend_tcp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_backend_tcp.c' object='varnishd-cache_backend_tcp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_backend_tcp.o `test -f 'cache/cache_backend_tcp.c' || echo '$(srcdir)/'`cache/cache_backend_tcp.c
+
+varnishd-cache_backend_tcp.obj: cache/cache_backend_tcp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_backend_tcp.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_backend_tcp.Tpo -c -o varnishd-cache_backend_tcp.obj `if test -f 'cache/cache_backend_tcp.c'; then $(CYGPATH_W) 'cache/cache_backend_tcp.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_backend_tcp.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_backend_tcp.Tpo $(DEPDIR)/varnishd-cache_backend_tcp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_backend_tcp.c' object='varnishd-cache_backend_tcp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_backend_tcp.obj `if test -f 'cache/cache_backend_tcp.c'; then $(CYGPATH_W) 'cache/cache_backend_tcp.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_backend_tcp.c'; fi`
 
 varnishd-cache_ban.o: cache/cache_ban.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_ban.o -MD -MP -MF $(DEPDIR)/varnishd-cache_ban.Tpo -c -o varnishd-cache_ban.o `test -f 'cache/cache_ban.c' || echo '$(srcdir)/'`cache/cache_ban.c
@@ -740,19 +797,33 @@ varnishd-cache_cli.obj: cache/cache_cli.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_cli.obj `if test -f 'cache/cache_cli.c'; then $(CYGPATH_W) 'cache/cache_cli.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_cli.c'; fi`
 
-varnishd-cache_dir.o: cache/cache_dir.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_dir.o -MD -MP -MF $(DEPDIR)/varnishd-cache_dir.Tpo -c -o varnishd-cache_dir.o `test -f 'cache/cache_dir.c' || echo '$(srcdir)/'`cache/cache_dir.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_dir.Tpo $(DEPDIR)/varnishd-cache_dir.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_dir.c' object='varnishd-cache_dir.o' libtool=no @AMDEPBACKSLASH@
+varnishd-cache_deliver_proc.o: cache/cache_deliver_proc.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_deliver_proc.o -MD -MP -MF $(DEPDIR)/varnishd-cache_deliver_proc.Tpo -c -o varnishd-cache_deliver_proc.o `test -f 'cache/cache_deliver_proc.c' || echo '$(srcdir)/'`cache/cache_deliver_proc.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_deliver_proc.Tpo $(DEPDIR)/varnishd-cache_deliver_proc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_deliver_proc.c' object='varnishd-cache_deliver_proc.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_dir.o `test -f 'cache/cache_dir.c' || echo '$(srcdir)/'`cache/cache_dir.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_deliver_proc.o `test -f 'cache/cache_deliver_proc.c' || echo '$(srcdir)/'`cache/cache_deliver_proc.c
 
-varnishd-cache_dir.obj: cache/cache_dir.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_dir.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_dir.Tpo -c -o varnishd-cache_dir.obj `if test -f 'cache/cache_dir.c'; then $(CYGPATH_W) 'cache/cache_dir.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_dir.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_dir.Tpo $(DEPDIR)/varnishd-cache_dir.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_dir.c' object='varnishd-cache_dir.obj' libtool=no @AMDEPBACKSLASH@
+varnishd-cache_deliver_proc.obj: cache/cache_deliver_proc.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_deliver_proc.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_deliver_proc.Tpo -c -o varnishd-cache_deliver_proc.obj `if test -f 'cache/cache_deliver_proc.c'; then $(CYGPATH_W) 'cache/cache_deliver_proc.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_deliver_proc.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_deliver_proc.Tpo $(DEPDIR)/varnishd-cache_deliver_proc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_deliver_proc.c' object='varnishd-cache_deliver_proc.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_dir.obj `if test -f 'cache/cache_dir.c'; then $(CYGPATH_W) 'cache/cache_dir.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_dir.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_deliver_proc.obj `if test -f 'cache/cache_deliver_proc.c'; then $(CYGPATH_W) 'cache/cache_deliver_proc.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_deliver_proc.c'; fi`
+
+varnishd-cache_director.o: cache/cache_director.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_director.o -MD -MP -MF $(DEPDIR)/varnishd-cache_director.Tpo -c -o varnishd-cache_director.o `test -f 'cache/cache_director.c' || echo '$(srcdir)/'`cache/cache_director.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_director.Tpo $(DEPDIR)/varnishd-cache_director.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_director.c' object='varnishd-cache_director.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_director.o `test -f 'cache/cache_director.c' || echo '$(srcdir)/'`cache/cache_director.c
+
+varnishd-cache_director.obj: cache/cache_director.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_director.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_director.Tpo -c -o varnishd-cache_director.obj `if test -f 'cache/cache_director.c'; then $(CYGPATH_W) 'cache/cache_director.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_director.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_director.Tpo $(DEPDIR)/varnishd-cache_director.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_director.c' object='varnishd-cache_director.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_director.obj `if test -f 'cache/cache_director.c'; then $(CYGPATH_W) 'cache/cache_director.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_director.c'; fi`
 
 varnishd-cache_esi_deliver.o: cache/cache_esi_deliver.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_esi_deliver.o -MD -MP -MF $(DEPDIR)/varnishd-cache_esi_deliver.Tpo -c -o varnishd-cache_esi_deliver.o `test -f 'cache/cache_esi_deliver.c' || echo '$(srcdir)/'`cache/cache_esi_deliver.c
@@ -880,48 +951,6 @@ varnishd-cache_http.obj: cache/cache_http.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http.obj `if test -f 'cache/cache_http.c'; then $(CYGPATH_W) 'cache/cache_http.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http.c'; fi`
 
-varnishd-cache_http1_fetch.o: cache/cache_http1_fetch.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fetch.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fetch.Tpo -c -o varnishd-cache_http1_fetch.o `test -f 'cache/cache_http1_fetch.c' || echo '$(srcdir)/'`cache/cache_http1_fetch.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fetch.Tpo $(DEPDIR)/varnishd-cache_http1_fetch.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_fetch.c' object='varnishd-cache_http1_fetch.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fetch.o `test -f 'cache/cache_http1_fetch.c' || echo '$(srcdir)/'`cache/cache_http1_fetch.c
-
-varnishd-cache_http1_fetch.obj: cache/cache_http1_fetch.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fetch.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fetch.Tpo -c -o varnishd-cache_http1_fetch.obj `if test -f 'cache/cache_http1_fetch.c'; then $(CYGPATH_W) 'cache/cache_http1_fetch.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_fetch.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fetch.Tpo $(DEPDIR)/varnishd-cache_http1_fetch.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_fetch.c' object='varnishd-cache_http1_fetch.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fetch.obj `if test -f 'cache/cache_http1_fetch.c'; then $(CYGPATH_W) 'cache/cache_http1_fetch.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_fetch.c'; fi`
-
-varnishd-cache_http1_fsm.o: cache/cache_http1_fsm.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fsm.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fsm.Tpo -c -o varnishd-cache_http1_fsm.o `test -f 'cache/cache_http1_fsm.c' || echo '$(srcdir)/'`cache/cache_http1_fsm.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fsm.Tpo $(DEPDIR)/varnishd-cache_http1_fsm.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_fsm.c' object='varnishd-cache_http1_fsm.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fsm.o `test -f 'cache/cache_http1_fsm.c' || echo '$(srcdir)/'`cache/cache_http1_fsm.c
-
-varnishd-cache_http1_fsm.obj: cache/cache_http1_fsm.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fsm.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fsm.Tpo -c -o varnishd-cache_http1_fsm.obj `if test -f 'cache/cache_http1_fsm.c'; then $(CYGPATH_W) 'cache/cache_http1_fsm.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_fsm.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fsm.Tpo $(DEPDIR)/varnishd-cache_http1_fsm.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_fsm.c' object='varnishd-cache_http1_fsm.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fsm.obj `if test -f 'cache/cache_http1_fsm.c'; then $(CYGPATH_W) 'cache/cache_http1_fsm.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_fsm.c'; fi`
-
-varnishd-cache_http1_proto.o: cache/cache_http1_proto.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_proto.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_proto.Tpo -c -o varnishd-cache_http1_proto.o `test -f 'cache/cache_http1_proto.c' || echo '$(srcdir)/'`cache/cache_http1_proto.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_proto.Tpo $(DEPDIR)/varnishd-cache_http1_proto.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_proto.c' object='varnishd-cache_http1_proto.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_proto.o `test -f 'cache/cache_http1_proto.c' || echo '$(srcdir)/'`cache/cache_http1_proto.c
-
-varnishd-cache_http1_proto.obj: cache/cache_http1_proto.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_proto.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_proto.Tpo -c -o varnishd-cache_http1_proto.obj `if test -f 'cache/cache_http1_proto.c'; then $(CYGPATH_W) 'cache/cache_http1_proto.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_proto.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_proto.Tpo $(DEPDIR)/varnishd-cache_http1_proto.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_proto.c' object='varnishd-cache_http1_proto.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_proto.obj `if test -f 'cache/cache_http1_proto.c'; then $(CYGPATH_W) 'cache/cache_http1_proto.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_proto.c'; fi`
-
 varnishd-cache_lck.o: cache/cache_lck.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_lck.o -MD -MP -MF $(DEPDIR)/varnishd-cache_lck.Tpo -c -o varnishd-cache_lck.o `test -f 'cache/cache_lck.c' || echo '$(srcdir)/'`cache/cache_lck.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_lck.Tpo $(DEPDIR)/varnishd-cache_lck.Po
@@ -992,20 +1021,6 @@ varnishd-cache_panic.obj: cache/cache_panic.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_panic.obj `if test -f 'cache/cache_panic.c'; then $(CYGPATH_W) 'cache/cache_panic.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_panic.c'; fi`
 
-varnishd-cache_pipe.o: cache/cache_pipe.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_pipe.o -MD -MP -MF $(DEPDIR)/varnishd-cache_pipe.Tpo -c -o varnishd-cache_pipe.o `test -f 'cache/cache_pipe.c' || echo '$(srcdir)/'`cache/cache_pipe.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_pipe.Tpo $(DEPDIR)/varnishd-cache_pipe.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_pipe.c' object='varnishd-cache_pipe.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_pipe.o `test -f 'cache/cache_pipe.c' || echo '$(srcdir)/'`cache/cache_pipe.c
-
-varnishd-cache_pipe.obj: cache/cache_pipe.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_pipe.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_pipe.Tpo -c -o varnishd-cache_pipe.obj `if test -f 'cache/cache_pipe.c'; then $(CYGPATH_W) 'cache/cache_pipe.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_pipe.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_pipe.Tpo $(DEPDIR)/varnishd-cache_pipe.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_pipe.c' object='varnishd-cache_pipe.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_pipe.obj `if test -f 'cache/cache_pipe.c'; then $(CYGPATH_W) 'cache/cache_pipe.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_pipe.c'; fi`
-
 varnishd-cache_pool.o: cache/cache_pool.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_pool.o -MD -MP -MF $(DEPDIR)/varnishd-cache_pool.Tpo -c -o varnishd-cache_pool.o `test -f 'cache/cache_pool.c' || echo '$(srcdir)/'`cache/cache_pool.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_pool.Tpo $(DEPDIR)/varnishd-cache_pool.Po
@@ -1019,6 +1034,34 @@ varnishd-cache_pool.obj: cache/cache_pool.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_pool.c' object='varnishd-cache_pool.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_pool.obj `if test -f 'cache/cache_pool.c'; then $(CYGPATH_W) 'cache/cache_pool.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_pool.c'; fi`
+
+varnishd-cache_req.o: cache/cache_req.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_req.o -MD -MP -MF $(DEPDIR)/varnishd-cache_req.Tpo -c -o varnishd-cache_req.o `test -f 'cache/cache_req.c' || echo '$(srcdir)/'`cache/cache_req.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_req.Tpo $(DEPDIR)/varnishd-cache_req.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_req.c' object='varnishd-cache_req.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_req.o `test -f 'cache/cache_req.c' || echo '$(srcdir)/'`cache/cache_req.c
+
+varnishd-cache_req.obj: cache/cache_req.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_req.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_req.Tpo -c -o varnishd-cache_req.obj `if test -f 'cache/cache_req.c'; then $(CYGPATH_W) 'cache/cache_req.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_req.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_req.Tpo $(DEPDIR)/varnishd-cache_req.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_req.c' object='varnishd-cache_req.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_req.obj `if test -f 'cache/cache_req.c'; then $(CYGPATH_W) 'cache/cache_req.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_req.c'; fi`
+
+varnishd-cache_req_body.o: cache/cache_req_body.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_req_body.o -MD -MP -MF $(DEPDIR)/varnishd-cache_req_body.Tpo -c -o varnishd-cache_req_body.o `test -f 'cache/cache_req_body.c' || echo '$(srcdir)/'`cache/cache_req_body.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_req_body.Tpo $(DEPDIR)/varnishd-cache_req_body.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_req_body.c' object='varnishd-cache_req_body.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_req_body.o `test -f 'cache/cache_req_body.c' || echo '$(srcdir)/'`cache/cache_req_body.c
+
+varnishd-cache_req_body.obj: cache/cache_req_body.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_req_body.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_req_body.Tpo -c -o varnishd-cache_req_body.obj `if test -f 'cache/cache_req_body.c'; then $(CYGPATH_W) 'cache/cache_req_body.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_req_body.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_req_body.Tpo $(DEPDIR)/varnishd-cache_req_body.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_req_body.c' object='varnishd-cache_req_body.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_req_body.obj `if test -f 'cache/cache_req_body.c'; then $(CYGPATH_W) 'cache/cache_req_body.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_req_body.c'; fi`
 
 varnishd-cache_req_fsm.o: cache/cache_req_fsm.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_req_fsm.o -MD -MP -MF $(DEPDIR)/varnishd-cache_req_fsm.Tpo -c -o varnishd-cache_req_fsm.o `test -f 'cache/cache_req_fsm.c' || echo '$(srcdir)/'`cache/cache_req_fsm.c
@@ -1034,20 +1077,6 @@ varnishd-cache_req_fsm.obj: cache/cache_req_fsm.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_req_fsm.obj `if test -f 'cache/cache_req_fsm.c'; then $(CYGPATH_W) 'cache/cache_req_fsm.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_req_fsm.c'; fi`
 
-varnishd-cache_http1_deliver.o: cache/cache_http1_deliver.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_deliver.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_deliver.Tpo -c -o varnishd-cache_http1_deliver.o `test -f 'cache/cache_http1_deliver.c' || echo '$(srcdir)/'`cache/cache_http1_deliver.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_deliver.Tpo $(DEPDIR)/varnishd-cache_http1_deliver.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_deliver.c' object='varnishd-cache_http1_deliver.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_deliver.o `test -f 'cache/cache_http1_deliver.c' || echo '$(srcdir)/'`cache/cache_http1_deliver.c
-
-varnishd-cache_http1_deliver.obj: cache/cache_http1_deliver.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_deliver.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_deliver.Tpo -c -o varnishd-cache_http1_deliver.obj `if test -f 'cache/cache_http1_deliver.c'; then $(CYGPATH_W) 'cache/cache_http1_deliver.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_deliver.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_deliver.Tpo $(DEPDIR)/varnishd-cache_http1_deliver.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_http1_deliver.c' object='varnishd-cache_http1_deliver.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_deliver.obj `if test -f 'cache/cache_http1_deliver.c'; then $(CYGPATH_W) 'cache/cache_http1_deliver.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_http1_deliver.c'; fi`
-
 varnishd-cache_rfc2616.o: cache/cache_rfc2616.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_rfc2616.o -MD -MP -MF $(DEPDIR)/varnishd-cache_rfc2616.Tpo -c -o varnishd-cache_rfc2616.o `test -f 'cache/cache_rfc2616.c' || echo '$(srcdir)/'`cache/cache_rfc2616.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_rfc2616.Tpo $(DEPDIR)/varnishd-cache_rfc2616.Po
@@ -1061,6 +1090,20 @@ varnishd-cache_rfc2616.obj: cache/cache_rfc2616.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_rfc2616.c' object='varnishd-cache_rfc2616.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_rfc2616.obj `if test -f 'cache/cache_rfc2616.c'; then $(CYGPATH_W) 'cache/cache_rfc2616.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_rfc2616.c'; fi`
+
+varnishd-cache_range.o: cache/cache_range.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_range.o -MD -MP -MF $(DEPDIR)/varnishd-cache_range.Tpo -c -o varnishd-cache_range.o `test -f 'cache/cache_range.c' || echo '$(srcdir)/'`cache/cache_range.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_range.Tpo $(DEPDIR)/varnishd-cache_range.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_range.c' object='varnishd-cache_range.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_range.o `test -f 'cache/cache_range.c' || echo '$(srcdir)/'`cache/cache_range.c
+
+varnishd-cache_range.obj: cache/cache_range.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_range.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_range.Tpo -c -o varnishd-cache_range.obj `if test -f 'cache/cache_range.c'; then $(CYGPATH_W) 'cache/cache_range.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_range.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_range.Tpo $(DEPDIR)/varnishd-cache_range.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_range.c' object='varnishd-cache_range.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_range.obj `if test -f 'cache/cache_range.c'; then $(CYGPATH_W) 'cache/cache_range.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_range.c'; fi`
 
 varnishd-cache_session.o: cache/cache_session.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_session.o -MD -MP -MF $(DEPDIR)/varnishd-cache_session.Tpo -c -o varnishd-cache_session.o `test -f 'cache/cache_session.c' || echo '$(srcdir)/'`cache/cache_session.c
@@ -1132,6 +1175,20 @@ varnishd-cache_vrt.obj: cache/cache_vrt.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_vrt.obj `if test -f 'cache/cache_vrt.c'; then $(CYGPATH_W) 'cache/cache_vrt.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_vrt.c'; fi`
 
+varnishd-cache_vrt_priv.o: cache/cache_vrt_priv.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_vrt_priv.o -MD -MP -MF $(DEPDIR)/varnishd-cache_vrt_priv.Tpo -c -o varnishd-cache_vrt_priv.o `test -f 'cache/cache_vrt_priv.c' || echo '$(srcdir)/'`cache/cache_vrt_priv.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_vrt_priv.Tpo $(DEPDIR)/varnishd-cache_vrt_priv.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_vrt_priv.c' object='varnishd-cache_vrt_priv.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_vrt_priv.o `test -f 'cache/cache_vrt_priv.c' || echo '$(srcdir)/'`cache/cache_vrt_priv.c
+
+varnishd-cache_vrt_priv.obj: cache/cache_vrt_priv.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_vrt_priv.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_vrt_priv.Tpo -c -o varnishd-cache_vrt_priv.obj `if test -f 'cache/cache_vrt_priv.c'; then $(CYGPATH_W) 'cache/cache_vrt_priv.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_vrt_priv.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_vrt_priv.Tpo $(DEPDIR)/varnishd-cache_vrt_priv.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_vrt_priv.c' object='varnishd-cache_vrt_priv.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_vrt_priv.obj `if test -f 'cache/cache_vrt_priv.c'; then $(CYGPATH_W) 'cache/cache_vrt_priv.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_vrt_priv.c'; fi`
+
 varnishd-cache_vrt_re.o: cache/cache_vrt_re.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_vrt_re.o -MD -MP -MF $(DEPDIR)/varnishd-cache_vrt_re.Tpo -c -o varnishd-cache_vrt_re.o `test -f 'cache/cache_vrt_re.c' || echo '$(srcdir)/'`cache/cache_vrt_re.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_vrt_re.Tpo $(DEPDIR)/varnishd-cache_vrt_re.Po
@@ -1187,20 +1244,6 @@ varnishd-cache_wrk.obj: cache/cache_wrk.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_wrk.c' object='varnishd-cache_wrk.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_wrk.obj `if test -f 'cache/cache_wrk.c'; then $(CYGPATH_W) 'cache/cache_wrk.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_wrk.c'; fi`
-
-varnishd-cache_wrw.o: cache/cache_wrw.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_wrw.o -MD -MP -MF $(DEPDIR)/varnishd-cache_wrw.Tpo -c -o varnishd-cache_wrw.o `test -f 'cache/cache_wrw.c' || echo '$(srcdir)/'`cache/cache_wrw.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_wrw.Tpo $(DEPDIR)/varnishd-cache_wrw.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_wrw.c' object='varnishd-cache_wrw.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_wrw.o `test -f 'cache/cache_wrw.c' || echo '$(srcdir)/'`cache/cache_wrw.c
-
-varnishd-cache_wrw.obj: cache/cache_wrw.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_wrw.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_wrw.Tpo -c -o varnishd-cache_wrw.obj `if test -f 'cache/cache_wrw.c'; then $(CYGPATH_W) 'cache/cache_wrw.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_wrw.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_wrw.Tpo $(DEPDIR)/varnishd-cache_wrw.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_wrw.c' object='varnishd-cache_wrw.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_wrw.obj `if test -f 'cache/cache_wrw.c'; then $(CYGPATH_W) 'cache/cache_wrw.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_wrw.c'; fi`
 
 varnishd-cache_ws.o: cache/cache_ws.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_ws.o -MD -MP -MF $(DEPDIR)/varnishd-cache_ws.Tpo -c -o varnishd-cache_ws.o `test -f 'cache/cache_ws.c' || echo '$(srcdir)/'`cache/cache_ws.c
@@ -1272,19 +1315,19 @@ varnishd-hash_critbit.obj: hash/hash_critbit.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-hash_critbit.obj `if test -f 'hash/hash_critbit.c'; then $(CYGPATH_W) 'hash/hash_critbit.c'; else $(CYGPATH_W) '$(srcdir)/hash/hash_critbit.c'; fi`
 
-varnishd-hash_mgt.o: hash/hash_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-hash_mgt.o -MD -MP -MF $(DEPDIR)/varnishd-hash_mgt.Tpo -c -o varnishd-hash_mgt.o `test -f 'hash/hash_mgt.c' || echo '$(srcdir)/'`hash/hash_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-hash_mgt.Tpo $(DEPDIR)/varnishd-hash_mgt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hash/hash_mgt.c' object='varnishd-hash_mgt.o' libtool=no @AMDEPBACKSLASH@
+varnishd-mgt_hash.o: hash/mgt_hash.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_hash.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_hash.Tpo -c -o varnishd-mgt_hash.o `test -f 'hash/mgt_hash.c' || echo '$(srcdir)/'`hash/mgt_hash.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_hash.Tpo $(DEPDIR)/varnishd-mgt_hash.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hash/mgt_hash.c' object='varnishd-mgt_hash.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-hash_mgt.o `test -f 'hash/hash_mgt.c' || echo '$(srcdir)/'`hash/hash_mgt.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_hash.o `test -f 'hash/mgt_hash.c' || echo '$(srcdir)/'`hash/mgt_hash.c
 
-varnishd-hash_mgt.obj: hash/hash_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-hash_mgt.obj -MD -MP -MF $(DEPDIR)/varnishd-hash_mgt.Tpo -c -o varnishd-hash_mgt.obj `if test -f 'hash/hash_mgt.c'; then $(CYGPATH_W) 'hash/hash_mgt.c'; else $(CYGPATH_W) '$(srcdir)/hash/hash_mgt.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-hash_mgt.Tpo $(DEPDIR)/varnishd-hash_mgt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hash/hash_mgt.c' object='varnishd-hash_mgt.obj' libtool=no @AMDEPBACKSLASH@
+varnishd-mgt_hash.obj: hash/mgt_hash.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_hash.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_hash.Tpo -c -o varnishd-mgt_hash.obj `if test -f 'hash/mgt_hash.c'; then $(CYGPATH_W) 'hash/mgt_hash.c'; else $(CYGPATH_W) '$(srcdir)/hash/mgt_hash.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_hash.Tpo $(DEPDIR)/varnishd-mgt_hash.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hash/mgt_hash.c' object='varnishd-mgt_hash.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-hash_mgt.obj `if test -f 'hash/hash_mgt.c'; then $(CYGPATH_W) 'hash/hash_mgt.c'; else $(CYGPATH_W) '$(srcdir)/hash/hash_mgt.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_hash.obj `if test -f 'hash/mgt_hash.c'; then $(CYGPATH_W) 'hash/mgt_hash.c'; else $(CYGPATH_W) '$(srcdir)/hash/mgt_hash.c'; fi`
 
 varnishd-hash_simple_list.o: hash/hash_simple_list.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-hash_simple_list.o -MD -MP -MF $(DEPDIR)/varnishd-hash_simple_list.Tpo -c -o varnishd-hash_simple_list.o `test -f 'hash/hash_simple_list.c' || echo '$(srcdir)/'`hash/hash_simple_list.c
@@ -1299,6 +1342,118 @@ varnishd-hash_simple_list.obj: hash/hash_simple_list.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hash/hash_simple_list.c' object='varnishd-hash_simple_list.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-hash_simple_list.obj `if test -f 'hash/hash_simple_list.c'; then $(CYGPATH_W) 'hash/hash_simple_list.c'; else $(CYGPATH_W) '$(srcdir)/hash/hash_simple_list.c'; fi`
+
+varnishd-cache_http1_deliver.o: http1/cache_http1_deliver.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_deliver.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_deliver.Tpo -c -o varnishd-cache_http1_deliver.o `test -f 'http1/cache_http1_deliver.c' || echo '$(srcdir)/'`http1/cache_http1_deliver.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_deliver.Tpo $(DEPDIR)/varnishd-cache_http1_deliver.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_deliver.c' object='varnishd-cache_http1_deliver.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_deliver.o `test -f 'http1/cache_http1_deliver.c' || echo '$(srcdir)/'`http1/cache_http1_deliver.c
+
+varnishd-cache_http1_deliver.obj: http1/cache_http1_deliver.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_deliver.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_deliver.Tpo -c -o varnishd-cache_http1_deliver.obj `if test -f 'http1/cache_http1_deliver.c'; then $(CYGPATH_W) 'http1/cache_http1_deliver.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_deliver.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_deliver.Tpo $(DEPDIR)/varnishd-cache_http1_deliver.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_deliver.c' object='varnishd-cache_http1_deliver.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_deliver.obj `if test -f 'http1/cache_http1_deliver.c'; then $(CYGPATH_W) 'http1/cache_http1_deliver.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_deliver.c'; fi`
+
+varnishd-cache_http1_fetch.o: http1/cache_http1_fetch.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fetch.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fetch.Tpo -c -o varnishd-cache_http1_fetch.o `test -f 'http1/cache_http1_fetch.c' || echo '$(srcdir)/'`http1/cache_http1_fetch.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fetch.Tpo $(DEPDIR)/varnishd-cache_http1_fetch.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_fetch.c' object='varnishd-cache_http1_fetch.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fetch.o `test -f 'http1/cache_http1_fetch.c' || echo '$(srcdir)/'`http1/cache_http1_fetch.c
+
+varnishd-cache_http1_fetch.obj: http1/cache_http1_fetch.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fetch.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fetch.Tpo -c -o varnishd-cache_http1_fetch.obj `if test -f 'http1/cache_http1_fetch.c'; then $(CYGPATH_W) 'http1/cache_http1_fetch.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_fetch.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fetch.Tpo $(DEPDIR)/varnishd-cache_http1_fetch.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_fetch.c' object='varnishd-cache_http1_fetch.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fetch.obj `if test -f 'http1/cache_http1_fetch.c'; then $(CYGPATH_W) 'http1/cache_http1_fetch.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_fetch.c'; fi`
+
+varnishd-cache_http1_fsm.o: http1/cache_http1_fsm.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fsm.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fsm.Tpo -c -o varnishd-cache_http1_fsm.o `test -f 'http1/cache_http1_fsm.c' || echo '$(srcdir)/'`http1/cache_http1_fsm.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fsm.Tpo $(DEPDIR)/varnishd-cache_http1_fsm.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_fsm.c' object='varnishd-cache_http1_fsm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fsm.o `test -f 'http1/cache_http1_fsm.c' || echo '$(srcdir)/'`http1/cache_http1_fsm.c
+
+varnishd-cache_http1_fsm.obj: http1/cache_http1_fsm.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_fsm.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_fsm.Tpo -c -o varnishd-cache_http1_fsm.obj `if test -f 'http1/cache_http1_fsm.c'; then $(CYGPATH_W) 'http1/cache_http1_fsm.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_fsm.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_fsm.Tpo $(DEPDIR)/varnishd-cache_http1_fsm.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_fsm.c' object='varnishd-cache_http1_fsm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_fsm.obj `if test -f 'http1/cache_http1_fsm.c'; then $(CYGPATH_W) 'http1/cache_http1_fsm.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_fsm.c'; fi`
+
+varnishd-cache_http1_line.o: http1/cache_http1_line.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_line.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_line.Tpo -c -o varnishd-cache_http1_line.o `test -f 'http1/cache_http1_line.c' || echo '$(srcdir)/'`http1/cache_http1_line.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_line.Tpo $(DEPDIR)/varnishd-cache_http1_line.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_line.c' object='varnishd-cache_http1_line.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_line.o `test -f 'http1/cache_http1_line.c' || echo '$(srcdir)/'`http1/cache_http1_line.c
+
+varnishd-cache_http1_line.obj: http1/cache_http1_line.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_line.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_line.Tpo -c -o varnishd-cache_http1_line.obj `if test -f 'http1/cache_http1_line.c'; then $(CYGPATH_W) 'http1/cache_http1_line.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_line.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_line.Tpo $(DEPDIR)/varnishd-cache_http1_line.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_line.c' object='varnishd-cache_http1_line.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_line.obj `if test -f 'http1/cache_http1_line.c'; then $(CYGPATH_W) 'http1/cache_http1_line.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_line.c'; fi`
+
+varnishd-cache_http1_pipe.o: http1/cache_http1_pipe.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_pipe.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_pipe.Tpo -c -o varnishd-cache_http1_pipe.o `test -f 'http1/cache_http1_pipe.c' || echo '$(srcdir)/'`http1/cache_http1_pipe.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_pipe.Tpo $(DEPDIR)/varnishd-cache_http1_pipe.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_pipe.c' object='varnishd-cache_http1_pipe.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_pipe.o `test -f 'http1/cache_http1_pipe.c' || echo '$(srcdir)/'`http1/cache_http1_pipe.c
+
+varnishd-cache_http1_pipe.obj: http1/cache_http1_pipe.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_pipe.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_pipe.Tpo -c -o varnishd-cache_http1_pipe.obj `if test -f 'http1/cache_http1_pipe.c'; then $(CYGPATH_W) 'http1/cache_http1_pipe.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_pipe.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_pipe.Tpo $(DEPDIR)/varnishd-cache_http1_pipe.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_pipe.c' object='varnishd-cache_http1_pipe.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_pipe.obj `if test -f 'http1/cache_http1_pipe.c'; then $(CYGPATH_W) 'http1/cache_http1_pipe.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_pipe.c'; fi`
+
+varnishd-cache_http1_proto.o: http1/cache_http1_proto.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_proto.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_proto.Tpo -c -o varnishd-cache_http1_proto.o `test -f 'http1/cache_http1_proto.c' || echo '$(srcdir)/'`http1/cache_http1_proto.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_proto.Tpo $(DEPDIR)/varnishd-cache_http1_proto.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_proto.c' object='varnishd-cache_http1_proto.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_proto.o `test -f 'http1/cache_http1_proto.c' || echo '$(srcdir)/'`http1/cache_http1_proto.c
+
+varnishd-cache_http1_proto.obj: http1/cache_http1_proto.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_proto.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_proto.Tpo -c -o varnishd-cache_http1_proto.obj `if test -f 'http1/cache_http1_proto.c'; then $(CYGPATH_W) 'http1/cache_http1_proto.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_proto.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_proto.Tpo $(DEPDIR)/varnishd-cache_http1_proto.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_proto.c' object='varnishd-cache_http1_proto.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_proto.obj `if test -f 'http1/cache_http1_proto.c'; then $(CYGPATH_W) 'http1/cache_http1_proto.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_proto.c'; fi`
+
+varnishd-cache_http1_vfp.o: http1/cache_http1_vfp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_vfp.o -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_vfp.Tpo -c -o varnishd-cache_http1_vfp.o `test -f 'http1/cache_http1_vfp.c' || echo '$(srcdir)/'`http1/cache_http1_vfp.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_vfp.Tpo $(DEPDIR)/varnishd-cache_http1_vfp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_vfp.c' object='varnishd-cache_http1_vfp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_vfp.o `test -f 'http1/cache_http1_vfp.c' || echo '$(srcdir)/'`http1/cache_http1_vfp.c
+
+varnishd-cache_http1_vfp.obj: http1/cache_http1_vfp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_http1_vfp.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_http1_vfp.Tpo -c -o varnishd-cache_http1_vfp.obj `if test -f 'http1/cache_http1_vfp.c'; then $(CYGPATH_W) 'http1/cache_http1_vfp.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_vfp.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_http1_vfp.Tpo $(DEPDIR)/varnishd-cache_http1_vfp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='http1/cache_http1_vfp.c' object='varnishd-cache_http1_vfp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_http1_vfp.obj `if test -f 'http1/cache_http1_vfp.c'; then $(CYGPATH_W) 'http1/cache_http1_vfp.c'; else $(CYGPATH_W) '$(srcdir)/http1/cache_http1_vfp.c'; fi`
+
+varnishd-mgt_acceptor.o: mgt/mgt_acceptor.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_acceptor.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_acceptor.Tpo -c -o varnishd-mgt_acceptor.o `test -f 'mgt/mgt_acceptor.c' || echo '$(srcdir)/'`mgt/mgt_acceptor.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_acceptor.Tpo $(DEPDIR)/varnishd-mgt_acceptor.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_acceptor.c' object='varnishd-mgt_acceptor.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_acceptor.o `test -f 'mgt/mgt_acceptor.c' || echo '$(srcdir)/'`mgt/mgt_acceptor.c
+
+varnishd-mgt_acceptor.obj: mgt/mgt_acceptor.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_acceptor.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_acceptor.Tpo -c -o varnishd-mgt_acceptor.obj `if test -f 'mgt/mgt_acceptor.c'; then $(CYGPATH_W) 'mgt/mgt_acceptor.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_acceptor.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_acceptor.Tpo $(DEPDIR)/varnishd-mgt_acceptor.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_acceptor.c' object='varnishd-mgt_acceptor.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_acceptor.obj `if test -f 'mgt/mgt_acceptor.c'; then $(CYGPATH_W) 'mgt/mgt_acceptor.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_acceptor.c'; fi`
 
 varnishd-mgt_child.o: mgt/mgt_child.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_child.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_child.Tpo -c -o varnishd-mgt_child.o `test -f 'mgt/mgt_child.c' || echo '$(srcdir)/'`mgt/mgt_child.c
@@ -1327,6 +1482,48 @@ varnishd-mgt_cli.obj: mgt/mgt_cli.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_cli.c' object='varnishd-mgt_cli.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_cli.obj `if test -f 'mgt/mgt_cli.c'; then $(CYGPATH_W) 'mgt/mgt_cli.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_cli.c'; fi`
+
+varnishd-mgt_jail.o: mgt/mgt_jail.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_jail.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_jail.Tpo -c -o varnishd-mgt_jail.o `test -f 'mgt/mgt_jail.c' || echo '$(srcdir)/'`mgt/mgt_jail.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_jail.Tpo $(DEPDIR)/varnishd-mgt_jail.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_jail.c' object='varnishd-mgt_jail.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_jail.o `test -f 'mgt/mgt_jail.c' || echo '$(srcdir)/'`mgt/mgt_jail.c
+
+varnishd-mgt_jail.obj: mgt/mgt_jail.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_jail.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_jail.Tpo -c -o varnishd-mgt_jail.obj `if test -f 'mgt/mgt_jail.c'; then $(CYGPATH_W) 'mgt/mgt_jail.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_jail.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_jail.Tpo $(DEPDIR)/varnishd-mgt_jail.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_jail.c' object='varnishd-mgt_jail.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_jail.obj `if test -f 'mgt/mgt_jail.c'; then $(CYGPATH_W) 'mgt/mgt_jail.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_jail.c'; fi`
+
+varnishd-mgt_jail_unix.o: mgt/mgt_jail_unix.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_jail_unix.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_jail_unix.Tpo -c -o varnishd-mgt_jail_unix.o `test -f 'mgt/mgt_jail_unix.c' || echo '$(srcdir)/'`mgt/mgt_jail_unix.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_jail_unix.Tpo $(DEPDIR)/varnishd-mgt_jail_unix.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_jail_unix.c' object='varnishd-mgt_jail_unix.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_jail_unix.o `test -f 'mgt/mgt_jail_unix.c' || echo '$(srcdir)/'`mgt/mgt_jail_unix.c
+
+varnishd-mgt_jail_unix.obj: mgt/mgt_jail_unix.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_jail_unix.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_jail_unix.Tpo -c -o varnishd-mgt_jail_unix.obj `if test -f 'mgt/mgt_jail_unix.c'; then $(CYGPATH_W) 'mgt/mgt_jail_unix.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_jail_unix.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_jail_unix.Tpo $(DEPDIR)/varnishd-mgt_jail_unix.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_jail_unix.c' object='varnishd-mgt_jail_unix.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_jail_unix.obj `if test -f 'mgt/mgt_jail_unix.c'; then $(CYGPATH_W) 'mgt/mgt_jail_unix.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_jail_unix.c'; fi`
+
+varnishd-mgt_jail_solaris.o: mgt/mgt_jail_solaris.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_jail_solaris.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_jail_solaris.Tpo -c -o varnishd-mgt_jail_solaris.o `test -f 'mgt/mgt_jail_solaris.c' || echo '$(srcdir)/'`mgt/mgt_jail_solaris.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_jail_solaris.Tpo $(DEPDIR)/varnishd-mgt_jail_solaris.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_jail_solaris.c' object='varnishd-mgt_jail_solaris.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_jail_solaris.o `test -f 'mgt/mgt_jail_solaris.c' || echo '$(srcdir)/'`mgt/mgt_jail_solaris.c
+
+varnishd-mgt_jail_solaris.obj: mgt/mgt_jail_solaris.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_jail_solaris.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_jail_solaris.Tpo -c -o varnishd-mgt_jail_solaris.obj `if test -f 'mgt/mgt_jail_solaris.c'; then $(CYGPATH_W) 'mgt/mgt_jail_solaris.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_jail_solaris.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_jail_solaris.Tpo $(DEPDIR)/varnishd-mgt_jail_solaris.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_jail_solaris.c' object='varnishd-mgt_jail_solaris.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_jail_solaris.obj `if test -f 'mgt/mgt_jail_solaris.c'; then $(CYGPATH_W) 'mgt/mgt_jail_solaris.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_jail_solaris.c'; fi`
 
 varnishd-mgt_main.o: mgt/mgt_main.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_main.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_main.Tpo -c -o varnishd-mgt_main.o `test -f 'mgt/mgt_main.c' || echo '$(srcdir)/'`mgt/mgt_main.c
@@ -1426,34 +1623,6 @@ varnishd-mgt_pool.obj: mgt/mgt_pool.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_pool.obj `if test -f 'mgt/mgt_pool.c'; then $(CYGPATH_W) 'mgt/mgt_pool.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_pool.c'; fi`
 
-varnishd-mgt_sandbox.o: mgt/mgt_sandbox.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_sandbox.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_sandbox.Tpo -c -o varnishd-mgt_sandbox.o `test -f 'mgt/mgt_sandbox.c' || echo '$(srcdir)/'`mgt/mgt_sandbox.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_sandbox.Tpo $(DEPDIR)/varnishd-mgt_sandbox.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_sandbox.c' object='varnishd-mgt_sandbox.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_sandbox.o `test -f 'mgt/mgt_sandbox.c' || echo '$(srcdir)/'`mgt/mgt_sandbox.c
-
-varnishd-mgt_sandbox.obj: mgt/mgt_sandbox.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_sandbox.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_sandbox.Tpo -c -o varnishd-mgt_sandbox.obj `if test -f 'mgt/mgt_sandbox.c'; then $(CYGPATH_W) 'mgt/mgt_sandbox.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_sandbox.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_sandbox.Tpo $(DEPDIR)/varnishd-mgt_sandbox.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_sandbox.c' object='varnishd-mgt_sandbox.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_sandbox.obj `if test -f 'mgt/mgt_sandbox.c'; then $(CYGPATH_W) 'mgt/mgt_sandbox.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_sandbox.c'; fi`
-
-varnishd-mgt_sandbox_solaris.o: mgt/mgt_sandbox_solaris.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_sandbox_solaris.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_sandbox_solaris.Tpo -c -o varnishd-mgt_sandbox_solaris.o `test -f 'mgt/mgt_sandbox_solaris.c' || echo '$(srcdir)/'`mgt/mgt_sandbox_solaris.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_sandbox_solaris.Tpo $(DEPDIR)/varnishd-mgt_sandbox_solaris.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_sandbox_solaris.c' object='varnishd-mgt_sandbox_solaris.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_sandbox_solaris.o `test -f 'mgt/mgt_sandbox_solaris.c' || echo '$(srcdir)/'`mgt/mgt_sandbox_solaris.c
-
-varnishd-mgt_sandbox_solaris.obj: mgt/mgt_sandbox_solaris.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_sandbox_solaris.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_sandbox_solaris.Tpo -c -o varnishd-mgt_sandbox_solaris.obj `if test -f 'mgt/mgt_sandbox_solaris.c'; then $(CYGPATH_W) 'mgt/mgt_sandbox_solaris.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_sandbox_solaris.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_sandbox_solaris.Tpo $(DEPDIR)/varnishd-mgt_sandbox_solaris.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_sandbox_solaris.c' object='varnishd-mgt_sandbox_solaris.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_sandbox_solaris.obj `if test -f 'mgt/mgt_sandbox_solaris.c'; then $(CYGPATH_W) 'mgt/mgt_sandbox_solaris.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_sandbox_solaris.c'; fi`
-
 varnishd-mgt_shmem.o: mgt/mgt_shmem.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_shmem.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_shmem.Tpo -c -o varnishd-mgt_shmem.o `test -f 'mgt/mgt_shmem.c' || echo '$(srcdir)/'`mgt/mgt_shmem.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_shmem.Tpo $(DEPDIR)/varnishd-mgt_shmem.Po
@@ -1482,6 +1651,34 @@ varnishd-mgt_vcc.obj: mgt/mgt_vcc.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_vcc.obj `if test -f 'mgt/mgt_vcc.c'; then $(CYGPATH_W) 'mgt/mgt_vcc.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_vcc.c'; fi`
 
+varnishd-mgt_vcl.o: mgt/mgt_vcl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_vcl.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_vcl.Tpo -c -o varnishd-mgt_vcl.o `test -f 'mgt/mgt_vcl.c' || echo '$(srcdir)/'`mgt/mgt_vcl.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_vcl.Tpo $(DEPDIR)/varnishd-mgt_vcl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_vcl.c' object='varnishd-mgt_vcl.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_vcl.o `test -f 'mgt/mgt_vcl.c' || echo '$(srcdir)/'`mgt/mgt_vcl.c
+
+varnishd-mgt_vcl.obj: mgt/mgt_vcl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_vcl.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_vcl.Tpo -c -o varnishd-mgt_vcl.obj `if test -f 'mgt/mgt_vcl.c'; then $(CYGPATH_W) 'mgt/mgt_vcl.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_vcl.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_vcl.Tpo $(DEPDIR)/varnishd-mgt_vcl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mgt/mgt_vcl.c' object='varnishd-mgt_vcl.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_vcl.obj `if test -f 'mgt/mgt_vcl.c'; then $(CYGPATH_W) 'mgt/mgt_vcl.c'; else $(CYGPATH_W) '$(srcdir)/mgt/mgt_vcl.c'; fi`
+
+varnishd-cache_proxy_proto.o: proxy/cache_proxy_proto.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_proxy_proto.o -MD -MP -MF $(DEPDIR)/varnishd-cache_proxy_proto.Tpo -c -o varnishd-cache_proxy_proto.o `test -f 'proxy/cache_proxy_proto.c' || echo '$(srcdir)/'`proxy/cache_proxy_proto.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_proxy_proto.Tpo $(DEPDIR)/varnishd-cache_proxy_proto.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proxy/cache_proxy_proto.c' object='varnishd-cache_proxy_proto.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_proxy_proto.o `test -f 'proxy/cache_proxy_proto.c' || echo '$(srcdir)/'`proxy/cache_proxy_proto.c
+
+varnishd-cache_proxy_proto.obj: proxy/cache_proxy_proto.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_proxy_proto.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_proxy_proto.Tpo -c -o varnishd-cache_proxy_proto.obj `if test -f 'proxy/cache_proxy_proto.c'; then $(CYGPATH_W) 'proxy/cache_proxy_proto.c'; else $(CYGPATH_W) '$(srcdir)/proxy/cache_proxy_proto.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_proxy_proto.Tpo $(DEPDIR)/varnishd-cache_proxy_proto.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proxy/cache_proxy_proto.c' object='varnishd-cache_proxy_proto.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_proxy_proto.obj `if test -f 'proxy/cache_proxy_proto.c'; then $(CYGPATH_W) 'proxy/cache_proxy_proto.c'; else $(CYGPATH_W) '$(srcdir)/proxy/cache_proxy_proto.c'; fi`
+
 varnishd-stevedore.o: storage/stevedore.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-stevedore.o -MD -MP -MF $(DEPDIR)/varnishd-stevedore.Tpo -c -o varnishd-stevedore.o `test -f 'storage/stevedore.c' || echo '$(srcdir)/'`storage/stevedore.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-stevedore.Tpo $(DEPDIR)/varnishd-stevedore.Po
@@ -1496,19 +1693,19 @@ varnishd-stevedore.obj: storage/stevedore.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-stevedore.obj `if test -f 'storage/stevedore.c'; then $(CYGPATH_W) 'storage/stevedore.c'; else $(CYGPATH_W) '$(srcdir)/storage/stevedore.c'; fi`
 
-varnishd-stevedore_mgt.o: storage/stevedore_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-stevedore_mgt.o -MD -MP -MF $(DEPDIR)/varnishd-stevedore_mgt.Tpo -c -o varnishd-stevedore_mgt.o `test -f 'storage/stevedore_mgt.c' || echo '$(srcdir)/'`storage/stevedore_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-stevedore_mgt.Tpo $(DEPDIR)/varnishd-stevedore_mgt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/stevedore_mgt.c' object='varnishd-stevedore_mgt.o' libtool=no @AMDEPBACKSLASH@
+varnishd-mgt_stevedore.o: storage/mgt_stevedore.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_stevedore.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_stevedore.Tpo -c -o varnishd-mgt_stevedore.o `test -f 'storage/mgt_stevedore.c' || echo '$(srcdir)/'`storage/mgt_stevedore.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_stevedore.Tpo $(DEPDIR)/varnishd-mgt_stevedore.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/mgt_stevedore.c' object='varnishd-mgt_stevedore.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-stevedore_mgt.o `test -f 'storage/stevedore_mgt.c' || echo '$(srcdir)/'`storage/stevedore_mgt.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_stevedore.o `test -f 'storage/mgt_stevedore.c' || echo '$(srcdir)/'`storage/mgt_stevedore.c
 
-varnishd-stevedore_mgt.obj: storage/stevedore_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-stevedore_mgt.obj -MD -MP -MF $(DEPDIR)/varnishd-stevedore_mgt.Tpo -c -o varnishd-stevedore_mgt.obj `if test -f 'storage/stevedore_mgt.c'; then $(CYGPATH_W) 'storage/stevedore_mgt.c'; else $(CYGPATH_W) '$(srcdir)/storage/stevedore_mgt.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-stevedore_mgt.Tpo $(DEPDIR)/varnishd-stevedore_mgt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/stevedore_mgt.c' object='varnishd-stevedore_mgt.obj' libtool=no @AMDEPBACKSLASH@
+varnishd-mgt_stevedore.obj: storage/mgt_stevedore.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_stevedore.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_stevedore.Tpo -c -o varnishd-mgt_stevedore.obj `if test -f 'storage/mgt_stevedore.c'; then $(CYGPATH_W) 'storage/mgt_stevedore.c'; else $(CYGPATH_W) '$(srcdir)/storage/mgt_stevedore.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_stevedore.Tpo $(DEPDIR)/varnishd-mgt_stevedore.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/mgt_stevedore.c' object='varnishd-mgt_stevedore.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-stevedore_mgt.obj `if test -f 'storage/stevedore_mgt.c'; then $(CYGPATH_W) 'storage/stevedore_mgt.c'; else $(CYGPATH_W) '$(srcdir)/storage/stevedore_mgt.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_stevedore.obj `if test -f 'storage/mgt_stevedore.c'; then $(CYGPATH_W) 'storage/mgt_stevedore.c'; else $(CYGPATH_W) '$(srcdir)/storage/mgt_stevedore.c'; fi`
 
 varnishd-stevedore_utils.o: storage/stevedore_utils.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-stevedore_utils.o -MD -MP -MF $(DEPDIR)/varnishd-stevedore_utils.Tpo -c -o varnishd-stevedore_utils.o `test -f 'storage/stevedore_utils.c' || echo '$(srcdir)/'`storage/stevedore_utils.c
@@ -1566,19 +1763,19 @@ varnishd-storage_persistent.obj: storage/storage_persistent.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-storage_persistent.obj `if test -f 'storage/storage_persistent.c'; then $(CYGPATH_W) 'storage/storage_persistent.c'; else $(CYGPATH_W) '$(srcdir)/storage/storage_persistent.c'; fi`
 
-varnishd-storage_persistent_mgt.o: storage/storage_persistent_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-storage_persistent_mgt.o -MD -MP -MF $(DEPDIR)/varnishd-storage_persistent_mgt.Tpo -c -o varnishd-storage_persistent_mgt.o `test -f 'storage/storage_persistent_mgt.c' || echo '$(srcdir)/'`storage/storage_persistent_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-storage_persistent_mgt.Tpo $(DEPDIR)/varnishd-storage_persistent_mgt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/storage_persistent_mgt.c' object='varnishd-storage_persistent_mgt.o' libtool=no @AMDEPBACKSLASH@
+varnishd-mgt_storage_persistent.o: storage/mgt_storage_persistent.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_storage_persistent.o -MD -MP -MF $(DEPDIR)/varnishd-mgt_storage_persistent.Tpo -c -o varnishd-mgt_storage_persistent.o `test -f 'storage/mgt_storage_persistent.c' || echo '$(srcdir)/'`storage/mgt_storage_persistent.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_storage_persistent.Tpo $(DEPDIR)/varnishd-mgt_storage_persistent.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/mgt_storage_persistent.c' object='varnishd-mgt_storage_persistent.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-storage_persistent_mgt.o `test -f 'storage/storage_persistent_mgt.c' || echo '$(srcdir)/'`storage/storage_persistent_mgt.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_storage_persistent.o `test -f 'storage/mgt_storage_persistent.c' || echo '$(srcdir)/'`storage/mgt_storage_persistent.c
 
-varnishd-storage_persistent_mgt.obj: storage/storage_persistent_mgt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-storage_persistent_mgt.obj -MD -MP -MF $(DEPDIR)/varnishd-storage_persistent_mgt.Tpo -c -o varnishd-storage_persistent_mgt.obj `if test -f 'storage/storage_persistent_mgt.c'; then $(CYGPATH_W) 'storage/storage_persistent_mgt.c'; else $(CYGPATH_W) '$(srcdir)/storage/storage_persistent_mgt.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-storage_persistent_mgt.Tpo $(DEPDIR)/varnishd-storage_persistent_mgt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/storage_persistent_mgt.c' object='varnishd-storage_persistent_mgt.obj' libtool=no @AMDEPBACKSLASH@
+varnishd-mgt_storage_persistent.obj: storage/mgt_storage_persistent.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-mgt_storage_persistent.obj -MD -MP -MF $(DEPDIR)/varnishd-mgt_storage_persistent.Tpo -c -o varnishd-mgt_storage_persistent.obj `if test -f 'storage/mgt_storage_persistent.c'; then $(CYGPATH_W) 'storage/mgt_storage_persistent.c'; else $(CYGPATH_W) '$(srcdir)/storage/mgt_storage_persistent.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-mgt_storage_persistent.Tpo $(DEPDIR)/varnishd-mgt_storage_persistent.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='storage/mgt_storage_persistent.c' object='varnishd-mgt_storage_persistent.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-storage_persistent_mgt.obj `if test -f 'storage/storage_persistent_mgt.c'; then $(CYGPATH_W) 'storage/storage_persistent_mgt.c'; else $(CYGPATH_W) '$(srcdir)/storage/storage_persistent_mgt.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-mgt_storage_persistent.obj `if test -f 'storage/mgt_storage_persistent.c'; then $(CYGPATH_W) 'storage/mgt_storage_persistent.c'; else $(CYGPATH_W) '$(srcdir)/storage/mgt_storage_persistent.c'; fi`
 
 varnishd-storage_persistent_silo.o: storage/storage_persistent_silo.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-storage_persistent_silo.o -MD -MP -MF $(DEPDIR)/varnishd-storage_persistent_silo.Tpo -c -o varnishd-storage_persistent_silo.o `test -f 'storage/storage_persistent_silo.c' || echo '$(srcdir)/'`storage/storage_persistent_silo.c

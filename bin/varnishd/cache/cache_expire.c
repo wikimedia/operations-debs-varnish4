@@ -32,7 +32,6 @@
 
 #include "config.h"
 
-#include <math.h>
 #include <stdlib.h>
 
 #include "cache.h"
@@ -40,6 +39,14 @@
 #include "binary_heap.h"
 #include "hash/hash_slinger.h"
 #include "vtim.h"
+
+struct exp_callback {
+	unsigned			magic;
+#define EXP_CALLBACK_MAGIC		0xab956eb1
+	exp_callback_f			*func;
+	void				*priv;
+	VTAILQ_ENTRY(exp_callback)	list;
+};
 
 struct exp_priv {
 	unsigned			magic;
@@ -52,9 +59,32 @@ struct exp_priv {
 	VTAILQ_HEAD(,objcore)		inbox;
 	struct binheap			*heap;
 	pthread_cond_t			condvar;
+
+	VTAILQ_HEAD(,exp_callback)	ecb_list;
+	pthread_rwlock_t		cb_rwl;
 };
 
 static struct exp_priv *exphdl;
+
+static void
+exp_event(struct worker *wrk, struct objcore *oc, enum exp_event_e e)
+{
+	struct exp_callback *cb;
+
+	/*
+	 * Strictly speaking this is not atomic, but neither is VMOD
+	 * loading in general, so this is a fair optimization
+	 */
+	if (VTAILQ_EMPTY(&exphdl->ecb_list))
+		return;
+
+	AZ(pthread_rwlock_rdlock(&exphdl->cb_rwl));
+	VTAILQ_FOREACH(cb, &exphdl->ecb_list, list) {
+		CHECK_OBJ_NOTNULL(cb, EXP_CALLBACK_MAGIC);
+		cb->func(wrk, oc, e, cb->priv);
+	}
+	AZ(pthread_rwlock_unlock(&exphdl->cb_rwl));
+}
 
 /*--------------------------------------------------------------------
  * struct exp manipulations
@@ -76,28 +106,28 @@ EXP_Clr(struct exp *e)
  */
 
 double
-EXP_Ttl(const struct req *req, const struct object *o)
+EXP_Ttl(const struct req *req, const struct exp *e)
 {
 	double r;
 
-	r = o->exp.ttl;
+	r = e->ttl;
 	if (req != NULL && req->d_ttl > 0. && req->d_ttl < r)
 		r = req->d_ttl;
-	return (o->exp.t_origin + r);
+	return (e->t_origin + r);
 }
 
 /*--------------------------------------------------------------------
- * Calculate when we should wake up for this object
+ * Calculate when this object is no longer useful
  */
 
-static double
-exp_when(const struct object *o)
+double
+EXP_When(const struct exp *e)
 {
 	double when;
 
-	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
-
-	when = o->exp.t_origin + o->exp.ttl + o->exp.grace + o->exp.keep;
+	if (e->t_origin == 0)
+		return (0.);
+	when = e->t_origin + e->ttl + e->grace + e->keep;
 	AZ(isnan(when));
 	return (when);
 }
@@ -130,27 +160,24 @@ exp_mail_it(struct objcore *oc)
  */
 
 void
-EXP_Inject(struct objcore *oc, struct lru *lru, double when)
+EXP_Inject(struct worker *wrk, struct objcore *oc, struct lru *lru)
 {
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 
 	AZ(oc->exp_flags & (OC_EF_OFFLRU | OC_EF_INSERT | OC_EF_MOVE));
 	AZ(oc->exp_flags & OC_EF_DYING);
-	// AN(oc->flags & OC_F_BUSY);
-
-	if (lru == NULL)
-		lru = oc_getlru(oc);
+	AZ(oc->flags & OC_F_BUSY);
 	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
 
 	Lck_Lock(&lru->mtx);
 	lru->n_objcore++;
 	oc->exp_flags |= OC_EF_OFFLRU | OC_EF_INSERT | OC_EF_EXP;
-	if (when < 0)
-		oc->exp_flags |= OC_EF_MOVE;
-	else
-		oc->timer_when = when;
+	oc->timer_when = EXP_When(&oc->exp);
 	Lck_Unlock(&lru->mtx);
+
+	exp_event(wrk, oc, EXP_INJECT);
 
 	exp_mail_it(oc);
 }
@@ -163,12 +190,30 @@ EXP_Inject(struct objcore *oc, struct lru *lru, double when)
  */
 
 void
-EXP_Insert(struct objcore *oc)
+EXP_Insert(struct worker *wrk, struct objcore *oc)
 {
+	struct lru *lru;
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	HSH_Ref(oc);
-	EXP_Inject(oc, NULL, -1);
+
+	AZ(oc->exp_flags & (OC_EF_OFFLRU | OC_EF_INSERT | OC_EF_MOVE));
+	AZ(oc->exp_flags & OC_EF_DYING);
+	AN(oc->flags & OC_F_BUSY);
+
+	lru = ObjGetLRU(oc);
+	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
+
+	Lck_Lock(&lru->mtx);
+	lru->n_objcore++;
+	oc->exp_flags |= OC_EF_OFFLRU | OC_EF_INSERT | OC_EF_EXP;
+	oc->exp_flags |= OC_EF_MOVE;
+	Lck_Unlock(&lru->mtx);
+
+	exp_event(wrk, oc, EXP_INSERT);
+
+	exp_mail_it(oc);
 }
 
 /*--------------------------------------------------------------------
@@ -192,7 +237,7 @@ EXP_Touch(struct objcore *oc, double now)
 	if (now - oc->last_lru < cache_param->lru_interval)
 		return;
 
-	lru = oc_getlru(oc);
+	lru = ObjGetLRU(oc);
 	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
 
 	/*
@@ -223,35 +268,32 @@ EXP_Touch(struct objcore *oc, double now)
  */
 
 void
-EXP_Rearm(struct object *o, double now, double ttl, double grace, double keep)
+EXP_Rearm(struct objcore *oc, double now, double ttl, double grace, double keep)
 {
-	struct objcore *oc;
 	struct lru *lru;
 	double when;
 
-	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
-	oc = o->objcore;
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	assert(oc->refcnt > 0);
 
 	AN(oc->exp_flags & OC_EF_EXP);
 
 	if (!isnan(ttl))
-		o->exp.ttl = now + ttl - o->exp.t_origin;
+		oc->exp.ttl = now + ttl - oc->exp.t_origin;
 	if (!isnan(grace))
-		o->exp.grace = grace;
+		oc->exp.grace = grace;
 	if (!isnan(keep))
-		o->exp.keep = keep;
+		oc->exp.keep = keep;
 
-	when = exp_when(o);
+	when = EXP_When(&oc->exp);
 
 	VSL(SLT_ExpKill, 0, "EXP_Rearm p=%p E=%.9f e=%.9f f=0x%x", oc,
 	    oc->timer_when, when, oc->flags);
 
-	if (when > o->exp.t_origin && when > oc->timer_when)
+	if (when > oc->exp.t_origin && when > oc->timer_when)
 		return;
 
-	lru = oc_getlru(oc);
+	lru = ObjGetLRU(oc);
 	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
 
 	Lck_Lock(&lru->mtx);
@@ -280,18 +322,19 @@ EXP_Rearm(struct object *o, double now, double ttl, double grace, double keep)
  */
 
 int
-EXP_NukeOne(struct busyobj *bo, struct lru *lru)
+EXP_NukeOne(struct worker *wrk, struct lru *lru)
 {
 	struct objcore *oc, *oc2;
 	struct objhead *oh;
-	struct object *o;
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
 	/* Find the first currently unused object on the LRU.  */
 	Lck_Lock(&lru->mtx);
 	VTAILQ_FOREACH_SAFE(oc, &lru->lru_head, lru_list, oc2) {
 		CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 
-		VSLb(bo->vsl, SLT_ExpKill, "LRU_Cand p=%p f=0x%x r=%d",
+		VSLb(wrk->vsl, SLT_ExpKill, "LRU_Cand p=%p f=0x%x r=%d",
 		    oc, oc->flags, oc->refcnt);
 
 		AZ(oc->exp_flags & OC_EF_OFFLRU);
@@ -323,92 +366,58 @@ EXP_NukeOne(struct busyobj *bo, struct lru *lru)
 	Lck_Unlock(&lru->mtx);
 
 	if (oc == NULL) {
-		VSLb(bo->vsl, SLT_ExpKill, "LRU_Fail");
+		VSLb(wrk->vsl, SLT_ExpKill, "LRU_Fail");
 		return (-1);
 	}
 
 	/* XXX: We could grab and return one storage segment to our caller */
-	o = oc_getobj(bo->stats, oc);
-	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
-	STV_Freestore(o);
+	ObjSlim(wrk, oc);
 
 	exp_mail_it(oc);
 
-	VSLb(bo->vsl, SLT_ExpKill, "LRU x=%u",
-	    oc_getxid(bo->stats, oc) & VSL_IDENTMASK);
-	AN(bo->stats);
-	AN(oc);
-	(void)HSH_DerefObjCore(bo->stats, &oc);
+	VSLb(wrk->vsl, SLT_ExpKill, "LRU x=%u", ObjGetXID(wrk, oc));
+	(void)HSH_DerefObjCore(wrk, &oc);
 	return (1);
 }
 
-/*--------------------------------------------------------------------
- * Nukes an entire LRU
- */
+/*--------------------------------------------------------------------*/
 
-#if 0		// Not yet
-
-#define NUKEBUF 10	/* XXX: Randomly chosen to be bigger than one */
-
-void
-EXP_NukeLRU(struct worker *wrk, struct vsl_log *vsl, struct lru *lru)
+uintptr_t
+EXP_Register_Callback(exp_callback_f *func, void *priv)
 {
-	struct objcore *oc;
-	struct objcore *oc_array[NUKEBUF];
-	struct object *o;
-	int i, n;
-	double t;
+	struct exp_callback *ecb;
 
-	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
+	AN(func);
 
-	memset(oc_array, 0, sizeof oc_array);
-
-	t = VTIM_real();
-	Lck_Lock(&lru->mtx);
-	while (!VTAILQ_EMPTY(&lru->lru_head)) {
-		Lck_Lock(&exphdl->mtx);
-		n = 0;
-		while (n < NUKEBUF) {
-			oc = VTAILQ_FIRST(&lru->lru_head);
-			if (oc == NULL)
-				break;
-			CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
-			assert(oc_getlru(oc) == lru);
-
-			/* Remove from the LRU and binheap */
-			VTAILQ_REMOVE(&lru->lru_head, oc, lru_list);
-			assert(oc->timer_idx != BINHEAP_NOIDX);
-			binheap_delete(exphdl->heap, oc->timer_idx);
-			assert(oc->timer_idx == BINHEAP_NOIDX);
-
-			oc_array[n++] = oc;
-			VSC_C_main->n_lru_nuked++;
-		}
-		assert(n > 0);
-		Lck_Unlock(&exphdl->mtx);
-		Lck_Unlock(&lru->mtx);
-
-		for (i = 0; i < n; i++) {
-			oc = oc_array[i];
-			o = oc_getobj(&wrk->stats, oc);
-			/* XXX: Not documented in vsl_tags.h */
-			VSLb(vsl, SLT_ExpKill, "x=%u t=%.0f LRU",
-			    oc_getxid(&wrk->stats, oc) & VSL_IDENTMASK,
-			    EXP_Ttl(NULL, o) - t);
-			o->exp.ttl = 0.0;
-			(void)HSH_DerefObjCore(&wrk->stats, &oc);
-		}
-
-		Lck_Lock(&lru->mtx);
-	}
-	Lck_Unlock(&lru->mtx);
-
-	Pool_Sumstat(wrk);
+	ALLOC_OBJ(ecb, EXP_CALLBACK_MAGIC);
+	AN(ecb);
+	ecb->func = func;
+	ecb->priv = priv;
+	AZ(pthread_rwlock_wrlock(&exphdl->cb_rwl));
+	VTAILQ_INSERT_TAIL(&exphdl->ecb_list, ecb, list);
+	AZ(pthread_rwlock_unlock(&exphdl->cb_rwl));
+	return ((uintptr_t)ecb);
 }
 
-#endif
+void
+EXP_Deregister_Callback(uintptr_t *handle)
+{
+	struct exp_callback *ecb;
 
+	AN(handle);
+	AN(*handle);
+	AZ(pthread_rwlock_wrlock(&exphdl->cb_rwl));
+	VTAILQ_FOREACH(ecb, &exphdl->ecb_list, list) {
+		CHECK_OBJ_NOTNULL(ecb, EXP_CALLBACK_MAGIC);
+		if ((uintptr_t)ecb == *handle)
+			break;
+	}
+	AN(ecb);
+	VTAILQ_REMOVE(&exphdl->ecb_list, ecb, list);
+	AZ(pthread_rwlock_unlock(&exphdl->cb_rwl));
+	FREE_OBJ(ecb);
+	*handle = 0;
+}
 
 /*--------------------------------------------------------------------
  * Handle stuff in the inbox
@@ -419,7 +428,6 @@ exp_inbox(struct exp_priv *ep, struct objcore *oc, double now)
 {
 	unsigned flags;
 	struct lru *lru;
-	struct object *o;
 
 	CHECK_OBJ_NOTNULL(ep, EXP_PRIV_MAGIC);
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
@@ -429,7 +437,7 @@ exp_inbox(struct exp_priv *ep, struct objcore *oc, double now)
 
 	// AZ(oc->flags & OC_F_BUSY);
 
-	lru = oc_getlru(oc);
+	lru = ObjGetLRU(oc);
 	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
 
 	/* Evacuate our action-flags, and put it back on the LRU list */
@@ -452,15 +460,14 @@ exp_inbox(struct exp_priv *ep, struct objcore *oc, double now)
 			binheap_delete(ep->heap, oc->timer_idx);
 		}
 		assert(oc->timer_idx == BINHEAP_NOIDX);
-		(void)HSH_DerefObjCore(&ep->wrk->stats, &oc);
+		exp_event(ep->wrk, oc, EXP_REMOVE);
+		(void)HSH_DerefObjCore(ep->wrk, &oc);
 		return;
 	}
 
 	if (flags & OC_EF_MOVE) {
-		o = oc_getobj(&ep->wrk->stats, oc);
-		CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
-		oc->timer_when = exp_when(o);
-		oc_updatemeta(oc);
+		oc->timer_when = EXP_When(&oc->exp);
+		ObjUpdateMeta(ep->wrk, oc);
 	}
 
 	VSLb(&ep->vsl, SLT_ExpKill, "EXP_When p=%p e=%.9f f=0x%x", oc,
@@ -494,7 +501,6 @@ exp_expire(struct exp_priv *ep, double now)
 {
 	struct lru *lru;
 	struct objcore *oc;
-	struct object *o;
 
 	CHECK_OBJ_NOTNULL(ep, EXP_PRIV_MAGIC);
 
@@ -510,7 +516,7 @@ exp_expire(struct exp_priv *ep, double now)
 
 	VSC_C_main->n_expired++;
 
-	lru = oc_getlru(oc);
+	lru = ObjGetLRU(oc);
 	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
 	Lck_Lock(&lru->mtx);
 	// AZ(oc->flags & OC_F_BUSY);
@@ -532,12 +538,10 @@ exp_expire(struct exp_priv *ep, double now)
 	assert(oc->timer_idx == BINHEAP_NOIDX);
 
 	CHECK_OBJ_NOTNULL(oc->objhead, OBJHEAD_MAGIC);
-	o = oc_getobj(&ep->wrk->stats, oc);
-	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
 	VSLb(&ep->vsl, SLT_ExpKill, "EXP_Expired x=%u t=%.0f",
-	    oc_getxid(&ep->wrk->stats, oc) & VSL_IDENTMASK,
-	    EXP_Ttl(NULL, o) - now);
-	(void)HSH_DerefObjCore(&ep->wrk->stats, &oc);
+	    ObjGetXID(ep->wrk, oc), EXP_Ttl(NULL, &oc->exp) - now);
+	exp_event(ep->wrk, oc, EXP_REMOVE);
+	(void)HSH_DerefObjCore(ep->wrk, &oc);
 	return (0);
 }
 
@@ -546,10 +550,10 @@ exp_expire(struct exp_priv *ep, double now)
  * object expires, accounting also for graceability, it is killed.
  */
 
-static int
-object_cmp(void *priv, void *a, void *b)
+static int __match_proto__(binheap_cmp_t)
+object_cmp(void *priv, const void *a, const void *b)
 {
-	struct objcore *aa, *bb;
+	const struct objcore *aa, *bb;
 
 	(void)priv;
 	CAST_OBJ_NOTNULL(aa, a, OBJCORE_MAGIC);
@@ -557,7 +561,7 @@ object_cmp(void *priv, void *a, void *b)
 	return (aa->timer_when < bb->timer_when);
 }
 
-static void
+static void __match_proto__(binheap_update_t)
 object_update(void *priv, void *p, unsigned u)
 {
 	struct objcore *oc;
@@ -618,6 +622,8 @@ EXP_Init(void)
 	Lck_New(&ep->mtx, lck_exp);
 	AZ(pthread_cond_init(&ep->condvar, NULL));
 	VTAILQ_INIT(&ep->inbox);
+	AZ(pthread_rwlock_init(&ep->cb_rwl, NULL));
+	VTAILQ_INIT(&ep->ecb_list);
 	exphdl = ep;
 	WRK_BgThread(&pt, "cache-timeout", exp_thread, ep);
 }

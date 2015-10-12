@@ -33,56 +33,33 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "common/common.h"
+#include "mgt/mgt.h"
+#include "waiter/mgt_waiter.h"
 
-#include "waiter/waiter.h"
-
-static const struct waiter *const vca_waiters[] = {
+static const struct choice waiter_choice[] = {
     #if defined(HAVE_KQUEUE)
-	&waiter_kqueue,
+	{ "kqueue",	&waiter_kqueue },
     #endif
     #if defined(HAVE_EPOLL_CTL)
-	&waiter_epoll,
+	{ "epoll",	&waiter_epoll },
     #endif
     #if defined(HAVE_PORT_CREATE)
-	&waiter_ports,
+	{ "ports",	&waiter_ports },
     #endif
-	&waiter_poll,
-	NULL,
+	{ "poll",	&waiter_poll },
+	{ NULL,		NULL}
 };
 
-struct waiter const *waiter;
+struct waiter_impl const *waiter;
 
-int
-WAIT_tweak_waiter(struct vsb *vsb, const char *arg)
+void
+Wait_config(const char *arg)
 {
-	int i;
 
 	ASSERT_MGT();
 
-	if (arg == NULL) {
-		if (waiter == NULL)
-			VSB_printf(vsb, "default");
-		else
-			VSB_printf(vsb, "%s", waiter->name);
-
-		VSB_printf(vsb, " (possible values: ");
-		for (i = 0; vca_waiters[i] != NULL; i++)
-			VSB_printf(vsb, "%s%s", i == 0 ? "" : ", ",
-			    vca_waiters[i]->name);
-		VSB_printf(vsb, ")");
-		return(0);
-	}
-	if (!strcmp(arg, WAITER_DEFAULT)) {
-		waiter = vca_waiters[0];
-		return(0);
-	}
-	for (i = 0; vca_waiters[i]; i++) {
-		if (!strcmp(arg, vca_waiters[i]->name)) {
-			waiter = vca_waiters[i];
-			return(0);
-		}
-	}
-	VSB_printf(vsb, "Unknown waiter");
-	return (-1);
+	if (arg != NULL)
+		waiter = pick(waiter_choice, arg, "waiter");
+	else
+		waiter = waiter_choice[0].ptr;
 }

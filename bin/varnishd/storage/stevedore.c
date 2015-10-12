@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2007-2014 Varnish Software AS
+ * Copyright (c) 2007-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Dag-Erling Smørgav <des@des.no>
@@ -48,57 +48,52 @@ static const struct stevedore * volatile stv_next;
  * Default objcore methods
  */
 
-static unsigned __match_proto__(getxid_f)
-default_oc_getxid(struct dstat *ds, struct objcore *oc)
-{
-	struct object *o;
-
-	o = oc_getobj(ds, oc);
-	return (o->vxid);
-}
-
 static struct object * __match_proto__(getobj_f)
-default_oc_getobj(struct dstat *ds, struct objcore *oc)
+default_oc_getobj(struct worker *wrk, struct objcore *oc)
 {
 	struct object *o;
 
-	(void)ds;
-	if (oc->priv == NULL)
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	if (oc->stobj->priv == NULL)
 		return (NULL);
-	CAST_OBJ_NOTNULL(o, oc->priv, OBJECT_MAGIC);
+	CAST_OBJ_NOTNULL(o, oc->stobj->priv, OBJECT_MAGIC);
 	return (o);
 }
 
-static void
-default_oc_freeobj(struct objcore *oc)
+static void __match_proto__(freeobj_f)
+default_oc_freeobj(struct worker *wrk, struct objcore *oc)
 {
 	struct object *o;
 
-	CAST_OBJ_NOTNULL(o, oc->priv, OBJECT_MAGIC);
-	oc->priv = NULL;
-	oc->methods = NULL;
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	ObjSlim(wrk, oc);
+	CAST_OBJ_NOTNULL(o, oc->stobj->priv, OBJECT_MAGIC);
 	o->magic = 0;
 
-	STV_Freestore(o);
-	STV_free(o->objstore);
+	STV_free(oc->stobj->stevedore, o->objstore);
+
+	memset(oc->stobj, 0, sizeof oc->stobj);
+
+	wrk->stats->n_object--;
 }
 
-static struct lru *
+static struct lru * __match_proto__(getlru_f)
 default_oc_getlru(const struct objcore *oc)
 {
-	struct stevedore *stv;
+	const struct stevedore *stv;
 
-	CAST_OBJ_NOTNULL(stv, (void *)oc->priv2, STEVEDORE_MAGIC);
+	stv = oc->stobj->stevedore;
+	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
 	return (stv->lru);
 }
 
-static struct objcore_methods default_oc_methods = {
+const struct storeobj_methods default_oc_methods = {
 	.getobj = default_oc_getobj,
-	.getxid = default_oc_getxid,
 	.freeobj = default_oc_freeobj,
 	.getlru = default_oc_getlru,
 };
-
 
 /*--------------------------------------------------------------------
  */
@@ -159,8 +154,8 @@ stv_pick_stevedore(struct vsl_log *vsl, const char **hint)
 
 /*-------------------------------------------------------------------*/
 
-static struct storage *
-stv_alloc(struct stevedore *stv, size_t size)
+struct storage *
+STV_alloc(const struct stevedore *stv, size_t size)
 {
 	struct storage *st;
 
@@ -187,62 +182,6 @@ stv_alloc(struct stevedore *stv, size_t size)
 	return (st);
 }
 
-/*-------------------------------------------------------------------*/
-
-static struct storage *
-stv_alloc_obj(struct busyobj *bo, size_t size)
-{
-	struct storage *st = NULL;
-	struct stevedore *stv;
-	unsigned fail;
-	struct object *obj;
-
-	/*
-	 * Always use the stevedore which allocated the object in order to
-	 * keep an object inside the same stevedore.
-	 */
-	AN(bo->stats);
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	obj = bo->fetch_obj;
-	CHECK_OBJ_NOTNULL(obj, OBJECT_MAGIC);
-	stv = obj->objstore->stevedore;
-	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
-
-	if (size > cache_param->fetch_maxchunksize)
-		size = cache_param->fetch_maxchunksize;
-
-	assert(size <= UINT_MAX);	/* field limit in struct storage */
-
-	for (fail = 0; fail <= cache_param->nuke_limit; fail++) {
-		/* try to allocate from it */
-		AN(stv->alloc);
-		st = stv_alloc(stv, size);
-		if (st != NULL)
-			break;
-
-		/* no luck; try to free some space and keep trying */
-		if (fail < cache_param->nuke_limit &&
-		    EXP_NukeOne(bo, stv->lru) == -1)
-			break;
-	}
-	CHECK_OBJ_ORNULL(st, STORAGE_MAGIC);
-	return (st);
-}
-
-
-/*-------------------------------------------------------------------*
- * Structure used to transport internal knowledge from STV_NewObject()
- * to STV_MkObject().  Nobody else should mess with this struct.
- */
-
-struct stv_objsecrets {
-	unsigned	magic;
-#define STV_OBJ_SECRETES_MAGIC	0x78c87247
-	uint16_t	nhttp;
-	unsigned	lhttp;
-	unsigned	wsl;
-};
-
 /*--------------------------------------------------------------------
  * This function is called by stevedores ->allocobj() method, which
  * very often will be stv_default_allocobj() below, to convert a slab
@@ -252,47 +191,24 @@ struct stv_objsecrets {
  */
 
 struct object *
-STV_MkObject(struct stevedore *stv, struct busyobj *bo,
-    void *ptr, unsigned ltot, const struct stv_objsecrets *soc)
+STV_MkObject(const struct stevedore *stv, struct objcore *oc, void *ptr)
 {
 	struct object *o;
-	unsigned l;
 
 	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	CHECK_OBJ_NOTNULL(soc, STV_OBJ_SECRETES_MAGIC);
-	CHECK_OBJ_NOTNULL(bo->fetch_objcore, OBJCORE_MAGIC);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 
 	assert(PAOK(ptr));
-	assert(PAOK(soc->wsl));
-	assert(PAOK(soc->lhttp));
-
-	assert(ltot >= sizeof *o + soc->lhttp + soc->wsl);
 
 	o = ptr;
-	memset(o, 0, sizeof *o);
-	o->magic = OBJECT_MAGIC;
+	INIT_OBJ(o, OBJECT_MAGIC);
 
-	l = PRNDDN(ltot - (sizeof *o + soc->lhttp));
-	assert(l >= soc->wsl);
+	VTAILQ_INIT(&o->list);
 
-	o->http = HTTP_create(o + 1, soc->nhttp);
-	WS_Init(bo->ws_o, "obj", (char *)(o + 1) + soc->lhttp, soc->wsl);
-	WS_Assert(bo->ws_o);
-	assert(bo->ws_o->e <= (char*)ptr + ltot);
-
-	HTTP_Setup(o->http, bo->ws_o, bo->vsl, SLT_ObjMethod);
-	o->http->magic = HTTP_MAGIC;
-	o->exp = bo->exp;
-	VTAILQ_INIT(&o->store);
-	bo->stats->n_object++;
-
-	o->objcore = bo->fetch_objcore;
-
-	o->objcore->methods = &default_oc_methods;
-	o->objcore->priv = o;
-	o->objcore->priv2 = (uintptr_t)stv;
-	VSLb(bo->vsl, SLT_Storage, "%s %s", stv->name, stv->ident);
+	oc->stobj->magic = STOREOBJ_MAGIC;
+	oc->stobj->stevedore = stv;
+	AN(stv->methods);
+	oc->stobj->priv = o;
 	return (o);
 }
 
@@ -301,27 +217,28 @@ STV_MkObject(struct stevedore *stv, struct busyobj *bo,
  * implement persistent storage can rely on.
  */
 
-struct object *
-stv_default_allocobj(struct stevedore *stv, struct busyobj *bo,
-    unsigned ltot, const struct stv_objsecrets *soc)
+int
+stv_default_allocobj(const struct stevedore *stv, struct objcore *oc,
+    unsigned wsl)
 {
 	struct object *o;
 	struct storage *st;
+	unsigned ltot;
 
-	CHECK_OBJ_NOTNULL(soc, STV_OBJ_SECRETES_MAGIC);
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	ltot = sizeof(struct object) + PRNDUP(wsl);
 	st = stv->alloc(stv, ltot);
 	if (st == NULL)
-		return (NULL);
+		return (0);
 	if (st->space < ltot) {
 		stv->free(st);
-		return (NULL);
+		return (0);
 	}
-	ltot = st->len = st->space;
-	o = STV_MkObject(stv, bo, st->ptr, ltot, soc);
+	o = STV_MkObject(stv, oc, st->ptr);
 	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
+	st->len = sizeof(*o);
 	o->objstore = st;
-	return (o);
+	return (1);
 }
 
 /*-------------------------------------------------------------------
@@ -330,110 +247,66 @@ stv_default_allocobj(struct stevedore *stv, struct busyobj *bo,
  * XXX: for the body in the same allocation while we are at it.
  */
 
-struct object *
-STV_NewObject(struct busyobj *bo, const char *hint,
-    unsigned wsl, uint16_t nhttp)
+int
+STV_NewObject(struct objcore *oc, struct worker *wrk,
+    const char *hint, unsigned wsl)
 {
-	struct object *o;
 	struct stevedore *stv, *stv0;
-	unsigned lhttp, ltot;
-	struct stv_objsecrets soc;
-	int i;
+	int i, j;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	assert(wsl > 0);
-	wsl = PRNDUP(wsl);
 
-	lhttp = HTTP_estimate(nhttp);
-	lhttp = PRNDUP(lhttp);
-
-	memset(&soc, 0, sizeof soc);
-	soc.magic = STV_OBJ_SECRETES_MAGIC;
-	soc.nhttp = nhttp;
-	soc.lhttp = lhttp;
-	soc.wsl = wsl;
-
-	ltot = sizeof *o + wsl + lhttp;
-
-	stv = stv0 = stv_pick_stevedore(bo->vsl, &hint);
+	stv = stv0 = stv_pick_stevedore(wrk->vsl, &hint);
 	AN(stv->allocobj);
-	o = stv->allocobj(stv, bo, ltot, &soc);
-	if (o == NULL && hint == NULL) {
+	j = stv->allocobj(stv, oc, wsl);
+	if (j == 0 && hint == NULL) {
 		do {
-			stv = stv_pick_stevedore(bo->vsl, &hint);
+			stv = stv_pick_stevedore(wrk->vsl, &hint);
 			AN(stv->allocobj);
-			o = stv->allocobj(stv, bo, ltot, &soc);
-		} while (o == NULL && stv != stv0);
+			j = stv->allocobj(stv, oc, wsl);
+		} while (j == 0 && stv != stv0);
 	}
-	if (o == NULL) {
+	if (j == 0) {
 		/* no luck; try to free some space and keep trying */
-		for (i = 0; o == NULL && i < cache_param->nuke_limit; i++) {
-			if (EXP_NukeOne(bo, stv->lru) == -1)
+		for (i = 0; j == 0 && i < cache_param->nuke_limit; i++) {
+			if (EXP_NukeOne(wrk, stv->lru) == -1)
 				break;
-			o = stv->allocobj(stv, bo, ltot, &soc);
+			j = stv->allocobj(stv, oc, wsl);
 		}
 	}
 
-	if (o == NULL)
-		return (NULL);
+	if (j == 0)
+		return (0);
 
-	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
-	CHECK_OBJ_NOTNULL(o->objstore, STORAGE_MAGIC);
-	return (o);
+	wrk->stats->n_object++;
+	VSLb(wrk->vsl, SLT_Storage, "%s %s",
+	    oc->stobj->stevedore->name, oc->stobj->stevedore->ident);
+	return (1);
 }
 
 /*-------------------------------------------------------------------*/
 
 void
-STV_Freestore(struct object *o)
-{
-	struct storage *st, *stn;
-
-	if (o->esidata != NULL) {
-		STV_free(o->esidata);
-		o->esidata = NULL;
-	}
-	VTAILQ_FOREACH_SAFE(st, &o->store, list, stn) {
-		CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
-		VTAILQ_REMOVE(&o->store, st, list);
-		STV_free(st);
-	}
-}
-
-/*-------------------------------------------------------------------*/
-
-struct storage *
-STV_alloc(struct busyobj *bo, size_t size)
+STV_trim(const struct stevedore *stv, struct storage *st, size_t size,
+    int move_ok)
 {
 
-	return (stv_alloc_obj(bo, size));
-}
-
-struct storage *
-STV_alloc_transient(size_t size)
-{
-
-	return (stv_alloc(stv_transient, size));
+	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
+	CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
+	if (stv->trim)
+		stv->trim(st, size, move_ok);
 }
 
 void
-STV_trim(struct storage *st, size_t size, int move_ok)
+STV_free(const struct stevedore *stv, struct storage *st)
 {
 
+	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
 	CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
-	AN(st->stevedore);
-	if (st->stevedore->trim)
-		st->stevedore->trim(st, size, move_ok);
-}
-
-void
-STV_free(struct storage *st)
-{
-
-	CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
-	AN(st->stevedore);
-	AN(st->stevedore->free);
-	st->stevedore->free(st);
+	AN(stv->free);
+	stv->free(st);
 }
 
 void

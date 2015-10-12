@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -109,7 +109,7 @@ sub vcl_hit {
         return (deliver);
     }
     // fetch & deliver once we get the result
-    return (fetch);
+    return (miss);
 }
 
 sub vcl_miss {
@@ -192,7 +192,6 @@ sub vcl_backend_error {
 # Housekeeping
 
 sub vcl_init {
-    return (ok);
 }
 
 sub vcl_fini {

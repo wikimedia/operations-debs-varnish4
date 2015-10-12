@@ -41,7 +41,8 @@
 
 #include "cache/cache.h"
 
-#include "waiter/waiter.h"
+#include "waiter/waiter_priv.h"
+#include "waiter/mgt_waiter.h"
 #include "vtim.h"
 #include "vfil.h"
 
@@ -54,95 +55,15 @@
 struct vwe {
 	unsigned		magic;
 #define VWE_MAGIC		0x6bd73424
-
-	pthread_t		epoll_thread;
-	pthread_t		timer_thread;
 	int			epfd;
-
-	VTAILQ_HEAD(,sess)	sesshead;
-	int			pipes[2];
-	int			timer_pipes[2];
+	struct waiter		*waiter;
+	pthread_t		thread;
+	double			next;
+	int			pipe[2];
+	unsigned		nwaited;
+	int			die;
+	struct lock		mtx;
 };
-
-static void
-vwe_modadd(struct vwe *vwe, int fd, void *data, short arm)
-{
-
-	/* XXX: EPOLLET (edge triggered) can cause rather Bad Things to
-	 * XXX: happen: If NEEV+1 threads get stuck in write(), all threads
-	 * XXX: will hang. See #644.
-	 */
-	assert(fd >= 0);
-	if (data == vwe->pipes || data == vwe->timer_pipes) {
-		struct epoll_event ev = {
-		    EPOLLIN | EPOLLPRI , { data }
-		};
-		AZ(epoll_ctl(vwe->epfd, arm, fd, &ev));
-	} else {
-		struct sess *sp = (struct sess *)data;
-		CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-		sp->ev.data.ptr = data;
-		sp->ev.events = EPOLLIN | EPOLLPRI | EPOLLONESHOT | EPOLLRDHUP;
-		AZ(epoll_ctl(vwe->epfd, arm, fd, &sp->ev));
-	}
-}
-
-static void
-vwe_cond_modadd(struct vwe *vwe, int fd, void *data)
-{
-	struct sess *sp = (struct sess *)data;
-
-	assert(fd >= 0);
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-	if (sp->ev.data.ptr)
-		AZ(epoll_ctl(vwe->epfd, EPOLL_CTL_MOD, fd, &sp->ev));
-	else {
-		sp->ev.data.ptr = data;
-		sp->ev.events = EPOLLIN | EPOLLPRI | EPOLLONESHOT | EPOLLRDHUP;
-		AZ(epoll_ctl(vwe->epfd, EPOLL_CTL_ADD, fd, &sp->ev));
-	}
-}
-
-static void
-vwe_eev(struct vwe *vwe, const struct epoll_event *ep, double now)
-{
-	struct sess *ss[NEEV], *sp;
-	int i, j;
-
-	AN(ep->data.ptr);
-	if (ep->data.ptr == vwe->pipes) {
-		if (ep->events & EPOLLIN || ep->events & EPOLLPRI) {
-			j = 0;
-			i = read(vwe->pipes[0], ss, sizeof ss);
-			if (i == -1 && errno == EAGAIN)
-				return;
-			while (i >= sizeof ss[0]) {
-				CHECK_OBJ_NOTNULL(ss[j], SESS_MAGIC);
-				assert(ss[j]->fd >= 0);
-				VTAILQ_INSERT_TAIL(&vwe->sesshead, ss[j], list);
-				vwe_cond_modadd(vwe, ss[j]->fd, ss[j]);
-				j++;
-				i -= sizeof ss[0];
-			}
-			AZ(i);
-		}
-	} else {
-		CAST_OBJ_NOTNULL(sp, ep->data.ptr, SESS_MAGIC);
-		if (ep->events & EPOLLIN || ep->events & EPOLLPRI) {
-			VTAILQ_REMOVE(&vwe->sesshead, sp, list);
-			SES_Handle(sp, now);
-		} else if (ep->events & EPOLLERR) {
-			VTAILQ_REMOVE(&vwe->sesshead, sp, list);
-			SES_Delete(sp, SC_REM_CLOSE, now);
-		} else if (ep->events & EPOLLHUP) {
-			VTAILQ_REMOVE(&vwe->sesshead, sp, list);
-			SES_Delete(sp, SC_REM_CLOSE, now);
-		} else if (ep->events & EPOLLRDHUP) {
-			VTAILQ_REMOVE(&vwe->sesshead, sp, list);
-			SES_Delete(sp, SC_REM_CLOSE, now);
-		}
-	}
-}
 
 /*--------------------------------------------------------------------*/
 
@@ -150,114 +71,153 @@ static void *
 vwe_thread(void *priv)
 {
 	struct epoll_event ev[NEEV], *ep;
-	struct sess *sp;
-	char junk;
-	double now, deadline;
-	int dotimer, i, n;
+	struct waited *wp;
+	struct waiter *w;
+	double now, then;
+	int i, n;
 	struct vwe *vwe;
+	char c;
 
 	CAST_OBJ_NOTNULL(vwe, priv, VWE_MAGIC);
-
+	w = vwe->waiter;
+	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
 	THR_SetName("cache-epoll");
+
+	now = VTIM_real();
+	while (1) {
+		while (1) {
+			Lck_Lock(&vwe->mtx);
+			/*
+			 * XXX: We could avoid many syscalls here if we were
+			 * XXX: allowed to just close the fd's on timeout.
+			 */
+			then = Wait_HeapDue(w, &wp);
+			if (wp == NULL) {
+				vwe->next = now + 100;
+				break;
+			} else if (then > now) {
+				vwe->next = then;
+				break;
+			}
+			CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
+			AZ(epoll_ctl(vwe->epfd, EPOLL_CTL_DEL, wp->fd, NULL));
+			vwe->nwaited--;
+			Wait_HeapDelete(w, wp);
+			Lck_Unlock(&vwe->mtx);
+			Wait_Call(w, wp, WAITER_TIMEOUT, now);
+		}
+		then = vwe->next - now;
+		i = (int)ceil(1e3 * then);
+		assert(i > 0);
+		Lck_Unlock(&vwe->mtx);
+		n = epoll_wait(vwe->epfd, ev, NEEV, i);
+		assert(n >= 0);
+		assert(n <= NEEV);
+		now = VTIM_real();
+		for (ep = ev, i = 0; i < n; i++, ep++) {
+			if (ep->data.ptr == vwe) {
+				assert(read(vwe->pipe[0], &c, 1) == 1);
+				continue;
+			}
+			CAST_OBJ_NOTNULL(wp, ep->data.ptr, WAITED_MAGIC);
+			Lck_Lock(&vwe->mtx);
+			Wait_HeapDelete(w, wp);
+			Lck_Unlock(&vwe->mtx);
+			AZ(epoll_ctl(vwe->epfd, EPOLL_CTL_DEL, wp->fd, NULL));
+			vwe->nwaited--;
+			if (ep->events & EPOLLIN)
+				Wait_Call(w, wp, WAITER_ACTION, now);
+			else if (ep->events & EPOLLERR)
+				Wait_Call(w, wp, WAITER_REMCLOSE, now);
+			else if (ep->events & EPOLLHUP)
+				Wait_Call(w, wp, WAITER_REMCLOSE, now);
+			else
+				Wait_Call(w, wp, WAITER_REMCLOSE, now);
+		}
+		if (vwe->nwaited == 0 && vwe->die)
+			break;
+	}
+	AZ(close(vwe->pipe[0]));
+	AZ(close(vwe->pipe[1]));
+	AZ(close(vwe->epfd));
+	return (NULL);
+}
+
+/*--------------------------------------------------------------------*/
+
+static int __match_proto__(waiter_enter_f)
+vwe_enter(void *priv, struct waited *wp)
+{
+	struct vwe *vwe;
+	struct epoll_event ee;
+
+	CAST_OBJ_NOTNULL(vwe, priv, VWE_MAGIC);
+	ee.events = EPOLLIN | EPOLLRDHUP;
+	ee.data.ptr = wp;
+	Lck_Lock(&vwe->mtx);
+	vwe->nwaited++;
+	Wait_HeapInsert(vwe->waiter, wp);
+	AZ(epoll_ctl(vwe->epfd, EPOLL_CTL_ADD, wp->fd, &ee));
+	/* If the epoll isn't due before our timeout, poke it via the pipe */
+	if (Wait_When(wp) < vwe->next)
+		assert(write(vwe->pipe[1], "X", 1) == 1);
+	Lck_Unlock(&vwe->mtx);
+	return(0);
+}
+
+/*--------------------------------------------------------------------*/
+
+static void __match_proto__(waiter_init_f)
+vwe_init(struct waiter *w)
+{
+	struct vwe *vwe;
+	struct epoll_event ee;
+
+	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
+	vwe = w->priv;
+	INIT_OBJ(vwe, VWE_MAGIC);
+	vwe->waiter = w;
 
 	vwe->epfd = epoll_create(1);
 	assert(vwe->epfd >= 0);
+	Lck_New(&vwe->mtx, lck_waiter);
+	AZ(pipe(vwe->pipe));
+	ee.events = EPOLLIN | EPOLLRDHUP;
+	ee.data.ptr = vwe;
+	AZ(epoll_ctl(vwe->epfd, EPOLL_CTL_ADD, vwe->pipe[0], &ee));
 
-	vwe_modadd(vwe, vwe->pipes[0], vwe->pipes, EPOLL_CTL_ADD);
-	vwe_modadd(vwe, vwe->timer_pipes[0], vwe->timer_pipes, EPOLL_CTL_ADD);
-
-	while (1) {
-		dotimer = 0;
-		n = epoll_wait(vwe->epfd, ev, NEEV, -1);
-		now = VTIM_real();
-		for (ep = ev, i = 0; i < n; i++, ep++) {
-			if (ep->data.ptr == vwe->timer_pipes &&
-			    (ep->events == EPOLLIN || ep->events == EPOLLPRI))
-			{
-				assert(read(vwe->timer_pipes[0], &junk, 1));
-				dotimer = 1;
-			} else
-				vwe_eev(vwe, ep, now);
-		}
-		if (!dotimer)
-			continue;
-
-		/* check for timeouts */
-		deadline = now - cache_param->timeout_idle;
-		for (;;) {
-			sp = VTAILQ_FIRST(&vwe->sesshead);
-			if (sp == NULL)
-				break;
-			if (sp->t_idle > deadline)
-				break;
-			VTAILQ_REMOVE(&vwe->sesshead, sp, list);
-			// XXX: not yet VTCP_linger(sp->fd, 0);
-			SES_Delete(sp, SC_RX_TIMEOUT, now);
-		}
-	}
-	return (NULL);
+	AZ(pthread_create(&vwe->thread, NULL, vwe_thread, vwe));
 }
 
-/*--------------------------------------------------------------------*/
+/*--------------------------------------------------------------------
+ * It is the callers responsibility to trigger all fd's waited on to
+ * fail somehow.
+ */
 
-static void *
-vwe_timeout_idle_ticker(void *priv)
-{
-	char ticker = 'R';
-	struct vwe *vwe;
-
-	CAST_OBJ_NOTNULL(vwe, priv, VWE_MAGIC);
-	THR_SetName("cache-epoll-timeout_idle_ticker");
-
-	while (1) {
-		/* ticking */
-		assert(write(vwe->timer_pipes[1], &ticker, 1));
-		VTIM_sleep(100 * 1e-3);
-	}
-	return (NULL);
-}
-
-/*--------------------------------------------------------------------*/
-
-static void
-vwe_pass(void *priv, struct sess *sp)
+static void __match_proto__(waiter_fini_f)
+vwe_fini(struct waiter *w)
 {
 	struct vwe *vwe;
+	void *vp;
 
-	CAST_OBJ_NOTNULL(vwe, priv, VWE_MAGIC);
+	CAST_OBJ_NOTNULL(vwe, w->priv, VWE_MAGIC);
 
-	WAIT_Write_Session(sp, vwe->pipes[1]);
+	Lck_Lock(&vwe->mtx);
+	vwe->die = 1;
+	assert(write(vwe->pipe[1], "Y", 1) == 1);
+	Lck_Unlock(&vwe->mtx);
+	AZ(pthread_join(vwe->thread, &vp));
+	Lck_Delete(&vwe->mtx);
 }
 
 /*--------------------------------------------------------------------*/
 
-static void *
-vwe_init(void)
-{
-	struct vwe *vwe;
-
-	ALLOC_OBJ(vwe, VWE_MAGIC);
-	AN(vwe);
-	VTAILQ_INIT(&vwe->sesshead);
-	AZ(pipe(vwe->pipes));
-	AZ(pipe(vwe->timer_pipes));
-
-	AZ(VFIL_nonblocking(vwe->pipes[0]));
-	AZ(VFIL_nonblocking(vwe->pipes[1]));
-	AZ(VFIL_nonblocking(vwe->timer_pipes[0]));
-
-	AZ(pthread_create(&vwe->timer_thread,
-	    NULL, vwe_timeout_idle_ticker, vwe));
-	AZ(pthread_create(&vwe->epoll_thread, NULL, vwe_thread, vwe));
-	return(vwe);
-}
-
-/*--------------------------------------------------------------------*/
-
-const struct waiter waiter_epoll = {
+const struct waiter_impl waiter_epoll = {
 	.name =		"epoll",
 	.init =		vwe_init,
-	.pass =		vwe_pass,
+	.fini =		vwe_fini,
+	.enter =	vwe_enter,
+	.size =		sizeof(struct vwe),
 };
 
 #endif /* defined(HAVE_EPOLL_CTL) */

@@ -116,6 +116,7 @@ DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
 DL_LIBS = @DL_LIBS@
+DOT = @DOT@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -143,6 +144,7 @@ LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
@@ -250,7 +252,8 @@ nobase_pkginclude_HEADERS = tbl/acct_fields_req.h \
 	tbl/acct_fields_bereq.h tbl/backend_poll.h tbl/ban_vars.h \
 	tbl/bo_flags.h tbl/body_status.h tbl/debug_bits.h \
 	tbl/feature_bits.h tbl/http_headers.h tbl/http_response.h \
-	tbl/locks.h tbl/req_body.h tbl/sess_close.h tbl/steps.h \
+	tbl/locks.h tbl/obj_attr.h tbl/params.h tbl/req_body.h \
+	tbl/req_flags.h tbl/sess_attr.h tbl/sess_close.h tbl/steps.h \
 	tbl/symbol_kind.h tbl/vcc_types.h tbl/vcl_returns.h \
 	tbl/vrt_stv_var.h tbl/vsc_types.h tbl/vsc_all.h \
 	tbl/vsc_fields.h tbl/vsc_levels.h tbl/vsc_f_main.h \
@@ -258,7 +261,7 @@ nobase_pkginclude_HEADERS = tbl/acct_fields_req.h \
 	vapi/vsc.h vapi/vsc_int.h vapi/vsl.h vapi/vsl_int.h \
 	vapi/voptget.h vapi/vapi_options.h vcli.h miniobj.h vas.h \
 	vav.h vbm.h vcl.h vcs.h vmod_abi.h vqueue.h vre.h vdef.h vrt.h \
-	vrt_obj.h vsa.h vsb.h vsha256.h
+	vrt_obj.h vsa.h vsb.h vsha256.h vtcp.h vtim.h
 
 # Private headers
 nobase_noinst_HEADERS = \
@@ -267,7 +270,6 @@ nobase_noinst_HEADERS = \
 	compat/execinfo.h \
 	flopen.h \
 	libvcc.h \
-	persistent.h \
 	vcli_common.h \
 	vcli_priv.h \
 	vcli_serve.h \
@@ -283,10 +285,11 @@ nobase_noinst_HEADERS = \
 	vnum.h \
 	vpf.h \
 	vrnd.h \
+	vsl_priv.h \
+	vsm_priv.h \
 	vsub.h \
 	vss.h \
 	vtcp.h \
-	vtim.h \
 	vtree.h \
 	vut.h \
 	vut_options.h
@@ -304,7 +307,7 @@ all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -329,9 +332,9 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-$(top_srcdir)/configure:  $(am__configure_deps)
+$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 
@@ -568,7 +571,8 @@ uninstall-am: uninstall-nobase_pkgincludeHEADERS
 	tags uninstall uninstall-am uninstall-nobase_pkgincludeHEADERS
 
 
-tbl/vrt_stv_var.h tbl/vcl_returns.h tbl/vcc_types.h vcl.h vrt_obj.h: $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir)/include/vrt.h
+tbl/vrt_stv_var.h tbl/vcl_returns.h tbl/vcc_types.h vrt_obj.h: vcl.h
+vcl.h: $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir)/include/vrt.h
 	mkdir -p tbl
 	@PYTHON@ $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir) $(top_builddir)
 vcs_version.h: FORCE

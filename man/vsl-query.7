@@ -1,8 +1,35 @@
-.TH VARNISH VSL QUERY EXPRESSIONS  "" "" ""
-.SH NAME
-Varnish VSL Query Expressions \- 
 .\" Man page generated from reStructeredText.
 .
+.TH VSL-QUERY 7 "" "" ""
+.SH NAME
+vsl-query \- Varnish VSL Query Expressions
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
 .SH OVERVIEW
 .sp
 The Varnish VSL Query Expressions extracts transactions from the
@@ -23,12 +50,11 @@ condition. Query expressions can be combined using boolean functions.
 .SH GROUPING
 .sp
 When grouping transactions, there is a hierarchy structure showing
-which transaction initiated what. The level increases by one by an
+which transaction initiated what. The level increases by one on an
 \(aqinitiated by\(aq relation, so for example a backend transaction will
 have one higher level than the client transaction that initiated it on
-a cache miss. Request restart transactions does not have it\(aqs level
-increased. This is to help predicting the level for a given
-transaction.
+a cache miss. Request restart transactions don\(aqt get their level
+increased to make it predictable.
 .sp
 Levels start counting at 1, except when using raw where it will always
 be 0.
@@ -39,30 +65,34 @@ The grouping modes are:
 Session
 .sp
 All transactions initiated by a client connection are reported
-together. All log data is buffered until the client connection is
-closed, which can cause session grouping mode to potentially consume
-a lot of memory.
+together. Client connections are open ended when using HTTP
+keep\-alives, so it is undefined when the session will be
+reported. If the transaction timeout period is exceeded an
+incomplete session will be reported. Non\-transactional data (VXID
+== 0) is not reported.
 .IP \(bu 2
 Request
 .sp
 Transactions are grouped by request, where the set will include the
 request itself as well as any backend requests or ESI\-subrequests.
-Session data is not reported. This is the default.
+Session data and non\-transactional data (VXID == 0) is not
+reported.
 .IP \(bu 2
 VXID
 .sp
 Transactions are not grouped, so each VXID is reported in it\(aqs
 entirety. Sessions, requests, ESI\-requests and backend requests are
 all reported individually. Non\-transactional data is not reported
-(VXID == 0).
+(VXID == 0). This is the default.
 .IP \(bu 2
 Raw
 .sp
 Every log record will make up a transaction of it\(aqs own. All data,
 including non\-transactional data will be reported.
 .UNINDENT
+.SS Transaction Hierarchy
 .sp
-Example transaction hierarchy
+Example transaction hierarchy using request grouping mode
 .sp
 .nf
 .ft C
@@ -76,6 +106,26 @@ Lvl 1: Client request (cache miss)
   Lvl 2: ESI subrequest (cache hit)
 .ft P
 .fi
+.SH MEMORY USAGE
+.sp
+The API will use pointers to shared memory log data as long as
+possible to keep memory usage at a minimum. But as the shared memory
+log is a ring buffer, data will get overwritten eventually, so the API
+creates local copies of referenced log data when varnishd comes close
+to overwriting still unreported content.
+.sp
+This process avoids loss of log data in many scenarios, but it is not
+failsafe: Overruns where varnishd "overtakes" the log reader process
+in the ring buffer can still happen when API clients cannot keep up
+reading and/or copying, for instance due to output blocking.
+.sp
+Though being unrelated to grouping in principle, copying of log data
+is particularly relevant for session grouping together with long
+lasting client connections \- for this grouping, the logging API client
+process is likely to consume relevant amounts of memory. As the vxid
+grouping also logs (potentially long lasting) sessions, it is also
+likely to require memory for copies of log entries, but far less than
+session grouping.
 .SH QUERY LANGUAGE
 .sp
 A query expression consists of record selection criteria, and
@@ -235,12 +285,20 @@ not ReqHeader:cookie
 .ft P
 .fi
 .IP \(bu 2
+Client request where internal handling took more than 800ms.:
+.sp
+.nf
+.ft C
+Timestamp:Process[2] > 0.8
+.ft P
+.fi
+.IP \(bu 2
 Transaction group contains a request user\-agent header that contains
 "iPod" and the request delivery time exceeds 1 second
 .sp
 .nf
 .ft C
-ReqHeader:user\-agent ~ "iPod" and ReqEnd[5] > 1.
+ReqHeader:user\-agent ~ "iPod" and Timestamp:Resp[2] > 1.
 .ft P
 .fi
 .IP \(bu 2
@@ -267,7 +325,7 @@ their ESI subrequests. (Assumes request grouping mode).
 .sp
 .nf
 .ft C
-BerespStatus >= 500 or {2+}ReqEnd[5] > 1.
+BerespStatus >= 500 or {2+}Timestamp:Process[2] > 1.
 .ft P
 .fi
 .UNINDENT

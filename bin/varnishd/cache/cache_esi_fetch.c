@@ -30,9 +30,11 @@
 
 #include "config.h"
 
+#include <errno.h>
 #include <stdlib.h>
 
 #include "cache.h"
+#include "cache_filter.h"
 
 #include "cache_esi.h"
 
@@ -56,15 +58,15 @@ struct vef_priv {
 };
 
 static ssize_t
-vfp_vep_callback(struct busyobj *bo, void *priv, ssize_t l, enum vgz_flag flg)
+vfp_vep_callback(struct vfp_ctx *vc, void *priv, ssize_t l, enum vgz_flag flg)
 {
 	struct vef_priv *vef;
-	size_t dl;
+	ssize_t dl;
 	const void *dp;
-	struct storage *st;
+	uint8_t *ptr;
 	int i;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
 	CAST_OBJ_NOTNULL(vef, priv, VEF_MAGIC);
 	assert(l >= 0);
 
@@ -81,18 +83,20 @@ vfp_vep_callback(struct busyobj *bo, void *priv, ssize_t l, enum vgz_flag flg)
 	if (l == 0 && flg == VGZ_NORMAL)
 		return (vef->tot);
 
+	CHECK_OBJ_NOTNULL(vc->bo, BUSYOBJ_MAGIC);
 	VGZ_Ibuf(vef->vgz, vef->ibuf_o, l);
 	do {
-		st = VFP_GetStorage(bo, 0);
-		if (st == NULL) {
+		dl = 0;
+		if (VFP_GetStorage(vc, &dl, &ptr) != VFP_OK) {
 			vef->error = ENOMEM;
 			vef->tot += l;
 			return (vef->tot);
 		}
-		VGZ_Obuf(vef->vgz, st->ptr + st->len, st->space - st->len);
+		VGZ_Obuf(vef->vgz, ptr, dl);
 		i = VGZ_Gzip(vef->vgz, &dp, &dl, flg);
+		VGZ_UpdateObj(vc, vef->vgz, VUA_UPDATE);
 		vef->tot += dl;
-		VBO_extend(bo, dl);
+		VBO_extend(vc->bo, dl);
 	} while (i != VGZ_ERROR &&
 	    (!VGZ_IbufEmpty(vef->vgz) || VGZ_ObufFull(vef->vgz)));
 	assert(i == VGZ_ERROR || VGZ_IbufEmpty(vef->vgz));
@@ -101,28 +105,26 @@ vfp_vep_callback(struct busyobj *bo, void *priv, ssize_t l, enum vgz_flag flg)
 }
 
 static enum vfp_status
-vfp_esi_end(struct busyobj *bo, struct vef_priv *vef, enum vfp_status retval)
+vfp_esi_end(struct vfp_ctx *vc, struct vef_priv *vef,
+    enum vfp_status retval)
 {
 	struct vsb *vsb;
 	ssize_t l;
+	void *p;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(vef, VEF_MAGIC);
 
-	vsb = VEP_Finish(vef->vep, bo);
+	vsb = VEP_Finish(vef->vep);
 
 	if (vsb != NULL) {
 		if (retval == VFP_END) {
 			l = VSB_len(vsb);
 			assert(l > 0);
-			/* XXX: This is a huge waste of storage... */
-			bo->fetch_obj->esidata = STV_alloc(bo, l);
-			if (bo->fetch_obj->esidata != NULL) {
-				memcpy(bo->fetch_obj->esidata->ptr,
-				    VSB_data(vsb), l);
-				bo->fetch_obj->esidata->len = l;
-			} else {
-				retval = VFP_Error(bo,
+			p = ObjSetattr(vc->wrk, vc->oc,
+			    OA_ESIDATA, l, VSB_data(vsb));
+			if (p == NULL) {
+				retval = VFP_Error(vc,
 				    "Could not allocate storage for esidata");
 			}
 		}
@@ -130,64 +132,72 @@ vfp_esi_end(struct busyobj *bo, struct vef_priv *vef, enum vfp_status retval)
 	}
 
 	if (vef->vgz != NULL) {
-		VGZ_UpdateObj(vef->vgz, bo->fetch_obj);
+		VGZ_UpdateObj(vc, vef->vgz, VUA_END_GZIP);
 		if (VGZ_Destroy(&vef->vgz) != VGZ_END)
-			retval = VFP_Error(bo,
+			retval = VFP_Error(vc,
 			    "ESI+Gzip Failed at the very end");
 	}
 	if (vef->ibuf != NULL)
 		free(vef->ibuf);
-	if (vef->error)
-		retval = VFP_ERROR;
 	FREE_OBJ(vef);
 	return (retval);
 }
 
-enum vfp_status __match_proto__(vfp_pull_f)
-vfp_esi_gzip_pull(struct busyobj *bo, void *p, ssize_t *lp, intptr_t *priv)
+static enum vfp_status __match_proto__(vfp_init_f)
+vfp_esi_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
+{
+	struct vef_priv *vef;
+
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->esi_req, HTTP_MAGIC);
+	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
+	ALLOC_OBJ(vef, VEF_MAGIC);
+	if (vef == NULL)
+		return (VFP_ERROR);
+	vef->vgz = VGZ_NewGzip(vc->wrk->vsl, "G F E");
+	vef->vep = VEP_Init(vc, vc->esi_req, vfp_vep_callback, vef);
+	vef->ibuf_sz = cache_param->gzip_buffer;
+	vef->ibuf = calloc(1L, vef->ibuf_sz);
+	if (vef->ibuf == NULL)
+		return (vfp_esi_end(vc, vef, VFP_ERROR));
+	vef->ibuf_i = vef->ibuf;
+	vef->ibuf_o = vef->ibuf;
+	vfe->priv1 = vef;
+
+	RFC2616_Weaken_Etag(vc->http);
+	http_Unset(vc->http, H_Content_Length);
+	http_Unset(vc->http, H_Content_Encoding);
+	http_SetHeader(vc->http, "Content-Encoding: gzip");
+
+	RFC2616_Vary_AE(vc->http);
+
+	return (VFP_OK);
+}
+
+static enum vfp_status __match_proto__(vfp_pull_f)
+vfp_esi_gzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
+   ssize_t *lp)
 {
 	enum vfp_status vp;
 	ssize_t d, l;
 	struct vef_priv *vef;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	if (p == vfp_init) {
-		ALLOC_OBJ(vef, VEF_MAGIC);
-		XXXAN(vef);
-		vef->vgz = VGZ_NewGzip(bo->vsl, "G F E");
-		vef->vep = VEP_Init(bo, vfp_vep_callback, vef);
-		vef->ibuf_sz = cache_param->gzip_buffer;
-		vef->ibuf = calloc(1L, vef->ibuf_sz);
-		XXXAN(vef->ibuf);
-		vef->ibuf_i = vef->ibuf;
-		vef->ibuf_o = vef->ibuf;
-		*priv = (uintptr_t)vef;
-		if (vef->error)
-			return (VFP_ERROR);
-		else
-			return (VFP_OK);
-	}
-	if (p == vfp_fini) {
-		if (*priv)
-			(void)vfp_esi_end(bo, (void*)*priv, VFP_ERROR);
-		*priv = 0;
-		return (VFP_ERROR);
-	}
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
+	CAST_OBJ_NOTNULL(vef, vfe->priv1, VEF_MAGIC);
 	AN(p);
 	AN(lp);
 	*lp = 0;
-	AN(priv);
-	CAST_OBJ_NOTNULL(vef, (void*)*priv, VEF_MAGIC);
 	l = vef->ibuf_sz - (vef->ibuf_i - vef->ibuf);
 	if (DO_DEBUG(DBG_ESI_CHOP)) {
 		d = (random() & 3) + 1;
 		if (d < l)
 			l = d;
 	}
-	vp = VFP_Suck(bo, vef->ibuf_i, &l);
+	vp = VFP_Suck(vc, vef->ibuf_i, &l);
 
 	if (l > 0) {
-		VEP_Parse(vef->vep, bo, vef->ibuf_i, l);
+		VEP_Parse(vef->vep, vef->ibuf_i, l);
 		vef->ibuf_i += l;
 		assert(vef->ibuf_o >= vef->ibuf && vef->ibuf_o <= vef->ibuf_i);
 		if (vef->error) {
@@ -201,48 +211,75 @@ vfp_esi_gzip_pull(struct busyobj *bo, void *p, ssize_t *lp, intptr_t *priv)
 		vef->ibuf_i = vef->ibuf + l;
 	}
 	if (vp == VFP_END) {
-		vp = vfp_esi_end(bo, vef, vp);
-		*priv = 0;
+		vp = vfp_esi_end(vc, vef, vp);
+		vfe->priv1 = NULL;
 	}
 	return (vp);
 }
 
-enum vfp_status __match_proto__(vfp_pull_f)
-vfp_esi_pull(struct busyobj *bo, void *p, ssize_t *lp, intptr_t *priv)
+static enum vfp_status __match_proto__(vfp_init_f)
+vfp_esi_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
+{
+	struct vef_priv *vef;
+
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->esi_req, HTTP_MAGIC);
+	ALLOC_OBJ(vef, VEF_MAGIC);
+	if (vef == NULL)
+		return (VFP_ERROR);
+	vef->vep = VEP_Init(vc, vc->esi_req, NULL, NULL);
+	vfe->priv1 = vef;
+	return (VFP_OK);
+}
+
+static enum vfp_status __match_proto__(vfp_pull_f)
+vfp_esi_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p, ssize_t *lp)
 {
 	enum vfp_status vp;
 	ssize_t d;
 	struct vef_priv *vef;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	if (p == vfp_init) {
-		ALLOC_OBJ(vef, VEF_MAGIC);
-		XXXAN(vef);
-		vef->vep = VEP_Init(bo, NULL, NULL);
-		*priv = (uintptr_t)vef;
-		return (VFP_OK);
-	}
-	if (p == vfp_fini) {
-		if (*priv)
-			(void)vfp_esi_end(bo, (void*)*priv, VFP_ERROR);
-		*priv = 0;
-		return (VFP_ERROR);
-	}
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
+	CAST_OBJ_NOTNULL(vef, vfe->priv1, VEF_MAGIC);
 	AN(p);
 	AN(lp);
-	AN(priv);
-	CAST_OBJ_NOTNULL(vef, (void*)*priv, VEF_MAGIC);
 	if (DO_DEBUG(DBG_ESI_CHOP)) {
 		d = (random() & 3) + 1;
 		if (d < *lp)
 			*lp = d;
 	}
-	vp = VFP_Suck(bo, p, lp);
+	vp = VFP_Suck(vc, p, lp);
 	if (vp != VFP_ERROR && *lp > 0)
-		VEP_Parse(vef->vep, bo, p, *lp);
+		VEP_Parse(vef->vep, p, *lp);
 	if (vp == VFP_END) {
-		vp = vfp_esi_end(bo, vef, vp);
-		*priv = 0;
+		vp = vfp_esi_end(vc, vef, vp);
+		vfe->priv1 = NULL;
 	}
 	return (vp);
 }
+
+static void __match_proto__(vfp_fini_f)
+vfp_esi_fini(struct vfp_ctx *vc, struct vfp_entry *vfe)
+{
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
+
+	if (vfe->priv1 != NULL)
+		(void)vfp_esi_end(vc, vfe->priv1, VFP_ERROR);
+	vfe->priv1 = NULL;
+}
+
+const struct vfp vfp_esi = {
+	.name = "ESI",
+	.init = vfp_esi_init,
+	.pull = vfp_esi_pull,
+	.fini = vfp_esi_fini,
+};
+
+const struct vfp vfp_esi_gzip = {
+	.name = "ESI_GZIP",
+	.init = vfp_esi_gzip_init,
+	.pull = vfp_esi_gzip_pull,
+	.fini = vfp_esi_fini,
+};

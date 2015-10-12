@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -34,11 +34,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
-#include "vsb.h"
+#include "vdef.h"
 #include "vas.h"
 #include "miniobj.h"
+
+#include "vqueue.h"
+#include "vre.h"
+#include "vsb.h"
 
 #include "vxp.h"
 

@@ -45,7 +45,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 import std [from "path"] ;
 .SH DESCRIPTION
 .sp
-Vmod_std contains basic functions which are part and parcel of Varnish,
+\fIvmod_std\fP contains basic functions which are part and parcel of Varnish,
 but which for reasons of architecture fit better in a VMOD.
 .sp
 One particular class of functions in vmod_std is the conversions functions
@@ -86,7 +86,9 @@ REAL random(REAL, REAL)
 .IP \(bu 2
 REAL real(STRING, REAL)
 .IP \(bu 2
-TIME real2time(REAL)
+INT real2integer(REAL, INT)
+.IP \(bu 2
+TIME real2time(REAL, TIME)
 .IP \(bu 2
 VOID rollback(HTTP)
 .IP \(bu 2
@@ -98,9 +100,9 @@ VOID syslog(INT, STRING_LIST)
 .IP \(bu 2
 TIME time(STRING, TIME)
 .IP \(bu 2
-INT time2integer(TIME)
+INT time2integer(TIME, INT)
 .IP \(bu 2
-REAL time2real(TIME)
+REAL time2real(TIME, REAL)
 .IP \(bu 2
 VOID timestamp(STRING)
 .IP \(bu 2
@@ -118,7 +120,7 @@ STRING toupper(STRING_LIST s)
 Converts the string \fIs\fP to uppercase.
 .TP
 .B Example
-set beresp.http.x\-scream = std.toupper("yes!");
+set beresp.http.scream = std.toupper("yes!");
 .UNINDENT
 .SS STRING tolower(STRING_LIST)
 .INDENT 0.0
@@ -130,7 +132,7 @@ STRING tolower(STRING_LIST s)
 Converts the string \fIs\fP to lowercase.
 .TP
 .B Example
-set beresp.http.x\-nice = std.tolower("VerY");
+set beresp.http.nice = std.tolower("VerY");
 .UNINDENT
 .SS VOID set_ip_tos(INT)
 .INDENT 0.0
@@ -139,7 +141,8 @@ set beresp.http.x\-nice = std.tolower("VerY");
 VOID set_ip_tos(INT tos)
 .TP
 .B Description
-Sets the IP type\-of\-service (TOS) field for the current session to \fItos\fP.
+Sets the IP type\-of\-service (TOS) field for the current session
+to \fItos\fP.
 Please note that the TOS field is not removed by the end of the
 request so probably want to set it on every request should you
 utilize it.
@@ -164,7 +167,7 @@ REAL random(REAL lo, REAL hi)
 Returns a random real number between \fIlo\fP and \fIhi\fP.
 .TP
 .B Example
-set beresp.http.x\-random\-number = std.random(1, 100);
+set beresp.http.random\-number = std.random(1, 100);
 .UNINDENT
 .SS VOID log(STRING_LIST)
 .INDENT 0.0
@@ -173,10 +176,11 @@ set beresp.http.x\-random\-number = std.random(1, 100);
 VOID log(STRING_LIST s)
 .TP
 .B Description
-Logs the string \fIs\fP to the shared memory log, using VSL tag \fISLT_VCL_Log\fP.
+Logs the string \fIs\fP to the shared memory log, using VSL tag
+\fISLT_VCL_Log\fP.
 .TP
 .B Example
-std.log("Something fishy is going on with the vhost " + req.host);
+std.log("Something fishy is going on with the vhost " + req.http.host);
 .UNINDENT
 .SS VOID syslog(INT, STRING_LIST)
 .INDENT 0.0
@@ -185,11 +189,14 @@ std.log("Something fishy is going on with the vhost " + req.host);
 VOID syslog(INT priority, STRING_LIST s)
 .TP
 .B Description
-Logs the string \fIs\fP to syslog marked with \fIpriority\fP.  See your
-system\(aqs syslog.h file for the legal values of \fIpriority\fP.
+Logs the string \fIs\fP to syslog tagged with \fIpriority\fP. \fIpriority\fP
+is formed by ORing the facility and level values. See your
+system\(aqs syslog.h file for possible values.
 .TP
 .B Example
-std.syslog(8 + 1, "Something is wrong");
+std.syslog(9, "Something is wrong");
+.sp
+This will send a message to syslog using LOG_USER | LOG_ALERT.
 .UNINDENT
 .SS STRING fileread(PRIV_CALL, STRING)
 .INDENT 0.0
@@ -204,7 +211,7 @@ function the caching in the function doesn\(aqt take this into
 account. Also, files are not re\-read.
 .TP
 .B Example
-set beresp.http.x\-served\-by = std.fileread("/etc/hostname");
+set beresp.http.served\-by = std.fileread("/etc/hostname");
 .UNINDENT
 .SS VOID collect(HEADER)
 .INDENT 0.0
@@ -213,13 +220,14 @@ set beresp.http.x\-served\-by = std.fileread("/etc/hostname");
 VOID collect(HEADER hdr)
 .TP
 .B Description
-Collapses the header \fIhdr\fP, joining them into one.
+Collapses multiple \fIhdr\fP headers into one long header.
+.sp
+Care should be taken when collapsing headers. In particular
+collapsing Set\-Cookie will lead to unexpected results on the
+browser side.
 .TP
 .B Example
 std.collect(req.http.cookie);
-.sp
-This will collapse several Cookie: headers into one, long
-cookie header.
 .UNINDENT
 .SS DURATION duration(STRING, DURATION)
 .INDENT 0.0
@@ -243,12 +251,12 @@ set beresp.ttl = std.duration("1w", 3600s);
 INT integer(STRING s, INT fallback)
 .TP
 .B Description
-Converts the string \fIs\fP to an integer.  If conversion fails,
+Converts the string \fIs\fP to an integer. If conversion fails,
 \fIfallback\fP will be returned.
 .TP
 .B Example
 .nf
-if (std.integer(beresp.http.x\-foo, 0) > 5) {
+if (std.integer(req.http.foo, 0) > 5) {
 .in +2
 ...
 .in -2
@@ -264,7 +272,7 @@ IP ip(STRING s, IP fallback)
 .TP
 .B Description
 Converts the string \fIs\fP to the first IP number returned by
-the system library function getaddrinfo(3).  If conversion
+the system library function getaddrinfo(3). If conversion
 fails, \fIfallback\fP will be returned.
 .TP
 .B Example
@@ -284,47 +292,70 @@ if (std.ip(req.http.X\-forwarded\-for, "0.0.0.0") ~ my_acl) {
 REAL real(STRING s, REAL fallback)
 .TP
 .B Description
-Converts the string \fIs\fP to a real.  If conversion fails,
+Converts the string \fIs\fP to a real. If conversion fails,
 \fIfallback\fP will be returned.
 .TP
 .B Example
-set req.http.x\-real = std.real(req.http.x\-foo, 0.0);
+.nf
+if (std.real(req.http.foo, 0.0) > 5.5) {
+.in +2
+...
+.in -2
+}
+.fi
+.sp
 .UNINDENT
-.SS TIME real2time(REAL)
+.SS INT real2integer(REAL, INT)
 .INDENT 0.0
 .TP
 .B Prototype
-TIME real2time(REAL r)
+INT real2integer(REAL r, INT fallback)
 .TP
 .B Description
-Converts the real \fIr\fP to a time.
+Converts the real \fIr\fP to an integer. If conversion fails,
+\fIfallback\fP will be returned.
 .TP
 .B Example
-set req.http.x\-time = std.real2time(1140618699.00);
+set req.http.integer = std.real2integer(1140618699.00, 0);
 .UNINDENT
-.SS INT time2integer(TIME)
+.SS TIME real2time(REAL, TIME)
 .INDENT 0.0
 .TP
 .B Prototype
-INT time2integer(TIME t)
+TIME real2time(REAL r, TIME fallback)
 .TP
 .B Description
-Converts the time \fIt\fP to a integer.
+Converts the real \fIr\fP to a time. If conversion fails,
+\fIfallback\fP will be returned.
 .TP
 .B Example
-set req.http.x\-int = std.time2integer(now);
+set req.http.time = std.real2time(1140618699.00, now);
 .UNINDENT
-.SS REAL time2real(TIME)
+.SS INT time2integer(TIME, INT)
 .INDENT 0.0
 .TP
 .B Prototype
-REAL time2real(TIME t)
+INT time2integer(TIME t, INT fallback)
 .TP
 .B Description
-Converts the time \fIt\fP to a real.
+Converts the time \fIt\fP to a integer. If conversion fails,
+\fIfallback\fP will be returned.
 .TP
 .B Example
-set req.http.x\-real = std.time2real(now);
+set req.http.int = std.time2integer(now, 0);
+.UNINDENT
+.SS REAL time2real(TIME, REAL)
+.INDENT 0.0
+.TP
+.B Prototype
+REAL time2real(TIME t, REAL fallback)
+.TP
+.B Description
+Converts the time \fIt\fP to a real. If conversion fails,
+\fIfallback\fP will be returned.
+.TP
+.B Example
+set req.http.real = std.time2real(now, 1.0);
 .UNINDENT
 .SS BOOL healthy(BACKEND)
 .INDENT 0.0
@@ -407,20 +438,23 @@ This will cache the req.body if its size is smaller than 1KB.
 STRING strstr(STRING s1, STRING s2)
 .TP
 .B Description
-Returns the first occurrence of the string \fIs2\fP in the string
-\fIs1\fP, or an empty string if not found.
+Returns a string beginning at the first occurrence of the string
+\fIs2\fP in the string \fIs1\fP, or an empty string if \fIs2\fP is not found.
 .sp
 Note that the comparison is case sensitive.
 .TP
 .B Example
 .nf
-if (std.strstr(req.url, req.http.x\-restrict)) {
+if (std.strstr(req.url, req.http.restrict)) {
 .in +2
 ...
 .in -2
 }
 .fi
 .sp
+.sp
+This will check if the content of req.http.restrict occurs
+anywhere in req.url.
 .UNINDENT
 .SS TIME time(STRING, TIME)
 .INDENT 0.0
@@ -429,7 +463,7 @@ if (std.strstr(req.url, req.http.x\-restrict)) {
 TIME time(STRING s, TIME fallback)
 .TP
 .B Description
-Converts the string \fIs\fP to a time.  If conversion fails,
+Converts the string \fIs\fP to a time. If conversion fails,
 \fIfallback\fP will be returned.
 .sp
 Supported formats:
@@ -456,9 +490,9 @@ if (std.time(resp.http.last\-modified, now) < now \- 1w) {
 .SH SEE ALSO
 .INDENT 0.0
 .IP \(bu 2
-vcl(7)
+\fIvsl(7)\fP
 .IP \(bu 2
-varnishd(1)
+\fIvarnishd(1)\fP
 .UNINDENT
 .SH HISTORY
 .sp

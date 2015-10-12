@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -41,17 +41,19 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "miniobj.h"
-#include "vas.h"
 #include "vdef.h"
+#include "vas.h"
+#include "miniobj.h"
+
+#include "vbm.h"
+#include "vmb.h"
+#include "vqueue.h"
+#include "vre.h"
+#include "vsb.h"
 
 #include "vapi/vsm.h"
 #include "vapi/vsl.h"
-#include "vapi/vsm_int.h"
-#include "vbm.h"
-#include "vmb.h"
-#include "vre.h"
-#include "vsb.h"
+
 #include "vsl_api.h"
 #include "vsm_api.h"
 

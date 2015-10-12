@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -34,10 +34,11 @@
 #ifndef VAPI_VSL_H_INCLUDED
 #define VAPI_VSL_H_INCLUDED
 
-#include <stdio.h>
+#include <stdint.h>
 
-#include "vapi/vsm.h"
 #include "vapi/vsl_int.h"
+
+struct VSM_data;
 
 /*
  * enum VSL_tag_e enumerates the SHM log tags, where the identifiers are
@@ -464,12 +465,14 @@ VSLQ_dispatch_f VSL_WriteTransactions;
 struct VSLQ *VSLQ_New(struct VSL_data *vsl, struct VSL_cursor **cp,
     enum VSL_grouping_e grouping, const char *query);
 	/*
-	 * Create a new query context using cp. On success cp is NULLed,
-	 * and will be deleted when deleting the query.
+	 * Create a new query context.
+	 *
+	 * If cp is not NULL, the cursor pointed to by cp will be
+	 * transferred to the query, and *cp set to NULL.
 	 *
 	 * Arguments:
 	 *       vsl: The VSL_data context
-	 *        cp: The cursor to use
+	 *        cp: Pointer to the cursor to use or NULL
 	 *  grouping: VXID grouping to report on
 	 *     query: Query match expression
 	 *
@@ -480,7 +483,21 @@ struct VSLQ *VSLQ_New(struct VSL_data *vsl, struct VSL_cursor **cp,
 
 void VSLQ_Delete(struct VSLQ **pvslq);
 	/*
-	 * Delete the query pointed to by pvslq, freeing up the resources
+	 * Delete the query pointed to by pvslq, freeing up the resources.
+	 *
+	 * Any cursor owned by the query will be deleted.
+	 */
+
+void VSLQ_SetCursor(struct VSLQ *vslq, struct VSL_cursor **cp);
+	/*
+	 * Set the cursor to use.
+	 *
+	 * Any previous cursor owned by the query will be deleted. Will
+	 * call VSLQ_Flush.
+	 *
+	 * Arguments:
+	 *      vslq: The VSLQ query
+	 *        cp: Pointer to the cursor to use or NULL
 	 */
 
 int VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv);
@@ -501,12 +518,13 @@ int VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv);
 
 int VSLQ_Flush(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv);
 	/*
-	 * Flush any pending record sets from the query.
+	 * Flush any pending record sets from the query until func
+	 * (if given) returns non-zero.
 	 *
 	 * Arguments:
 	 *  vslq: The VSL context
 	 *  func: The callback function to call. Pass NULL to discard the
-	 *        pending messages
+	 *        pending messages or call repeatedly until 0 is returned.
 	 *  priv: An argument passed to func
 	 *
 	 * Return values:

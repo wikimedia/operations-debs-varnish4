@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -124,6 +124,15 @@ int VSM_Open(struct VSM_data *vd);
 	 * Returns:
 	 *	0 on success, or the VSM log was already open
 	 *	<0 on failure, VSM_Error() returns diagnostic string
+	 */
+
+int VSM_IsOpen(const struct VSM_data *vd);
+	/*
+	 * Check if the VSM is open.
+	 *
+	 * Returns:
+	 *       1: Is open
+	 *       0: Is closed
 	 */
 
 int VSM_Abandoned(struct VSM_data *vd);

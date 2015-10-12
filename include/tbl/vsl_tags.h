@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -42,6 +42,7 @@
  *	Long Description (in RST "definition list" format)
  */
 
+/*lint -save -e525 -e539 */
 #define NODEF_NOTICE \
     "NB: This log record is masked by default.\n\n"
 
@@ -70,9 +71,9 @@ SLTM(SessOpen, 0, "Client connection opened",
 	"\t|  |  |  |  |  +- File descriptor number\n"
 	"\t|  |  |  |  +---- Local TCP port ('-' if !$log_local_addr)\n"
 	"\t|  |  |  +------- Local IPv4/6 address ('-' if !$log_local_addr)\n"
-	"\t|  |  +---------- Listen socket\n"
-	"\t|  +------------- Client TCP socket\n"
-	"\t+---------------- Client IPv4/6 address\n"
+	"\t|  |  +---------- Listen socket (-a argument)\n"
+	"\t|  +------------- Remote TCP port\n"
+	"\t+---------------- Remote IPv4/6 address\n"
 	"\n"
 )
 
@@ -81,8 +82,8 @@ SLTM(SessOpen, 0, "Client connection opened",
  * XXX: in the middle of a macro invocation :-(
  * XXX: If we could, these three lines would have described the
  * XXX: 'reason' field below.
-#define SESS_CLOSE(nm, desc) "    " #nm "\n\t" desc "\n\n"
-#include <tbl/sess_close.h>
+#define SESS_CLOSE(nm, s, err, desc) "    " #nm "\n\t" desc "\n\n"
+#include "tbl/sess_close.h"
 #undef SESS_CLOSE
 */
 
@@ -101,12 +102,14 @@ SLTM(SessClose, 0, "Client connection closed",
 SLTM(BackendOpen, 0, "Backend connection opened",
 	"Logged when a new backend connection is opened.\n\n"
 	"The format is::\n\n"
-	"\t%d %s %s %s\n"
-	"\t|  |  |  |\n"
-	"\t|  |  |  +- Remote port\n"
-	"\t|  |  +---- Remote address\n"
-	"\t|  +------- Backend display name\n"
-	"\t+---------- Connection file descriptor\n"
+	"\t%d %s %s %s %s %s\n"
+	"\t|  |  |  |  |  |\n"
+	"\t|  |  |  |  |  +- Local port\n"
+	"\t|  |  |  |  +---- Local address\n"
+	"\t|  |  |  +------- Remote port\n"
+	"\t|  |  +---------- Remote address\n"
+	"\t|  +------------- Backend display name\n"
+	"\t+---------------- Connection file descriptor\n"
 	"\n"
 )
 
@@ -134,6 +137,23 @@ SLTM(BackendClose, 0, "Backend connection closed",
 
 SLTM(HttpGarbage, SLT_F_BINARY, "Unparseable HTTP request",
 	"Logs the content of unparseable HTTP requests.\n\n"
+)
+
+SLTM(Proxy, 0, "PROXY protocol information",
+	"PROXY protocol information.\n\n"
+	"The format is::\n\n"
+	"\t%d %s %d %s %d [key value]...\n"
+	"\t|  |  |  |  |  |\n"
+	"\t|  |  |  |  |  +- optional information\n"
+	"\t|  |  |  |  +- server port\n"
+	"\t|  |  |  +- server ip\n"
+	"\t|  |  +- client port\n"
+	"\t|  +- client ip\n"
+	"\t+---- PROXY protocol version\n"
+)
+
+SLTM(ProxyGarbage, 0, "Unparseable PROXY request",
+	"A PROXY protocol header was unparseable.\n\n"
 )
 
 SLTM(Backend, 0, "Backend selected",
@@ -211,7 +231,7 @@ SLTM(TTL, 0, "TTL set on object",
 	"\n"
 	"The last four fields are only present in \"RFC\" headers.\n\n"
 	"Examples::\n\n"
-	"\tRFC 60 -1 -1 1312966109 1312966109 1312966109 0 60\n"
+	"\tRFC 60 10 -1 1312966109 1312966109 1312966109 0 60\n"
 	"\tVCL 120 10 0 1312966111\n"
 	"\n"
 )
@@ -227,7 +247,7 @@ SLTM(Fetch_Body, 0, "Body fetched from backend",
 	"\n"
 )
 
-SLTM(VCL_acl, 0, "VSL ACL check results",
+SLTM(VCL_acl, 0, "VCL ACL check results",
 	"Logs VCL ACL evaluation results.\n\n"
 )
 
@@ -257,8 +277,8 @@ SLTM(ReqStart, 0, "Client request start",
 	"The format is::\n\n"
 	"\t%s %s\n"
 	"\t|  |\n"
-	"\t|  +- Port number\n"
-	"\t+---- IP address\n"
+	"\t|  +- Client Port number\n"
+	"\t+---- Client IP4/6 address\n"
 	"\n"
 )
 
@@ -332,7 +352,7 @@ SLTM(ESI_xmlerror, 0, "ESI parser error or warning message",
 	" The log record describes the problem encountered."
 )
 
-SLTM(Hash, 0, "Value added to hash",
+SLTM(Hash, SLT_F_BINARY, "Value added to hash",
 	"This value was added to the object lookup hash.\n\n"
 	NODEF_NOTICE
 )
@@ -444,9 +464,10 @@ SLTM(Timestamp, 0, "Timing information",
 )
 
 SLTM(ReqAcct, 0, "Request handling byte counts",
-	"Contains byte counts for the request handling. This record is not"
-	" logged for ESI sub-requests, but the sub-requests' response"
-	" body count is added to the main request.\n\n"
+	"Contains byte counts for the request handling.\n"
+	"ESI sub-request counts are also added to their parent request.\n"
+	"The body bytes count does not include transmission "
+	"(ie: chunked encoding) overhead.\n"
 	"The format is::\n\n"
 	"\t%d %d %d %d %d %d\n"
 	"\t|  |  |  |  |  |\n"
@@ -456,16 +477,6 @@ SLTM(ReqAcct, 0, "Request handling byte counts",
 	"\t|  |  +---------- Total bytes received\n"
 	"\t|  +------------- Body bytes received\n"
 	"\t+---------------- Header bytes received\n"
-	"\n"
-)
-
-SLTM(ESI_BodyBytes, 0, "ESI body fragment byte counter",
-	"Contains the body byte count for this ESI body fragment."
-	" This number does not include any transfer encoding overhead.\n\n"
-	"The format is::\n\n"
-	"\t%d\n"
-	"\t|\n"
-	"\t+- Body bytes\n"
 	"\n"
 )
 
@@ -495,4 +506,21 @@ SLTM(BereqAcct, 0, "Backend request accounting",
 	"\n"
 )
 
+SLTM(VfpAcct, 0, "Fetch filter accounting",
+	"Contains name of VFP and statistics.\n\n"
+	"The format is::\n\n"
+	"\t%s %d %d\n"
+	"\t|  |  |\n"
+	"\t|  |  +- Total bytes produced\n"
+	"\t|  +---- Number of calls made\n"
+	"\t+------- Name of filter\n"
+	"\n"
+	NODEF_NOTICE
+)
+
+SLTM(Witness, 0, "Lock order witness records",
+	"Diagnostic recording of locking order.\n"
+)
+
 #undef NODEF_NOTICE
+/*lint -restore */

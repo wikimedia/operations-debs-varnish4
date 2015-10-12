@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2014 Varnish Software AS
+ * Copyright (c) 2010-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -28,21 +28,22 @@
  */
 
 
+/*lint -save -e525 -e539 */
+VSC_DO(MAIN, main, VSC_type_main)
+#include "tbl/vsc_f_main.h"
+VSC_DONE(MAIN, main, VSC_type_main)
+
 VSC_DO(MGT, mgt, VSC_type_mgt)
 #define VSC_DO_MGT
 #include "tbl/vsc_fields.h"
 #undef VSC_DO_MGT
 VSC_DONE(MGT, mgt, VSC_type_mgt)
 
-VSC_DO(LCK, lck, VSC_type_lck)
-#define VSC_DO_LCK
+VSC_DO(MEMPOOL, mempool, VSC_type_mempool)
+#define VSC_DO_MEMPOOL
 #include "tbl/vsc_fields.h"
-#undef VSC_DO_LCK
-VSC_DONE(LCK, lck, VSC_type_lck)
-
-VSC_DO(MAIN, main, VSC_type_main)
-#include "tbl/vsc_f_main.h"
-VSC_DONE(MAIN, main, VSC_type_main)
+#undef VSC_DO_MEMPOOL
+VSC_DONE(MEMPOOL, mempool, VSC_type_mempool)
 
 VSC_DO(SMA, sma, VSC_type_sma)
 #define VSC_DO_SMA
@@ -62,8 +63,9 @@ VSC_DO(VBE, vbe, VSC_type_vbe)
 #undef VSC_DO_VBE
 VSC_DONE(VBE, vbe, VSC_type_vbe)
 
-VSC_DO(MEMPOOL, mempool, VSC_type_mempool)
-#define VSC_DO_MEMPOOL
+VSC_DO(LCK, lck, VSC_type_lck)
+#define VSC_DO_LCK
 #include "tbl/vsc_fields.h"
-#undef VSC_DO_MEMPOOL
-VSC_DONE(MEMPOOL, mempool, VSC_type_mempool)
+#undef VSC_DO_LCK
+VSC_DONE(LCK, lck, VSC_type_lck)
+/*lint -restore */

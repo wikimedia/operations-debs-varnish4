@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -45,8 +46,9 @@
 #include "common/params.h"
 
 #include "flopen.h"
-#include "vapi/vsm_int.h"
+#include "vsm_priv.h"
 #include "vmb.h"
+#include "vfil.h"
 
 #ifndef MAP_HASSEMAPHORE
 #define MAP_HASSEMAPHORE 0 /* XXX Linux */
@@ -102,7 +104,7 @@ vsm_n_check(void)
 	struct VSM_head vsmh;
 	int retval = 1;
 
-	fd = open(VSM_FILENAME, O_RDWR, 0644);
+	fd = open(VSM_FILENAME, O_RDWR);
 	if (fd < 0)
 		return (0);
 
@@ -147,32 +149,24 @@ static int
 vsm_zerofile(const char *fn, ssize_t size)
 {
 	int fd;
-	ssize_t i, u;
-	char buf[64*1024];
 	int flags;
 
-	fd = flopen(fn, O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK, 0644);
+	fd = flopen(fn, O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK, 0640);
 	if (fd < 0) {
 		fprintf(stderr, "Could not create %s: %s\n",
 		    fn, strerror(errno));
 		return (-1);
 	}
+	VJ_fix_vsm_file(fd);
 	flags = fcntl(fd, F_GETFL);
 	assert(flags != -1);
 	flags &= ~O_NONBLOCK;
 	AZ(fcntl(fd, F_SETFL, flags));
-
-	memset(buf, 0, sizeof buf);
-	for (u = 0; u < size; ) {
-		i = write(fd, buf, sizeof buf);
-		if (i <= 0) {
-			fprintf(stderr, "Write error %s: %s\n",
-			    fn, strerror(errno));
-			return (-1);
-		}
-		u += i;
+	if (VFIL_allocate(fd, (off_t)size, 1)) {
+		fprintf(stderr, "File allocation error %s: %s\n",
+		    fn, strerror(errno));
+		return (-1);
 	}
-	AZ(ftruncate(fd, (off_t)size));
 	return (fd);
 }
 
@@ -204,7 +198,9 @@ mgt_SHM_Create(void)
 
 	bprintf(fnbuf, "%s.%jd", VSM_FILENAME, (intmax_t)getpid());
 
+	VJ_master(JAIL_MASTER_FILE);
 	vsm_fd = vsm_zerofile(fnbuf, size);
+	VJ_master(JAIL_MASTER_LOW);
 	if (vsm_fd < 0)
 		exit(1);
 
@@ -262,12 +258,14 @@ mgt_SHM_Commit(void)
 	char fnbuf[64];
 
 	bprintf(fnbuf, "%s.%jd", VSM_FILENAME, (intmax_t)getpid());
+	VJ_master(JAIL_MASTER_FILE);
 	if (rename(fnbuf, VSM_FILENAME)) {
 		fprintf(stderr, "Rename failed %s -> %s: %s\n",
 		    fnbuf, VSM_FILENAME, strerror(errno));
 		(void)unlink(fnbuf);
 		exit(1);
 	}
+	VJ_master(JAIL_MASTER_LOW);
 }
 
 /*--------------------------------------------------------------------
@@ -312,8 +310,7 @@ mgt_SHM_Size_Adjust(void)
  * Exit handler that clears the owning pid from the SHMLOG
  */
 
-static
-void
+static void
 mgt_shm_atexit(void)
 {
 

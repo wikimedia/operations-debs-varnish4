@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011-2014 Varnish Software AS
+ * Copyright (c) 2011-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Tollef Fog Heen <tfheen@varnish-software.com> 
@@ -123,4 +123,11 @@ LIBVARNISHAPI_1.3 {
 	# Variables:
 	VSLQ_grouping;
 	VSL_tagflags;
+} LIBVARNISHAPI_1.0;
+
+LIBVARNISHAPI_1.4 {
+  global:
+	VNUM;
+	VSLQ_SetCursor;
+	VSM_IsOpen;
 } LIBVARNISHAPI_1.0;

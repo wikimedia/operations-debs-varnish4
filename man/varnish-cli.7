@@ -1,8 +1,35 @@
-.TH VARNISH CLI  "" "" ""
-.SH NAME
-Varnish CLI \- Varnish Command Line Interface
 .\" Man page generated from reStructeredText.
 .
+.TH VARNISH-CLI 7 "" "" ""
+.SH NAME
+varnish-cli \- Varnish Command Line Interface
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
 .SH DESCRIPTION
 .sp
 Varnish as a command line interface (CLI) which can control and change
@@ -28,7 +55,7 @@ backend servers.
 .TP
 .B process management
 You can stop and start the cache (child) process though the
-CLI. You can also retrieve the lastst stack trace if the child
+CLI. You can also retrieve the latest stack trace if the child
 process has crashed.
 .UNINDENT
 .sp
@@ -36,7 +63,7 @@ If you invoke varnishd(1) with \-T, \-M or \-d the CLI will be
 available. In debug mode (\-d) the CLI will be in the foreground, with
 \-T you can connect to it with varnishadm or telnet and with \-M
 varnishd will connect back to a listening service \fIpushing\fP the CLI to
-that service. Please see varnishd(1) for details.
+that service. Please see \fIvarnishd(1)\fP for details.
 .SS Syntax
 .sp
 Commands are usually terminated with a newline. Long command can be
@@ -51,17 +78,17 @@ word
 .ft P
 .fi
 .sp
-\fIword\fP can be any continuous string choosen to make sure it doesn\(aqt
+\fIword\fP can be any continuous string chosen to make sure it doesn\(aqt
 appear naturally in the following \fIhere document\fP.
 .sp
 When using the here document style of input there are no restrictions
-on lenght. When using newline\-terminated commands maximum lenght is
+on length. When using newline\-terminated commands maximum length is
 limited by the varnishd parameter \fIcli_buffer\fP.
 .sp
 When commands are newline terminated they get \fItokenized\fP before
 parsing so if you have significant spaces enclose your strings in
 double quotes. Within the quotes you can escape characters with
-\e. The n, r and t get translated to newlines, carrage returns and
+\e. The n, r and t get translated to newlines, carriage returns and
 tabs. Double quotes themselves can be escaped with a backslash.
 .sp
 To enter characters in octals use the \ennn syntax. Hexadecimals can
@@ -69,17 +96,17 @@ be entered with the \exnn syntax.
 .SS Commands
 .INDENT 0.0
 .TP
-.B help [command]
-Show command/protocol help
+.B help [<command>]
+Show command/protocol help.
 .TP
-.B ping [timestamp]
-Keep connection alive
+.B ping [<timestamp>]
+Keep connection alive.
 .TP
-.B auth response
+.B auth <response>
 Authenticate.
 .TP
 .B quit
-Close connection
+Close connection.
 .TP
 .B banner
 Print welcome banner.
@@ -91,12 +118,12 @@ Check status of Varnish cache process.
 Start the Varnish cache process.
 .TP
 .B stop
-Stop the Varnish cache process
+Stop the Varnish cache process.
 .TP
-.B vcl.load <configname> <filename>
+.B vcl.load <configname> <filename> [auto|cold|warm]
 Compile and load the VCL file under the name provided.
 .TP
-.B vcl.inline <configname> <quoted_VCLstring>
+.B vcl.inline <configname> <quoted_VCLstring> [auto|cold|warm]
 Compile and load the VCL data under the name provided.
 .TP
 .B vcl.use <configname>
@@ -108,7 +135,7 @@ Unload the named configuration (when possible).
 .B vcl.list
 List all loaded configuration.
 .TP
-.B vcl.show <configname>
+.B vcl.show [\-v] <configname>
 Display the source code for the specified configuration.
 .TP
 .B param.show [\-l] [<param>]
@@ -120,21 +147,21 @@ Set parameter value.
 .B panic.show
 Return the last panic, if any.
 .TP
-.B panic.clear
+.B panic.clear [\-z]
 Clear the last panic, if any.
 .TP
 .B storage.list
-List storage devices
+List storage devices.
 .TP
-.B backend.list [<backend_expression>]
+.B backend.list [\-p] [<backend_expression>]
 List backends.
 .TP
 .B backend.set_health <backend_expression> <state>
 Set health status on the backends.
 State is any of auto, healthy or sick values.
 .TP
-.B ban <field> <operator> <arg> [&& <field> <oper> <arg>]...
-All objects where the all the conditions match will be marked obsolete.
+.B ban <field> <operator> <arg> [&& <field> <oper> <arg> ...]
+Mark obsolete all objects where all the conditions match.
 .TP
 .B ban.list
 List the active bans.
@@ -154,13 +181,30 @@ ANDed together with "&&".
 A field can be any of the variables from VCL, for instance req.url,
 req.http.host or obj.http.set\-cookie.
 .sp
-Operators are "==" for direct comparision, "~" for a regular
+Operators are "==" for direct comparison, "~" for a regular
 expression match, and ">" or "<" for size comparisons.  Prepending
 an operator with "!" negates the expression.
 .sp
 The argument could be a quoted string, a regexp, or an integer.
 Integers can have "KB", "MB", "GB" or "TB" appended for size related
 fields.
+.SS VCL Temperature
+.sp
+A VCL program goes through several states related to the different commands: it
+can be loaded, used, and later discarded. You can load several VCL programs and
+switch at any time from one to another. There is only one active VCL, but the
+previous active VCL will be maintained active until all its transactions are
+over.
+.sp
+Over time, if you often refresh your VCL and keep the previous versions around,
+resource consumption will increase, you can\(aqt escape that. However, most of the
+time you want only one to pay the price only for the active VCL and keep older
+VCLs in case you\(aqd need to rollback to a previous version.
+.sp
+The VCL temperature allows you to minimize the footprint of inactive VCLs. Once
+a VCL becomes cold, Varnish will release all the resources that can be be later
+reacquired. You can manually set the temperature of a VCL or let varnish
+automatically handle it.
 .SS Scripting
 .sp
 If you are going to write a script that talks CLI to varnishd, the
@@ -210,7 +254,7 @@ Type \(aqstart\(aq to launch worker process.
 .fi
 .sp
 The CLI status of 107 indicates that authentication is necessary. The
-first 32 characters of the reponse text is the challenge
+first 32 characters of the response text is the challenge
 "ixsl...mpg". The challenge is randomly generated for each CLI
 connection, and changes each time a 107 is emitted.
 .sp
@@ -283,24 +327,24 @@ req.http.host ~ "^(?i)(www\e.)example.com$" && obj.http.set\-cookie ~ "USERID=16
 .SH SEE ALSO
 .INDENT 0.0
 .IP \(bu 2
-varnishd(1)
+\fIvarnishd(1)\fP
 .IP \(bu 2
-vanrishadm(1)
+\fIvarnishadm(1)\fP
 .IP \(bu 2
-vcl(7)
+\fIvcl(7)\fP
 .UNINDENT
 .SH HISTORY
 .sp
 The Varnish manual page was written by Per Buer in 2011. Some of the
-text was taken from the Varnish Cache wiki, the varnishd(7) man page
-or the Varnish source code.
+text was taken from the Varnish Cache wiki, the \fIvarnishd(1)\fP man
+page or the Varnish source code.
 .SH COPYRIGHT
 .sp
 This document is licensed under the same licence as Varnish
 itself. See LICENCE for details.
 .INDENT 0.0
 .IP \(bu 2
-Copyright (c) 2011\-2014 Varnish Software AS
+Copyright (c) 2011\-2015 Varnish Software AS
 .UNINDENT
 .\" Generated by docutils manpage writer.
 .\" 

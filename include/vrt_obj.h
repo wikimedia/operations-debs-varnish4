@@ -36,6 +36,10 @@ VCL_STRING VRT_r_bereq_xid(VRT_CTX);
 
 VCL_HTTP VRT_r_beresp(VRT_CTX);
 
+VCL_DURATION VRT_r_beresp_age(VRT_CTX);
+
+VCL_BACKEND VRT_r_beresp_backend(VRT_CTX);
+
 VCL_IP VRT_r_beresp_backend_ip(VRT_CTX);
 
 VCL_STRING VRT_r_beresp_backend_name(VRT_CTX);
@@ -77,12 +81,18 @@ void VRT_l_beresp_ttl(VRT_CTX, VCL_DURATION);
 VCL_BOOL VRT_r_beresp_uncacheable(VRT_CTX);
 void VRT_l_beresp_uncacheable(VRT_CTX, VCL_BOOL);
 
+VCL_BOOL VRT_r_beresp_was_304(VRT_CTX);
+
 VCL_STRING VRT_r_client_identity(VRT_CTX);
 void VRT_l_client_identity(VRT_CTX, const char *, ...);
 
 VCL_IP VRT_r_client_ip(VRT_CTX);
 
+VCL_IP VRT_r_local_ip(VRT_CTX);
+
 VCL_TIME VRT_r_now(VRT_CTX);
+
+VCL_DURATION VRT_r_obj_age(VRT_CTX);
 
 VCL_DURATION VRT_r_obj_grace(VRT_CTX);
 
@@ -100,6 +110,8 @@ VCL_INT VRT_r_obj_status(VRT_CTX);
 VCL_DURATION VRT_r_obj_ttl(VRT_CTX);
 
 VCL_BOOL VRT_r_obj_uncacheable(VRT_CTX);
+
+VCL_IP VRT_r_remote_ip(VRT_CTX);
 
 VCL_HTTP VRT_r_req(VRT_CTX);
 
@@ -136,8 +148,17 @@ void VRT_l_req_url(VRT_CTX, const char *, ...);
 
 VCL_STRING VRT_r_req_xid(VRT_CTX);
 
+
+VCL_STRING VRT_r_req_top_method(VRT_CTX);
+
+VCL_STRING VRT_r_req_top_proto(VRT_CTX);
+
+VCL_STRING VRT_r_req_top_url(VRT_CTX);
+
 VCL_HTTP VRT_r_resp(VRT_CTX);
 
+
+VCL_BOOL VRT_r_resp_is_streaming(VRT_CTX);
 
 VCL_STRING VRT_r_resp_proto(VRT_CTX);
 void VRT_l_resp_proto(VRT_CTX, const char *, ...);

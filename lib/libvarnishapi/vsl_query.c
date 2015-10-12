@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -28,24 +28,28 @@
  *
  */
 
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <ctype.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
+#include "vdef.h"
 #include "vas.h"
 #include "miniobj.h"
+
+#include "vbm.h"
+#include "vnum.h"
+#include "vqueue.h"
 #include "vre.h"
 #include "vsb.h"
-#include "vbm.h"
 
 #include "vapi/vsl.h"
+
 #include "vsl_api.h"
 #include "vxp.h"
-
-#define NEEDLESS_RETURN(foo) return(foo)
 
 struct vslq_query {
 	unsigned		magic;
@@ -141,11 +145,10 @@ vslq_test_rec(const struct vex *vex, const struct VSLC_ptr *rec)
 			/* Can't parse - no match */
 			return (0);
 		case VEX_FLOAT:
-			lhs_float = strtod(b, &p);
-			if (*p == '\0' || isspace(*p))
-				break;
-			/* Can't parse - no match */
-			return (0);
+			lhs_float = VNUM(b);
+			if (isnan(lhs_float))
+				return (0);
+			break;
 		default:
 			WRONG("Wrong RHS type");
 		}

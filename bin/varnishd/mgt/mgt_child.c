@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -52,7 +52,6 @@
 #include "vcli_priv.h"
 #include "vev.h"
 #include "vlu.h"
-#include "vss.h"
 #include "vtim.h"
 
 #include "mgt_cli.h"
@@ -93,6 +92,12 @@ static inline int
 MGT_FEATURE(enum feature_bits x)
 {
 	return (mgt_param.feature_bits[(unsigned)x>>3] &
+	    (0x80U >> ((unsigned)x & 7)));
+}
+static inline int
+MGT_DO_DEBUG(enum debug_bits x)
+{
+	return (mgt_param.debug_bits[(unsigned)x>>3] &
 	    (0x80U >> ((unsigned)x & 7)));
 }
 
@@ -160,9 +165,17 @@ mcf_panic_show(struct cli *cli, const char * const *av, void *priv)
 void __match_proto__(cli_func_t)
 mcf_panic_clear(struct cli *cli, const char * const *av, void *priv)
 {
-	(void)av;
 	(void)priv;
 
+	if (av[2] != NULL && strcmp(av[2], "-z")) {
+		VCLI_SetResult(cli, CLIS_PARAM);
+		VCLI_Out(cli, "Unknown parameter \"%s\".", av[2]);
+		return;
+	} else if (av[2] != NULL) {
+		VSC_C_mgt->child_panic = static_VSC_C_mgt.child_panic = 0;
+		if (child_panic == NULL)
+			return;
+	}
 	if (child_panic == NULL) {
 		VCLI_SetResult(cli, CLIS_CANT);
 		VCLI_Out(cli, "No panic to clear");
@@ -215,51 +228,6 @@ mgt_child_inherit(int fd, const char *what)
 		vbit_set(fd_map, fd);
 	else
 		vbit_clr(fd_map, fd);
-}
-
-/*=====================================================================
- * Open and close the accept sockets.
- *
- * (The child is priv-sep'ed, so it can't do it.)
- */
-
-int
-MGT_open_sockets(void)
-{
-	struct listen_sock *ls;
-	int good = 0;
-
-	VTAILQ_FOREACH(ls, &heritage.socks, list) {
-		if (ls->sock >= 0) {
-			good++;
-			continue;
-		}
-		ls->sock = VSS_bind(ls->addr);
-		if (ls->sock < 0)
-			continue;
-
-		mgt_child_inherit(ls->sock, "sock");
-
-		good++;
-	}
-	if (!good)
-		return (1);
-	return (0);
-}
-
-/*--------------------------------------------------------------------*/
-
-void
-MGT_close_sockets(void)
-{
-	struct listen_sock *ls;
-
-	VTAILQ_FOREACH(ls, &heritage.socks, list) {
-		if (ls->sock < 0)
-			continue;
-		mgt_child_inherit(ls->sock, NULL);
-		closex(&ls->sock);
-	}
 }
 
 /*=====================================================================
@@ -328,7 +296,6 @@ child_sigsegv_handler(int s, siginfo_t *si, void *c)
 		 __FILE__,
 		 __LINE__,
 		 buf,
-		 errno,
 		 VAS_ASSERT);
 }
 
@@ -349,11 +316,10 @@ mgt_launch_child(struct cli *cli)
 	if (child_state != CH_STOPPED && child_state != CH_DIED)
 		return;
 
-	if (MGT_open_sockets() != 0) {
+	if (!MAC_sockets_ready(cli)) {
 		child_state = CH_STOPPED;
 		if (cli != NULL) {
 			VCLI_SetResult(cli, CLIS_CANT);
-			VCLI_Out(cli, "Could not open sockets");
 			return;
 		}
 		REPORT0(LOG_ERR,
@@ -417,11 +383,13 @@ mgt_launch_child(struct cli *cli)
 			sa.sa_sigaction = child_sigsegv_handler;
 			sa.sa_flags = SA_SIGINFO;
 			(void)sigaction(SIGSEGV, &sa, NULL);
+			(void)sigaction(SIGBUS, &sa, NULL);
+			(void)sigaction(SIGABRT, &sa, NULL);
 		}
 		(void)signal(SIGINT, SIG_DFL);
 		(void)signal(SIGTERM, SIG_DFL);
 
-		mgt_sandbox(SANDBOX_WORKER);
+		VJ_subproc(JAIL_SUBPROC_WORKER);
 
 		child_main();
 
@@ -439,8 +407,6 @@ mgt_launch_child(struct cli *cli)
 
 	mgt_child_inherit(heritage.cli_out, NULL);
 	closex(&heritage.cli_out);
-
-	MGT_close_sockets();
 
 	child_std_vlu = VLU_New(NULL, child_line, 0);
 	AN(child_std_vlu);
@@ -533,6 +499,8 @@ mgt_reap_child(void)
 		fprintf(stderr, "WAIT 0x%jx\n", (uintmax_t)r);
 	assert(r == child_pid);
 
+	MAC_reopen_sockets(NULL);
+
 	/* Compose obituary */
 	vsb = VSB_new_auto();
 	XXXAN(vsb);
@@ -567,7 +535,7 @@ mgt_reap_child(void)
 		mgt_SHM_Destroy(1);
 		VSC_C_mgt->child_panic = ++static_VSC_C_mgt.child_panic;
 	} else {
-		mgt_SHM_Destroy(0);
+		mgt_SHM_Destroy(MGT_DO_DEBUG(DBG_VSM_KEEP));
 	}
 	mgt_SHM_Create();
 	mgt_SHM_Commit();
@@ -697,7 +665,7 @@ mgt_uptime(const struct vev *e, int what)
 	(void)what;
 	AN(VSC_C_mgt);
 	VSC_C_mgt->uptime = static_VSC_C_mgt.uptime =
-	    VTIM_real() - mgt_uptime_t0;
+	    (uint64_t)(VTIM_real() - mgt_uptime_t0);
 	if (heritage.vsm != NULL)
 		VSM_common_ageupdate(heritage.vsm);
 	return (0);

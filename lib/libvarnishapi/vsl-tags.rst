@@ -29,12 +29,14 @@ BackendOpen - Backend connection opened
 	
 	The format is::
 	
-		%d %s %s %s
-		|  |  |  |
-		|  |  |  +- Remote port
-		|  |  +---- Remote address
-		|  +------- Backend display name
-		+---------- Connection file descriptor
+		%d %s %s %s %s %s
+		|  |  |  |  |  |
+		|  |  |  |  |  +- Local port
+		|  |  |  |  +---- Local address
+		|  |  |  +------- Remote port
+		|  |  +---------- Remote address
+		|  +------------- Backend display name
+		+---------------- Connection file descriptor
 	
 
 
@@ -164,17 +166,6 @@ CLI - CLI communication
 
 Debug - Debug messages
 	Debug messages can normally be ignored, but are sometimes helpful during trouble-shooting.  Most debug messages must be explicitly enabled with parameters.
-	
-
-
-ESI_BodyBytes - ESI body fragment byte counter
-	Contains the body byte count for this ESI body fragment. This number does not include any transfer encoding overhead.
-	
-	The format is::
-	
-		%d
-		|
-		+- Body bytes
 	
 
 
@@ -372,9 +363,30 @@ PipeAcct - Pipe byte counts
 	
 
 
-ReqAcct - Request handling byte counts
-	Contains byte counts for the request handling. This record is not logged for ESI sub-requests, but the sub-requests' response body count is added to the main request.
+Proxy - PROXY protocol information
+	PROXY protocol information.
 	
+	The format is::
+	
+		%d %s %d %s %d [key value]...
+		|  |  |  |  |  |
+		|  |  |  |  |  +- optional information
+		|  |  |  |  +- server port
+		|  |  |  +- server ip
+		|  |  +- client port
+		|  +- client ip
+		+---- PROXY protocol version
+
+
+ProxyGarbage - Unparseable PROXY request
+	A PROXY protocol header was unparseable.
+	
+
+
+ReqAcct - Request handling byte counts
+	Contains byte counts for the request handling.
+	ESI sub-request counts are also added to their parent request.
+	The body bytes count does not include transmission (ie: chunked encoding) overhead.
 	The format is::
 	
 		%d %d %d %d %d %d
@@ -417,8 +429,8 @@ ReqStart - Client request start
 	
 		%s %s
 		|  |
-		|  +- Port number
-		+---- IP address
+		|  +- Client Port number
+		+---- Client IP4/6 address
 	
 
 
@@ -476,9 +488,9 @@ SessOpen - Client connection opened
 		|  |  |  |  |  +- File descriptor number
 		|  |  |  |  +---- Local TCP port ('-' if !$log_local_addr)
 		|  |  |  +------- Local IPv4/6 address ('-' if !$log_local_addr)
-		|  |  +---------- Listen socket
-		|  +------------- Client TCP socket
-		+---------------- Client IPv4/6 address
+		|  |  +---------- Listen socket (-a argument)
+		|  +------------- Remote TCP port
+		+---------------- Remote IPv4/6 address
 	
 
 
@@ -515,7 +527,7 @@ TTL - TTL set on object
 	
 	Examples::
 	
-		RFC 60 -1 -1 1312966109 1312966109 1312966109 0 60
+		RFC 60 10 -1 1312966109 1312966109 1312966109 0 60
 		VCL 120 10 0 1312966111
 	
 
@@ -544,7 +556,7 @@ VCL_Error - VCL execution error message
 VCL_Log - Log statement from VCL
 	User generated log messages insert from VCL through std.log()
 
-VCL_acl - VSL ACL check results
+VCL_acl - VCL ACL check results
 	Logs VCL ACL evaluation results.
 	
 
@@ -577,6 +589,25 @@ VCL_trace - VCL trace data
 VSL - VSL API warnings and error message
 	Warnings and error messages genererated by the VSL API while reading the shared memory log.
 	
+
+
+VfpAcct - Fetch filter accounting
+	Contains name of VFP and statistics.
+	
+	The format is::
+	
+		%s %d %d
+		|  |  |
+		|  |  +- Total bytes produced
+		|  +---- Number of calls made
+		+------- Name of filter
+	
+	NB: This log record is masked by default.
+	
+
+
+Witness - Lock order witness records
+	Diagnostic recording of locking order.
 
 
 WorkThread - Logs thread start/stop events

@@ -57,6 +57,18 @@ struct poolparam {
 
 struct params {
 
+#define	ptyp_bool	unsigned
+#define	ptyp_double	double
+#define	ptyp_timeout	double
+#define	ptyp_uint	unsigned
+#define PARAM(nm, ty, mi, ma, de, un, fl, st, lt, fn) ptyp_##ty nm;
+#include <tbl/params.h>
+#undef PARAM
+#undef ptyp_bool
+#undef ptyp_double
+#undef ptyp_timeout
+#undef ptyp_uint
+
 	/* Unprivileged user / group */
 	char			*user;
 	uid_t			uid;
@@ -111,7 +123,6 @@ struct params {
 
 	double			timeout_linger;
 	double			timeout_idle;
-	double			timeout_req;
 	double			pipe_timeout;
 	double			send_timeout;
 	double			idle_send_timeout;
@@ -121,18 +132,10 @@ struct params {
 	double			tcp_keepalive_intvl;
 #endif
 
-	/* Management hints */
-	unsigned		auto_restart;
-
 	/* Fetcher hints */
 	ssize_t			fetch_chunksize;
 	ssize_t			fetch_maxchunksize;
 	unsigned		nuke_limit;
-
-	unsigned		accept_filter;
-
-	/* Listen address */
-	char			*listen_address;
 
 	/* Listen depth */
 	unsigned		listen_depth;
@@ -160,10 +163,6 @@ struct params {
 	/* Default connection_timeout */
 	double			connect_timeout;
 
-	/* Read timeouts for backend */
-	double			first_byte_timeout;
-	double			between_bytes_timeout;
-
 	/* CLI buffer size */
 	unsigned		cli_buffer;
 
@@ -172,18 +171,6 @@ struct params {
 
 	/* Acceptable clockskew with backends */
 	unsigned		clock_skew;
-
-	/* Acceptor pacer parameters */
-	double			acceptor_sleep_max;
-	double			acceptor_sleep_incr;
-	double			acceptor_sleep_decay;
-
-	/* Get rid of duplicate bans */
-	unsigned		ban_dups;
-
-	double			ban_lurker_age;
-	double			ban_lurker_sleep;
-	unsigned		ban_lurker_batch;
 
 	unsigned		syslog_cli_traffic;
 
@@ -198,11 +185,11 @@ struct params {
 
 	double			critbit_cooloff;
 
+	double			vcl_cooldown;
+
 	double			shortlived;
 
 	struct vre_limits	vre_limits;
-
-	unsigned		bo_cache;
 
 	/* Install a SIGSEGV handler */
 	unsigned		sigsegv_handler;
@@ -211,7 +198,6 @@ struct params {
 	ssize_t			vsm_space;
 	ssize_t			vsl_space;
 
-	struct poolparam	vbc_pool;
 	struct poolparam	req_pool;
 	struct poolparam	sess_pool;
 	struct poolparam	vbo_pool;

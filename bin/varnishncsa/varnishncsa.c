@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Anders Berg <andersb@vgnett.no>
@@ -57,6 +57,7 @@
 #include "vapi/vsl.h"
 #include "vapi/voptget.h"
 #include "vas.h"
+#include "vdef.h"
 #include "vcs.h"
 #include "vsb.h"
 #include "vut.h"
@@ -215,8 +216,8 @@ vsb_esc_cat(struct vsb *sb, const char *b, const char *e)
 				VSB_cat(sb, "\\\"");
 				break;
 			case '\\':
-				 VSB_cat(sb, "\\\\");
-				 break;
+				VSB_cat(sb, "\\\\");
+				break;
 			default:
 				VSB_putc(sb, *b);
 				break;
@@ -272,7 +273,7 @@ format_fragment(const struct format *format)
 		if (format->string == NULL)
 			return (-1);
 		AZ(vsb_esc_cat(CTX.vsb, format->string,
-		       format->string + strlen(format->string)));
+		    format->string + strlen(format->string)));
 		return (0);
 	}
 	AZ(vsb_fcat(CTX.vsb, format->frag, NULL));
@@ -770,7 +771,7 @@ process_hdr(const struct watch_head *head, const char *b, const char *e)
 	VTAILQ_FOREACH(w, head, list) {
 		if (strncasecmp(b, w->key, w->keylen))
 			continue;
-		frag_line(0, b + w->keylen, e, &w->frag);
+		frag_line(1, b + w->keylen, e, &w->frag);
 	}
 }
 
@@ -878,12 +879,12 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				} else if (!strcasecmp(b, "pass")) {
 					CTX.hitmiss = "miss";
 					CTX.handling = "pass";
-				} else if (!strcasecmp(b, "error")) {
-					/* Arguably, error isn't a hit or
+				} else if (!strcasecmp(b, "synth")) {
+					/* Arguably, synth isn't a hit or
 					   a miss, but miss is less
 					   wrong */
 					CTX.hitmiss = "miss";
-					CTX.handling = "error";
+					CTX.handling = "synth";
 				}
 				break;
 			case SLT_VCL_return:

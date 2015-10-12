@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Varnish Software AS
+ * Copyright (c) 2013-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -34,11 +34,11 @@
 
 #include <stdlib.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #include "cache.h"
 
 #include "hash/hash_slinger.h"
+#include "cache/cache_filter.h"
 
 static struct mempool		*vbopool;
 
@@ -73,8 +73,8 @@ vbo_New(void)
 	return (bo);
 }
 
-void
-VBO_Free(struct busyobj **bop)
+static void
+vbo_Free(struct busyobj **bop)
 {
 	struct busyobj *bo;
 
@@ -82,6 +82,7 @@ VBO_Free(struct busyobj **bop)
 	bo = *bop;
 	*bop = NULL;
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	AZ(bo->htc);
 	AZ(bo->refcount);
 	AZ(pthread_cond_destroy(&bo->cond));
 	Lck_Delete(&bo->mtx);
@@ -91,21 +92,14 @@ VBO_Free(struct busyobj **bop)
 struct busyobj *
 VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 {
-	struct busyobj *bo = NULL;
+	struct busyobj *bo;
 	uint16_t nhttp;
 	unsigned sz;
 	char *p;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 
-	if (wrk->nbo != NULL) {
-		bo = wrk->nbo;
-		wrk->nbo = NULL;
-	}
-
-	if (bo == NULL)
-		bo = vbo_New();
-
+	bo = vbo_New();
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	AZ(bo->refcount);
 
@@ -135,7 +129,7 @@ VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 
 	sz = cache_param->vsl_buffer;
 	VSL_Setup(bo->vsl, p, sz);
-	bo->vsl->wid = VXID_Get(&wrk->vxid_pool) | VSL_BACKENDMARKER;
+	bo->vsl->wid = VXID_Get(wrk, VSL_BACKENDMARKER);
 	p += sz;
 	p = (void*)PRNDUP(p);
 	assert(p < bo->end);
@@ -144,11 +138,17 @@ VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 
 	bo->do_stream = 1;
 
-	bo->director = req->director_hint;
+	bo->director_req = req->director_hint;
 	bo->vcl = req->vcl;
 	VCL_Ref(bo->vcl);
 
 	bo->t_first = bo->t_prev = NAN;
+
+	memcpy(bo->digest, req->digest, sizeof bo->digest);
+
+	VRTPRIV_init(bo->privs);
+
+	VFP_Setup(bo->vfc);
 
 	return (bo);
 }
@@ -166,7 +166,6 @@ VBO_DerefBusyObj(struct worker *wrk, struct busyobj **pbo)
 	*pbo = NULL;
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_ORNULL(bo->fetch_objcore, OBJCORE_MAGIC);
-	CHECK_OBJ_ORNULL(bo->fetch_obj, OBJECT_MAGIC);
 	if (bo->fetch_objcore != NULL) {
 		oc = bo->fetch_objcore;
 		CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
@@ -185,6 +184,12 @@ VBO_DerefBusyObj(struct worker *wrk, struct busyobj **pbo)
 	if (r)
 		return;
 
+	AZ(bo->htc);
+	AZ(bo->stale_oc);
+
+	VRTPRIV_dynamic_kill(bo->privs, (uintptr_t)bo);
+	assert(VTAILQ_EMPTY(&bo->privs->privs));
+
 	VSLb(bo->vsl, SLT_BereqAcct, "%ju %ju %ju %ju %ju %ju",
 	    (uintmax_t)bo->acct.bereq_hdrbytes,
 	    (uintmax_t)bo->acct.bereq_bodybytes,
@@ -193,12 +198,13 @@ VBO_DerefBusyObj(struct worker *wrk, struct busyobj **pbo)
 	    (uintmax_t)bo->acct.beresp_bodybytes,
 	    (uintmax_t)(bo->acct.beresp_hdrbytes + bo->acct.beresp_bodybytes));
 
-	VSLb(bo->vsl, SLT_End, "%s", "");
-	VSL_Flush(bo->vsl, 0);
+	VSL_End(bo->vsl);
+
+	AZ(bo->htc);
 
 	if (bo->fetch_objcore != NULL) {
 		AN(wrk);
-		(void)HSH_DerefObjCore(&wrk->stats, &bo->fetch_objcore);
+		(void)HSH_DerefObjCore(wrk, &bo->fetch_objcore);
 	}
 
 	VCL_Rel(&bo->vcl);
@@ -209,44 +215,42 @@ VBO_DerefBusyObj(struct worker *wrk, struct busyobj **pbo)
 	memset(&bo->refcount, 0,
 	    sizeof *bo - offsetof(struct busyobj, refcount));
 
-	if (cache_param->bo_cache && wrk != NULL && wrk->nbo == NULL)
-		wrk->nbo = bo;
-	else
-		VBO_Free(&bo);
+	vbo_Free(&bo);
 }
 
 void
 VBO_extend(struct busyobj *bo, ssize_t l)
 {
-	struct storage *st;
 
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	CHECK_OBJ_NOTNULL(bo->fetch_obj, OBJECT_MAGIC);
+	CHECK_OBJ_NOTNULL(bo->vfc, VFP_CTX_MAGIC);
 	if (l == 0)
 		return;
 	assert(l > 0);
 	Lck_Lock(&bo->mtx);
-	st = VTAILQ_LAST(&bo->fetch_obj->store, storagehead);
-	CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
-	st->len += l;
-	bo->fetch_obj->len += l;
+	ObjExtend(bo->wrk, bo->vfc->oc, l);
 	AZ(pthread_cond_broadcast(&bo->cond));
 	Lck_Unlock(&bo->mtx);
 }
 
 ssize_t
-VBO_waitlen(struct busyobj *bo, ssize_t l)
+VBO_waitlen(struct worker *wrk, struct busyobj *bo, ssize_t l)
 {
+	ssize_t rv;
+
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	Lck_Lock(&bo->mtx);
-	assert(l <= bo->fetch_obj->len || bo->state == BOS_FAILED);
+	rv = ObjGetLen(wrk, bo->fetch_objcore);
 	while (1) {
-		if (bo->fetch_obj->len > l || bo->state >= BOS_FINISHED)
+		assert(l <= rv || bo->state == BOS_FAILED);
+		if (rv > l || bo->state >= BOS_FINISHED)
 			break;
 		(void)Lck_CondWait(&bo->cond, &bo->mtx, 0);
+		rv = ObjGetLen(wrk, bo->fetch_objcore);
 	}
-	l = bo->fetch_obj->len;
 	Lck_Unlock(&bo->mtx);
-	return (l);
+	return (rv);
 }
 
 void

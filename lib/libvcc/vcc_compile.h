@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -30,7 +30,6 @@
 
 #include <sys/types.h>
 
-#include <errno.h>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -150,6 +149,7 @@ struct inifin {
 	unsigned		n;
 	struct vsb		*ini;
 	struct vsb		*fin;
+	struct vsb		*event;
 	VTAILQ_ENTRY(inifin)	list;
 };
 
@@ -189,7 +189,6 @@ struct vcc {
 	struct vsb		*fm[VCL_MET_MAX];	/* Method bodies */
 	struct vsb		*sb;
 	int			err;
-	int			ndirector;
 	struct proc		*curproc;
 	struct proc		*mprocs[VCL_MET_MAX];
 
@@ -197,8 +196,9 @@ struct vcc {
 
 	int			nprobe;
 
-	int			defaultdir;
-	struct token		*t_defaultdir;
+	const char		*default_director;
+	struct token		*t_default_director;
+	const char		*default_probe;
 
 	unsigned		unique;
 
@@ -255,11 +255,11 @@ struct inifin *New_IniFin(struct vcc *tl);
  * F -> Finish function
  */
 void Fh(const struct vcc *tl, int indent, const char *fmt, ...)
-    __printflike(3, 4);
+    __v_printflike(3, 4);
 void Fc(const struct vcc *tl, int indent, const char *fmt, ...)
-    __printflike(3, 4);
+    __v_printflike(3, 4);
 void Fb(const struct vcc *tl, int indent, const char *fmt, ...)
-    __printflike(3, 4);
+    __v_printflike(3, 4);
 void EncToken(struct vsb *sb, const struct token *t);
 int IsMethod(const struct token *t);
 void *TlAlloc(struct vcc *tl, unsigned len);
@@ -280,6 +280,7 @@ sym_expr_t vcc_Eval_SymFunc;
 void vcc_Eval_Func(struct vcc *tl, const char *cfunc, const char *extra,
     const char *name, const char *args);
 sym_expr_t vcc_Eval_Backend;
+sym_expr_t vcc_Eval_Probe;
 
 /* vcc_obj.c */
 extern const struct var vcc_vars[];
@@ -292,8 +293,8 @@ sym_wildcard_t vcc_Stv_Wildcard;
 
 /* vcc_utils.c */
 const char *vcc_regexp(struct vcc *tl);
-void Resolve_Sockaddr(struct vcc *tl, const char *host, const char *port, \
-    const char **ipv4, const char **ipv4_ascii, const char **ipv6, \
+void Resolve_Sockaddr(struct vcc *tl, const char *host, const char *defport,
+    const char **ipv4, const char **ipv4_ascii, const char **ipv6,
     const char **ipv6_ascii, const char **p_ascii, int maxips,
     const struct token *t_err, const char *errid);
 

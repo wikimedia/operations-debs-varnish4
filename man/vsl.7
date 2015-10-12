@@ -1,8 +1,35 @@
-.TH VSL  "" "" ""
-.SH NAME
-VSL \- Shared Memory Logging
 .\" Man page generated from reStructeredText.
 .
+.TH VSL 7 "" "" ""
+.SH NAME
+VSL \- Varnish Shared Memory Logging
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
 .SH OVERVIEW
 .sp
 This document describes the format and content of all the Varnish shared memory
@@ -48,12 +75,14 @@ The format is:
 .sp
 .nf
 .ft C
-%d %s %s %s
-|  |  |  |
-|  |  |  +\- Remote port
-|  |  +\-\-\-\- Remote address
-|  +\-\-\-\-\-\-\- Backend display name
-+\-\-\-\-\-\-\-\-\-\- Connection file descriptor
+%d %s %s %s %s %s
+|  |  |  |  |  |
+|  |  |  |  |  +\- Local port
+|  |  |  |  +\-\-\-\- Local address
+|  |  |  +\-\-\-\-\-\-\- Remote port
+|  |  +\-\-\-\-\-\-\-\-\-\- Remote address
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\- Backend display name
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Connection file descriptor
 .ft P
 .fi
 .TP
@@ -179,19 +208,6 @@ CLI communication between varnishd master and child process.
 .TP
 .B Debug \- Debug messages
 Debug messages can normally be ignored, but are sometimes helpful during trouble\-shooting.  Most debug messages must be explicitly enabled with parameters.
-.TP
-.B ESI_BodyBytes \- ESI body fragment byte counter
-Contains the body byte count for this ESI body fragment. This number does not include any transfer encoding overhead.
-.sp
-The format is:
-.sp
-.nf
-.ft C
-%d
-|
-+\- Body bytes
-.ft P
-.fi
 .TP
 .B ESI_xmlerror \- ESI parser error or warning message
 An error or warning was generated during parsing of an ESI object. The log record describes the problem encountered.
@@ -379,9 +395,31 @@ The format is:
 .ft P
 .fi
 .TP
-.B ReqAcct \- Request handling byte counts
-Contains byte counts for the request handling. This record is not logged for ESI sub\-requests, but the sub\-requests\(aq response body count is added to the main request.
+.B Proxy \- PROXY protocol information
+PROXY protocol information.
 .sp
+The format is:
+.sp
+.nf
+.ft C
+%d %s %d %s %d [key value]...
+|  |  |  |  |  |
+|  |  |  |  |  +\- optional information
+|  |  |  |  +\- server port
+|  |  |  +\- server ip
+|  |  +\- client port
+|  +\- client ip
++\-\-\-\- PROXY protocol version
+.ft P
+.fi
+.TP
+.B ProxyGarbage \- Unparseable PROXY request
+A PROXY protocol header was unparseable.
+.TP
+.B ReqAcct \- Request handling byte counts
+Contains byte counts for the request handling.
+ESI sub\-request counts are also added to their parent request.
+The body bytes count does not include transmission (ie: chunked encoding) overhead.
 The format is:
 .sp
 .nf
@@ -426,8 +464,8 @@ The format is:
 .ft C
 %s %s
 |  |
-|  +\- Port number
-+\-\-\-\- IP address
+|  +\- Client Port number
++\-\-\-\- Client IP4/6 address
 .ft P
 .fi
 .TP
@@ -483,9 +521,9 @@ The format is:
 |  |  |  |  |  +\- File descriptor number
 |  |  |  |  +\-\-\-\- Local TCP port (\(aq\-\(aq if !$log_local_addr)
 |  |  |  +\-\-\-\-\-\-\- Local IPv4/6 address (\(aq\-\(aq if !$log_local_addr)
-|  |  +\-\-\-\-\-\-\-\-\-\- Listen socket
-|  +\-\-\-\-\-\-\-\-\-\-\-\-\- Client TCP socket
-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Client IPv4/6 address
+|  |  +\-\-\-\-\-\-\-\-\-\- Listen socket (\-a argument)
+|  +\-\-\-\-\-\-\-\-\-\-\-\-\- Remote TCP port
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\- Remote IPv4/6 address
 .ft P
 .fi
 .TP
@@ -530,7 +568,7 @@ Examples:
 .sp
 .nf
 .ft C
-RFC 60 \-1 \-1 1312966109 1312966109 1312966109 0 60
+RFC 60 10 \-1 1312966109 1312966109 1312966109 0 60
 VCL 120 10 0 1312966111
 .ft P
 .fi
@@ -559,7 +597,7 @@ Logs error messages generated during VCL execution.
 .B VCL_Log \- Log statement from VCL
 User generated log messages insert from VCL through std.log()
 .TP
-.B VCL_acl \- VSL ACL check results
+.B VCL_acl \- VCL ACL check results
 Logs VCL ACL evaluation results.
 .TP
 .B VCL_call \- VCL method called
@@ -587,6 +625,26 @@ NB: This log record is masked by default.
 .TP
 .B VSL \- VSL API warnings and error message
 Warnings and error messages genererated by the VSL API while reading the shared memory log.
+.TP
+.B VfpAcct \- Fetch filter accounting
+Contains name of VFP and statistics.
+.sp
+The format is:
+.sp
+.nf
+.ft C
+%s %d %d
+|  |  |
+|  |  +\- Total bytes produced
+|  +\-\-\-\- Number of calls made
++\-\-\-\-\-\-\- Name of filter
+.ft P
+.fi
+.sp
+NB: This log record is masked by default.
+.TP
+.B Witness \- Lock order witness records
+Diagnostic recording of locking order.
 .TP
 .B WorkThread \- Logs thread start/stop events
 Logs worker thread creation and termination events.
@@ -686,13 +744,13 @@ Martin Blix Grydeland.
 .SH SEE ALSO
 .INDENT 0.0
 .IP \(bu 2
-varnishlog(1)
+\fIvarnishlog(1)\fP
 .IP \(bu 2
-varnishhist(1)
+\fIvarnishhist(1)\fP
 .IP \(bu 2
-varnishncsa(1)
+\fIvarnishncsa(1)\fP
 .IP \(bu 2
-varnishtop(1)
+\fIvarnishtop(1)\fP
 .UNINDENT
 .\" Generated by docutils manpage writer.
 .\" 

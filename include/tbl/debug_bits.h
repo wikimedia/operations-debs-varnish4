@@ -29,6 +29,7 @@
  *
  */
 
+/*lint -save -e525 -e539 */
 DEBUG_BIT(REQ_STATE,		req_state,	"VSL Request state engine")
 DEBUG_BIT(WORKSPACE,		workspace,	"VSL Workspace operations")
 DEBUG_BIT(WAITER,		waiter,		"VSL Waiter internals")
@@ -39,3 +40,7 @@ DEBUG_BIT(VCLREL,		vclrel,		"Rapid VCL release")
 DEBUG_BIT(LURKER,		lurker,		"VSL Ban lurker")
 DEBUG_BIT(ESI_CHOP,		esi_chop,	"Chop ESI fetch to bits")
 DEBUG_BIT(FLUSH_HEAD,		flush_head,	"Flush after http1 head")
+DEBUG_BIT(VTC_MODE,		vtc_mode,	"Varnishtest Mode")
+DEBUG_BIT(WITNESS,		witness,	"Emit WITNESS lock records")
+DEBUG_BIT(VSM_KEEP,		vsm_keep,	"Keep the VSM file on restart")
+/*lint -restore */

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2008-2014 Varnish Software AS
+ * Copyright (c) 2008-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -31,6 +31,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <errno.h>
+#include <math.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +43,7 @@
 
 #include "vct.h"
 #include "vgz.h"
+#include "vnum.h"
 #include "vre.h"
 #include "vtcp.h"
 
@@ -272,13 +275,13 @@ cmd_http_expect(CMD_ARGS)
 		// fail inequality comparisons if either side is undef'ed
 		retval = 0;
 	} else if (!strcmp(cmp, "<")) {
-		retval = strcmp(lhs, rhs) < 0;
-	} else if (!strcmp(cmp, "<=")) {
-		retval = strcmp(lhs, rhs) <= 0;
-	} else if (!strcmp(cmp, ">=")) {
-		retval = strcmp(lhs, rhs) >= 0;
+		retval = isless(VNUM(lhs), VNUM(rhs));
 	} else if (!strcmp(cmp, ">")) {
-		retval = strcmp(lhs, rhs) > 0;
+		retval = isgreater(VNUM(lhs), VNUM(rhs));
+	} else if (!strcmp(cmp, "<=")) {
+		retval = islessequal(VNUM(lhs), VNUM(rhs));
+	} else if (!strcmp(cmp, ">=")) {
+		retval = isgreaterequal(VNUM(lhs), VNUM(rhs));
 	}
 
 	if (retval == -1)
@@ -384,6 +387,8 @@ http_rxchar(struct http *hp, int n, int eof)
 		pfd[0].events = POLLIN;
 		pfd[0].revents = 0;
 		i = poll(pfd, 1, hp->timeout);
+		if (i < 0 && errno == EINTR)
+			continue;
 		if (i == 0)
 			vtc_log(hp->vl, hp->fatal,
 			    "HTTP rx timeout (fd:%d %u ms)",
@@ -469,15 +474,6 @@ http_swallow_body(struct http *hp, char * const *hh, int body)
 
 	hp->body = hp->rxbuf + hp->prxbuf;
 	ll = 0;
-	p = http_find_header(hh, "content-length");
-	if (p != NULL) {
-		l = strtoul(p, NULL, 10);
-		(void)http_rxchar(hp, l, 0);
-		vtc_dump(hp->vl, 4, "body", hp->body, l);
-		hp->bodyl = l;
-		sprintf(hp->bodylen, "%d", l);
-		return;
-	}
 	p = http_find_header(hh, "transfer-encoding");
 	if (p != NULL && !strcasecmp(p, "chunked")) {
 		while (http_rxchunk(hp) != 0)
@@ -486,6 +482,15 @@ http_swallow_body(struct http *hp, char * const *hh, int body)
 		ll = hp->rxbuf + hp->prxbuf - hp->body;
 		hp->bodyl = ll;
 		sprintf(hp->bodylen, "%d", ll);
+		return;
+	}
+	p = http_find_header(hh, "content-length");
+	if (p != NULL) {
+		l = strtoul(p, NULL, 10);
+		(void)http_rxchar(hp, l, 0);
+		vtc_dump(hp->vl, 4, "body", hp->body, l);
+		hp->bodyl = l;
+		bprintf(hp->bodylen, "%d", l);
 		return;
 	}
 	if (body) {
@@ -512,6 +517,7 @@ http_rxhdr(struct http *hp)
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 	hp->prxbuf = 0;
 	hp->body = NULL;
+	bprintf(hp->bodylen, "%s", "<undef>");
 	while (1) {
 		(void)http_rxchar(hp, 1, 0);
 		p = hp->rxbuf + hp->prxbuf - 1;
@@ -527,6 +533,7 @@ http_rxhdr(struct http *hp)
 			break;
 	}
 	vtc_dump(hp->vl, 4, "rxhdr", hp->rxbuf, -1);
+	vtc_log(hp->vl, 4, "rxhdrlen = %zd", strlen(hp->rxbuf));
 }
 
 
@@ -630,6 +637,7 @@ cmd_http_gunzip_body(CMD_ARGS)
 
 	assert(Z_OK == inflateInit2(&vz, 31));
 	i = inflate(&vz, Z_FINISH);
+	assert(vz.total_out < l);
 	hp->bodyl = vz.total_out;
 	memcpy(hp->body, p, hp->bodyl);
 	free(p);
@@ -650,6 +658,7 @@ cmd_http_gunzip_body(CMD_ARGS)
 		    "Gunzip error = %d (%s) in:%jd out:%jd",
 		    i, vz.msg, (intmax_t)vz.total_in, (intmax_t)vz.total_out);
 	assert(Z_OK == inflateEnd(&vz));
+	hp->body[hp->bodyl] = '\0';
 }
 
 /**********************************************************************
@@ -970,6 +979,34 @@ cmd_http_txreq(CMD_ARGS)
 }
 
 /**********************************************************************
+ * Receive N characters
+ */
+
+static void
+cmd_http_recv(CMD_ARGS)
+{
+	struct http *hp;
+	int i, n;
+	char u[32];
+
+	(void)cmd;
+	(void)vl;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	AN(av[1]);
+	AZ(av[2]);
+	n = strtoul(av[1], NULL, 0);
+	while (n > 0) {
+		i = read(hp->fd, u, n > 32 ? 32 : n);
+		if (i > 0)
+			vtc_dump(hp->vl, 4, "recv", u, i);
+		else
+			vtc_log(hp->vl, hp->fatal, "recv() got %d (%s)", i,
+			    strerror(errno));
+		n -= i;
+	}
+}
+
+/**********************************************************************
  * Send a string
  */
 
@@ -989,6 +1026,56 @@ cmd_http_send(CMD_ARGS)
 	if (i != strlen(av[1]))
 		vtc_log(hp->vl, hp->fatal, "Write error in http_send(): %s",
 		    strerror(errno));
+}
+
+/**********************************************************************
+ * Send a string many times
+ */
+
+static void
+cmd_http_send_n(CMD_ARGS)
+{
+	struct http *hp;
+	int i, n, l;
+
+	(void)cmd;
+	(void)vl;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	AN(av[1]);
+	AN(av[2]);
+	AZ(av[3]);
+	n = strtoul(av[1], NULL, 0);
+		vtc_dump(hp->vl, 4, "send_n", av[2], -1);
+	l = strlen(av[2]);
+	while (n--) {
+		i = write(hp->fd, av[2], l);
+		if (i != l)
+			vtc_log(hp->vl, hp->fatal,
+			    "Write error in http_send(): %s",
+			    strerror(errno));
+	}
+}
+
+/**********************************************************************
+ * Send an OOB urgent message
+ */
+
+static void
+cmd_http_send_urgent(CMD_ARGS)
+{
+	struct http *hp;
+	int i;
+
+	(void)cmd;
+	(void)vl;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	AN(av[1]);
+	AZ(av[2]);
+	vtc_dump(hp->vl, 4, "send_urgent", av[1], -1);
+	i = send(hp->fd, av[1], strlen(av[1]), MSG_OOB);
+	if (i != strlen(av[1]))
+		vtc_log(hp->vl, hp->fatal,
+		    "Write error in http_send_urgent(): %s", strerror(errno));
 }
 
 /**********************************************************************
@@ -1095,13 +1182,17 @@ static void
 cmd_http_timeout(CMD_ARGS)
 {
 	struct http *hp;
+	double d;
 
 	(void)cmd;
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
 	AN(av[1]);
 	AZ(av[2]);
-	hp->timeout = (int)(strtod(av[1], NULL) * 1000.0);
+	d = VNUM(av[1]);
+	if (isnan(d))
+		vtc_log(vl, 0, "timeout is not a number (%s)", av[1]);
+	hp->timeout = (int)(d * 1000.0);
 }
 
 /**********************************************************************
@@ -1126,10 +1217,12 @@ cmd_http_expect_close(CMD_ARGS)
 		fds[0].fd = hp->fd;
 		fds[0].events = POLLIN | POLLERR;
 		fds[0].revents = 0;
-		i = poll(fds, 1, 1000);
+		i = poll(fds, 1, hp->timeout);
+		if (i < 0 && errno == EINTR)
+			continue;
 		if (i == 0)
 			vtc_log(vl, hp->fatal, "Expected close: timeout");
-		if (i != 1 || !(fds[0].revents & POLLIN))
+		if (i != 1 || !(fds[0].revents & (POLLIN|POLLERR)))
 			vtc_log(vl, hp->fatal,
 			    "Expected close: poll = %d, revents = 0x%x",
 			    i, fds[0].revents);
@@ -1196,7 +1289,6 @@ cmd_http_loop(CMD_ARGS)
 {
 	struct http *hp;
 	unsigned n, m;
-	char *s;
 
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
 	AN(av[1]);
@@ -1205,9 +1297,7 @@ cmd_http_loop(CMD_ARGS)
 	n = strtoul(av[1], NULL, 0);
 	for (m = 1 ; m <= n; m++) {
 		vtc_log(vl, 4, "Loop #%u", m);
-		s = strdup(av[2]);
-		AN(s);
-		parse_string(s, cmd, hp, vl);
+		parse_string(av[2], cmd, hp, vl);
 	}
 }
 
@@ -1250,7 +1340,10 @@ static const struct cmds http_cmds[] = {
 	{ "rxrespbody",		cmd_http_rxrespbody },
 	{ "gunzip",		cmd_http_gunzip_body },
 	{ "expect",		cmd_http_expect },
+	{ "recv",		cmd_http_recv },
 	{ "send",		cmd_http_send },
+	{ "send_n",		cmd_http_send_n },
+	{ "send_urgent",	cmd_http_send_urgent },
 	{ "sendhex",		cmd_http_sendhex },
 	{ "chunked",		cmd_http_chunked },
 	{ "chunkedlen",		cmd_http_chunkedlen },
@@ -1269,7 +1362,6 @@ int
 http_process(struct vtclog *vl, const char *spec, int sock, int *sfd)
 {
 	struct http *hp;
-	char *s, *q;
 	int retval;
 
 	(void)sfd;
@@ -1287,11 +1379,7 @@ http_process(struct vtclog *vl, const char *spec, int sock, int *sfd)
 	AN(hp->rxbuf);
 	AN(hp->vsb);
 
-	s = strdup(spec);
-	q = strchr(s, '\0');
-	assert(q > s);
-	AN(s);
-	parse_string(s, http_cmds, hp, vl);
+	parse_string(spec, http_cmds, hp, vl);
 	retval = hp->fd;
 	VSB_delete(hp->vsb);
 	free(hp->rxbuf);

@@ -68,7 +68,7 @@
 #         return (deliver);
 #     }
 #     // fetch & deliver once we get the result
-#     return (fetch);
+#     return (miss);
 # }
 # 
 # sub vcl_miss {
@@ -151,7 +151,6 @@
 # # Housekeeping
 # 
 # sub vcl_init {
-#     return (ok);
 # }
 # 
 # sub vcl_fini {

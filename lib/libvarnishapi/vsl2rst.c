@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011-2014 Varnish Software AS
+ * Copyright (c) 2011-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -29,8 +29,8 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

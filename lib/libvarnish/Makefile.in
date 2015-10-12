@@ -109,9 +109,10 @@ libvarnish_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(CFLAGS) $(libvarnish_la_LDFLAGS) $(LDFLAGS) -o $@
 @ENABLE_TESTS_TRUE@am__EXEEXT_1 = vnum_c_test$(EXEEXT)
 PROGRAMS = $(noinst_PROGRAMS)
-am__vnum_c_test_SOURCES_DIST = vnum.c
+am__vnum_c_test_SOURCES_DIST = vnum.c vas.c
 @ENABLE_TESTS_TRUE@am_vnum_c_test_OBJECTS =  \
-@ENABLE_TESTS_TRUE@	vnum_c_test-vnum.$(OBJEXT)
+@ENABLE_TESTS_TRUE@	vnum_c_test-vnum.$(OBJEXT) \
+@ENABLE_TESTS_TRUE@	vnum_c_test-vas.$(OBJEXT)
 vnum_c_test_OBJECTS = $(am_vnum_c_test_OBJECTS)
 @ENABLE_TESTS_TRUE@vnum_c_test_DEPENDENCIES = $(am__DEPENDENCIES_1)
 vnum_c_test_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -269,6 +270,7 @@ DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
 DL_LIBS = @DL_LIBS@
+DOT = @DOT@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -296,6 +298,7 @@ LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
@@ -432,14 +435,14 @@ libvarnish_la_SOURCES = \
 
 libvarnish_la_CFLAGS = -DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"'
 libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM} @PCRE_LIBS@
-@ENABLE_TESTS_TRUE@vnum_c_test_SOURCES = vnum.c
+@ENABLE_TESTS_TRUE@vnum_c_test_SOURCES = vnum.c vas.c
 @ENABLE_TESTS_TRUE@vnum_c_test_CFLAGS = -DNUM_C_TEST -include config.h
 @ENABLE_TESTS_TRUE@vnum_c_test_LDADD = ${LIBM}
 all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .html .lo .log .o .obj .test .test$(EXEEXT)
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -464,9 +467,9 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-$(top_srcdir)/configure:  $(am__configure_deps)
+$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 install-pkglibLTLIBRARIES: $(pkglib_LTLIBRARIES)
@@ -546,6 +549,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvarnish_la-vsub.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvarnish_la-vtcp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvarnish_la-vtim.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vnum_c_test-vas.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vnum_c_test-vnum.Po@am__quote@
 
 .c.o:
@@ -757,6 +761,20 @@ vnum_c_test-vnum.obj: vnum.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vnum.c' object='vnum_c_test-vnum.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(vnum_c_test_CFLAGS) $(CFLAGS) -c -o vnum_c_test-vnum.obj `if test -f 'vnum.c'; then $(CYGPATH_W) 'vnum.c'; else $(CYGPATH_W) '$(srcdir)/vnum.c'; fi`
+
+vnum_c_test-vas.o: vas.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(vnum_c_test_CFLAGS) $(CFLAGS) -MT vnum_c_test-vas.o -MD -MP -MF $(DEPDIR)/vnum_c_test-vas.Tpo -c -o vnum_c_test-vas.o `test -f 'vas.c' || echo '$(srcdir)/'`vas.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/vnum_c_test-vas.Tpo $(DEPDIR)/vnum_c_test-vas.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vas.c' object='vnum_c_test-vas.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(vnum_c_test_CFLAGS) $(CFLAGS) -c -o vnum_c_test-vas.o `test -f 'vas.c' || echo '$(srcdir)/'`vas.c
+
+vnum_c_test-vas.obj: vas.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(vnum_c_test_CFLAGS) $(CFLAGS) -MT vnum_c_test-vas.obj -MD -MP -MF $(DEPDIR)/vnum_c_test-vas.Tpo -c -o vnum_c_test-vas.obj `if test -f 'vas.c'; then $(CYGPATH_W) 'vas.c'; else $(CYGPATH_W) '$(srcdir)/vas.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/vnum_c_test-vas.Tpo $(DEPDIR)/vnum_c_test-vas.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vas.c' object='vnum_c_test-vas.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(vnum_c_test_CFLAGS) $(CFLAGS) -c -o vnum_c_test-vas.obj `if test -f 'vas.c'; then $(CYGPATH_W) 'vas.c'; else $(CYGPATH_W) '$(srcdir)/vas.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

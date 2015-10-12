@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -28,20 +28,24 @@
  *
  */
 
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
+#include "vdef.h"
 #include "vas.h"
 #include "miniobj.h"
+
 #include "vqueue.h"
-#include "vtree.h"
+#include "vre.h"
 #include "vtim.h"
+#include "vtree.h"
 
 #include "vapi/vsl.h"
+
 #include "vsl_api.h"
 
 #define VTX_CACHE 10
@@ -677,7 +681,9 @@ vtx_parse_link(const char *str, enum VSL_transaction_e *ptype,
 {
 	char type[16], reason[16];
 	unsigned vxid;
-	int i, j;
+	int i;
+	enum VSL_transaction_e et;
+	enum VSL_reason_e er;
 
 	AN(str);
 	AN(ptype);
@@ -687,25 +693,30 @@ vtx_parse_link(const char *str, enum VSL_transaction_e *ptype,
 	i = sscanf(str, "%15s %u %15s", type, &vxid, reason);
 	if (i < 1)
 		return (0);
-	for (j = 0; j < VSL_t__MAX; j++)
-		if (!strcmp(type, vsl_t_names[j]))
+
+	/* transaction type */
+	for (et = 0; et < VSL_t__MAX; et++)
+		if (!strcmp(type, vsl_t_names[et]))
 			break;
-	if (j < VSL_t__MAX)
-		*ptype = j;
-	else
-		*ptype = VSL_t_unknown;
+	if (et >= VSL_t__MAX)
+		et = VSL_t_unknown;
+	*ptype = et;
 	if (i == 1)
 		return (1);
+
+	/* vxid */
+	assert((vxid & ~VSL_IDENTMASK) == 0);
 	*pvxid = vxid;
 	if (i == 2)
 		return (2);
-	for (j = 0; j < VSL_r__MAX; j++)
-		if (!strcmp(reason, vsl_r_names[j]))
+
+	/* transaction reason */
+	for (er = 0; er < VSL_r__MAX; er++)
+		if (!strcmp(reason, vsl_r_names[er]))
 			break;
-	if (j < VSL_r__MAX)
-		*preason = j;
-	else
-		*preason = VSL_r_unknown;
+	if (er >= VSL_r__MAX)
+		er = VSL_r_unknown;
+	*preason = er;
 	return (3);
 }
 
@@ -1050,7 +1061,6 @@ VSLQ_New(struct VSL_data *vsl, struct VSL_cursor **cp,
 	struct VSLQ *vslq;
 
 	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
-	AN(cp);
 	if (grouping > VSL_g_session) {
 		(void)vsl_diag(vsl, "Illegal query grouping");
 		return (NULL);
@@ -1065,8 +1075,10 @@ VSLQ_New(struct VSL_data *vsl, struct VSL_cursor **cp,
 	ALLOC_OBJ(vslq, VSLQ_MAGIC);
 	AN(vslq);
 	vslq->vsl = vsl;
-	vslq->c = *cp;
-	*cp = NULL;
+	if (cp != NULL) {
+		vslq->c = *cp;
+		*cp = NULL;
+	}
 	vslq->grouping = grouping;
 	vslq->query = query;
 
@@ -1103,19 +1115,12 @@ VSLQ_Delete(struct VSLQ **pvslq)
 	CHECK_OBJ_NOTNULL(vslq, VSLQ_MAGIC);
 
 	(void)VSLQ_Flush(vslq, NULL, NULL);
-	AN(VTAILQ_EMPTY(&vslq->incomplete));
-
-	while (!VTAILQ_EMPTY(&vslq->ready)) {
-		vtx = VTAILQ_FIRST(&vslq->ready);
-		CHECK_OBJ_NOTNULL(vtx, VTX_MAGIC);
-		VTAILQ_REMOVE(&vslq->ready, vtx, list_vtx);
-		AN(vtx->flags & VTX_F_READY);
-		vtx_retire(vslq, &vtx);
-	}
 	AZ(vslq->n_outstanding);
 
-	VSL_DeleteCursor(vslq->c);
-	vslq->c = NULL;
+	if (vslq->c != NULL) {
+		VSL_DeleteCursor(vslq->c);
+		vslq->c = NULL;
+	}
 
 	if (vslq->query != NULL)
 		vslq_deletequery(&vslq->query);
@@ -1130,6 +1135,26 @@ VSLQ_Delete(struct VSLQ **pvslq)
 	}
 
 	FREE_OBJ(vslq);
+}
+
+void
+VSLQ_SetCursor(struct VSLQ *vslq, struct VSL_cursor **cp)
+{
+
+	CHECK_OBJ_NOTNULL(vslq, VSLQ_MAGIC);
+
+	if (vslq->c != NULL) {
+		(void)VSLQ_Flush(vslq, NULL, NULL);
+		AZ(vslq->n_outstanding);
+		VSL_DeleteCursor(vslq->c);
+		vslq->c = NULL;
+	}
+
+	if (cp != NULL) {
+		AN(*cp);
+		vslq->c = *cp;
+		*cp = NULL;
+	}
 }
 
 /* Regard each log line as a single transaction, feed it through the query
@@ -1295,20 +1320,24 @@ VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 
 	CHECK_OBJ_NOTNULL(vslq, VSLQ_MAGIC);
 
+	/* Check that we have a cursor */
+	if (vslq->c == NULL)
+		return (-2);
+
 	if (vslq->grouping == VSL_g_raw)
 		return (vslq_raw(vslq, func, priv));
+
+	/* Process next cursor input */
+	i = vslq_next(vslq);
+	if (i <= 0)
+		/* At end of log or cursor reports error condition */
+		return (i);
 
 	/* Check shmref list and buffer if necessary */
 	r = vslq_shmref_check(vslq);
 	if (r)
 		/* Buffering of shm ref failed */
 		return (r);
-
-	/* Process next cursor input */
-	i = vslq_next(vslq);
-	if (i < 0)
-		/* Cursor reports error condition */
-		return (i);
 
 	/* Check vtx timeout */
 	now = VTIM_mono();
@@ -1322,7 +1351,8 @@ VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 	}
 
 	/* Check store limit */
-	while (vslq->n_outstanding > vslq->vsl->L_opt) {
+	while (vslq->n_outstanding > vslq->vsl->L_opt &&
+	    !(VTAILQ_EMPTY(&vslq->incomplete))) {
 		vtx = VTAILQ_FIRST(&vslq->incomplete);
 		CHECK_OBJ_NOTNULL(vtx, VTX_MAGIC);
 		vtx_force(vslq, vtx, "store overflow");
@@ -1345,8 +1375,7 @@ VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 	return (i);
 }
 
-/* Flush incomplete any incomplete vtx held on to. Do callbacks if func !=
-   NULL */
+/* Flush any incomplete vtx held on to. Do callbacks if func != NULL */
 int
 VSLQ_Flush(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 {

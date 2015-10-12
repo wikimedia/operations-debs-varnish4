@@ -30,9 +30,11 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <stdio.h>
@@ -43,8 +45,13 @@
 #include "vtc.h"
 
 #include "vev.h"
+#include "vfil.h"
+#include "vnum.h"
 #include "vqueue.h"
 #include "vrnd.h"
+#include "vsa.h"
+#include "vss.h"
+#include "vtcp.h"
 #include "vtim.h"
 
 #define		MAX_FILESIZE		(1024 * 1024)
@@ -74,6 +81,7 @@ struct vtc_job {
 
 int iflg = 0;
 unsigned vtc_maxdur = 60;
+unsigned vtc_bufsiz = 512 * 1024;
 
 static VTAILQ_HEAD(, vtc_tst) tst_head = VTAILQ_HEAD_INITIALIZER(tst_head);
 static struct vev_base *vb;
@@ -83,9 +91,11 @@ static int vtc_continue;		/* Continue on error */
 static int vtc_verbosity = 1;		/* Verbosity Level */
 static int vtc_good;
 static int vtc_fail;
-static int leave_temp;
 static char *tmppath;
 static char *cwd = NULL;
+int leave_temp;
+int vtc_witness = 0;
+int feature_dns;
 
 /**********************************************************************
  * Parse a -D option argument into a name/val pair, and insert
@@ -108,37 +118,6 @@ parse_D_opt(char *arg)
 }
 
 /**********************************************************************
- * Read a file into memory
- */
-
-static char *
-read_file(const char *fn)
-{
-	char *buf;
-	ssize_t sz = MAX_FILESIZE;
-	ssize_t s;
-	int fd;
-
-	fd = open(fn, O_RDONLY);
-	if (fd < 0)
-		return (NULL);
-	buf = malloc(sz);
-	assert(buf != NULL);
-	s = read(fd, buf, sz - 1);
-	if (s <= 0) {
-		free(buf);
-		(void)close(fd);
-		return (NULL);
-	}
-	AZ(close (fd));
-	assert(s < sz);		/* XXX: increase MAX_FILESIZE */
-	buf[s] = '\0';
-	buf = realloc(buf, s + 1);
-	assert(buf != NULL);
-	return (buf);
-}
-
-/**********************************************************************
  * Print usage
  */
 
@@ -147,16 +126,19 @@ usage(void)
 {
 	fprintf(stderr, "usage: varnishtest [options] file ...\n");
 #define FMT "    %-28s # %s\n"
+	fprintf(stderr, FMT, "-b size",
+	    "Set internal buffer size (default: 512K)");
 	fprintf(stderr, FMT, "-D name=val", "Define macro");
 	fprintf(stderr, FMT, "-i", "Find varnishd in build tree");
 	fprintf(stderr, FMT, "-j jobs", "Run this many tests in parallel");
 	fprintf(stderr, FMT, "-k", "Continue on test failure");
-	fprintf(stderr, FMT, "-l", "Leave temporary vtc.* if test fails");
 	fprintf(stderr, FMT, "-L", "Always leave temporary vtc.*");
+	fprintf(stderr, FMT, "-l", "Leave temporary vtc.* if test fails");
 	fprintf(stderr, FMT, "-n iterations", "Run tests this many times");
 	fprintf(stderr, FMT, "-q", "Quiet mode: report only failures");
 	fprintf(stderr, FMT, "-t duration", "Time tests out after this long");
 	fprintf(stderr, FMT, "-v", "Verbose mode: always report test log");
+	fprintf(stderr, FMT, "-W", "Enable the witness facility for locking");
 	fprintf(stderr, "\n");
 	exit(1);
 }
@@ -178,13 +160,10 @@ tst_cb(const struct vev *ve, int what)
 	CAST_OBJ_NOTNULL(jp, ve->priv, JOB_MAGIC);
 
 	// printf("%p %s %d\n", ve, jp->tst->filename, what);
-	if (what == 0) {
-		/* XXX: Timeout */
-		AZ(kill(jp->child, SIGKILL));
-		jp->evt = NULL;
-		return (1);
-	}
-	assert(what & (EV_RD | EV_HUP));
+	if (what == 0)
+		AZ(kill(jp->child, SIGKILL)); /* XXX: Timeout */
+	else
+		assert(what & (EV_RD | EV_HUP));
 
 	*buf = '\0';
 	i = read(ve->fd, buf, sizeof buf - 1);
@@ -260,7 +239,7 @@ start_test(void)
 	ALLOC_OBJ(jp, JOB_MAGIC);
 	AN(jp);
 
-	jp->bufsiz = 512*1024;		/* XXX */
+	jp->bufsiz = vtc_bufsiz;
 
 	jp->buf = mmap(NULL, jp->bufsiz, PROT_READ|PROT_WRITE,
 	    MAP_ANON | MAP_SHARED, -1, 0);
@@ -345,7 +324,7 @@ i_mode(void)
 
 	vsb = VSB_new_auto();
 
-	q = p = read_file("Makefile");
+	q = p = VFIL_readfile(NULL, "Makefile", NULL);
 	if (p == NULL) {
 		fprintf(stderr, "No Makefile to search for -i flag.\n");
 		VSB_printf(vsb, "%s/../..", cwd);
@@ -415,6 +394,39 @@ i_mode(void)
 }
 
 /**********************************************************************
+ * Most test-cases use only numeric IP#'s but a few requires non-demented
+ * DNS services.  This is a basic sanity check for those.
+ */
+
+static int __match_proto__(vss_resolved_f)
+dns_cb(void *priv, const struct suckaddr *sa)
+{
+	char abuf[VTCP_ADDRBUFSIZE];
+	char pbuf[VTCP_PORTBUFSIZE];
+	int *ret = priv;
+
+	VTCP_name(sa, abuf, sizeof abuf, pbuf, sizeof pbuf);
+	if (strcmp(abuf, "130.225.244.222")) {
+		fprintf(stderr, "DNS-test: Wrong response: %s\n", abuf);
+		*ret = -1;
+	} else if (*ret == 0)
+		*ret = 1;
+	return (0);
+}
+
+static int
+dns_works(void)
+{
+	int ret = 0, error;
+	const char *msg;
+
+	error = VSS_resolver("phk.freebsd.dk", NULL, dns_cb, &ret, &msg);
+	if (error || msg != NULL || ret != 1)
+		return (0);
+	return (1);
+}
+
+/**********************************************************************
  * Main
  */
 
@@ -425,6 +437,7 @@ main(int argc, char * const *argv)
 	int ntest = 1;			/* Run tests this many times */
 	struct vtc_tst *tp;
 	char *p;
+	uintmax_t bufsiz;
 
 	/* Default names of programs */
 #define VTC_PROG(l)	extmacro_def(#l, #l);
@@ -446,12 +459,25 @@ main(int argc, char * const *argv)
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
-	while ((ch = getopt(argc, argv, "D:ij:klLn:qt:v")) != -1) {
+	while ((ch = getopt(argc, argv, "b:D:hij:kLln:qt:vW")) != -1) {
 		switch (ch) {
+		case 'b':
+			if (VNUM_2bytes(optarg, &bufsiz, 0)) {
+				fprintf(stderr, "Cannot parse b opt '%s'\n",
+				    optarg);
+				exit(2);
+			}
+			if (bufsiz > UINT_MAX) {
+				fprintf(stderr, "Invalid b opt '%s'\n",
+				    optarg);
+				exit(2);
+			}
+			vtc_bufsiz = (unsigned)bufsiz;
+			break;
 		case 'D':
 			if (!parse_D_opt(optarg)) {
 				fprintf(stderr, "Cannot parse D opt '%s'\n",
-					optarg);
+				    optarg);
 				exit(2);
 			}
 			break;
@@ -461,11 +487,11 @@ main(int argc, char * const *argv)
 		case 'j':
 			npar = strtoul(optarg, NULL, 0);
 			break;
-		case 'l':
-			leave_temp = 1;
-			break;
 		case 'L':
 			leave_temp = 2;
+			break;
+		case 'l':
+			leave_temp = 1;
 			break;
 		case 'k':
 			vtc_continue = !vtc_continue;
@@ -484,6 +510,9 @@ main(int argc, char * const *argv)
 			if (vtc_verbosity < 2)
 				vtc_verbosity++;
 			break;
+		case 'W':
+			vtc_witness++;
+			break;
 		default:
 			usage();
 		}
@@ -492,7 +521,7 @@ main(int argc, char * const *argv)
 	argv += optind;
 
 	for (;argc > 0; argc--, argv++) {
-		p = read_file(*argv);
+		p = VFIL_readfile(NULL, *argv, NULL);
 		if (p == NULL) {
 			fprintf(stderr, "Cannot stat file \"%s\": %s\n",
 			    *argv, strerror(errno));
@@ -507,6 +536,8 @@ main(int argc, char * const *argv)
 		tp->ntodo = ntest;
 		VTAILQ_INSERT_TAIL(&tst_head, tp, list);
 	}
+
+	feature_dns = dns_works();
 
 	if (iflg)
 		i_mode();

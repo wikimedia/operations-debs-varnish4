@@ -55,6 +55,9 @@
 /* Define to 1 if you have the <execinfo.h> header file. */
 #undef HAVE_EXECINFO_H
 
+/* Define to 1 if you have the `fallocate' function. */
+#undef HAVE_FALLOCATE
+
 /* Define to 1 if you have the `fmtcheck' function. */
 #undef HAVE_FMTCHECK
 
@@ -222,9 +225,6 @@
 
 /* Define if OS supports TCP_KEEP* socket options */
 #undef HAVE_TCP_KEEP
-
-/* Define to 1 if you have the `timegm' function. */
-#undef HAVE_TIMEGM
 
 /* Define to 1 if you have the <umem.h> header file. */
 #undef HAVE_UMEM_H

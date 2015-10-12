@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -38,12 +38,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
 #include <signal.h>
 #include <time.h>
 #include <sys/time.h>
 #include <poll.h>
 #include <stdint.h>
+#include <math.h>
 
 #include "vas.h"
 #include "miniobj.h"
@@ -62,7 +62,7 @@
 #define LINES_POINTS_MIN	3
 
 #define N_COL			6
-#define COLW			13
+#define COLW			14
 #define COLW_NAME_MIN		24
 
 struct ma {
@@ -79,7 +79,8 @@ struct pt {
 
 	char			*key;
 	char			*name;
-	int			flag;
+	int			semantics;
+	int			format;
 	const volatile uint64_t	*ptr;
 
 	char			seen;
@@ -124,6 +125,7 @@ static int current = 0;
 static int rebuild = 0;
 static int redraw = 0;
 static int sample = 0;
+static int scale = 1;
 static double t_sample = 0.;
 static double interval = 1.;
 
@@ -273,7 +275,7 @@ build_pt_list_cb(void *priv, const struct VSC_point *vpt)
 
 	CAST_OBJ_NOTNULL(pt_priv, priv, PT_PRIV_MAGIC);
 
-	AZ(strcmp(vpt->desc->fmt, "uint64_t"));
+	AZ(strcmp(vpt->desc->ctype, "uint64_t"));
 	snprintf(buf, sizeof buf, "%s.%s.%s", vpt->section->type,
 	    vpt->section->ident, vpt->desc->name);
 	buf[sizeof buf - 1] = '\0';
@@ -316,11 +318,8 @@ build_pt_list_cb(void *priv, const struct VSC_point *vpt)
 
 	pt->ptr = vpt->ptr;
 	pt->last = *pt->ptr;
-	pt->flag = vpt->desc->flag;
-	if (pt->flag == 'a')
-		pt->flag = 'c';
-	if (pt->flag == 'i')
-		pt->flag = 'g';
+	pt->semantics = vpt->desc->semantics;
+	pt->format = vpt->desc->format;
 
 	pt->ma_10.nmax = 10;
 	pt->ma_100.nmax = 100;
@@ -385,15 +384,15 @@ sample_points(void)
 		pt->t_cur = VTIM_mono();
 
 		if (pt->t_last)
-			pt->chg = ((intmax_t)pt->cur - (intmax_t)pt->last) /
+			pt->chg = ((int64_t)pt->cur - (int64_t)pt->last) /
 			    (pt->t_cur - pt->t_last);
 
-		if (pt->flag == 'g') {
+		if (pt->semantics == 'g') {
 			pt->avg = 0.;
-			update_ma(&pt->ma_10, pt->cur);
-			update_ma(&pt->ma_100, pt->cur);
-			update_ma(&pt->ma_1000, pt->cur);
-		} else if (pt->flag == 'c') {
+			update_ma(&pt->ma_10, (int64_t)pt->cur);
+			update_ma(&pt->ma_100, (int64_t)pt->cur);
+			update_ma(&pt->ma_1000, (int64_t)pt->cur);
+		} else if (pt->semantics == 'c') {
 			if (VSC_C_main != NULL && VSC_C_main->uptime)
 				pt->avg = pt->cur / VSC_C_main->uptime;
 			else
@@ -538,6 +537,14 @@ make_windows(void)
 }
 
 static void
+print_duration(WINDOW *w, time_t t)
+{
+
+	wprintw(w, "%4d+%02d:%02d:%02d",
+	    t / 86400, (t % 86400) / 3600, (t % 3600) / 60, t % 60);
+}
+
+static void
 draw_status(void)
 {
 	time_t up_mgt = 0;
@@ -553,12 +560,10 @@ draw_status(void)
 	if (VSC_C_main != NULL)
 		up_chld = VSC_C_main->uptime;
 
-	mvwprintw(w_status, 0, 0, "Uptime mgt:   %d+%02d:%02d:%02d",
-	    up_mgt / 86400, (up_mgt % 86400) / 3600, (up_mgt % 3600) / 60,
-	    up_mgt % 60);
-	mvwprintw(w_status, 1, 0, "Uptime child: %d+%02d:%02d:%02d",
-	    up_chld / 86400, (up_chld % 86400) / 3600, (up_chld % 3600) / 60,
-	    up_chld % 60);
+	mvwprintw(w_status, 0, 0, "Uptime mgt:  ");
+	print_duration(w_status, up_mgt);
+	mvwprintw(w_status, 1, 0, "Uptime child:");
+	print_duration(w_status, up_chld);
 
 	if (VSC_C_mgt == NULL)
 		mvwprintw(w_status, 0, COLS - strlen(discon), discon);
@@ -594,10 +599,10 @@ draw_bar_t(void)
 	x = 0;
 	werase(w_bar_t);
 	if (page_start > 0)
-		mvwaddch(w_bar_t, 0, x, ACS_UARROW);
-	x += 2;
-	mvwprintw(w_bar_t, 0, x, "%.*s", colw_name - 2, "NAME");
-	x += colw_name - 2;
+		mvwprintw(w_bar_t, 0, x, "^^^");
+	x += 4;
+	mvwprintw(w_bar_t, 0, x, "%.*s", colw_name - 4, "NAME");
+	x += colw_name - 4;
 	col = 0;
 	while (col < COL_LAST) {
 		if (X - x < COLW)
@@ -684,6 +689,87 @@ draw_line_default(WINDOW *w, int y, int x, int X, struct pt *pt)
 	}
 }
 
+static double
+scale_bytes(double val, char *q)
+{
+	const char *p;
+
+	for (p = " KMGTPEZY"; *p; p++) {
+		if (fabs(val) < 1024.)
+			break;
+		val /= 1024.;
+	}
+	*q = *p;
+	return (val);
+}
+
+static void
+print_bytes(WINDOW *w, double val)
+{
+	char q = ' ';
+
+	if (scale)
+		val = scale_bytes(val, &q);
+	wprintw(w, " %12.2f%c", val, q);
+}
+
+static void
+draw_line_bytes(WINDOW *w, int y, int x, int X, struct pt *pt)
+{
+	enum {
+		COL_CUR,
+		COL_CHG,
+		COL_AVG,
+		COL_MA10,
+		COL_MA100,
+		COL_MA1000,
+		COL_LAST
+	} col;
+
+	AN(w);
+	AN(pt);
+
+	col = 0;
+	while (col < COL_LAST) {
+		if (X - x < COLW)
+			break;
+		wmove(w, y, x);
+		switch (col) {
+		case COL_CUR:
+			if (scale && pt->cur > 1024)
+				print_bytes(w, (double)pt->cur);
+			else
+				wprintw(w, " %12ju", (uintmax_t)pt->cur);
+			break;
+		case COL_CHG:
+			if (pt->t_last)
+				print_bytes(w, pt->chg);
+			else
+				wprintw(w, " %12s", ".  ");
+			break;
+		case COL_AVG:
+			if (pt->avg)
+				print_bytes(w, pt->avg);
+			else
+				wprintw(w, " %12s", ".  ");
+			break;
+		case COL_MA10:
+			print_bytes(w, pt->ma_10.acc);
+			break;
+		case COL_MA100:
+			print_bytes(w, pt->ma_100.acc);
+			break;
+		case COL_MA1000:
+			print_bytes(w, pt->ma_1000.acc);
+			break;
+		default:
+			break;
+		}
+		x += COLW;
+		col++;
+	}
+}
+
 static void
 draw_line_bitmap(WINDOW *w, int y, int x, int X, struct pt *pt)
 {
@@ -696,7 +782,7 @@ draw_line_bitmap(WINDOW *w, int y, int x, int X, struct pt *pt)
 
 	AN(w);
 	AN(pt);
-	assert(pt->flag == 'b');
+	assert(pt->format == 'b');
 
 	col = 0;
 	while (col < COL_LAST) {
@@ -728,6 +814,37 @@ draw_line_bitmap(WINDOW *w, int y, int x, int X, struct pt *pt)
 }
 
 static void
+draw_line_duration(WINDOW *w, int y, int x, int X, struct pt *pt)
+{
+	enum {
+		COL_DUR,
+		COL_LAST
+	} col;
+
+	AN(w);
+	AN(pt);
+
+	col = 0;
+	while (col < COL_LAST) {
+		if (X - x < COLW)
+			break;
+		switch (col) {
+		case COL_DUR:
+			wmove(w, y, x);
+			if (scale)
+				print_duration(w, pt->cur);
+			else
+				wprintw(w, " %12ju", (uintmax_t)pt->cur);
+			break;
+		default:
+			break;
+		}
+		x += COLW;
+		col++;
+	}
+}
+
+static void
 draw_line(WINDOW *w, int y, struct pt *pt)
 {
 	int x, X;
@@ -741,10 +858,20 @@ draw_line(WINDOW *w, int y, struct pt *pt)
 		mvwprintw(w, y, x, "%.*s", colw_name, pt->name);
 	x += colw_name;
 
-	if (pt->flag == 'b')
+	switch (pt->format) {
+	case 'b':
 		draw_line_bitmap(w, y, x, X, pt);
-	else
+		break;
+	case 'B':
+		draw_line_bytes(w, y, x, X, pt);
+		break;
+	case 'd':
+		draw_line_duration(w, y, x, X, pt);
+		break;
+	default:
 		draw_line_default(w, y, x, X, pt);
+		break;
+	}
 }
 
 static void
@@ -790,6 +917,7 @@ draw_bar_b(void)
 {
 	int x, X;
 	const struct VSC_level_desc *level;
+	char buf[64];
 
 	AN(w_bar_b);
 
@@ -797,17 +925,28 @@ draw_bar_b(void)
 	X = getmaxx(w_bar_b);
 	werase(w_bar_b);
 	if (page_start + l_points < n_ptarray)
-		mvwaddch(w_bar_b, 0, x, ACS_DARROW);
-	x += 2;
+		mvwprintw(w_bar_b, 0, x, "vvv");
+	x += 4;
 	if (current < n_ptarray - 1)
 		mvwprintw(w_bar_b, 0, x, "%s", ptarray[current]->name);
 
+	snprintf(buf, sizeof(buf) - 1, "%d-%d/%d", page_start + 1,
+	    page_start + l_points < n_ptarray ?
+		page_start + l_points : n_ptarray,
+	    n_ptarray);
+	mvwprintw(w_bar_b, 0, X - strlen(buf), buf);
+	X -= strlen(buf) + 2;
+
 	level = VSC_LevelDesc(verbosity);
-	if (level != NULL)
-		mvwprintw(w_bar_b, 0, X - 7, "%7s", level->label);
-	X -= 7;
-	if (!hide_unseen)
-		mvwprintw(w_bar_b, 0, X - 6, "%6s", "UNSEEN");
+	if (level != NULL) {
+		mvwprintw(w_bar_b, 0, X - strlen(level->label), "%s",
+		    level->label);
+		X -= strlen(level->label) + 2;
+	}
+	if (!hide_unseen) {
+		mvwprintw(w_bar_b, 0, X - 6, "%s", "UNSEEN");
+		X -= 8;
+	}
 
 	wnoutrefresh(w_bar_b);
 }
@@ -869,6 +1008,10 @@ handle_keypress(int ch)
 		break;
 	case 'd':
 		hide_unseen = 1 - hide_unseen;
+		rebuild = 1;
+		break;
+	case 'e':
+		scale = 1 - scale;
 		rebuild = 1;
 		break;
 	case 'g':

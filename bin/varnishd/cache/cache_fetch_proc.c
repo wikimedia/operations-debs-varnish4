@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -29,22 +29,14 @@
 
 #include "config.h"
 
-#include <inttypes.h>
-#include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "cache.h"
+#include "cache_filter.h"
 
-#include "hash/hash_slinger.h"
-
-#include "cache_backend.h"
 #include "vcli_priv.h"
 
 static unsigned fetchfrag;
-
-char vfp_init[] = "<init>";
-char vfp_fini[] = "<fini>";
 
 /*--------------------------------------------------------------------
  * We want to issue the first error we encounter on fetching and
@@ -56,17 +48,16 @@ char vfp_fini[] = "<fini>";
  */
 
 enum vfp_status
-VFP_Error(struct busyobj *bo, const char *fmt, ...)
+VFP_Error(struct vfp_ctx *vc, const char *fmt, ...)
 {
 	va_list ap;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	assert(bo->state >= BOS_REQ_DONE);
-	if (!bo->failed) {
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	if (!vc->failed) {
 		va_start(ap, fmt);
-		VSLbv(bo->vsl, SLT_FetchError, fmt, ap);
+		VSLbv(vc->wrk->vsl, SLT_FetchError, fmt, ap);
 		va_end(ap);
-		bo->failed = 1;
+		vc->failed = 1;
 	}
 	return (VFP_ERROR);
 }
@@ -76,73 +67,83 @@ VFP_Error(struct busyobj *bo, const char *fmt, ...)
  *
  */
 
-struct storage *
-VFP_GetStorage(struct busyobj *bo, ssize_t sz)
+enum vfp_status
+VFP_GetStorage(struct vfp_ctx *vc, ssize_t *sz, uint8_t **ptr)
 {
 	ssize_t l;
-	struct storage *st;
-	struct object *obj;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	obj = bo->fetch_obj;
-	CHECK_OBJ_NOTNULL(obj, OBJECT_MAGIC);
-	st = VTAILQ_LAST(&obj->store, storagehead);
-	if (st != NULL && st->len < st->space)
-		return (st);
 
-	AN(bo->stats);
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	AN(sz);
+	assert(*sz >= 0);
+	AN(ptr);
+
 	l = fetchfrag;
 	if (l == 0)
-		l = sz;
+		l = *sz;
 	if (l == 0)
 		l = cache_param->fetch_chunksize;
-	st = STV_alloc(bo, l);
-	if (st == NULL) {
-		(void)VFP_Error(bo, "Could not get storage");
-	} else {
-		AZ(st->len);
-		Lck_Lock(&bo->mtx);
-		VTAILQ_INSERT_TAIL(&obj->store, st, list);
-		Lck_Unlock(&bo->mtx);
+	*sz = l;
+	if (!ObjGetSpace(vc->wrk, vc->oc, sz, ptr)) {
+		*sz = 0;
+		*ptr = NULL;
+		return (VFP_Error(vc, "Could not get storage"));
 	}
-	return (st);
+	assert(*sz > 0);
+	AN(*ptr);
+	return (VFP_OK);
 }
 
 /**********************************************************************
  */
 
-static enum vfp_status
-vfp_call(struct busyobj *bo, int nbr, void *p, ssize_t *lp)
+void
+VFP_Setup(struct vfp_ctx *vc)
 {
-	AN(bo->vfps[nbr]);
-	return (bo->vfps[nbr](bo, p, lp, &bo->vfps_priv[nbr]));
+
+	INIT_OBJ(vc, VFP_CTX_MAGIC);
+	VTAILQ_INIT(&vc->vfp);
 }
 
-static void
-vfp_suck_fini(struct busyobj *bo)
-{
-	int i;
+/**********************************************************************
+ */
 
-	for (i = 0; i < bo->vfp_nxt; i++) {
-		if(bo->vfps[i] != NULL)
-			(void)vfp_call(bo, i, vfp_fini, NULL);
+void
+VFP_Close(struct vfp_ctx *vc)
+{
+	struct vfp_entry *vfe;
+
+	VTAILQ_FOREACH(vfe, &vc->vfp, list) {
+		if(vfe->vfp->fini != NULL)
+			vfe->vfp->fini(vc, vfe);
+		VSLb(vc->wrk->vsl, SLT_VfpAcct, "%s %ju %ju", vfe->vfp->name,
+		    (uintmax_t)vfe->calls, (uintmax_t)vfe->bytes_out);
 	}
 }
 
-static enum vfp_status
-vfp_suck_init(struct busyobj *bo)
+int
+VFP_Open(struct vfp_ctx *vc)
 {
-	enum vfp_status retval = VFP_ERROR;
-	int i;
+	struct vfp_entry *vfe;
 
-	for (i = 0; i < bo->vfp_nxt; i++) {
-		retval = vfp_call(bo, i, vfp_init, NULL);
-		if (retval != VFP_OK) {
-			vfp_suck_fini(bo);
-			break;
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->http, HTTP_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->wrk, WORKER_MAGIC);
+	AN(vc->wrk->vsl);
+
+	VTAILQ_FOREACH_REVERSE(vfe, &vc->vfp, vfp_entry_s, list) {
+		if (vfe->vfp->init == NULL)
+			continue;
+		vfe->closed = vfe->vfp->init(vc, vfe);
+		if (vfe->closed != VFP_OK && vfe->closed != VFP_NULL) {
+			(void)VFP_Error(vc, "Fetch filter %s failed to open",
+			    vfe->vfp->name);
+			VFP_Close(vc);
+			return (-1);
 		}
 	}
-	return (retval);
+
+	return (0);
 }
 
 /**********************************************************************
@@ -152,124 +153,61 @@ vfp_suck_init(struct busyobj *bo)
  */
 
 enum vfp_status
-VFP_Suck(struct busyobj *bo, void *p, ssize_t *lp)
+VFP_Suck(struct vfp_ctx *vc, void *p, ssize_t *lp)
 {
 	enum vfp_status vp;
+	struct vfp_entry *vfe;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
 	AN(p);
 	AN(lp);
-	assert(bo->vfp_nxt > 0);
-	bo->vfp_nxt--;
-	if (bo->vfps[bo->vfp_nxt] == NULL) {
-		*lp = 0;
-		vp = (enum vfp_status)bo->vfps_priv[bo->vfp_nxt];
-	} else {
-		vp = vfp_call(bo, bo->vfp_nxt, p, lp);
-		if (vp != VFP_OK) {
-			(void)vfp_call(bo, bo->vfp_nxt, vfp_fini, NULL);
-			bo->vfps[bo->vfp_nxt] = NULL;
-			bo->vfps_priv[bo->vfp_nxt] = vp;
+	vfe = vc->vfp_nxt;
+	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
+	vc->vfp_nxt = VTAILQ_NEXT(vfe, list);
+
+	if (vfe->closed == VFP_NULL) {
+		/* Layer asked to be bypassed when opened */
+		vp = VFP_Suck(vc, p, lp);
+	} else if (vfe->closed == VFP_OK) {
+		vp = vfe->vfp->pull(vc, vfe, p, lp);
+		if (vp != VFP_OK && vp != VFP_END && vp != VFP_ERROR) {
+			(void)VFP_Error(vc, "Fetch filter %s returned %d",
+			    vfe->vfp->name, vp);
+			vp = VFP_ERROR;
 		}
+		vfe->closed = vp;
+		vfe->calls++;
+		vfe->bytes_out += *lp;
+	} else {
+		/* Already closed filter */
+		*lp = 0;
+		vp = vfe->closed;
 	}
-	bo->vfp_nxt++;
+	vc->vfp_nxt = vfe;
 	return (vp);
 }
 
 /*--------------------------------------------------------------------
  */
-
-void
-VFP_Fetch_Body(struct busyobj *bo, ssize_t est)
+struct vfp_entry *
+VFP_Push(struct vfp_ctx *vc, const struct vfp *vfp, int top)
 {
-	ssize_t l;
-	enum vfp_status vfps = VFP_ERROR;
-	struct storage *st = NULL;
+	struct vfp_entry *vfe;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-
-	AN(bo->vfp_nxt);
-
-	if (est < 0)
-		est = 0;
-
-	if (vfp_suck_init(bo) != VFP_OK) {
-		(void)VFP_Error(bo, "Fetch Pipeline failed to initialize");
-		bo->should_close = 1;
-		return;
-	}
-
-	do {
-		if (bo->abandon) {
-			/*
-			 * A pass object and delivery was terminted
-			 * We don't fail the fetch, in order for hit-for-pass
-			 * objects to be created.
-			 */
-			AN(bo->fetch_objcore->flags & OC_F_PASS);
-			VSLb(bo->vsl, SLT_FetchError,
-			    "Pass delivery abandoned");
-			vfps = VFP_END;
-			bo->should_close = 1;
-			break;
-		}
-		AZ(bo->failed);
-		if (st == NULL) {
-			st = VFP_GetStorage(bo, est);
-			est = 0;
-		}
-		if (st == NULL) {
-			bo->should_close = 1;
-			(void)VFP_Error(bo, "Out of storage");
-			break;
-		}
-
-		CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
-		assert(st == VTAILQ_LAST(&bo->fetch_obj->store, storagehead));
-		l = st->space - st->len;
-		AZ(bo->failed);
-		vfps = VFP_Suck(bo, st->ptr + st->len, &l);
-		if (l > 0 && vfps != VFP_ERROR) {
-			AZ(VTAILQ_EMPTY(&bo->fetch_obj->store));
-			VBO_extend(bo, l);
-		}
-		if (st->len == st->space)
-			st = NULL;
-	} while (vfps == VFP_OK);
-
-	if (vfps == VFP_ERROR) {
-		AN(bo->failed);
-		(void)VFP_Error(bo, "Fetch Pipeline failed to process");
-		bo->should_close = 1;
-	}
-
-	vfp_suck_fini(bo);
-
-	/*
-	 * Trim or delete the last segment, if any
-	 */
-
-	st = VTAILQ_LAST(&bo->fetch_obj->store, storagehead);
-	/* XXX: Temporary:  Only trim if we are not streaming */
-	if (st != NULL && !bo->do_stream) {
-		/* None of this this is safe under streaming */
-		if (st->len == 0) {
-			VTAILQ_REMOVE(&bo->fetch_obj->store, st, list);
-			STV_free(st);
-		} else if (st->len < st->space) {
-			STV_trim(st, st->len, 1);
-		}
-	}
-}
-
-void
-VFP_Push(struct busyobj *bo, vfp_pull_f *func, intptr_t priv)
-{
-
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	bo->vfps_priv[bo->vfp_nxt] = priv;
-	bo->vfps[bo->vfp_nxt] = func;
-	bo->vfp_nxt++;
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->http, HTTP_MAGIC);
+	vfe = WS_Alloc(vc->http->ws, sizeof *vfe);
+	AN(vfe);
+	INIT_OBJ(vfe, VFP_ENTRY_MAGIC);
+	vfe->vfp = vfp;
+	vfe->closed = VFP_OK;
+	if (top)
+		VTAILQ_INSERT_HEAD(&vc->vfp, vfe, list);
+	else
+		VTAILQ_INSERT_TAIL(&vc->vfp, vfe, list);
+	if (VTAILQ_FIRST(&vc->vfp) == vfe)
+		vc->vfp_nxt = vfe;
+	return (vfe);
 }
 
 /*--------------------------------------------------------------------

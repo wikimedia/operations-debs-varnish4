@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -31,8 +31,15 @@
 /*lint -save -e525 -e539 */
 
 #ifdef SESS_STEP
-SESS_STEP(newreq,	NEWREQ)
-SESS_STEP(working,	WORKING)
+SESS_STEP(h1newsess,	H1NEWSESS)
+SESS_STEP(h1newreq,	H1NEWREQ)
+SESS_STEP(h1proc,	H1PROC)
+SESS_STEP(h1busy,	H1BUSY)
+SESS_STEP(h1cleanup,	H1CLEANUP)
+SESS_STEP(h1_last,	H1_LAST)
+
+SESS_STEP(proxynewsess,	PROXYNEWSESS)
+SESS_STEP(proxy_last,	PROXY_LAST)
 #endif
 
 #ifdef REQ_STEP

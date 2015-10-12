@@ -29,7 +29,6 @@
 
 #include "config.h"
 
-#include <math.h>
 #include <stdlib.h>
 
 #include "cache.h"
@@ -67,12 +66,12 @@ RFC2616_Ttl(struct busyobj *bo, double now)
 {
 	unsigned max_age, age;
 	double h_date, h_expires;
-	char *p;
+	const char *p;
 	const struct http *hp;
 	struct exp *expp;
 
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	expp = &bo->exp;
+	expp = &bo->fetch_objcore->exp;
 
 	hp = bo->beresp;
 
@@ -112,15 +111,25 @@ RFC2616_Ttl(struct busyobj *bo, double now)
 	default:
 		expp->ttl = -1.;
 		break;
+	case 302: /* Moved Temporarily */
+	case 307: /* Temporary Redirect */
+		/*
+		 * https://tools.ietf.org/html/rfc7231#section-6.1
+		 *
+		 * Do not apply the default ttl, only set a ttl if Cache-Control
+		 * or Expires are present. Uncacheable otherwise.
+		 */
+		expp->ttl = -1.;
+		/* FALL-THROUGH */
 	case 200: /* OK */
 	case 203: /* Non-Authoritative Information */
+	case 204: /* No Content */
 	case 300: /* Multiple Choices */
 	case 301: /* Moved Permanently */
-	case 302: /* Moved Temporarily */
-	case 304: /* Not Modified */
-	case 307: /* Temporary Redirect */
-	case 410: /* Gone */
+	case 304: /* Not Modified - handled like 200 */
 	case 404: /* Not Found */
+	case 410: /* Gone */
+	case 414: /* Request-URI Too Large */
 		/*
 		 * First find any relative specification from the backend
 		 * These take precedence according to RFC2616, 13.2.4
@@ -173,114 +182,23 @@ RFC2616_Ttl(struct busyobj *bo, double now)
 
 	}
 
-	/* calculated TTL, Our time, Date, Expires, max-age, age */
+	/*
+	 * RFC5861 outlines a way to control the use of stale responses.
+	 * We use this to initialize the grace period.
+	 */
+	if (expp->ttl >= 0 && http_GetHdrField(hp, H_Cache_Control,
+	    "stale-while-revalidate", &p) && p != NULL) {
+
+		if (*p == '-')
+			expp->grace = 0;
+		else
+			expp->grace = strtoul(p, NULL, 0);
+	}
+
 	VSLb(bo->vsl, SLT_TTL,
 	    "RFC %.0f %.0f %.0f %.0f %.0f %.0f %.0f %u",
-	    expp->ttl, -1., -1., now,
+	    expp->ttl, expp->grace, -1., now,
 	    expp->t_origin, h_date, h_expires, max_age);
-}
-
-/*--------------------------------------------------------------------
- * Body existence, fetch method and close policy.
- */
-
-enum body_status
-RFC2616_Body(struct busyobj *bo, struct dstat *stats)
-{
-	struct http *hp;
-	char *b;
-
-	hp = bo->beresp;
-
-	if (hp->protover < 11 && !http_HdrIs(hp, H_Connection, "keep-alive"))
-		bo->should_close = 1;
-	else if (http_HdrIs(hp, H_Connection, "close"))
-		bo->should_close = 1;
-	else
-		bo->should_close = 0;
-
-	if (!strcasecmp(http_GetReq(bo->bereq), "head")) {
-		/*
-		 * A HEAD request can never have a body in the reply,
-		 * no matter what the headers might say.
-		 * [RFC2516 4.3 p33]
-		 */
-		stats->fetch_head++;
-		return (BS_NONE);
-	}
-
-	if (hp->status <= 199) {
-		/*
-		 * 1xx responses never have a body.
-		 * [RFC2616 4.3 p33]
-		 */
-		stats->fetch_1xx++;
-		return (BS_NONE);
-	}
-
-	if (hp->status == 204) {
-		/*
-		 * 204 is "No Content", obviously don't expect a body.
-		 * [RFC2616 10.2.5 p60]
-		 */
-		stats->fetch_204++;
-		return (BS_NONE);
-	}
-
-	if (hp->status == 304) {
-		/*
-		 * 304 is "Not Modified" it has no body.
-		 * [RFC2616 10.3.5 p63]
-		 */
-		stats->fetch_304++;
-		return (BS_NONE);
-	}
-
-	if (http_HdrIs(hp, H_Transfer_Encoding, "chunked")) {
-		stats->fetch_chunked++;
-		return (BS_CHUNKED);
-	}
-
-	if (http_GetHdr(hp, H_Transfer_Encoding, &b)) {
-		stats->fetch_bad++;
-		return (BS_ERROR);
-	}
-
-	if (http_GetHdr(hp, H_Content_Length, &bo->h_content_length)) {
-		stats->fetch_length++;
-		return (BS_LENGTH);
-	}
-
-	if (http_HdrIs(hp, H_Connection, "keep-alive")) {
-		/*
-		 * Keep alive with neither TE=Chunked or C-Len is impossible.
-		 * We assume a zero length body.
-		 */
-		stats->fetch_zero++;
-		return (BS_NONE);
-	}
-
-	if (http_HdrIs(hp, H_Connection, "close")) {
-		/*
-		 * In this case, it is safe to just read what comes.
-		 */
-		stats->fetch_close++;
-		return (BS_EOF);
-	}
-
-	if (hp->protover < 11) {
-		/*
-		 * With no Connection header, assume EOF.
-		 */
-		stats->fetch_oldhttp++;
-		return (BS_EOF);
-	}
-
-	/*
-	 * Fall back to EOF transfer.
-	 */
-	stats->fetch_eof++;
-	return (BS_EOF);
 }
 
 /*--------------------------------------------------------------------
@@ -297,7 +215,7 @@ RFC2616_Req_Gzip(const struct http *hp)
 	 * p104 says to not do q values for x-gzip, so we just test
 	 * for its existence.
 	 */
-	if (http_GetHdrData(hp, H_Accept_Encoding, "x-gzip", NULL))
+	if (http_GetHdrToken(hp, H_Accept_Encoding, "x-gzip", NULL, NULL))
 		return (1);
 
 	/*
@@ -317,26 +235,25 @@ RFC2616_Req_Gzip(const struct http *hp)
 int
 RFC2616_Do_Cond(const struct req *req)
 {
-	char *p, *e;
-	double ims;
+	const char *p, *e;
+	double ims, lm;
 	int do_cond = 0;
 
 	/* RFC 2616 13.3.4 states we need to match both ETag
 	   and If-Modified-Since if present*/
 
 	if (http_GetHdr(req->http, H_If_Modified_Since, &p) ) {
-		if (!req->obj->last_modified)
-			return (0);
 		ims = VTIM_parse(p);
 		if (ims > req->t_req)	/* [RFC2616 14.25] */
 			return (0);
-		if (req->obj->last_modified > ims)
+		AZ(ObjGetDouble(req->wrk, req->objcore, OA_LASTMODIFIED, &lm));
+		if (lm > ims)
 			return (0);
 		do_cond = 1;
 	}
 
 	if (http_GetHdr(req->http, H_If_None_Match, &p) &&
-	    http_GetHdr(req->obj->http, H_ETag, &e)) {
+	    http_GetHdr(req->resp, H_ETag, &e)) {
 		if (strcmp(p,e) != 0)
 			return (0);
 		do_cond = 1;
@@ -350,7 +267,7 @@ RFC2616_Do_Cond(const struct req *req)
 void
 RFC2616_Weaken_Etag(struct http *hp)
 {
-	char *p;
+	const char *p;
 
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 
@@ -361,4 +278,21 @@ RFC2616_Weaken_Etag(struct http *hp)
 		return;
 	http_Unset(hp, H_ETag);
 	http_PrintfHeader(hp, "ETag: W/%s", p);
+}
+
+/*--------------------------------------------------------------------*/
+
+void
+RFC2616_Vary_AE(struct http *hp)
+{
+	const char *vary;
+
+	if (http_GetHdrToken(hp, H_Vary, "Accept-Encoding", NULL, NULL))
+		return;
+	if (http_GetHdr(hp, H_Vary, &vary)) {
+		http_Unset(hp, H_Vary);
+		http_PrintfHeader(hp, "Vary: %s, Accept-Encoding", vary);
+	} else {
+		http_SetHeader(hp, "Vary: Accept-Encoding");
+	}
 }

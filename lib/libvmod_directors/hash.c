@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Varnish Software AS
+ * Copyright (c) 2013-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -32,7 +32,7 @@
 #include <stdlib.h>
 
 #include "cache/cache.h"
-#include "cache/cache_backend.h"
+#include "cache/cache_director.h"
 
 #include "vrt.h"
 #include "vbm.h"
@@ -47,7 +47,6 @@ struct vmod_directors_hash {
 	unsigned				magic;
 #define VMOD_DIRECTORS_HASH_MAGIC		0xc08dd611
 	struct vdir				*vd;
-	unsigned				n_backend;
 	struct vbitmap				*vbm;
 };
 
@@ -65,7 +64,7 @@ vmod_hash__init(VRT_CTX, struct vmod_directors_hash **rrp,
 	rr->vbm = vbit_init(8);
 	AN(rr->vbm);
 	*rrp = rr;
-	vdir_new(&rr->vd, vcl_name, NULL, NULL, rr);
+	vdir_new(&rr->vd, "hash", vcl_name, NULL, NULL, rr);
 }
 
 VCL_VOID __match_proto__()
@@ -89,7 +88,6 @@ vmod_hash_add_backend(VRT_CTX,
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_HASH_MAGIC);
 	(void)vdir_add_backend(rr->vd, be, w);
-	rr->n_backend++;
 }
 
 VCL_BACKEND __match_proto__()
@@ -120,6 +118,6 @@ vmod_hash_backend(VRT_CTX, struct vmod_directors_hash *rr,
 	r = vbe32dec(sha256);
 	r = scalbn(r, -32);
 	assert(r >= 0 && r <= 1.0);
-	be = vdir_pick_be(rr->vd, r, rr->n_backend);
+	be = vdir_pick_be(rr->vd, r);
 	return (be);
 }

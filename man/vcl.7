@@ -1,8 +1,35 @@
-.TH VCL  "" "" ""
-.SH NAME
-VCL \- Varnish Configuration Language
 .\" Man page generated from reStructeredText.
 .
+.TH VCL 7 "" "" ""
+.SH NAME
+VCL \- Varnish Configuration Language
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
 .SH DESCRIPTION
 .sp
 The VCL language is a small domain\-specific language designed to be
@@ -225,7 +252,7 @@ Timeout for first byte.
 Timeout between bytes.
 .TP
 .B probe
-Attach a probe to the backend. See Probes.
+Attach a probe to the backend. See \fI\%Probes\fP
 .TP
 .B max_connections
 Maximum number of open connections towards this backend. If
@@ -236,16 +263,16 @@ connections.
 .UNINDENT
 .sp
 Backends can be used with \fIdirectors\fP. Please see the
-vmod_directors(3) man page for more information.
+\fIvmod_directors(3)\fP man page for more information.
 .SS Probes
 .sp
 Probes will query the backend for status on a regular basis and mark
-the backend as down it they fail. A probe is defined as this::
+the backend as down it they fail. A probe is defined as this:
 .sp
 .nf
 .ft C
 probe name {
-     .attribute = "value";
+    .attribute = "value";
 }
 .ft P
 .fi
@@ -260,8 +287,8 @@ The URL to query. Defaults to "/".
 .TP
 .B request
 Specify a full HTTP request using multiple strings. .request will
-have rn automatically inserted after every string. If specified,
-.request will take precedence over .url.
+have \er\en automatically inserted after every string. If
+specified, .request will take precedence over .url.
 .TP
 .B expected_response
 The expected HTTP response code. Defaults to 200.
@@ -320,9 +347,7 @@ if (client.ip ~ localnetwork) {
 .fi
 .SS VCL objects
 .sp
-A VCL object can be made with the \fInew\fP keyword.
-.sp
-Example:
+A VCL object can be instantiated with the \fInew\fP keyword:
 .sp
 .nf
 .ft C
@@ -332,6 +357,8 @@ sub vcl_init {
 }
 .ft P
 .fi
+.sp
+This is only available in vcl_init.
 .SS Subroutines
 .sp
 A subroutine is used to group code for legibility or reusability:
@@ -399,6 +426,8 @@ Type: BACKEND
 Readable from: vcl_pipe, backend
 .sp
 Writable from: vcl_pipe, backend
+.sp
+This is the backend or director we attempt to fetch from.
 .UNINDENT
 .UNINDENT
 .sp
@@ -539,6 +568,30 @@ Type: HTTP
 Readable from: vcl_backend_response, vcl_backend_error
 .sp
 The entire backend response HTTP data structure
+.UNINDENT
+.UNINDENT
+.sp
+beresp.age
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+The age of the object.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.backend
+.INDENT 0.0
+.INDENT 3.5
+Type: BACKEND
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+This is the backend we fetched from.  If bereq.backend
+was set to a director, this will be the backend selected
+by the director.
 .UNINDENT
 .UNINDENT
 .sp
@@ -733,7 +786,6 @@ Readable from: vcl_backend_response, vcl_backend_error
 Writable from: vcl_backend_response, vcl_backend_error
 .sp
 The object\(aqs remaining time to live, in seconds.
-beresp.ttl is writable.
 .UNINDENT
 .UNINDENT
 .sp
@@ -753,6 +805,19 @@ get stored as a hit\-for\-pass object in the cache.
 .sp
 Clearing the variable has no effect and will log the warning
 "Ignoring attempt to reset beresp.uncacheable".
+.UNINDENT
+.UNINDENT
+.sp
+beresp.was_304
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Boolean. If this is a successful 304 response to a
+backend conditional request refreshing an existing
+cache object.
 .UNINDENT
 .UNINDENT
 .SS client
@@ -781,6 +846,18 @@ Readable from: client
 The client\(aqs IP address.
 .UNINDENT
 .UNINDENT
+.SS local
+.sp
+local.ip
+.INDENT 0.0
+.INDENT 3.5
+Type: IP
+.sp
+Readable from: client
+.sp
+The IP address of the local end of the TCP connection.
+.UNINDENT
+.UNINDENT
 .SS now
 .sp
 now
@@ -795,6 +872,17 @@ used in string context it returns a formatted string.
 .UNINDENT
 .UNINDENT
 .SS obj
+.sp
+obj.age
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: vcl_hit
+.sp
+The age of the object.
+.UNINDENT
+.UNINDENT
 .sp
 obj.grace
 .INDENT 0.0
@@ -893,6 +981,20 @@ Type: BOOL
 Readable from: vcl_deliver
 .sp
 Whether the object is uncacheable (pass or hit\-for\-pass).
+.UNINDENT
+.UNINDENT
+.SS remote
+.sp
+remote.ip
+.INDENT 0.0
+.INDENT 3.5
+Type: IP
+.sp
+Readable from: client
+.sp
+The IP address of the other end of the TCP connection.
+This can either be the clients IP, or the outgoing IP
+of a proxy server.
 .UNINDENT
 .UNINDENT
 .SS req
@@ -1073,6 +1175,58 @@ Readable from: client
 Unique ID of this request.
 .UNINDENT
 .UNINDENT
+.SS req_top
+.sp
+req_top.http.
+.INDENT 0.0
+.INDENT 3.5
+Type: HEADER
+.sp
+Readable from: client
+.sp
+HTTP headers of the top\-level request in a tree of ESI requests.
+Identical to req.http. in non\-ESI requests.
+.UNINDENT
+.UNINDENT
+.sp
+req_top.method
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+The request method of the top\-level request in a tree
+of ESI requests. (e.g. "GET", "HEAD").
+Identical to req.method in non\-ESI requests.
+.UNINDENT
+.UNINDENT
+.sp
+req_top.proto
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+HTTP protocol version of the top\-level request in a tree of
+ESI requests.
+Identical to req.proto in non\-ESI requests.
+.UNINDENT
+.UNINDENT
+.sp
+req_top.url
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+The requested URL of the top\-level request in a tree
+of ESI requests.
+Identical to req.url in non\-ESI requests.
+.UNINDENT
+.UNINDENT
 .SS resp
 .sp
 resp
@@ -1096,6 +1250,18 @@ Readable from: vcl_deliver, vcl_synth
 Writable from: vcl_deliver, vcl_synth
 .sp
 The corresponding HTTP header.
+.UNINDENT
+.UNINDENT
+.sp
+resp.is_streaming
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_deliver, vcl_synth
+.sp
+Returns true when the response will be streamed
+from the backend.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1221,19 +1387,9 @@ The following built\-in functions are available:
 Invalidates all objects in cache that match the expression with the
 ban mechanism.
 .TP
-.B call(subroutine)
-Run a VCL subroutine within the current scope.
-.TP
 .B hash_data(input)
 Adds an input to the hash input. In the built\-in VCL hash_data()
 is called on the host and URL of the \fIrequest\fP. Available in vcl_hash.
-.TP
-.B new()
-Instanciate a new VCL object. Available in vcl_init.
-.TP
-.B return()
-End execution of the current VCL subroutine, and continue to the next step
-in the request handling state machine.
 .TP
 .B rollback()
 Restore \fIreq\fP HTTP headers to their original state. This function is
@@ -1259,17 +1415,20 @@ As regsub() but this replaces all occurrences.
 .UNINDENT
 .\" regsub* is in vcc_expr.c
 .
+.sp
+For converting or casting VCL values between data types use the functions
+available in the std VMOD.
 .SH EXAMPLES
 .sp
 For examples, please see the online documentation.
 .SH SEE ALSO
 .INDENT 0.0
 .IP \(bu 2
-varnishd(1)
+\fIvarnishd(1)\fP
 .IP \(bu 2
-vmod_directors(3)
+\fIvmod_directors(3)\fP
 .IP \(bu 2
-vmod_std(3)
+\fIvmod_std(3)\fP
 .UNINDENT
 .SH HISTORY
 .sp
@@ -1285,7 +1444,7 @@ itself. See LICENSE for details.
 .IP \(bu 2
 Copyright (c) 2006 Verdens Gang AS
 .IP \(bu 2
-Copyright (c) 2006\-2014 Varnish Software AS
+Copyright (c) 2006\-2015 Varnish Software AS
 .UNINDENT
 .\" Generated by docutils manpage writer.
 .\" 

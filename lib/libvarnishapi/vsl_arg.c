@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -34,22 +34,27 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
-#include "miniobj.h"
+#include "vdef.h"
 #include "vas.h"
+#include "miniobj.h"
+
+#include "vbm.h"
+#include "vnum.h"
+#include "vqueue.h"
+#include "vre.h"
 
 #include "vapi/vsl.h"
 #include "vapi/vsm.h"
-#include "vbm.h"
-#include "vre.h"
+
 #include "vsl_api.h"
 #include "vsm_api.h"
 
@@ -338,18 +343,16 @@ VSL_Arg(struct VSL_data *vsl, int opt, const char *arg)
 			p++;
 		if (*p != '\0')
 			return (vsl_diag(vsl, "-L: Syntax error"));
-		if (l < 0 || l > INT_MAX)
+		if (l <= 0 || l > INT_MAX)
 			return (vsl_diag(vsl, "-L: Range error"));
 		vsl->L_opt = (int)l;
 		return (1);
 	case 'T':
-		d = strtod(arg, &p);
-		while (isspace(*p))
-			p++;
-		if (*p != '\0')
-			return (vsl_diag(vsl, "-P: Syntax error"));
+		d = VNUM(arg);
+		if (isnan(d))
+			return (vsl_diag(vsl, "-T: Syntax error"));
 		if (d < 0.)
-			return (vsl_diag(vsl, "-L: Range error"));
+			return (vsl_diag(vsl, "-T: Range error"));
 		vsl->T_opt = d;
 		return (1);
 	case 'v': vsl->v_opt = 1; return (1);
