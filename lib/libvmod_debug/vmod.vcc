@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010-2014 Varnish Software AS
+# Copyright (c) 2010-2015 Varnish Software AS
 # All rights reserved.
 #
 # Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -34,12 +34,12 @@ This vmod is used to develop, test and debug the various aspects
 of VMOD handling in Varnish.
 
 
-$Init init_function
+$Event event_function
 $Function VOID panic(STRING_LIST)
 
 Don't.
 
-$Function STRING author(ENUM { phk, des, kristian, mithrandir })
+$Function STRING author(ENUM { phk, des, kristian, mithrandir } person="phk")
 
 Test function for ENUM arguments
 
@@ -51,11 +51,19 @@ $Function VOID test_priv_vcl(PRIV_VCL)
 
 Test function for VCL private pointers
 
-$Function BLOB str2blob(STRING)
+$Function STRING test_priv_task(PRIV_TASK, STRING)
+
+Test function for TASK private pointers
+
+$Function STRING test_priv_top(PRIV_TOP, STRING)
+
+Test function for TOP private pointers
+
+$Function BLOB str2blob(STRING src="foo")
 
 Turn a string into a blob
 
-$Function STRING blob2hex(BLOB)
+$Function STRING blob2hex(BLOB src)
 
 Hexdump a blob
 
@@ -63,7 +71,7 @@ $Function BACKEND no_backend()
 
 Fails at backend selection
 
-$Object obj(STRING) 
+$Object obj(STRING)
 
 Test object
 
@@ -81,7 +89,52 @@ $Method TIME .date()
 
 You never know when you need a date.
 
-$Function VOID rot52(HTTP)
+$Function VOID rot52(HTTP hdr)
 
 Encrypt the HTTP header with quad-ROT13 encryption,
 (this is approx 33% better than triple-DES).
+
+$Function STRING argtest(STRING one, REAL two=2, STRING three="3",
+	  STRING comma=",")
+
+$Function INT vre_limit()
+
+$Function VOID register_exp_callback(PRIV_VCL)
+
+Register the vmod to receive expiry callbacks
+
+$Function VOID init_fail()
+
+Function to fail vcl_init{}
+
+$Function VOID sleep(DURATION)
+
+Sleep the current worker thread.
+
+$Object dyn(STRING addr, STRING port)
+
+Dynamically create a single-backend director
+
+$Method BACKEND .backend()
+
+Return the dynamic backend.
+
+$Method VOID .refresh(STRING addr, STRING port)
+
+Dynamically refresh & (always!) replace the backend by a new one.
+
+$Function VOID workspace_allocate(ENUM { client, backend, session, thread }, INT SIZE)
+
+Allocate and zero out SIZE bytes from a workspace.
+
+$Function BOOL workspace_overflowed(ENUM { client, backend, session, thread })
+
+Return if the workspace overflow mark is set or not.
+
+$Function VOID workspace_overflow(ENUM { client, backend, session, thread })
+
+Mark a workspace as overflowed.
+
+$Function INT workspace_free(ENUM { client, backend, session, thread })
+
+Find how much unallocated space there is left in a workspace.

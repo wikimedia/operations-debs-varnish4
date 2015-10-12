@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Varnish Software AS
+ * Copyright (c) 2014-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -65,5 +65,6 @@ HIS_OPT_p
 HIS_OPT_P
 VUT_OPT_q
 VUT_OPT_r
+VUT_OPT_t
 VSL_OPT_T
 VUT_OPT_V

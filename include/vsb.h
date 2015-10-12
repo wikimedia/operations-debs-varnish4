@@ -31,16 +31,14 @@
 #ifndef VSB_H_INCLUDED
 #define VSB_H_INCLUDED
 
-#include "vdef.h"
-
 /*
  * Structure definition
  */
 struct vsb {
 	unsigned	magic;
 #define VSB_MAGIC	0x4a82dd8a
-	char		*s_buf;		/* storage buffer */
 	int		 s_error;	/* current error code */
+	char		*s_buf;		/* storage buffer */
 	ssize_t		 s_size;	/* size of storage buffer */
 	ssize_t		 s_len;		/* current length of string */
 #define	VSB_FIXEDLEN	0x00000000	/* fixed length buffer (default) */
@@ -50,6 +48,7 @@ struct vsb {
 #define	VSB_FINISHED	0x00020000	/* set by VSB_finish() */
 #define	VSB_DYNSTRUCT	0x00080000	/* vsb must be freed */
 	int		 s_flags;	/* flags */
+	int		 s_indent;	/* Ident level */
 };
 
 #ifdef __cplusplus
@@ -62,27 +61,22 @@ struct vsb	*VSB_new(struct vsb *, char *, int, int);
 #define		 VSB_new_auto()				\
 	VSB_new(NULL, NULL, 0, VSB_AUTOEXTEND)
 void		 VSB_clear(struct vsb *);
-int		 VSB_setpos(struct vsb *, ssize_t);
 int		 VSB_bcat(struct vsb *, const void *, size_t);
-int		 VSB_bcpy(struct vsb *, const void *, size_t);
 int		 VSB_cat(struct vsb *, const char *);
-int		 VSB_cpy(struct vsb *, const char *);
 int		 VSB_printf(struct vsb *, const char *, ...)
-	__printflike(2, 3);
+	__v_printflike(2, 3);
 #ifdef va_start
 int		 VSB_vprintf(struct vsb *, const char *, va_list)
-	__printflike(2, 0);
+	__v_printflike(2, 0);
 #endif
 int		 VSB_putc(struct vsb *, int);
-int		 VSB_trim(struct vsb *);
 int		 VSB_error(const struct vsb *);
 int		 VSB_finish(struct vsb *);
 char		*VSB_data(const struct vsb *);
 ssize_t		 VSB_len(const struct vsb *);
-int		 VSB_done(const struct vsb *);
 void		 VSB_delete(struct vsb *);
 void		 VSB_quote(struct vsb *s, const char *p, int len, int how);
-const char	*VSB_unquote(struct vsb *s, const char *p, int len, int how);
+void		 VSB_indent(struct vsb *, int);
 #ifdef __cplusplus
 };
 #endif

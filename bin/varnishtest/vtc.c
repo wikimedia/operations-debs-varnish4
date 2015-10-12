@@ -32,6 +32,7 @@
 #include <sys/wait.h>
 
 #include <ctype.h>
+#include <errno.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -39,15 +40,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "vtc.h"
 
 #include "vav.h"
+#include "vnum.h"
 #include "vtim.h"
 
 #define		MAX_TOKENS		200
 
-static char		*vtc_desc;
 volatile sig_atomic_t	vtc_error;	/* Error encountered */
 int			vtc_stop;	/* Stops current test without error */
 pthread_t		vtc_thread;
@@ -252,26 +255,37 @@ extmacro_def(const char *name, const char *fmt, ...)
 }
 
 /**********************************************************************
- * Execute a file
+ * Parse a string
+ *
+ * We make a copy of the string and deliberately leak it, so that all
+ * the cmd functions we call don't have to strdup(3) all over the place.
+ *
+ * Static checkers like Coverity may bitch about this, but we don't care.
  */
 
 void
-parse_string(char *buf, const struct cmds *cmd, void *priv, struct vtclog *vl)
+parse_string(const char *spec, const struct cmds *cmd, void *priv,
+    struct vtclog *vl)
 {
 	char *token_s[MAX_TOKENS], *token_e[MAX_TOKENS];
 	struct vsb *token_exp[MAX_TOKENS];
-	char *p, *q, *f;
+	char *p, *q, *f, *buf;
 	int nest_brace;
 	int tn;
 	const struct cmds *cp;
 
-	assert(buf != NULL);
+	AN(spec);
+	buf = strdup(spec);
+	AN(buf);
 	for (p = buf; *p != '\0'; p++) {
 		if (vtc_error || vtc_stop)
 			break;
 		/* Start of line */
 		if (isspace(*p))
 			continue;
+		if (*p == '\n')
+			continue;
+
 		if (*p == '#') {
 			for (; *p != '\0' && *p != '\n'; p++)
 				;
@@ -279,6 +293,14 @@ parse_string(char *buf, const struct cmds *cmd, void *priv, struct vtclog *vl)
 				break;
 			continue;
 		}
+
+		q = strchr(p, '\n');
+		if (q == NULL)
+			q = strchr(p, '\0');
+		if (q - p > 60)
+			vtc_log(vl, 2, "=== %.60s...", p);
+		else
+			vtc_log(vl, 2, "=== %.*s", (int)(q - p), p);
 
 		/* First content on line, collect tokens */
 		tn = 0;
@@ -345,8 +367,9 @@ parse_string(char *buf, const struct cmds *cmd, void *priv, struct vtclog *vl)
 			if (NULL == strstr(token_s[tn], "${"))
 				continue;
 			token_exp[tn] = macro_expand(vl, token_s[tn]);
-			if (vtc_error)
+			if (vtc_error) {
 				return;
+			}
 			token_s[tn] = VSB_data(token_exp[tn]);
 			token_e[tn] = strchr(token_s[tn], '\0');
 		}
@@ -358,7 +381,6 @@ parse_string(char *buf, const struct cmds *cmd, void *priv, struct vtclog *vl)
 			vtc_log(vl, 0, "Unknown command: \"%s\"", token_s[0]);
 			return;
 		}
-		vtc_log(vl, 3, "%s", token_s[0]);
 
 		assert(cp->cmd != NULL);
 		cp->cmd(token_s, priv, cmd, vl);
@@ -395,7 +417,6 @@ cmd_varnishtest(CMD_ARGS)
 
 	vtc_log(vl, 1, "TEST %s", av[1]);
 	AZ(av[2]);
-	vtc_desc = strdup(av[1]);
 }
 
 /**********************************************************************
@@ -407,7 +428,7 @@ cmd_shell(CMD_ARGS)
 {
 	(void)priv;
 	(void)cmd;
-	int r;
+	int r, s;
 
 	if (av == NULL)
 		return;
@@ -415,7 +436,58 @@ cmd_shell(CMD_ARGS)
 	AZ(av[2]);
 	vtc_dump(vl, 4, "shell", av[1], -1);
 	r = system(av[1]);
-	AZ(WEXITSTATUS(r));
+	s = WEXITSTATUS(r);
+	if (s != 0)
+		vtc_log(vl, 0, "CMD '%s' failed with status %d (%s)",
+		    av[1], s, strerror(errno));
+}
+
+/**********************************************************************
+ * Shell command execution
+ */
+
+static void
+cmd_err_shell(CMD_ARGS)
+{
+	(void)priv;
+	(void)cmd;
+	struct vsb *vsb;
+	FILE *fp;
+	int r, c;
+
+	if (av == NULL)
+		return;
+	AN(av[1]);
+	AN(av[2]);
+	AZ(av[3]);
+	vsb = VSB_new_auto();
+	AN(vsb);
+	vtc_dump(vl, 4, "cmd", av[2], -1);
+	fp = popen(av[2], "r");
+	if (fp == NULL)
+		vtc_log(vl, 0, "popen fails: %s", strerror(errno));
+	do {
+		c = getc(fp);
+		if (c != EOF)
+			VSB_putc(vsb, c);
+	} while (c != EOF);
+	r = pclose(fp);
+	vtc_log(vl, 4, "Status = %d", WEXITSTATUS(r));
+	if (WIFSIGNALED(r))
+		vtc_log(vl, 4, "Signal = %d", WTERMSIG(r));
+	if (WEXITSTATUS(r) == 0) {
+		vtc_log(vl, 0,
+		    "expected error from shell");
+	}
+	AZ(VSB_finish(vsb));
+	vtc_dump(vl, 4, "stdout", VSB_data(vsb), VSB_len(vsb));
+	if (strstr(VSB_data(vsb), av[1]) == NULL)
+		vtc_log(vl, 0,
+		    "Did not find expected string: (\"%s\")", av[1]);
+	else
+		vtc_log(vl, 4,
+		    "Found expected string: (\"%s\")", av[1]);
+	VSB_delete(vsb);
 }
 
 /**********************************************************************
@@ -433,7 +505,7 @@ cmd_delay(CMD_ARGS)
 		return;
 	AN(av[1]);
 	AZ(av[2]);
-	f = strtod(av[1], NULL);
+	f = VNUM(av[1]);
 	vtc_log(vl, 3, "delaying %g second(s)", f);
 	VTIM_sleep(f);
 }
@@ -511,7 +583,25 @@ cmd_feature(CMD_ARGS)
 			continue;
 #endif
 		}
+		if (!strcmp(av[i], "dns") && feature_dns)
+			continue;
+
 		if (!strcmp(av[i], "topbuild") && iflg)
+			continue;
+
+		if (!strcmp(av[i], "root") && !geteuid())
+			continue;
+
+		if (!strcmp(av[i], "user_varnish") &&
+		    getpwnam("varnish") != NULL)
+			continue;
+
+		if (!strcmp(av[i], "user_vcache") &&
+		    getpwnam("vcache") != NULL)
+			continue;
+
+		if (!strcmp(av[i], "group_varnish") &&
+		    getgrnam("varnish") != NULL)
 			continue;
 
 		vtc_log(vl, 1, "SKIPPING test, missing feature: %s", av[i]);
@@ -531,10 +621,12 @@ static const struct cmds cmds[] = {
 	{ "delay",	cmd_delay },
 	{ "varnishtest",cmd_varnishtest },
 	{ "shell",	cmd_shell },
+	{ "err_shell",	cmd_err_shell },
 	{ "sema",	cmd_sema },
 	{ "random",	cmd_random },
 	{ "feature",	cmd_feature },
 	{ "logexpect",	cmd_logexp },
+	{ "process",	cmd_process },
 	{ NULL,		NULL }
 };
 
@@ -543,11 +635,10 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
     char *logbuf, unsigned loglen)
 {
 	unsigned old_err;
-	char *p;
 	FILE *f;
 	struct extmacro *m;
 
-	signal(SIGPIPE, SIG_IGN);
+	(void)signal(SIGPIPE, SIG_IGN);
 
 	vtc_loginit(logbuf, loglen);
 	vltop = vtc_logopen("top");
@@ -555,6 +646,7 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
 
 	init_macro();
 	init_sema();
+	init_server();
 
 	/* Apply extmacro definitions */
 	VTAILQ_FOREACH(m, &extmacro_list, list)
@@ -580,14 +672,10 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
 	AZ(fclose(f));
 
 	vtc_stop = 0;
-	vtc_desc = NULL;
 	vtc_log(vltop, 1, "TEST %s starting", fn);
 
-	p = strdup(script);
-	AN(p);
-
 	vtc_thread = pthread_self();
-	parse_string(p, cmds, NULL, vltop);
+	parse_string(script, cmds, NULL, vltop);
 	old_err = vtc_error;
 	vtc_stop = 1;
 	vtc_log(vltop, 1, "RESETTING after %s", fn);
@@ -599,6 +687,5 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
 	else
 		vtc_log(vltop, 1, "TEST %s completed", fn);
 
-	free(vtc_desc);
 	return (vtc_error);
 }

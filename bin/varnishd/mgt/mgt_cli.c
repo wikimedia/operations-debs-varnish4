@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <stdarg.h>
@@ -51,12 +52,16 @@
 #include "vcli_priv.h"
 #include "vcli_serve.h"
 #include "vev.h"
-#include "vlu.h"
 #include "vrnd.h"
+#include "vsa.h"
 #include "vss.h"
 #include "vtcp.h"
 
 #include "mgt_cli.h"
+
+#ifndef LOG_AUTHPRIV
+#  define LOG_AUTHPRIV	0
+#endif
 
 static int		cli_i = -1, cli_o = -1;
 static struct VCLS	*cls;
@@ -94,11 +99,12 @@ static struct cli_proto cli_proto[] = {
 	{ CLI_SERVER_STATUS,	"", mcf_server_status, NULL },
 	{ CLI_SERVER_START,	"", mcf_server_startstop, NULL },
 	{ CLI_SERVER_STOP,	"", mcf_server_startstop, cli_proto },
-	{ CLI_VCL_LOAD,		"", mcf_config_load, NULL },
-	{ CLI_VCL_INLINE,	"", mcf_config_inline, NULL },
-	{ CLI_VCL_USE,		"", mcf_config_use, NULL },
-	{ CLI_VCL_DISCARD,	"", mcf_config_discard, NULL },
-	{ CLI_VCL_LIST,		"", mcf_config_list, NULL },
+	{ CLI_VCL_LOAD,		"", mcf_vcl_load, NULL },
+	{ CLI_VCL_INLINE,	"", mcf_vcl_inline, NULL },
+	{ CLI_VCL_USE,		"", mcf_vcl_use, NULL },
+	{ CLI_VCL_STATE,	"", mcf_vcl_state, NULL },
+	{ CLI_VCL_DISCARD,	"", mcf_vcl_discard, NULL },
+	{ CLI_VCL_LIST,		"", mcf_vcl_list, NULL },
 	{ CLI_PARAM_SHOW,	"", mcf_param_show, NULL },
 	{ CLI_PARAM_SET,	"", mcf_param_set, NULL },
 	{ CLI_PANIC_SHOW,	"", mcf_panic_show, NULL },
@@ -282,18 +288,23 @@ mcf_auth(struct cli *cli, const char *const *av, void *priv)
 		VCLI_SetResult(cli, CLIS_CANT);
 		return;
 	}
+	VJ_master(JAIL_MASTER_FILE);
 	fd = open(secret_file, O_RDONLY);
 	if (fd < 0) {
 		VCLI_Out(cli, "Cannot open secret file (%s)\n",
 		    strerror(errno));
 		VCLI_SetResult(cli, CLIS_CANT);
+		VJ_master(JAIL_MASTER_LOW);
 		return;
 	}
+	VJ_master(JAIL_MASTER_LOW);
 	mgt_got_fd(fd);
 	VCLI_AuthResponse(fd, cli->challenge, buf);
 	AZ(close(fd));
 	if (strcasecmp(buf, av[2])) {
-		mgt_cli_challenge(cli);
+		syslog(LOG_WARNING|LOG_AUTHPRIV,
+		    "CLI Authentication failure from %s", cli->ident);
+		VCLI_SetResult(cli, CLIS_CLOSE);
 		return;
 	}
 	cli->auth = MCF_AUTH;
@@ -387,10 +398,6 @@ mgt_cli_setup(int fdi, int fdo, int verbose, const char *ident,
 	cli = VCLS_AddFd(cls, fdi, fdo, closefunc, priv);
 
 	cli->ident = strdup(ident);
-
-	/* Deal with TELNET options */
-	if (fdi != 0)
-		VLU_SetTelnet(cli->vlu, fdo);
 
 	if (fdi != 0 && secret_file != NULL) {
 		cli->auth = MCF_NOAUTH;
@@ -496,11 +503,13 @@ mgt_cli_secret(const char *S_arg)
 	/* Save in shmem */
 	mgt_SHM_static_alloc(S_arg, strlen(S_arg) + 1L, "Arg", "-S", "");
 
+	VJ_master(JAIL_MASTER_FILE);
 	fd = open(S_arg, O_RDONLY);
 	if (fd < 0) {
 		fprintf(stderr, "Can not open secret-file \"%s\"\n", S_arg);
 		exit(2);
 	}
+	VJ_master(JAIL_MASTER_LOW);
 	mgt_got_fd(fd);
 	i = read(fd, buf, sizeof buf);
 	if (i == 0) {
@@ -515,48 +524,52 @@ mgt_cli_secret(const char *S_arg)
 	secret_file = S_arg;
 }
 
-void
-mgt_cli_telnet(const char *T_arg)
+static int __match_proto__(vss_resolved_f)
+mct_callback(void *priv, const struct suckaddr *sa)
 {
-	struct vss_addr **ta;
-	int i, n, sock, good;
-	struct telnet *tn;
-	struct vsb *vsb;
+	int sock;
+	struct vsb *vsb = priv;
+	const char *err;
 	char abuf[VTCP_ADDRBUFSIZE];
 	char pbuf[VTCP_PORTBUFSIZE];
+	struct telnet *tn;
 
-	n = VSS_resolve(T_arg, NULL, &ta);
-	if (n == 0) {
-		REPORT(LOG_ERR, "-T %s Could not be resolved\n", T_arg);
-		exit(2);
-	}
-	good = 0;
-	vsb = VSB_new_auto();
-	XXXAN(vsb);
-	for (i = 0; i < n; ++i) {
-		sock = VSS_listen(ta[i], 10);
-		if (sock < 0)
-			continue;
+	VJ_master(JAIL_MASTER_PRIVPORT);
+	sock = VTCP_listen(sa, 10, &err);
+	VJ_master(JAIL_MASTER_LOW);
+	assert(sock != 0);		// We know where stdin is
+	if (sock > 0) {
 		VTCP_myname(sock, abuf, sizeof abuf, pbuf, sizeof pbuf);
 		VSB_printf(vsb, "%s %s\n", abuf, pbuf);
-		good++;
 		tn = telnet_new(sock);
 		tn->ev = vev_new();
-		XXXAN(tn->ev);
+		AN(tn->ev);
 		tn->ev->fd = sock;
 		tn->ev->fd_flags = POLLIN;
 		tn->ev->callback = telnet_accept;
 		tn->ev->priv = tn;
 		AZ(vev_add(mgt_evb, tn->ev));
-		free(ta[i]);
-		ta[i] = NULL;
 	}
-	free(ta);
-	if (good == 0) {
-		REPORT(LOG_ERR, "-T %s could not be listened on.", T_arg);
-		exit(2);
-	}
+	return (0);
+}
+
+void
+mgt_cli_telnet(const char *T_arg)
+{
+	int error;
+	const char *err;
+	struct vsb *vsb;
+
+	AN(T_arg);
+	vsb = VSB_new_auto();
+	AN(vsb);
+	error = VSS_resolver(T_arg, NULL, mct_callback, vsb, &err);
+	if (err != NULL)
+		ARGV_ERR("Could resolve -T argument to address\n\t%s\n", err);
+	AZ(error);
 	AZ(VSB_finish(vsb));
+	if (VSB_len(vsb) == 0)
+		ARGV_ERR("-T %s could not be listened on.", T_arg);
 	/* Save in shmem */
 	mgt_SHM_static_alloc(VSB_data(vsb), VSB_len(vsb) + 1, "Arg", "-T", "");
 	VSB_delete(vsb);
@@ -564,11 +577,19 @@ mgt_cli_telnet(const char *T_arg)
 
 /* Reverse CLI ("Master") connections --------------------------------*/
 
+struct m_addr {
+	unsigned		magic;
+#define M_ADDR_MAGIC		0xbc6217ed
+	struct suckaddr		*sa;
+	VTAILQ_ENTRY(m_addr)	list;
+};
+
 static int M_fd = -1;
 static struct vev *M_poker, *M_conn;
-static struct vss_addr **M_ta;
-static int M_nta, M_nxt;
 static double M_poll = 0.1;
+
+static VTAILQ_HEAD(,m_addr)	m_addr_list =
+    VTAILQ_HEAD_INITIALIZER(m_addr_list);
 
 static void
 Marg_closer(void *priv)
@@ -579,47 +600,51 @@ Marg_closer(void *priv)
 	M_fd = -1;
 }
 
-static int
-Marg_poker(const struct vev *e, int what)
+static int __match_proto__(vev_cb_f)
+Marg_connect(const struct vev *e, int what)
 {
 	struct vsb *vsb;
-	int s, k;
-	socklen_t l;
+	struct m_addr *ma;
 
-	(void)what;	/* XXX: ??? */
+	assert(e == M_conn);
+	(void)what;
 
-	if (e == M_conn) {
-		/* Our connect(2) returned, check result */
-		l = sizeof k;
-		AZ(getsockopt(M_fd, SOL_SOCKET, SO_ERROR, &k, &l));
-		if (k) {
-			errno = k;
-			syslog(LOG_INFO, "Could not connect to CLI-master: %m");
-			(void)close(M_fd);
-			M_fd = -1;
-			/* Try next address */
-			if (++M_nxt >= M_nta) {
-				M_nxt = 0;
-				if (M_poll < 10)
-					M_poll *= 2;
-			}
-			return (1);
-		}
-		vsb = sock_id("master", M_fd);
-		mgt_cli_setup(M_fd, M_fd, 0, VSB_data(vsb), Marg_closer, NULL);
-		VSB_delete(vsb);
-		M_poll = 1;
+	M_fd = VTCP_connected(M_fd);
+	if (M_fd < 0) {
+		syslog(LOG_INFO, "Could not connect to CLI-master: %m");
+		ma = VTAILQ_FIRST(&m_addr_list);
+		AN(ma);
+		VTAILQ_REMOVE(&m_addr_list, ma, list);
+		VTAILQ_INSERT_TAIL(&m_addr_list, ma, list);
+		if (M_poll < 10)
+			M_poll++;
 		return (1);
 	}
+	vsb = sock_id("master", M_fd);
+	mgt_cli_setup(M_fd, M_fd, 0, VSB_data(vsb), Marg_closer, NULL);
+	VSB_delete(vsb);
+	M_poll = 1;
+	return (1);
+}
+
+static int __match_proto__(vev_cb_f)
+Marg_poker(const struct vev *e, int what)
+{
+	int s;
+	struct m_addr *ma;
 
 	assert(e == M_poker);
+	(void)what;
 
 	M_poker->timeout = M_poll;	/* XXX nasty ? */
-	if (M_fd >= 0)
+	if (M_fd > 0)
 		return (0);
 
+	ma = VTAILQ_FIRST(&m_addr_list);
+	AN(ma);
+
 	/* Try to connect asynchronously */
-	s = VSS_connect(M_ta[M_nxt], 1);
+	s = VTCP_connect(ma->sa, -1);
 	if (s < 0)
 		return (0);
 
@@ -627,7 +652,7 @@ Marg_poker(const struct vev *e, int what)
 
 	M_conn = vev_new();
 	AN(M_conn);
-	M_conn->callback = Marg_poker;
+	M_conn->callback = Marg_connect;
 	M_conn->name = "-M connector";
 	M_conn->fd_flags = EV_WR;
 	M_conn->fd = s;
@@ -636,17 +661,33 @@ Marg_poker(const struct vev *e, int what)
 	return (0);
 }
 
+static int __match_proto__(vss_resolved_f)
+marg_cb(void *priv, const struct suckaddr *sa)
+{
+	struct m_addr *ma;
+
+	(void)priv;
+	ALLOC_OBJ(ma, M_ADDR_MAGIC);
+	AN(ma);
+	ma->sa = VSA_Clone(sa);
+	VTAILQ_INSERT_TAIL(&m_addr_list, ma, list);
+	return(0);
+}
+
 void
 mgt_cli_master(const char *M_arg)
 {
-	(void)M_arg;
+	const char *err;
+	int error;
 
-	M_nta = VSS_resolve(M_arg, NULL, &M_ta);
-	if (M_nta <= 0) {
-		fprintf(stderr, "Could resolve -M argument to address\n");
-		exit(2);
-	}
-	M_nxt = 0;
+	AN(M_arg);
+
+	error = VSS_resolver(M_arg, NULL, marg_cb, NULL, &err);
+	if (err != NULL)
+		ARGV_ERR("Could resolve -M argument to address\n\t%s\n", err);
+	AZ(error);
+	if (VTAILQ_EMPTY(&m_addr_list))
+		ARGV_ERR("Could not resolve -M argument to address\n");
 	AZ(M_poker);
 	M_poker = vev_new();
 	AN(M_poker);

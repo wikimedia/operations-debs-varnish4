@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2008 Verdens Gang AS
- * Copyright (c) 2008-2014 Varnish Software AS
+ * Copyright (c) 2008-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -30,7 +30,9 @@
  * NB: Remember to mark those in vsc_fields.h to be included in struct dstat.
  */
 
+/*lint -save -e525 -e539 */
 ACCT(req_hdrbytes)
 ACCT(req_bodybytes)
 ACCT(resp_hdrbytes)
 ACCT(resp_bodybytes)
+/*lint -restore */

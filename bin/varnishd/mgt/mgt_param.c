@@ -46,9 +46,16 @@
 
 #include "mgt_cli.h"
 
+struct plist {
+	unsigned			magic;
+#define PLIST_MAGIC			0xbfc3ea16
+	VTAILQ_ENTRY(plist)		list;
+	struct parspec			*spec;
+};
+
+static VTAILQ_HEAD(, plist)		phead = VTAILQ_HEAD_INITIALIZER(phead);
+
 struct params mgt_param;
-static int nparspec;
-static struct parspec ** parspecs;
 static const int margin1 = 8;
 static int margin2 = 0;
 static const int wrap_at = 72;
@@ -94,19 +101,40 @@ static const char ONLY_ROOT_TEXT[] =
 	"\n\n"
 	"NB: This parameter only works if varnishd is run as root.";
 
-
 /*--------------------------------------------------------------------*/
 
 static struct parspec *
 mcf_findpar(const char *name)
 {
-	int i;
+	struct plist *pl;
 
 	AN(name);
-	for (i = 0; i < nparspec; i++)
-		if (!strcmp(parspecs[i]->name, name))
-			return (parspecs[i]);
+	VTAILQ_FOREACH(pl, &phead, list)
+		if (!strcmp(pl->spec->name, name))
+			return (pl->spec);
 	return (NULL);
+}
+
+static void
+mcf_addpar(struct parspec *ps)
+{
+	struct plist *pl, *pl2;
+	int i;
+
+	ALLOC_OBJ(pl, PLIST_MAGIC);
+	AN(pl);
+	pl->spec = ps;
+	VTAILQ_FOREACH(pl2, &phead, list) {
+		i = strcmp(pl2->spec->name, pl->spec->name);
+		if (i == 0) {
+			fprintf(stderr, "Duplicate param: %s\n", ps->name);
+			exit(4);
+		} else if (i > 0) {
+			VTAILQ_INSERT_BEFORE(pl2, pl, list);
+			return;
+		}
+	}
+	VTAILQ_INSERT_TAIL(&phead, pl, list);
 }
 
 /*--------------------------------------------------------------------
@@ -205,7 +233,8 @@ mcf_wrap(struct cli *cli, const char *text)
 void
 mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 {
-	int i, n;
+	int n;
+	struct plist *pl;
 	const struct parspec *pp;
 	int lfmt = 0, chg = 0;
 	struct vsb *vsb;
@@ -219,8 +248,8 @@ mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 		lfmt = 1;
 
 	n = 0;
-	for (i = 0; i < nparspec; i++) {
-		pp = parspecs[i];
+	VTAILQ_FOREACH(pl, &phead, list) {
+		pp = pl->spec;
 		if (lfmt && strcmp(pp->name, av[2]) && strcmp("-l", av[2]))
 			continue;
 		n++;
@@ -245,8 +274,9 @@ mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 			VCLI_Out(cli, " (default)");
 		VCLI_Out(cli, "\n");
 		if (lfmt) {
-			VCLI_Out(cli, "%-*sDefault is: %s\n",
-			    margin1, "", pp->def);
+			if (pp->def != NULL && strcmp(pp->def, VSB_data(vsb)))
+				VCLI_Out(cli, "%-*sDefault is: %s\n",
+				    margin1, "", pp->def);
 			if (pp->min != NULL)
 				VCLI_Out(cli, "%-*sMinimum is: %s\n",
 				    margin1, "", pp->min);
@@ -337,7 +367,7 @@ MCF_ParamSet(struct cli *cli, const char *param, const char *val)
 		*heritage.param = mgt_param;
 
 	if (cli->result != CLIS_OK) {
-		VCLI_Out(cli, "\n(attempting to set param %s to %s)",
+		VCLI_Out(cli, "\n(attempting to set param '%s' to '%s')",
 		    pp->name, val);
 	} else if (child_pid >= 0 && pp->flags & MUST_RESTART) {
 		VCLI_Out(cli,
@@ -363,22 +393,12 @@ mcf_param_set(struct cli *cli, const char * const *av, void *priv)
  * Add a group of parameters to the global set and sort by name.
  */
 
-static int
-mcf_parspec_cmp(const void *a, const void *b)
-{
-	struct parspec * const * pa = a;
-	struct parspec * const * pb = b;
-	return (strcmp((*pa)->name, (*pb)->name));
-}
-
 void
 MCF_AddParams(struct parspec *ps)
 {
 	struct parspec *pp;
 	const char *s;
-	int n;
 
-	n = 0;
 	for (pp = ps; pp->name != NULL; pp++) {
 		AN(pp->func);
 		s = strchr(pp->descr, '\0');
@@ -387,22 +407,11 @@ MCF_AddParams(struct parspec *ps)
 			    "Param->descr has trailing space: %s\n", pp->name);
 			exit(4);
 		}
-		if (mcf_findpar(pp->name) != NULL) {
-			fprintf(stderr, "Duplicate param: %s\n", pp->name);
-			exit(4);
-		}
+		mcf_addpar(pp);
 		if (strlen(pp->name) + 1 > margin2)
 			margin2 = strlen(pp->name) + 1;
-		n++;
 	}
-	parspecs = realloc(parspecs, (1L + nparspec + n) * sizeof *parspecs);
-	XXXAN(parspecs);
-	for (pp = ps; pp->name != NULL; pp++)
-		parspecs[nparspec++] = pp;
-	parspecs[nparspec] = NULL;
-	qsort (parspecs, nparspec, sizeof parspecs[0], mcf_parspec_cmp);
 }
-
 
 /*--------------------------------------------------------------------
  * Wash a min/max/default value
@@ -416,12 +425,12 @@ mcf_wash_param(struct cli *cli, const struct parspec *pp, const char **val,
 
 	AN(*val);
 	VSB_clear(vsb);
-	VSB_printf(vsb, "FAILED to set %s for param %s = %s\n",
+	VSB_printf(vsb, "FAILED to set %s for param %s: %s\n",
 	    name, pp->name, *val);
 	err = pp->func(vsb, pp, *val);
 	AZ(VSB_finish(vsb));
 	if (err) {
-		VCLI_Out(cli, "%s", VSB_data(vsb));
+		VCLI_Out(cli, "%s\n", VSB_data(vsb));
 		VCLI_SetResult(cli, CLIS_CANT);
 		return;
 	}
@@ -442,21 +451,21 @@ mcf_wash_param(struct cli *cli, const struct parspec *pp, const char **val,
 void
 MCF_InitParams(struct cli *cli)
 {
+	struct plist *pl;
 	struct parspec *pp;
-	int i;
 	struct vsb *vsb;
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	for (i = 0; i < nparspec; i++) {
-		pp = parspecs[i];
+	VTAILQ_FOREACH(pl, &phead, list) {
+		pp = pl->spec;
 
 		if (pp->min != NULL)
-			mcf_wash_param(cli, pp, &pp->min, "Minimum", vsb);
+			mcf_wash_param(cli, pp, &pp->min, "minimum", vsb);
 		if (pp->max != NULL)
-			mcf_wash_param(cli, pp, &pp->max, "Maximum", vsb);
+			mcf_wash_param(cli, pp, &pp->max, "maximum", vsb);
 		AN(pp->def);
-		mcf_wash_param(cli, pp, &pp->def, "Default", vsb);
+		mcf_wash_param(cli, pp, &pp->def, "default", vsb);
 	}
 	VSB_delete(vsb);
 }
@@ -514,14 +523,15 @@ MCF_SetMaximum(const char *param, const char *new_max)
 void
 MCF_DumpRstParam(void)
 {
+	struct plist *pl;
 	const struct parspec *pp;
 	const char *p, *q, *t1, *t2;
-	int i, j;
+	int j;
 
 	printf("\n.. The following is the autogenerated "
 	    "output from varnishd -x dumprstparam\n\n");
-	for (i = 0; i < nparspec; i++) {
-		pp = parspecs[i];
+	VTAILQ_FOREACH(pl, &phead, list) {
+		pp = pl->spec;
 		printf(".. _ref_param_%s:\n\n", pp->name);
 		printf("%s\n", pp->name);
 		for (j = 0; j < strlen(pp->name); j++)

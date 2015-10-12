@@ -1,0 +1,245 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Changes in Varnish 4.1 &mdash; Varnish version 4.1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '4.1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="up" title="What&#39;s new in Varnish 4.1" href="index.html" />
+    <link rel="next" title="Upgrading to Varnish 4.1 (unreleased)" href="upgrading.html" />
+    <link rel="prev" title="What&#39;s new in Varnish 4.1" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="upgrading.html" title="Upgrading to Varnish 4.1 (unreleased)"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="What&#39;s new in Varnish 4.1"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="changes-in-varnish-4-1">
+<span id="whatsnew-changes"></span><h1>Changes in Varnish 4.1<a class="headerlink" href="#changes-in-varnish-4-1" title="Permalink to this headline">¶</a></h1>
+<p>Varnish 4.1 is the continuation of the new streaming architecture seen
+in Varnish 4.0.</p>
+</div>
+<div class="section" id="proactive-security-features">
+<h1>Proactive security features<a class="headerlink" href="#proactive-security-features" title="Permalink to this headline">¶</a></h1>
+<p>New in 4.1 is support for different kinds of privilege separation methods,
+collectively described as jails.</p>
+<p>On most systems, the Varnish parent process will now drop effective
+privileges to normal user mode when not doing operations needing special
+access.</p>
+<p>The Varnish worker child should now be run as a separate <cite>vcache</cite> user.</p>
+<p><tt class="docutils literal"><span class="pre">varnishlog</span></tt>, <tt class="docutils literal"><span class="pre">varnishncsa</span></tt> and other Varnish shared log utilities
+now must be run in a context with <cite>varnish</cite> group membership.</p>
+</div>
+<div class="section" id="warm-and-cold-vcl-configurations">
+<h1>Warm and cold VCL configurations<a class="headerlink" href="#warm-and-cold-vcl-configurations" title="Permalink to this headline">¶</a></h1>
+<p>Traditionally Varnish have had the concept of active and inactive
+loaded VCLs.  Any loaded VCL lead to state being kept, and a separate
+set of health checks (if configured) were being run against the backends.</p>
+<p>To avoid the extra state and backend polling, a loaded VCL is now either
+warm or cold. Runtime state (incl. backend counters) and health checks
+are not present for cold VCLs.</p>
+<p>A warm VCL will automatically be set to cold after <cite>vcl_cooldown</cite> seconds.</p>
+<p>Output from <cite>vcl.list</cite>:</p>
+<div class="highlight-python"><pre>varnish&gt; vcl.list
+200
+available  auto/warm       0 boot
+available  auto/warm       0 62f5275f-a937-4df9-9fbb-c12336bdfdb8</pre>
+</div>
+<p>A single VCL's state can be chanced with the <cite>vcl.state</cite> call in
+<tt class="docutils literal"><span class="pre">varnishadm</span></tt>:</p>
+<div class="highlight-python"><pre>vcl.state &lt;configname&gt; [auto|cold|warm]
+    Force the state of the named configuration.</pre>
+</div>
+<p>Example:</p>
+<div class="highlight-python"><pre>varnish&gt; vcl.state 62f5275f-a937-4df9-9fbb-c12336bdfdb8 cold
+200
+
+varnish&gt; vcl.list
+200
+available  auto/warm       0 boot
+available  auto/cold       0 62f5275f-a937-4df9-9fbb-c12336bdfdb8</pre>
+</div>
+<p>VMOD writers should read up on the new vcl_event system to
+release unnecessary state when a VCL is transitioned to cold (see
+<a class="reference internal" href="../reference/vmod.html#ref-vmod-event-functions"><em>Event functions</em></a>).</p>
+</div>
+<div class="section" id="proxy-protocol-support">
+<h1>PROXY protocol support<a class="headerlink" href="#proxy-protocol-support" title="Permalink to this headline">¶</a></h1>
+<p>Socket support for PROXY protocol connections has been added. PROXY
+defines a short preamble on the TCP connection where (usually) a SSL/TLS
+terminating proxy can signal the real client address.</p>
+<p>The <tt class="docutils literal"><span class="pre">-a</span></tt> startup argument syntax has been expanded to allow for this:</p>
+<div class="highlight-python"><pre>$ varnishd -f /etc/varnish/default.vcl -a :6081 -a 127.0.0.1:6086,PROXY</pre>
+</div>
+<p>Both PROXY1 and PROXY2 protocols are supported on the resulting listening
+socket.</p>
+<p>For connections coming in over a PROXY socket, <tt class="docutils literal"><span class="pre">client.ip</span></tt> and
+<tt class="docutils literal"><span class="pre">server.ip</span></tt> will contain the addresses given to Varnish in the PROXY
+header/preamble (the &quot;real&quot; IPs).</p>
+<p>The new VCL variables <tt class="docutils literal"><span class="pre">remote.ip</span></tt> and <tt class="docutils literal"><span class="pre">local.ip</span></tt> contains the local
+TCP connection endpoints. On non-PROXY connections these will be identical
+to <tt class="docutils literal"><span class="pre">client.ip</span></tt> and <tt class="docutils literal"><span class="pre">server.ip</span></tt>.</p>
+<p>An expected pattern following this is <cite>if (std.port(local.ip) == 80) { }</cite>
+in <tt class="docutils literal"><span class="pre">vcl_recv</span></tt> to see if traffic came in over the HTTP listening socket
+(so a client redirect to HTTPS can be served).</p>
+</div>
+<div class="section" id="vmod-backends">
+<h1>VMOD backends<a class="headerlink" href="#vmod-backends" title="Permalink to this headline">¶</a></h1>
+<p>Before Varnish 4.1, backends could only be declared in native VCL. Varnish
+4.0 moved directors from VCL to VMODs, and VMODs can now also create
+backends. It is possible to both create the same backends than VCL but
+dynamically, or create backends that don't necessarily speak HTTP/1 over
+TCP to fetch resources. More details in the <a class="reference internal" href="../reference/directors.html#ref-writing-a-director"><em>Writing a Director</em></a>
+documentation.</p>
+</div>
+<div class="section" id="backend-connection-timeout">
+<h1>Backend connection timeout<a class="headerlink" href="#backend-connection-timeout" title="Permalink to this headline">¶</a></h1>
+<p>Backend connections will now be closed by Varnish after <cite>backend_idle_timeout</cite>
+seconds of inactivity.</p>
+<p>Previously they were kept around forever and the backend servers would close
+the connection without Varnish noticing it. On the next traffic spike needing
+these extra backend connections, the request would fail, perhaps multiple
+times, before a working backend connection was found/created.</p>
+</div>
+<div class="section" id="protocol-support">
+<h1>Protocol support<a class="headerlink" href="#protocol-support" title="Permalink to this headline">¶</a></h1>
+<p>Support for HTTP/0.9 on the client side has been retired.</p>
+</div>
+<div class="section" id="more-modules-available">
+<h1>More modules available<a class="headerlink" href="#more-modules-available" title="Permalink to this headline">¶</a></h1>
+<p>Varnish has an ecosystem for third-party modules (vmods). New since
+the last release, these are worth knowing about:</p>
+<p>libvmod-saintmode: Saint mode (&quot;inferred health probes from traffic&quot;) was taken
+out of Varnish core in 4.0, and is now back as a separate vmod. This is useful
+for detecting failing backends before the health probes pick it up.</p>
+<p>libvmod-xkey: Secondary hash keys for cache objects, based on the hashtwo vmod
+written by Varnish Software. Allows for arbitrary grouping of objects to be
+purged in one go, avoiding use of ban invalidation. Also known as Cache Keys or
+Surrogate Key support.</p>
+<p>libvmod-rtstatus: Real time statistics dashboard.</p>
+</div>
+<div class="section" id="passing-data-between-esi-requests">
+<h1>Passing data between ESI requests<a class="headerlink" href="#passing-data-between-esi-requests" title="Permalink to this headline">¶</a></h1>
+<p>A new <cite>req_top</cite> identifier is available in VCL, which is a reference to
+<cite>req</cite> in the top-level ESI request.</p>
+<p>This is useful to pass data back and forth between the main ESI request
+and any ESI sub-requests it leads to.</p>
+</div>
+<div class="section" id="other-noteworthy-small-changes">
+<h1>Other noteworthy small changes<a class="headerlink" href="#other-noteworthy-small-changes" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li>Varnish will now use the <tt class="docutils literal"><span class="pre">stale-while-revalidate</span></tt> defined in RFC5861
+to set object grace time.</li>
+<li>-smalloc storage is now recommended over -sfile on Linux systems.</li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Changes in Varnish 4.1</a></li>
+<li><a class="reference internal" href="#proactive-security-features">Proactive security features</a></li>
+<li><a class="reference internal" href="#warm-and-cold-vcl-configurations">Warm and cold VCL configurations</a></li>
+<li><a class="reference internal" href="#proxy-protocol-support">PROXY protocol support</a></li>
+<li><a class="reference internal" href="#vmod-backends">VMOD backends</a></li>
+<li><a class="reference internal" href="#backend-connection-timeout">Backend connection timeout</a></li>
+<li><a class="reference internal" href="#protocol-support">Protocol support</a></li>
+<li><a class="reference internal" href="#more-modules-available">More modules available</a></li>
+<li><a class="reference internal" href="#passing-data-between-esi-requests">Passing data between ESI requests</a></li>
+<li><a class="reference internal" href="#other-noteworthy-small-changes">Other noteworthy small changes</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">What's new in Varnish 4.1</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="upgrading.html"
+                        title="next chapter">Upgrading to Varnish 4.1 (unreleased)</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/whats-new/changes.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="upgrading.html" title="Upgrading to Varnish 4.1 (unreleased)"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="What&#39;s new in Varnish 4.1"
+             >previous</a> |</li>
+        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >What's new in Varnish 4.1</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

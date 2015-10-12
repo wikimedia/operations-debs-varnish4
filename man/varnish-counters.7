@@ -1,8 +1,35 @@
-.TH VARNISH-COUNTERS  "" "" ""
-.SH NAME
-varnish-counters \- Varnish counter field definitions
 .\" Man page generated from reStructeredText.
 .
+.TH VARNISH-COUNTERS 7 "" "" ""
+.SH NAME
+varnish-counters \- Varnish counter field definitions
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
 .SH COUNTER LEVELS
 .INDENT 0.0
 .TP
@@ -15,410 +42,542 @@ Counters giving diagnostic information
 .B DEBUG – Debug counters
 Counters giving Varnish internals debug information
 .UNINDENT
-.SH MAIN COUNTERS
+.SH MAIN COUNTERS (MAIN.*)
 .INDENT 0.0
 .TP
-.B uptime – Child process uptime (INFO)
-How long the child process has been running.
+.B uptime – How long the child process has been running. (INFO)
+Child process uptime
 .TP
-.B sess_conn – Sessions accepted (INFO)
-Count of sessions successfully accepted
+.B sess_conn – Count of sessions successfully accepted (INFO)
+Sessions accepted
 .TP
-.B sess_drop – Sessions dropped (INFO)
-Count of sessions silently dropped due to lack of worker thread.
+.B sess_drop – Count of sessions silently dropped due to lack of worker thread. (INFO)
+Sessions dropped
 .TP
-.B sess_fail – Session accept failures (INFO)
-Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like file descriptors.
+.B sess_fail – Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like file descriptors. (INFO)
+Session accept failures
 .TP
-.B sess_pipe_overflow – Session pipe overflow (INFO)
-Count of sessions dropped due to the session pipe overflowing.
+.B client_req_400 – 400 means we couldn\(aqt make sense of the request, it was malformed in some drastic way. (INFO)
+Client requests received, subject to 400 errors
 .TP
-.B client_req_400 – Client requests received, subject to 400 errors (INFO)
-400 means we couldn\(aqt make sense of the request, it was malformed in some drastic way.
+.B client_req_417 – 417 means that something went wrong with an Expect: header. (INFO)
+Client requests received, subject to 417 errors
 .TP
-.B client_req_411 – Client requests received, subject to 411 errors (INFO)
-411 means the client did not send a Content\-Lenght for the req.body.
+.B client_req – The count of parseable client requests seen. (INFO)
+Good client requests received
 .TP
-.B client_req_413 – Client requests received, subject to 413 errors (INFO)
-413 means that HTTP headers exceeded length or count limits.
+.B cache_hit – Count of cache hits.   A cache hit indicates that an object has been delivered to a  client without fetching it from a backend server. (INFO)
+Cache hits
 .TP
-.B client_req_417 – Client requests received, subject to 417 errors (INFO)
-417 means that something went wrong with an Expect: header.
+.B cache_hitpass – Count of hits for pass  A cache hit for pass indicates that Varnish is going to  pass the request to the backend and this decision has been   cached in it self. This counts how many times the cached   decision is being used. (INFO)
+Cache hits for pass
 .TP
-.B client_req – Good client requests received (INFO)
-The count of parseable client requests seen.
+.B cache_miss – Count of misses  A cache miss indicates the object was fetched from the  backend before delivering it to the backend. (INFO)
+Cache misses
 .TP
-.B cache_hit – Cache hits (INFO)
-Count of cache hits.   A cache hit indicates that an object has been delivered to a  client without fetching it from a backend server.
+.B backend_conn – How many backend connections have successfully been established. (INFO)
+Backend conn. success
 .TP
-.B cache_hitpass – Cache hits for pass (INFO)
-Count of hits for pass  A cache hit for pass indicates that Varnish is going to  pass the request to the backend and this decision has been   cached in it self. This counts how many times the cached   decision is being used.
+.B backend_unhealthy –  (INFO)
+Backend conn. not attempted
 .TP
-.B cache_miss – Cache misses (INFO)
-Count of misses  A cache miss indicates the object was fetched from the  backend before delivering it to the backend.
+.B backend_busy –  (INFO)
+Backend conn. too many
 .TP
-.B backend_conn – Backend conn. success (INFO)
-How many backend connections have successfully been established.
+.B backend_fail –  (INFO)
+Backend conn. failures
+.TP
+.B backend_reuse – Count of backend connection reuses  This counter is increased whenever we reuse a recycled connection. (INFO)
+Backend conn. reuses
+.TP
+.B backend_recycle – Count of backend connection recycles  This counter is increased whenever we have a keep\-alive  connection that is put back into the pool of connections.  It has not yet been used, but it might be, unless the backend  closes it. (INFO)
+Backend conn. recycles
+.TP
+.B backend_retry –  (INFO)
+Backend conn. retry
+.TP
+.B fetch_head – beresp with no body because the request is HEAD. (INFO)
+Fetch no body (HEAD)
+.TP
+.B fetch_length – beresp.body with Content\-Length. (INFO)
+Fetch with Length
+.TP
+.B fetch_chunked – beresp.body with Chunked. (INFO)
+Fetch chunked
+.TP
+.B fetch_eof – beresp.body with EOF. (INFO)
+Fetch EOF
+.TP
+.B fetch_bad – beresp.body length/fetch could not be determined. (INFO)
+Fetch bad T\-E
+.TP
+.B fetch_none – beresp.body empty (INFO)
+Fetch no body
+.TP
+.B fetch_1xx – beresp with no body because of 1XX response. (INFO)
+Fetch no body (1xx)
+.TP
+.B fetch_204 – beresp with no body because of 204 response. (INFO)
+Fetch no body (204)
+.TP
+.B fetch_304 – beresp with no body because of 304 response. (INFO)
+Fetch no body (304)
+.TP
+.B fetch_failed – beresp fetch failed. (INFO)
+Fetch failed (all causes)
+.TP
+.B fetch_no_thread – beresp fetch failed, no thread available. (INFO)
+Fetch failed (no thread)
+.TP
+.B pools – Number of thread pools.  See also parameter thread_pools.  NB: Presently pools cannot be removed once created. (INFO)
+Number of thread pools
+.TP
+.B threads – Number of threads in all pools.  See also parameters thread_pools, thread_pool_min and thread_pool_max. (INFO)
+Total number of threads
+.TP
+.B threads_limited – Number of times more threads were needed, but limit was reached in a thread pool.  See also parameter thread_pool_max. (INFO)
+Threads hit max
+.TP
+.B threads_created – Total number of threads created in all pools. (INFO)
+Threads created
+.TP
+.B threads_destroyed – Total number of threads destroyed in all pools. (INFO)
+Threads destroyed
+.TP
+.B threads_failed – Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also parameter thread_fail_delay. (INFO)
+Thread creation failed
+.TP
+.B thread_queue_len – Length of session queue waiting for threads.  NB: Only updates once per second.  See also parameter queue_max. (INFO)
+Length of session queue
+.TP
+.B busy_sleep – Number of requests sent to sleep without a worker thread because they found a busy object. (INFO)
+Number of requests sent to sleep on busy objhdr
+.TP
+.B busy_wakeup – Number of requests taken of the busy object sleep list and and rescheduled. (INFO)
+Number of requests woken after sleep on busy objhdr
+.TP
+.B busy_killed – Number of requests killed from the busy object sleep list due to lack of resources. (INFO)
+Number of requests killed after sleep on busy objhdr
+.TP
+.B sess_queued – Number of times session was queued waiting for a thread.  See also parameter queue_max. (INFO)
+Sessions queued for thread
+.TP
+.B sess_dropped – Number of times session was dropped because the queue were too long already. See also parameter queue_max. (INFO)
+Sessions dropped for thread
+.TP
+.B n_object – Number of object structs made (INFO)
+object structs made
+.TP
+.B n_vampireobject – Number of unresurrected objects (DIAG)
+unresurrected objects
+.TP
+.B n_objectcore – Number of objectcore structs made (INFO)
+objectcore structs made
+.TP
+.B n_objecthead – Number of objecthead structs made (INFO)
+objecthead structs made
+.TP
+.B n_waitinglist – Number of waitinglist structs made (DEBUG)
+waitinglist structs made
+.TP
+.B n_backend – Number of backends known to us. (INFO)
+Number of backends
+.TP
+.B n_expired – Number of objects that expired from cache because of old age. (INFO)
+Number of expired objects
+.TP
+.B n_lru_nuked – How many objects have been forcefully evicted from storage to make room for a new object. (INFO)
+Number of LRU nuked objects
+.TP
+.B n_lru_moved – Number of move operations done on the LRU list. (DIAG)
+Number of LRU moved objects
+.TP
+.B losthdr –  (INFO)
+HTTP header overflows
+.TP
+.B s_sess –  (INFO)
+Total sessions seen
+.TP
+.B s_req –  (INFO)
+Total requests seen
+.TP
+.B s_pipe –  (INFO)
+Total pipe sessions seen
+.TP
+.B s_pass –  (INFO)
+Total pass\-ed requests seen
+.TP
+.B s_fetch –  (INFO)
+Total backend fetches initiated
+.TP
+.B s_synth –  (INFO)
+Total synthethic responses made
+.TP
+.B s_req_hdrbytes – Total request header bytes received (INFO)
+Request header bytes
+.TP
+.B s_req_bodybytes – Total request body bytes received (INFO)
+Request body bytes
+.TP
+.B s_resp_hdrbytes – Total response header bytes transmitted (INFO)
+Response header bytes
+.TP
+.B s_resp_bodybytes – Total response body bytes transmitted (INFO)
+Response body bytes
+.TP
+.B s_pipe_hdrbytes – Total request bytes received for piped sessions (INFO)
+Pipe request header bytes
+.TP
+.B s_pipe_in – Total number of bytes forwarded from clients in pipe sessions (INFO)
+Piped bytes from client
+.TP
+.B s_pipe_out – Total number of bytes forwarded to clients in pipe sessions (INFO)
+Piped bytes to client
+.TP
+.B sess_closed –  (INFO)
+Session Closed
+.TP
+.B sess_closed_err – Total number of sessions closed with errors. See sc_* diag counters for detailed breakdown (INFO)
+Session Closed with error
+.TP
+.B sess_readahead –  (INFO)
+Session Read Ahead
+.TP
+.B sess_herd –  (DIAG)
+Session herd
+.TP
+.B sc_rem_close – Number of session closes with REM_CLOSE (Client Closed) (DIAG)
+Session OK  REM_CLOSE
+.TP
+.B sc_req_close – Number of session closes with REQ_CLOSE (Client requested close) (DIAG)
+Session OK  REQ_CLOSE
+.TP
+.B sc_req_http10 – Number of session closes with Error REQ_HTTP10 (Proto < HTTP/1.1) (DIAG)
+Session Err REQ_HTTP10
+.TP
+.B sc_rx_bad – Number of session closes with Error RX_BAD (Received bad req/resp) (DIAG)
+Session Err RX_BAD
+.TP
+.B sc_rx_body – Number of session closes with Error RX_BODY (Failure receiving req.body) (DIAG)
+Session Err RX_BODY
+.TP
+.B sc_rx_junk – Number of session closes with Error RX_JUNK (Received junk data) (DIAG)
+Session Err RX_JUNK
+.TP
+.B sc_rx_overflow – Number of session closes with Error RX_OVERFLOW (Received buffer overflow) (DIAG)
+Session Err RX_OVERFLOW
+.TP
+.B sc_rx_timeout – Number of session closes with Error RX_TIMEOUT (Receive timeout) (DIAG)
+Session Err RX_TIMEOUT
+.TP
+.B sc_tx_pipe – Number of session closes with TX_PIPE (Piped transaction) (DIAG)
+Session OK  TX_PIPE
+.TP
+.B sc_tx_error – Number of session closes with Error TX_ERROR (Error transaction) (DIAG)
+Session Err TX_ERROR
+.TP
+.B sc_tx_eof – Number of session closes with TX_EOF (EOF transmission) (DIAG)
+Session OK  TX_EOF
+.TP
+.B sc_resp_close – Number of session closes with RESP_CLOSE (Backend/VCL requested close) (DIAG)
+Session OK  RESP_CLOSE
+.TP
+.B sc_overload – Number of session closes with Error OVERLOAD (Out of some resource) (DIAG)
+Session Err OVERLOAD
+.TP
+.B sc_pipe_overflow – Number of session closes with Error PIPE_OVERFLOW (Session pipe overflow) (DIAG)
+Session Err PIPE_OVERFLOW
+.TP
+.B sc_range_short – Number of session closes with Error RANGE_SHORT (Insufficient data for range) (DIAG)
+Session Err RANGE_SHORT
+.TP
+.B shm_records –  (DIAG)
+SHM records
+.TP
+.B shm_writes –  (DIAG)
+SHM writes
+.TP
+.B shm_flushes –  (DIAG)
+SHM flushes due to overflow
+.TP
+.B shm_cont –  (DIAG)
+SHM MTX contention
+.TP
+.B shm_cycles –  (DIAG)
+SHM cycles through buffer
+.TP
+.B backend_req –  (INFO)
+Backend requests made
+.TP
+.B n_vcl –  (INFO)
+Number of loaded VCLs in total
+.TP
+.B n_vcl_avail –  (DIAG)
+Number of VCLs available
+.TP
+.B n_vcl_discard –  (DIAG)
+Number of discarded VCLs
+.TP
+.B bans – Number of all bans in system, including bans superseded by newer bans and bans already checked by the ban\-lurker. (INFO)
+Count of bans
+.TP
+.B bans_completed – Number of bans which are no longer active, either because they got checked by the ban\-lurker or superseded by newer identical bans. (DIAG)
+Number of bans marked \(aqcompleted\(aq
+.TP
+.B bans_obj – Number of bans which use obj.* variables.  These bans can possibly be washed by the ban\-lurker. (DIAG)
+Number of bans using obj.*
+.TP
+.B bans_req – Number of bans which use req.* variables.  These bans can not be washed by the ban\-lurker. (DIAG)
+Number of bans using req.*
+.TP
+.B bans_added – Counter of bans added to ban list. (DIAG)
+Bans added
+.TP
+.B bans_deleted – Counter of bans deleted from ban list. (DIAG)
+Bans deleted
+.TP
+.B bans_tested – Count of how many bans and objects have been tested against each other during hash lookup. (DIAG)
+Bans tested against objects (lookup)
+.TP
+.B bans_obj_killed – Number of objects killed by bans during object lookup. (DIAG)
+Objects killed by bans (lookup)
+.TP
+.B bans_lurker_tested – Count of how many bans and objects have been tested against each other by the ban\-lurker. (DIAG)
+Bans tested against objects (lurker)
+.TP
+.B bans_tests_tested – Count of how many tests and objects have been tested against each other during lookup.  \(aqban req.url == foo && req.http.host == bar\(aq counts as one in \(aqbans_tested\(aq and as two in \(aqbans_tests_tested\(aq (DIAG)
+Ban tests tested against objects (lookup)
+.TP
+.B bans_lurker_tests_tested – Count of how many tests and objects have been tested against each other by the ban\-lurker.  \(aqban req.url == foo && req.http.host == bar\(aq counts as one in \(aqbans_tested\(aq and as two in \(aqbans_tests_tested\(aq (DIAG)
+Ban tests tested against objects (lurker)
+.TP
+.B bans_lurker_obj_killed – Number of objects killed by ban\-lurker. (DIAG)
+Objects killed by bans (lurker)
+.TP
+.B bans_dups – Count of bans replaced by later identical bans. (DIAG)
+Bans superseded by other bans
+.TP
+.B bans_lurker_contention – Number of times the ban\-lurker had to wait for lookups. (DIAG)
+Lurker gave way for lookup
+.TP
+.B bans_persisted_bytes – Number of bytes used by the persisted ban lists. (DIAG)
+Bytes used by the persisted ban lists
+.TP
+.B bans_persisted_fragmentation – Number of extra bytes accumulated through dropped and completed bans in the persistent ban lists. (DIAG)
+Extra bytes in persisted ban lists due to fragmentation
+.TP
+.B n_purges –  (INFO)
+Number of purge operations executed
+.TP
+.B n_obj_purged –  (INFO)
+Number of purged objects
+.TP
+.B exp_mailed – Number of objects mailed to expiry thread for handling. (DIAG)
+Number of objects mailed to expiry thread
+.TP
+.B exp_received – Number of objects received by expiry thread for handling. (DIAG)
+Number of objects received by expiry thread
+.TP
+.B hcb_nolock –  (DEBUG)
+HCB Lookups without lock
+.TP
+.B hcb_lock –  (DEBUG)
+HCB Lookups with lock
+.TP
+.B hcb_insert –  (DEBUG)
+HCB Inserts
+.TP
+.B esi_errors –  (DIAG)
+ESI parse errors (unlock)
+.TP
+.B esi_warnings –  (DIAG)
+ESI parse warnings (unlock)
+.TP
+.B vmods –  (INFO)
+Loaded VMODs
+.TP
+.B n_gzip –  (INFO)
+Gzip operations
+.TP
+.B n_gunzip –  (INFO)
+Gunzip operations
+.TP
+.B vsm_free – Number of bytes free in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)
+Free VSM space
+.TP
+.B vsm_used – Number of bytes used in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)
+Used VSM space
+.TP
+.B vsm_cooling – Number of bytes which will soon (max 1 minute) be freed in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DEBUG)
+Cooling VSM space
+.TP
+.B vsm_overflow – Number of bytes which does not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)
+Overflow VSM space
+.TP
+.B vsm_overflowed – Total number of bytes which did not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)
+Overflowed VSM space
 .UNINDENT
-.sp
-backend_unhealthy – Backend conn. not attempted (INFO)
-.sp
-backend_busy – Backend conn. too many (INFO)
-.sp
-backend_fail – Backend conn. failures (INFO)
+.SH MANAGEMENT PROCESS COUNTERS (MGT.*)
 .INDENT 0.0
 .TP
-.B backend_reuse – Backend conn. reuses (INFO)
-Count of backend connection reuses  This counter is increased whenever we reuse a recycled connection.
+.B uptime – Uptime in seconds of the management process (INFO)
+Management process uptime
+.TP
+.B child_start – Number of times the child process has been started (DIAG)
+Child process started
+.TP
+.B child_exit – Number of times the child process has been cleanly stopped (DIAG)
+Child process normal exit
+.TP
+.B child_stop – Number of times the child process has exited with an unexpected return code (DIAG)
+Child process unexpected exit
+.TP
+.B child_died – Number of times the child process has died due to signals (DIAG)
+Child process died (signal)
+.TP
+.B child_dump – Number of times the child process has produced core dumps (DIAG)
+Child process core dumped
+.TP
+.B child_panic – Number of times the management process has caught a child panic (DIAG)
+Child process panic
 .UNINDENT
-.sp
-backend_toolate – Backend conn. was closed (INFO)
+.SH PER MEMORY POOL COUNTERS (MEMPOOL.*)
 .INDENT 0.0
 .TP
-.B backend_recycle – Backend conn. recycles (INFO)
-Count of backend connection recycles  This counter is increased whenever we have a keep\-alive  connection that is put back into the pool of connections.  It has not yet been used, but it might be, unless the backend  closes it.
+.B live –  (DEBUG)
+In use
+.TP
+.B pool –  (DEBUG)
+In Pool
+.TP
+.B sz_wanted –  (DEBUG)
+Size requested
+.TP
+.B sz_actual –  (DEBUG)
+Size allocated
+.TP
+.B allocs –  (DEBUG)
+Allocations
+.TP
+.B frees –  (DEBUG)
+Frees
+.TP
+.B recycle –  (DEBUG)
+Recycled from pool
+.TP
+.B timeout –  (DEBUG)
+Timed out from pool
+.TP
+.B toosmall –  (DEBUG)
+Too small to recycle
+.TP
+.B surplus –  (DEBUG)
+Too many for pool
+.TP
+.B randry –  (DEBUG)
+Pool ran dry
 .UNINDENT
-.sp
-backend_retry – Backend conn. retry (INFO)
+.SH PER MALLOC STORAGE COUNTERS (SMA.*)
 .INDENT 0.0
 .TP
-.B fetch_head – Fetch no body (HEAD) (INFO)
-beresp with no body because the request is HEAD.
+.B c_req – Number of times the storage has been asked to provide a storage segment. (INFO)
+Allocator requests
 .TP
-.B fetch_length – Fetch with Length (INFO)
-beresp with Content\-Length.
+.B c_fail – Number of times the storage has failed to provide a storage segment. (INFO)
+Allocator failures
 .TP
-.B fetch_chunked – Fetch chunked (INFO)
-beresp with Chunked.
+.B c_bytes – Number of total bytes allocated by this storage. (INFO)
+Bytes allocated
 .TP
-.B fetch_eof – Fetch EOF (INFO)
-beresp with EOF from lack of other info.
+.B c_freed – Number of total bytes returned to this storage. (INFO)
+Bytes freed
 .TP
-.B fetch_bad – Fetch bad T\-E (INFO)
-beresp failed due to unknown Transfer\-Encoding.
+.B g_alloc – Number of storage allocations outstanding. (INFO)
+Allocations outstanding
 .TP
-.B fetch_close – Fetch wanted close (INFO)
-beresp with EOF due to Connection: Close.
+.B g_bytes – Number of bytes allocated from the storage. (INFO)
+Bytes outstanding
 .TP
-.B fetch_oldhttp – Fetch pre HTTP/1.1 closed (INFO)
-beresp with EOF due to HTTP < 1.1
-.TP
-.B fetch_zero – Fetch zero len body (INFO)
-beresp with EOF due to keep\-live but neither Chunked or Len.
-.TP
-.B fetch_1xx – Fetch no body (1xx) (INFO)
-beresp with no body because of 1XX response.
-.TP
-.B fetch_204 – Fetch no body (204) (INFO)
-beresp with no body because of 204 response.
-.TP
-.B fetch_304 – Fetch no body (304) (INFO)
-beresp with no body because of 304 response.
-.TP
-.B fetch_failed – Fetch failed (all causes) (INFO)
-beresp fetch failed.
-.TP
-.B fetch_no_thread – Fetch failed (no thread) (INFO)
-beresp fetch failed, no thread available.
-.TP
-.B pools – Number of thread pools (INFO)
-Number of thread pools.  See also parameter thread_pools.  NB: Presently pools cannot be removed once created.
-.TP
-.B threads – Total number of threads (INFO)
-Number of threads in all pools.  See also parameters thread_pools, thread_pool_min and thread_pool_max.
-.TP
-.B threads_limited – Threads hit max (INFO)
-Number of times more threads were needed, but limit was reached in a thread pool.  See also parameter thread_pool_max.
-.TP
-.B threads_created – Threads created (INFO)
-Total number of threads created in all pools.
-.TP
-.B threads_destroyed – Threads destroyed (INFO)
-Total number of threads destroyed in all pools.
-.TP
-.B threads_failed – Thread creation failed (INFO)
-Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also parameter thread_fail_delay.
-.TP
-.B thread_queue_len – Length of session queue (INFO)
-Length of session queue waiting for threads.  NB: Only updates once per second.  See also parameter queue_max.
-.TP
-.B busy_sleep – Number of requests sent to sleep on busy objhdr (INFO)
-Number of requests sent to sleep without a worker thread because they found a busy object.
-.TP
-.B busy_wakeup – Number of requests woken after sleep on busy objhdr (INFO)
-Number of requests taken of the busy object sleep list and and rescheduled.
-.TP
-.B sess_queued – Sessions queued for thread (INFO)
-Number of times session was queued waiting for a thread.  See also parameter queue_max.
-.TP
-.B sess_dropped – Sessions dropped for thread (INFO)
-Number of times session was dropped because the queue were too long already. See also parameter queue_max.
-.TP
-.B n_object – object structs made (INFO)
-Number of object structs made
-.TP
-.B n_vampireobject – unresurrected objects (DIAG)
-Number of unresurrected objects
-.TP
-.B n_objectcore – objectcore structs made (INFO)
-Number of objectcore structs made
-.TP
-.B n_objecthead – objecthead structs made (INFO)
-Number of objecthead structs made
-.TP
-.B n_waitinglist – waitinglist structs made (DEBUG)
-Number of waitinglist structs made
-.TP
-.B n_backend – Number of backends (INFO)
-Number of backends known to us.
-.TP
-.B n_expired – Number of expired objects (INFO)
-Number of objects that expired from cache because of old age.
-.TP
-.B n_lru_nuked – Number of LRU nuked objects (INFO)
-How many objects have been forcefully evicted from storage to make room for a new object.
-.TP
-.B n_lru_moved – Number of LRU moved objects (DIAG)
-Number of move operations done on the LRU list.
+.B g_space – Number of bytes left in the storage. (INFO)
+Bytes available
 .UNINDENT
-.sp
-losthdr – HTTP header overflows (INFO)
-.sp
-s_sess – Total sessions seen (INFO)
-.sp
-s_req – Total requests seen (INFO)
-.sp
-s_pipe – Total pipe sessions seen (INFO)
-.sp
-s_pass – Total pass\-ed requests seen (INFO)
-.sp
-s_fetch – Total backend fetches initiated (INFO)
-.sp
-s_synth – Total synthethic responses made (INFO)
+.SH PER FILE STORAGE COUNTERS (SMF.*)
 .INDENT 0.0
 .TP
-.B s_req_hdrbytes – Request header bytes (INFO)
-Total request header bytes received
+.B c_req – Number of times the storage has been asked to provide a storage segment. (INFO)
+Allocator requests
 .TP
-.B s_req_bodybytes – Request body bytes (INFO)
-Total request body bytes received
+.B c_fail – Number of times the storage has failed to provide a storage segment. (INFO)
+Allocator failures
 .TP
-.B s_resp_hdrbytes – Response header bytes (INFO)
-Total response header bytes transmitted
+.B c_bytes – Number of total bytes allocated by this storage. (INFO)
+Bytes allocated
 .TP
-.B s_resp_bodybytes – Response body bytes (INFO)
-Total response body bytes transmitted
+.B c_freed – Number of total bytes returned to this storage. (INFO)
+Bytes freed
 .TP
-.B s_pipe_hdrbytes – Pipe request header bytes (INFO)
-Total request bytes received for piped sessions
+.B g_alloc – Number of storage allocations outstanding. (INFO)
+Allocations outstanding
 .TP
-.B s_pipe_in – Piped bytes from client (INFO)
-Total number of bytes forwarded from clients in pipe sessions
+.B g_bytes – Number of bytes allocated from the storage. (INFO)
+Bytes outstanding
 .TP
-.B s_pipe_out – Piped bytes to client (INFO)
-Total number of bytes forwarded to clients in pipe sessions
+.B g_space – Number of bytes left in the storage. (INFO)
+Bytes available
+.TP
+.B g_smf –  (INFO)
+N struct smf
+.TP
+.B g_smf_frag –  (INFO)
+N small free smf
+.TP
+.B g_smf_large –  (INFO)
+N large free smf
 .UNINDENT
-.sp
-sess_closed – Session Closed (INFO)
-.sp
-sess_pipeline – Session Pipeline (INFO)
-.sp
-sess_readahead – Session Read Ahead (INFO)
-.sp
-sess_herd – Session herd (DIAG)
-.sp
-shm_records – SHM records (DIAG)
-.sp
-shm_writes – SHM writes (DIAG)
-.sp
-shm_flushes – SHM flushes due to overflow (DIAG)
-.sp
-shm_cont – SHM MTX contention (DIAG)
-.sp
-shm_cycles – SHM cycles through buffer (DIAG)
-.sp
-sms_nreq – SMS allocator requests (DIAG)
-.sp
-sms_nobj – SMS outstanding allocations (DIAG)
-.sp
-sms_nbytes – SMS outstanding bytes (DIAG)
-.sp
-sms_balloc – SMS bytes allocated (DIAG)
-.sp
-sms_bfree – SMS bytes freed (DIAG)
-.sp
-backend_req – Backend requests made (INFO)
-.sp
-n_vcl – Number of loaded VCLs in total (INFO)
-.sp
-n_vcl_avail – Number of VCLs available (DIAG)
-.sp
-n_vcl_discard – Number of discarded VCLs (DIAG)
+.SH PER BACKEND COUNTERS (VBE.*)
 .INDENT 0.0
 .TP
-.B bans – Count of bans (INFO)
-Number of all bans in system, including bans superseded by newer bans and bans already checked by the ban\-lurker.
+.B happy –  (INFO)
+Happy health probes
 .TP
-.B bans_completed – Number of bans marked \(aqcompleted\(aq (DIAG)
-Number of bans which are no longer active, either because they got checked by the ban\-lurker or superseded by newer identical bans.
+.B bereq_hdrbytes – Total backend request header bytes sent (INFO)
+Request header bytes
 .TP
-.B bans_obj – Number of bans using obj.* (DIAG)
-Number of bans which use obj.* variables.  These bans can possibly be washed by the ban\-lurker.
+.B bereq_bodybytes – Total backend request body bytes sent (INFO)
+Request body bytes
 .TP
-.B bans_req – Number of bans using req.* (DIAG)
-Number of bans which use req.* variables.  These bans can not be washed by the ban\-lurker.
+.B beresp_hdrbytes – Total backend response header bytes received (INFO)
+Response header bytes
 .TP
-.B bans_added – Bans added (DIAG)
-Counter of bans added to ban list.
+.B beresp_bodybytes – Total backend response body bytes received (INFO)
+Response body bytes
 .TP
-.B bans_deleted – Bans deleted (DIAG)
-Counter of bans deleted from ban list.
+.B pipe_hdrbytes – Total request bytes sent for piped sessions (INFO)
+Pipe request header bytes
 .TP
-.B bans_tested – Bans tested against objects (lookup) (DIAG)
-Count of how many bans and objects have been tested against each other during hash lookup.
+.B pipe_out – Total number of bytes forwarded to backend in pipe sessions (INFO)
+Piped bytes to backend
 .TP
-.B bans_obj_killed – Objects killed by bans (lookup) (DIAG)
-Number of objects killed by bans during object lookup.
+.B pipe_in – Total number of bytes forwarded from backend in pipe sessions (INFO)
+Piped bytes from backend
 .TP
-.B bans_lurker_tested – Bans tested against objects (lurker) (DIAG)
-Count of how many bans and objects have been tested against each other by the ban\-lurker.
+.B conn –  (INFO)
+Concurrent connections to backend
 .TP
-.B bans_tests_tested – Ban tests tested against objects (lookup) (DIAG)
-Count of how many tests and objects have been tested against each other during lookup.  \(aqban req.url == foo && req.http.host == bar\(aq counts as one in \(aqbans_tested\(aq and as two in \(aqbans_tests_tested\(aq
-.TP
-.B bans_lurker_tests_tested – Ban tests tested against objects (lurker) (DIAG)
-Count of how many tests and objects have been tested against each other by the ban\-lurker.  \(aqban req.url == foo && req.http.host == bar\(aq counts as one in \(aqbans_tested\(aq and as two in \(aqbans_tests_tested\(aq
-.TP
-.B bans_lurker_obj_killed – Objects killed by bans (lurker) (DIAG)
-Number of objects killed by ban\-lurker.
-.TP
-.B bans_dups – Bans superseded by other bans (DIAG)
-Count of bans replaced by later identical bans.
-.TP
-.B bans_lurker_contention – Lurker gave way for lookup (DIAG)
-Number of times the ban\-lurker had to wait for lookups.
-.TP
-.B bans_persisted_bytes – Bytes used by the persisted ban lists (DIAG)
-Number of bytes used by the persisted ban lists.
-.TP
-.B bans_persisted_fragmentation – Extra bytes in persisted ban lists due to fragmentation (DIAG)
-Number of extra bytes accumulated through dropped and completed bans in the persistent ban lists.
+.B req –  (INFO)
+Backend requests sent
 .UNINDENT
-.sp
-n_purges – Number of purge operations executed (INFO)
-.sp
-n_obj_purged – Number of purged objects (INFO)
+.SH LOCK COUNTERS (LCK.*)
 .INDENT 0.0
 .TP
-.B exp_mailed – Number of objects mailed to expiry thread (DIAG)
-Number of objects mailed to expiry thread for handling.
+.B creat –  (DEBUG)
+Created locks
 .TP
-.B exp_received – Number of objects received by expiry thread (DIAG)
-Number of objects received by expiry thread for handling.
-.UNINDENT
-.sp
-hcb_nolock – HCB Lookups without lock (DEBUG)
-.sp
-hcb_lock – HCB Lookups with lock (DEBUG)
-.sp
-hcb_insert – HCB Inserts (DEBUG)
-.sp
-esi_errors – ESI parse errors (unlock) (DIAG)
-.sp
-esi_warnings – ESI parse warnings (unlock) (DIAG)
-.sp
-vmods – Loaded VMODs (INFO)
-.sp
-n_gzip – Gzip operations (INFO)
-.sp
-n_gunzip – Gunzip operations (INFO)
-.INDENT 0.0
+.B destroy –  (DEBUG)
+Destroyed locks
 .TP
-.B vsm_free – Free VSM space (DIAG)
-Number of bytes free in the shared memory used to communicate with tools like varnishstat, varnishlog etc.
-.TP
-.B vsm_used – Used VSM space (DIAG)
-Number of bytes used in the shared memory used to communicate with tools like varnishstat, varnishlog etc.
-.TP
-.B vsm_cooling – Cooling VSM space (DEBUG)
-Number of bytes which will soon (max 1 minute) be freed in the shared memory used to communicate with tools like varnishstat, varnishlog etc.
-.TP
-.B vsm_overflow – Overflow VSM space (DIAG)
-Number of bytes which does not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc.
-.TP
-.B vsm_overflowed – Overflowed VSM space (DIAG)
-Total number of bytes which did not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc.
-.UNINDENT
-.SH LOCK COUNTERS
-.sp
-creat – Created locks (DEBUG)
-.sp
-destroy – Destroyed locks (DEBUG)
-.sp
-locks – Lock Operations (DEBUG)
-.SH PER MALLOC STORAGE COUNTERS
-.sp
-c_req – Allocator requests (INFO)
-.sp
-c_fail – Allocator failures (INFO)
-.sp
-c_bytes – Bytes allocated (INFO)
-.sp
-c_freed – Bytes freed (INFO)
-.sp
-g_alloc – Allocations outstanding (INFO)
-.sp
-g_bytes – Bytes outstanding (INFO)
-.sp
-g_space – Bytes available (INFO)
-.SH PER FILE STORAGE COUNTERS
-.sp
-c_req – Allocator requests (INFO)
-.sp
-c_fail – Allocator failures (INFO)
-.sp
-c_bytes – Bytes allocated (INFO)
-.sp
-c_freed – Bytes freed (INFO)
-.sp
-g_alloc – Allocations outstanding (INFO)
-.sp
-g_bytes – Bytes outstanding (INFO)
-.sp
-g_space – Bytes available (INFO)
-.sp
-g_smf – N struct smf (INFO)
-.sp
-g_smf_frag – N small free smf (INFO)
-.sp
-g_smf_large – N large free smf (INFO)
-.SH PER BACKEND COUNTERS
-.sp
-vcls – VCL references (DEBUG)
-.sp
-happy – Happy health probes (INFO)
-.INDENT 0.0
-.TP
-.B bereq_hdrbytes – Request header bytes (INFO)
-Total backend request header bytes sent
-.TP
-.B bereq_bodybytes – Request body bytes (INFO)
-Total backend request body bytes sent
-.TP
-.B beresp_hdrbytes – Response header bytes (INFO)
-Total backend response header bytes received
-.TP
-.B beresp_bodybytes – Response body bytes (INFO)
-Total backend response body bytes received
-.TP
-.B pipe_hdrbytes – Pipe request header bytes (INFO)
-Total request bytes sent for piped sessions
-.TP
-.B pipe_out – Piped bytes to backend (INFO)
-Total number of bytes forwarded to backend in pipe sessions
-.TP
-.B pipe_in – Piped bytes from backend (INFO)
-Total number of bytes forwarded from backend in pipe sessions
+.B locks –  (DEBUG)
+Lock Operations
 .UNINDENT
 .\" Generated by docutils manpage writer.
 .\" 

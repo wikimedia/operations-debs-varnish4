@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Varnish Software AS
+ * Copyright (c) 2014-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -33,7 +33,7 @@
 
 #define TOP_OPT_1							\
 	VOPT("1", "[-1]", "Run once",					\
-	    "Instead of a continously updated display, print the"	\
+	    "Instead of a continuously updated display, print the"	\
 	    " statistics once and exit. Implies ``-d``."		\
 	)
 
@@ -68,6 +68,7 @@ VUT_OPT_N
 TOP_OPT_p
 VUT_OPT_q
 VUT_OPT_r
+VUT_OPT_t
 VSL_OPT_T
 VSL_OPT_x
 VSL_OPT_X

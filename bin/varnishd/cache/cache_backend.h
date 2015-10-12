@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -26,140 +26,109 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * This is the central switch-board for backend connections and it is
- * slightly complicated by a number of optimizations.
+ * Backend and APIs
  *
- * The data structures:
+ * A backend ("VBE") is a director which talks HTTP over TCP.
  *
- *    A vrt_backend is a definition of a backend in a VCL program.
- *
- *    A backend is a TCP destination, possibly multi-homed and it has a
- *    number of associated properties and statistics.
- *
- *    A vbc is an open TCP connection to a backend.
- *
- *    A bereq is a memory carrier for handling a HTTP transaction with
- *    a backend over a vbc.
- *
- *    A director is a piece of code that selects which backend to use,
- *    by whatever method or metric it chooses.
- *
- * The relationships:
- *
- *    Backends and directors get instantiated when VCL's are loaded,
- *    and this always happen in the CLI thread.
- *
- *    When a VCL tries to instantiate a backend, any existing backend
- *    with the same identity (== definition in VCL) will be used instead
- *    so that vbc's can be reused across VCL changes.
- *
- *    Directors disapper with the VCL that created them.
- *
- *    Backends disappear when their reference count drop to zero.
- *
- *    Backends have their host/port name looked up to addrinfo structures
- *    when they are instantiated, and we just cache that result and cycle
- *    through the entries (for multihomed backends) on failure only.
- *    XXX: add cli command to redo lookup.
- *
- *    bereq is sort of a step-child here, we just manage the pool of them.
+ * As you'll notice the terminology is a bit muddled here, but we try to
+ * keep it clean on the user-facing side, where a "director" is always
+ * a "pick a backend/director" functionality, and a "backend" is whatever
+ * satisfies the actual request in the end.
  *
  */
 
 struct vbp_target;
-struct vbc;
+struct vrt_ctx;
 struct vrt_backend_probe;
-
-/*--------------------------------------------------------------------
- * A director is a piece of code which selects one of possibly multiple
- * backends to use.
- */
-
-typedef struct vbc *vdi_getfd_f(const struct director *, struct busyobj *);
-typedef unsigned vdi_healthy(const struct director *, double *changed);
-
-struct director {
-	unsigned		magic;
-#define DIRECTOR_MAGIC		0x3336351d
-	const char		*name;
-	char			*vcl_name;
-	vdi_getfd_f		*getfd;
-	vdi_healthy		*healthy;
-	void			*priv;
-};
+struct tcp_pool;
 
 /*--------------------------------------------------------------------
  * An instance of a backend from a VCL program.
  */
 
-enum admin_health {
-	ah_invalid = 0,
-	ah_healthy,
-	ah_sick,
-	ah_probe
-};
-
 struct backend {
 	unsigned		magic;
 #define BACKEND_MAGIC		0x64c4c7c6
 
+	unsigned		n_conn;
+
 	VTAILQ_ENTRY(backend)	list;
-	int			refcount;
+	VTAILQ_ENTRY(backend)	vcl_list;
 	struct lock		mtx;
 
-	char			*vcl_name;
+	VRT_BACKEND_FIELDS()
+
+	struct vcl		*vcl;
 	char			*display_name;
-	char			*ipv4_addr;
-	char			*ipv6_addr;
-	char			*port;
 
-	struct suckaddr		*ipv4;
-	struct suckaddr		*ipv6;
-
-	unsigned		n_conn;
-	VTAILQ_HEAD(, vbc)	connlist;
 
 	struct vbp_target	*probe;
 	unsigned		healthy;
-	enum admin_health	admin_health;
+	const char		*admin_health;
 	double			health_changed;
 
 	struct VSC_C_vbe	*vsc;
+
+	struct tcp_pool		*tcp_pool;
+
+	struct director		director[1];
+
+	double			cooled;
 };
 
-/* -------------------------------------------------------------------*/
+/*---------------------------------------------------------------------
+ * Backend connection -- private to cache_backend*.c
+ */
 
-/* Backend connection */
 struct vbc {
 	unsigned		magic;
 #define VBC_MAGIC		0x0c5e6592
-	VTAILQ_ENTRY(vbc)	list;
-	struct backend		*backend;
-	struct vdi_simple	*vdis;
-	struct vsl_log		*vsl;
 	int			fd;
+	VTAILQ_ENTRY(vbc)	list;
+	const struct suckaddr	*addr;
+	uint8_t			state;
+#define VBC_STATE_AVAIL		(1<<0)
+#define VBC_STATE_USED		(1<<1)
+#define VBC_STATE_STOLEN	(1<<2)
+#define VBC_STATE_CLEANUP	(1<<3)
+	struct waited		waited[1];
+	struct tcp_pool		*tcp_pool;
 
-	struct suckaddr		*addr;
-
-	uint8_t			recycled;
-
-	/* Timeouts */
-	double			first_byte_timeout;
-	double			between_bytes_timeout;
+	pthread_cond_t		*cond;
 };
 
+/*---------------------------------------------------------------------
+ * Prototypes
+ */
+
 /* cache_backend.c */
-void VBE_ReleaseConn(struct vbc *vc);
+void VBE_fill_director(struct backend *be);
 
 /* cache_backend_cfg.c */
-void VBE_DropRefConn(struct backend *, const struct acct_bereq *);
-void VBE_DropRefVcl(struct backend *);
-void VBE_DropRefLocked(struct backend *b, const struct acct_bereq *);
 unsigned VBE_Healthy(const struct backend *b, double *changed);
+#ifdef VCL_MET_MAX
+void VBE_Event(struct backend *, enum vcl_event_e);
+#endif
+void VBE_Delete(struct backend *be);
 
-/* cache_backend_poll.c */
+/* cache_backend_probe.c */
 void VBP_Insert(struct backend *b, struct vrt_backend_probe const *p,
-    const char *hosthdr);
-void VBP_Remove(struct backend *b, struct vrt_backend_probe const *p);
-void VBP_Use(const struct backend *b, const struct vrt_backend_probe *p);
-void VBP_Summary(struct cli *cli, const struct vbp_target *vt);
+    struct tcp_pool *);
+void VBP_Remove(struct backend *b);
+void VBP_Control(const struct backend *b, int stop);
+void VBP_Status(struct cli *cli, const struct backend *, int details);
+
+/* cache_backend_tcp.c */
+struct tcp_pool *VBT_Ref(const struct suckaddr *ip4,
+    const struct suckaddr *ip6);
+void VBT_Rel(struct tcp_pool **tpp);
+int VBT_Open(const struct tcp_pool *tp, double tmo, const struct suckaddr **sa);
+void VBT_Recycle(const struct worker *, struct tcp_pool *, struct vbc **);
+void VBT_Close(struct tcp_pool *tp, struct vbc **vbc);
+struct vbc *VBT_Get(struct tcp_pool *, double tmo, const struct backend *,
+    struct worker *);
+void VBT_Wait(struct worker *, struct vbc *);
+
+/* cache_vcl.c */
+void VCL_AddBackend(struct vcl *, struct backend *);
+void VCL_DelBackend(struct backend *);

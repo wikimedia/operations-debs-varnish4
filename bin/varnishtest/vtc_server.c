@@ -54,58 +54,18 @@ struct server {
 
 	int			depth;
 	int			sock;
+	int			fd;
 	char			listen[256];
-	struct vss_addr		**vss_addr;
-	char			*addr;
-	char			*port;
 	char			aaddr[32];
 	char			aport[32];
 
 	pthread_t		tp;
 };
 
+static pthread_mutex_t		server_mtx;
+
 static VTAILQ_HEAD(, server)	servers =
     VTAILQ_HEAD_INITIALIZER(servers);
-
-/**********************************************************************
- * Server thread
- */
-
-static void *
-server_thread(void *priv)
-{
-	struct server *s;
-	struct vtclog *vl;
-	int i, j, fd;
-	struct sockaddr_storage addr_s;
-	struct sockaddr *addr;
-	socklen_t l;
-
-	CAST_OBJ_NOTNULL(s, priv, SERVER_MAGIC);
-	assert(s->sock >= 0);
-
-	vl = vtc_logopen(s->name);
-
-	vtc_log(vl, 2, "Started on %s %s", s->aaddr, s->aport);
-	for (i = 0; i < s->repeat; i++) {
-		if (s->repeat > 1)
-			vtc_log(vl, 3, "Iteration %d", i);
-		addr = (void*)&addr_s;
-		l = sizeof addr_s;
-		fd = accept(s->sock, addr, &l);
-		if (fd < 0)
-			vtc_log(vl, 0, "Accepted failed: %s", strerror(errno));
-		vtc_log(vl, 3, "accepted fd %d", fd);
-		fd = http_process(vl, s->spec, fd, &s->sock);
-		vtc_log(vl, 3, "shutting fd %d", fd);
-		j = shutdown(fd, SHUT_WR);
-		if (!VTCP_Check(j))
-			vtc_log(vl, 0, "Shutdown failed: %s", strerror(errno));
-		VTCP_close(&fd);
-	}
-	vtc_log(vl, 2, "Ending");
-	return (NULL);
-}
 
 /**********************************************************************
  * Allocate and initialize a server
@@ -120,17 +80,17 @@ server_new(const char *name)
 	ALLOC_OBJ(s, SERVER_MAGIC);
 	AN(s);
 	REPLACE(s->name, name);
-	s->vl = vtc_logopen(name);
+	s->vl = vtc_logopen(s->name);
 	AN(s->vl);
-	if (*s->name != 's')
-		vtc_log(s->vl, 0, "Server name must start with 's'");
 
-	bprintf(s->listen, "127.0.0.1:%d", 0);
-	AZ(VSS_parse(s->listen, &s->addr, &s->port));
+	bprintf(s->listen, "%s", "127.0.0.1 0");
 	s->repeat = 1;
 	s->depth = 10;
 	s->sock = -1;
+	s->fd = -1;
+	AZ(pthread_mutex_lock(&server_mtx));
 	VTAILQ_INSERT_TAIL(&servers, s, list);
+	AZ(pthread_mutex_unlock(&server_mtx));
 	return (s);
 }
 
@@ -153,37 +113,160 @@ server_delete(struct server *s)
 }
 
 /**********************************************************************
+ * Server listen
+ */
+
+static void
+server_listen(struct server *s)
+{
+	const char *err;
+
+	CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
+
+	if (s->sock >= 0)
+		VTCP_close(&s->sock);
+	s->sock = VTCP_listen_on(s->listen, "0", s->depth, &err);
+	if (err != NULL)
+		vtc_log(s->vl, 0,
+		    "Server listen address (%s) cannot be resolved: %s",
+		    s->listen, err);
+	assert(s->sock > 0);
+	VTCP_myname(s->sock, s->aaddr, sizeof s->aaddr,
+	    s->aport, sizeof s->aport);
+	macro_def(s->vl, s->name, "addr", "%s", s->aaddr);
+	macro_def(s->vl, s->name, "port", "%s", s->aport);
+	macro_def(s->vl, s->name, "sock", "%s %s", s->aaddr, s->aport);
+	/* Record the actual port, and reuse it on subsequent starts */
+	bprintf(s->listen, "%s %s", s->aaddr, s->aport);
+}
+
+/**********************************************************************
+ * Server thread
+ */
+
+static void *
+server_thread(void *priv)
+{
+	struct server *s;
+	struct vtclog *vl;
+	int i, j, fd;
+	struct sockaddr_storage addr_s;
+	struct sockaddr *addr;
+	socklen_t l;
+
+	CAST_OBJ_NOTNULL(s, priv, SERVER_MAGIC);
+	assert(s->sock >= 0);
+
+	vl = vtc_logopen(s->name);
+
+	vtc_log(vl, 2, "Started on %s", s->listen);
+	for (i = 0; i < s->repeat; i++) {
+		if (s->repeat > 1)
+			vtc_log(vl, 3, "Iteration %d", i);
+		addr = (void*)&addr_s;
+		l = sizeof addr_s;
+		fd = accept(s->sock, addr, &l);
+		if (fd < 0)
+			vtc_log(vl, 0, "Accepted failed: %s", strerror(errno));
+		vtc_log(vl, 3, "accepted fd %d", fd);
+		fd = http_process(vl, s->spec, fd, &s->sock);
+		vtc_log(vl, 3, "shutting fd %d", fd);
+		j = shutdown(fd, SHUT_WR);
+		if (!VTCP_Check(j))
+			vtc_log(vl, 0, "Shutdown failed: %s", strerror(errno));
+		VTCP_close(&fd);
+	}
+	vtc_log(vl, 2, "Ending");
+	return (NULL);
+}
+
+
+/**********************************************************************
  * Start the server thread
  */
 
 static void
 server_start(struct server *s)
 {
-	int naddr;
-
 	CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
 	vtc_log(s->vl, 2, "Starting server");
-	if (s->sock < 0) {
-		naddr = VSS_resolve(s->addr, s->port, &s->vss_addr);
-		if (naddr != 1)
-			vtc_log(s->vl, 0,
-			    "Server s listen address not unique"
-			    " \"%s\" resolves to (%d) sockets",
-			    s->listen, naddr);
-		s->sock = VSS_listen(s->vss_addr[0], s->depth);
-		assert(s->sock >= 0);
-		VTCP_myname(s->sock, s->aaddr, sizeof s->aaddr,
-		    s->aport, sizeof s->aport);
-		macro_def(s->vl, s->name, "addr", "%s", s->aaddr);
-		macro_def(s->vl, s->name, "port", "%s", s->aport);
-		macro_def(s->vl, s->name, "sock", "%s %s", s->aaddr, s->aport);
-		/* Record the actual port, and reuse it on subsequent starts */
-		if (!strcmp(s->port, "0"))
-			REPLACE(s->port, s->aport);
-	}
-	vtc_log(s->vl, 1, "Listen on %s %s", s->addr, s->port);
+	server_listen(s);
+	vtc_log(s->vl, 1, "Listen on %s", s->listen);
 	s->run = 1;
 	AZ(pthread_create(&s->tp, NULL, server_thread, s));
+}
+
+/**********************************************************************
+ */
+
+static void *
+server_dispatch_wrk(void *priv)
+{
+	struct server *s;
+	struct vtclog *vl;
+	int j, fd;
+
+	CAST_OBJ_NOTNULL(s, priv, SERVER_MAGIC);
+	assert(s->sock < 0);
+
+	vl = vtc_logopen(s->name);
+
+	fd = s->fd;
+
+	vtc_log(vl, 3, "start with fd %d", fd);
+	fd = http_process(vl, s->spec, fd, &s->sock);
+	vtc_log(vl, 3, "shutting fd %d", fd);
+	j = shutdown(fd, SHUT_WR);
+	if (!VTCP_Check(j))
+		vtc_log(vl, 0, "Shutdown failed: %s", strerror(errno));
+	VTCP_close(&s->fd);
+	vtc_log(vl, 2, "Ending");
+	return (NULL);
+}
+
+static void *
+server_dispatch_thread(void *priv)
+{
+	struct server *s, *s2;
+	int sn = 1, fd;
+	char snbuf[8];
+	struct vtclog *vl;
+	struct sockaddr_storage addr_s;
+	struct sockaddr *addr;
+	socklen_t l;
+
+	CAST_OBJ_NOTNULL(s, priv, SERVER_MAGIC);
+	assert(s->sock >= 0);
+
+	vl = vtc_logopen(s->name);
+	vtc_log(vl, 2, "Dispatch started on %s", s->listen);
+
+	while (1) {
+		addr = (void*)&addr_s;
+		l = sizeof addr_s;
+		fd = accept(s->sock, addr, &l);
+		if (fd < 0)
+			vtc_log(vl, 0, "Accepted failed: %s", strerror(errno));
+		bprintf(snbuf, "s%d", sn++);
+		vtc_log(vl, 3, "dispatch fd %d -> %s", fd, snbuf);
+		s2 = server_new(snbuf);
+		s2->spec = s->spec;
+		strcpy(s2->listen, s->listen);
+		s2->fd = fd;
+		s2->run = 1;
+		AZ(pthread_create(&s2->tp, NULL, server_dispatch_wrk, s2));
+	}
+	return(NULL);
+}
+
+static void
+server_dispatch(struct server *s)
+{
+	CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
+	server_listen(s);
+	vtc_log(s->vl, 2, "Starting dispatch server");
+	s->run = 1;
+	AZ(pthread_create(&s->tp, NULL, server_dispatch_thread, s));
 }
 
 /**********************************************************************
@@ -213,7 +296,7 @@ server_wait(struct server *s)
 	void *res;
 
 	CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
-	vtc_log(s->vl, 2, "Waiting for server");
+	vtc_log(s->vl, 2, "Waiting for server (%d/%d)", s->sock, s->fd);
 	AZ(pthread_join(s->tp, &res));
 	if (res != NULL && !vtc_stop)
 		vtc_log(s->vl, 0, "Server returned \"%p\"",
@@ -231,11 +314,13 @@ cmd_server_genvcl(struct vsb *vsb)
 {
 	struct server *s;
 
+	AZ(pthread_mutex_lock(&server_mtx));
 	VTAILQ_FOREACH(s, &servers, list) {
 		VSB_printf(vsb,
 		    "backend %s { .host = \"%s\"; .port = \"%s\"; }\n",
 		    s->name, s->aaddr, s->aport);
 	}
+	AZ(pthread_mutex_unlock(&server_mtx));
 }
 
 
@@ -246,7 +331,7 @@ cmd_server_genvcl(struct vsb *vsb)
 void
 cmd_server(CMD_ARGS)
 {
-	struct server *s, *s2;
+	struct server *s;
 
 	(void)priv;
 	(void)cmd;
@@ -254,17 +339,21 @@ cmd_server(CMD_ARGS)
 
 	if (av == NULL) {
 		/* Reset and free */
-		VTAILQ_FOREACH_SAFE(s, &servers, list, s2) {
-			CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
-			VTAILQ_REMOVE(&servers, s, list);
+		while (1) {
+			AZ(pthread_mutex_lock(&server_mtx));
+			s = VTAILQ_FIRST(&servers);
+			CHECK_OBJ_ORNULL(s, SERVER_MAGIC);
+			if (s != NULL)
+				VTAILQ_REMOVE(&servers, s, list);
+			AZ(pthread_mutex_unlock(&server_mtx));
+			if (s == NULL)
+				break;
 			if (s->run) {
 				(void)pthread_cancel(s->tp);
 				server_wait(s);
 			}
-			if (s->sock >= 0) {
+			if (s->sock >= 0)
 				VTCP_close(&s->sock);
-				s->sock = -1;
-			}
 			server_delete(s);
 		}
 		return;
@@ -273,9 +362,17 @@ cmd_server(CMD_ARGS)
 	AZ(strcmp(av[0], "server"));
 	av++;
 
+	if (*av[0] != 's') {
+		fprintf(stderr, "Server name must start with 's' (is: %s)\n",
+		    av[0]);
+		exit(1);
+	}
+
+	AZ(pthread_mutex_lock(&server_mtx));
 	VTAILQ_FOREACH(s, &servers, list)
 		if (!strcmp(s->name, av[0]))
 			break;
+	AZ(pthread_mutex_unlock(&server_mtx));
 	if (s == NULL)
 		s = server_new(av[0]);
 	CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
@@ -310,12 +407,9 @@ cmd_server(CMD_ARGS)
 			continue;
 		}
 		if (!strcmp(*av, "-listen")) {
-			if (s->sock >= 0) {
+			if (s->sock >= 0)
 				VTCP_close(&s->sock);
-				s->sock = -1;
-			}
 			bprintf(s->listen, "%s", av[1]);
-			AZ(VSS_parse(s->listen, &s->addr, &s->port));
 			av++;
 			continue;
 		}
@@ -323,8 +417,23 @@ cmd_server(CMD_ARGS)
 			server_start(s);
 			continue;
 		}
+		if (!strcmp(*av, "-dispatch")) {
+			if (strcmp(s->name, "s0")) {
+				fprintf(stderr,
+				    "server -dispatch only works on s0\n");
+				exit(1);
+			}
+			server_dispatch(s);
+			continue;
+		}
 		if (**av == '-')
 			vtc_log(s->vl, 0, "Unknown server argument: %s", *av);
 		s->spec = *av;
 	}
+}
+
+void
+init_server(void)
+{
+	AZ(pthread_mutex_init(&server_mtx, NULL));
 }

@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -29,65 +29,162 @@
  */
 
 #include "config.h"
+
+#include <errno.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <math.h>
+#include <stdlib.h>
+
+#include "binary_heap.h"
 
 #include "cache/cache.h"
 
-#include "waiter/waiter.h"
+#include "waiter/waiter_priv.h"
+#include "waiter/mgt_waiter.h"
 
-#include "vtcp.h"
+static int __match_proto__(binheap_cmp_t)
+waited_cmp(void *priv, const void *a, const void *b)
+{
+	const struct waiter *ww;
+	const struct waited *aa, *bb;
 
-static void *waiter_priv;
+	CAST_OBJ_NOTNULL(ww, priv, WAITER_MAGIC);
+	CAST_OBJ_NOTNULL(aa, a, WAITED_MAGIC);
+	CAST_OBJ_NOTNULL(bb, b, WAITED_MAGIC);
+
+	return (Wait_When(aa) < Wait_When(bb));
+}
+
+static void __match_proto__(binheap_update_t)
+waited_update(void *priv, void *p, unsigned u)
+{
+	struct waited *pp;
+
+	(void)priv;
+	CAST_OBJ_NOTNULL(pp, p, WAITED_MAGIC);
+	pp->idx = u;
+}
+
+/**********************************************************************/
+
+void
+Wait_Call(const struct waiter *w, struct waited *wp,
+    enum wait_event ev, double now)
+{
+	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
+	CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
+	CHECK_OBJ_NOTNULL(wp->waitfor, WAITFOR_MAGIC);
+	AN(wp->waitfor->func);
+	assert(wp->idx == BINHEAP_NOIDX);
+	wp->waitfor->func(wp, ev, now);
+}
+
+/**********************************************************************/
+
+void
+Wait_HeapInsert(const struct waiter *w, struct waited *wp)
+{
+	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
+	CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
+	assert(wp->idx == BINHEAP_NOIDX);
+	binheap_insert(w->heap, wp);
+}
+
+/*
+ * XXX: wp is const because otherwise FlexeLint complains.  However, *wp
+ * XXX: will actually change as a result of calling this function, via
+ * XXX: the pointer stored in the bin-heap.  I can see how this const
+ * XXX: could maybe confuse a compilers optimizer, but I do not expect
+ * XXX: any harm to come from it.  Caveat Emptor.
+ */
+
+void
+Wait_HeapDelete(const struct waiter *w, const struct waited *wp)
+{
+	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
+	CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
+	if (wp->idx != BINHEAP_NOIDX)
+		binheap_delete(w->heap, wp->idx);
+}
+
+double
+Wait_HeapDue(const struct waiter *w, struct waited **wpp)
+{
+	struct waited *wp;
+
+	wp = binheap_root(w->heap);
+	CHECK_OBJ_ORNULL(wp, WAITED_MAGIC);
+	if (wp == NULL) {
+		if (wpp != NULL)
+			*wpp = NULL;
+		return (0);
+	}
+	if (wpp != NULL)
+		*wpp = wp;
+	return(Wait_When(wp));
+}
+
+/**********************************************************************/
+
+int
+Wait_Enter(const struct waiter *w, struct waited *wp)
+{
+
+	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
+	CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
+	assert(wp->fd > 0);			// stdin never comes here
+	CHECK_OBJ_NOTNULL(wp->waitfor, WAITFOR_MAGIC);
+	wp->idx = BINHEAP_NOIDX;
+	return (w->impl->enter(w->priv, wp));
+}
+
+/**********************************************************************/
 
 const char *
-WAIT_GetName(void)
+Waiter_GetName(void)
 {
 
 	if (waiter != NULL)
 		return (waiter->name);
 	else
-		return ("no_waiter");
+		return ("(No Waiter?)");
 }
 
-void
-WAIT_Init(void)
+struct waiter *
+Waiter_New(void)
 {
+	struct waiter *w;
 
 	AN(waiter);
 	AN(waiter->name);
 	AN(waiter->init);
-	AN(waiter->pass);
-	waiter_priv = waiter->init();
+	AN(waiter->enter);
+	AN(waiter->fini);
+
+	w = calloc(1, sizeof (struct waiter) + waiter->size);
+	AN(w);
+	INIT_OBJ(w, WAITER_MAGIC);
+	w->priv = (void*)(w + 1);
+	w->impl = waiter;
+	VTAILQ_INIT(&w->waithead);
+	w->heap = binheap_new(w, waited_cmp, waited_update);
+
+	waiter->init(w);
+
+	return (w);
 }
 
 void
-WAIT_Enter(struct sess *sp)
+Waiter_Destroy(struct waiter **wp)
 {
+	struct waiter *w;
 
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-	assert(sp->fd >= 0);
+	AN(wp);
+	w = *wp;
+	*wp = NULL;
+	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
 
-	/*
-	* Set nonblocking in the worker-thread, before passing to the
-	* acceptor thread, to reduce syscall density of the latter.
-	*/
-	if (VTCP_nonblocking(sp->fd))
-		SES_Close(sp, SC_REM_CLOSE);
-	waiter->pass(waiter_priv, sp);
-}
-
-void
-WAIT_Write_Session(struct sess *sp, int fd)
-{
-	ssize_t written;
-	written = write(fd, &sp, sizeof sp);
-	if (written != sizeof sp && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-		VSC_C_main->sess_pipe_overflow++;
-		SES_Delete(sp, SC_SESS_PIPE_OVERFLOW, NAN);
-		return;
-	}
-	assert (written == sizeof sp);
+	AZ(binheap_root(w->heap));
+	AN(w->impl->fini);
+	w->impl->fini(w);
+	FREE_OBJ(w);
 }

@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -35,8 +35,21 @@
 
 #include "cache.h"
 
-#include "vre.h"
 #include "vrt.h"
+
+static void
+Tadd(char **b, char *e, const char *p, int l)
+{
+	assert((*b) <= e);
+
+	if (l <= 0) {
+	} if ((*b) + l < e) {
+		memcpy((*b), p, l);
+		(*b) += l;
+	} else {
+		(*b) = e;
+	}
+}
 
 void
 VRT_re_init(void **rep, const char *re)
@@ -87,7 +100,8 @@ VRT_regsub(VRT_CTX, int all, const char *str, void *re,
 	int ovector[30];
 	vre_t *t;
 	int i, l;
-	txt res;
+	char *res_b;
+	char *res_e;
 	char *b0;
 	const char *s;
 	unsigned u, x;
@@ -116,33 +130,33 @@ VRT_regsub(VRT_CTX, int all, const char *str, void *re,
 	}
 
 	u = WS_Reserve(ctx->ws, 0);
-	res.e = res.b = b0 = ctx->ws->f;
-	res.e += u;
+	res_e = res_b = b0 = ctx->ws->f;
+	res_e += u;
 
 	do {
 		/* Copy prefix to match */
-		Tadd(&res, str + offset, ovector[0] - offset);
+		Tadd(&res_b, res_e, str + offset, ovector[0] - offset);
 		for (s = sub ; *s != '\0'; s++ ) {
 			if (*s != '\\' || s[1] == '\0') {
-				if (res.b < res.e)
-					*res.b++ = *s;
+				if (res_b < res_e)
+					*res_b++ = *s;
 				continue;
 			}
 			s++;
 			if (isdigit(*s)) {
 				x = *s - '0';
 				l = ovector[2*x+1] - ovector[2*x];
-				Tadd(&res, str + ovector[2*x], l);
+				Tadd(&res_b, res_e, str + ovector[2*x], l);
 				continue;
 			} else {
-				if (res.b < res.e)
-					*res.b++ = *s;
+				if (res_b < res_e)
+					*res_b++ = *s;
 			}
 		}
 		offset = ovector[1];
 		if (!all)
 			break;
-		memset(&ovector, 0, sizeof(ovector));
+		memset(ovector, 0, sizeof(ovector));
 		options |= VRE_NOTEMPTY;
 		i = VRE_exec(t, str, len, offset, options, ovector, 30,
 		    &cache_param->vre_limits);
@@ -155,12 +169,13 @@ VRT_regsub(VRT_CTX, int all, const char *str, void *re,
 	} while (i != VRE_ERROR_NOMATCH);
 
 	/* Copy suffix to match */
-	Tadd(&res, str + offset, len - offset + 1);
-	if (res.b >= res.e) {
+	Tadd(&res_b, res_e, str + offset, 1 + len - offset);
+	if (res_b >= res_e) {
+		WS_MarkOverflow(ctx->ws);
 		WS_Release(ctx->ws, 0);
 		return (str);
 	}
-	Tcheck(res);
-	WS_ReleaseP(ctx->ws, res.b);
+	assert(res_b <= res_e);
+	WS_ReleaseP(ctx->ws, res_b);
 	return (b0);
 }

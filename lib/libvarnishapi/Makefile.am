@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 
 lib_LTLIBRARIES = libvarnishapi.la
 
-libvarnishapi_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:0:0
+libvarnishapi_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:4:0
 
 libvarnishapi_la_SOURCES = \
 	vsm_api.h \
@@ -28,6 +28,7 @@ libvarnishapi_la_SOURCES = \
 	../libvarnish/vre.c \
 	../libvarnish/vsb.c \
 	../libvarnish/vtim.c \
+	../libvarnish/vnum.c \
 	../libvarnish/vsha256.c \
 	vsm.c \
 	vsl_arg.c \

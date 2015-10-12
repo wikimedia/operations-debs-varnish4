@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #-
 # Copyright (c) 2006 Verdens Gang AS
-# Copyright (c) 2006-2014 Varnish Software AS
+# Copyright (c) 2006-2015 Varnish Software AS
 # All rights reserved.
 #
 # Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -108,7 +108,7 @@ returns =(
 	),
 	('hit',
 		"C",
-		('synth', 'restart', 'pass', 'fetch', 'deliver',)
+		('synth', 'restart', 'pass', 'fetch', 'miss', 'deliver',)
 	),
 	('deliver',
 		"C",
@@ -132,7 +132,7 @@ returns =(
 	),
 	('backend_error',
 		"B",
-		('deliver', 'retry')
+		('deliver', 'retry', 'abandon')
 	),
 
 	###############################################################
@@ -140,7 +140,7 @@ returns =(
 
 	('init',
 		"",
-		('ok',)
+		('ok', 'fail')
 	),
 	('fini',
 		"",
@@ -157,6 +157,15 @@ returns =(
 # 'both' means all methods tagged "B" or "C"
 
 sp_variables = [
+	('remote.ip',
+		'IP',
+		( 'client',),
+		( ), """
+		The IP address of the other end of the TCP connection.
+		This can either be the clients IP, or the outgoing IP
+		of a proxy server.
+		"""
+	),
 	('client.ip',
 		'IP',
 		( 'client',),
@@ -170,6 +179,13 @@ sp_variables = [
 		( 'client',), """
 		Identification of the client, used to load balance
 		in the client director.
+		"""
+	),
+	('local.ip',
+		'IP',
+		( 'client',),
+		( ), """
+		The IP address of the local end of the TCP connection.
 		"""
 	),
 	('server.ip',
@@ -301,6 +317,41 @@ sp_variables = [
 		always (re)fetch from the backend.
 		"""
 	),
+	('req_top.method',
+		'STRING',
+		( 'client',),
+		(), """
+		The request method of the top-level request in a tree
+		of ESI requests. (e.g. "GET", "HEAD").
+		Identical to req.method in non-ESI requests.
+		"""
+	),
+	('req_top.url',
+		'STRING',
+		( 'client',),
+		(), """
+		The requested URL of the top-level request in a tree
+		of ESI requests.
+		Identical to req.url in non-ESI requests.
+		"""
+	),
+	('req_top.http.',
+		'HEADER',
+		( 'client',),
+		(), """
+		HTTP headers of the top-level request in a tree of ESI requests.
+		Identical to req.http. in non-ESI requests.
+		"""
+	),
+	('req_top.proto',
+		'STRING',
+		( 'client',),
+		(), """
+		HTTP protocol version of the top-level request in a tree of
+		ESI requests.
+		Identical to req.proto in non-ESI requests.
+		"""
+	),
 	('bereq',
 		'HTTP',
 		( 'backend',),
@@ -326,6 +377,7 @@ sp_variables = [
 		'BACKEND',
 		( 'pipe', 'backend', ),
 		( 'pipe', 'backend', ), """
+		This is the backend or director we attempt to fetch from.
 		"""
 	),
 	('bereq.method',
@@ -460,6 +512,15 @@ sp_variables = [
 		cache.  Defaults to false.
 		"""
 	),
+	('beresp.was_304',
+		'BOOL',
+		( 'backend_response', 'backend_error'),
+		( ), """
+		Boolean. If this is a successful 304 response to a
+		backend conditional request refreshing an existing
+		cache object.
+		"""
+	),
 	('beresp.uncacheable',
 		'BOOL',
 		( 'backend_response', 'backend_error'),
@@ -478,7 +539,13 @@ sp_variables = [
 		( 'backend_response', 'backend_error'),
 		( 'backend_response', 'backend_error'), """
 		The object's remaining time to live, in seconds.
-		beresp.ttl is writable.
+		"""
+	),
+	('beresp.age',
+		'DURATION',
+		( 'backend_response', 'backend_error'),
+		( ), """
+		The age of the object.
 		"""
 	),
 	('beresp.grace',
@@ -499,6 +566,15 @@ sp_variables = [
 		Objects with ttl expired but with keep time left may be used
 		to issue conditional (If-Modified-Since / If-None-Match)
 		requests to the backend to refresh them.
+		"""
+	),
+	('beresp.backend',
+		'BACKEND',
+		( 'backend_response', 'backend_error'),
+		( ), """
+		This is the backend we fetched from.  If bereq.backend
+		was set to a director, this will be the backend selected
+		by the director.
 		"""
 	),
 	('beresp.backend.name',
@@ -548,9 +624,9 @@ sp_variables = [
 		'INT',
 		( 'hit', 'deliver',),
 		( ), """
-                The count of cache-hits on this object. A value of 0 indicates a
+		The count of cache-hits on this object. A value of 0 indicates a
 		cache miss.
-                """
+		"""
 	),
 	('obj.http.',
 		'HEADER',
@@ -564,6 +640,13 @@ sp_variables = [
 		( 'hit', ),
 		( ), """
 		The object's remaining time to live, in seconds.
+		"""
+	),
+	('obj.age',
+		'DURATION',
+		( 'hit', ),
+		( ), """
+		The age of the object.
 		"""
 	),
 	('obj.grace',
@@ -620,6 +703,14 @@ sp_variables = [
 		( 'deliver', 'synth', ),
 		( 'deliver', 'synth', ), """
 		The corresponding HTTP header.
+		"""
+	),
+	('resp.is_streaming',
+		'BOOL',
+		( 'deliver', 'synth', ),
+		( ), """
+		Returns true when the response will be streamed
+		from the backend.
 		"""
 	),
 	('now',
@@ -885,24 +976,28 @@ fo.write("\n/*lint -save -e525 -e539 */\n")
 fo.write("\n#ifdef VCL_RET_MAC\n")
 l = list(rets.keys())
 l.sort()
+ll = list(returns)
+ll.sort()
 for i in l:
 	fo.write("VCL_RET_MAC(%s, %s" % (i.lower(), i.upper()))
-	s=", "
-	for j in returns:
+	s=",\n\t"
+	for j in ll:
 		if i in j[2]:
 			fo.write("%sVCL_MET_%s" % (s, j[0].upper()))
-			s = " | "
-	fo.write(")\n")
+			s = " |\n\t"
+	fo.write("\n)\n")
 fo.write("#endif\n")
 
 fo.write("\n#ifdef VCL_MET_MAC\n")
-for i in returns:
-	fo.write("VCL_MET_MAC(%s,%s,\n" % (i[0].lower(), i[0].upper()))
-	p = " ("
-	for j in i[2]:
-		fo.write("    %s(1U << VCL_RET_%s)\n" % (p, j.upper()))
-		p = "| "
-	fo.write("))\n")
+for i in ll:
+	fo.write("VCL_MET_MAC(%s, %s," % (i[0].lower(), i[0].upper()))
+	p = " (\n\t"
+	lll = list(i[2])
+	lll.sort()
+	for j in lll:
+		fo.write("%s(1U << VCL_RET_%s)" % (p, j.upper()))
+		p = " |\n\t"
+	fo.write("\n))\n")
 fo.write("#endif\n")
 fo.write("\n/*lint -restore */\n")
 fo.close()
@@ -922,8 +1017,17 @@ struct ws;
 struct cli;
 struct worker;
 
-typedef int vcl_init_f(struct cli *);
-typedef void vcl_fini_f(struct cli *);
+enum vcl_event_e {
+	VCL_EVENT_LOAD,
+	VCL_EVENT_WARM,
+	VCL_EVENT_USE,
+	VCL_EVENT_COLD,
+	VCL_EVENT_DISCARD,
+};
+
+typedef int vcl_event_f(VRT_CTX, enum vcl_event_e);
+typedef int vcl_init_f(VRT_CTX);
+typedef void vcl_fini_f(VRT_CTX);
 typedef int vcl_func_f(VRT_CTX);
 """)
 
@@ -935,7 +1039,9 @@ def tbl40(a, b):
 fo.write("\n/* VCL Methods */\n")
 n = 1
 for i in returns:
-	fo.write(tbl40("#define VCL_MET_%s" % i[0].upper(),  "(1U << %d)\n" % n))
+	fo.write(
+	    tbl40("#define VCL_MET_%s" % i[0].upper(), "(1U << %d)\n" % n)
+	)
 	n += 1
 
 fo.write("\n" + tbl40("#define VCL_MET_MAX", "%d\n" % n))
@@ -955,22 +1061,19 @@ fo.write("\n" + tbl40("#define VCL_RET_MAX", "%d\n" % n))
 
 fo.write("""
 struct VCL_conf {
-	unsigned	magic;
-#define VCL_CONF_MAGIC	0x7406c509	/* from /dev/random */
+	unsigned			magic;
+#define VCL_CONF_MAGIC			0x7406c509	/* from /dev/random */
 
-	struct director	**director;
-	unsigned	ndirector;
-	struct vrt_ref	*ref;
-	unsigned	nref;
-	unsigned	busy;
-	unsigned	discard;
+	struct director			**default_director;
+	const struct vrt_backend_probe	*default_probe;
+	unsigned			nref;
+	struct vrt_ref			*ref;
 
-	unsigned	nsrc;
-	const char	**srcname;
-	const char	**srcbody;
+	unsigned			nsrc;
+	const char			**srcname;
+	const char			**srcbody;
 
-	vcl_init_f	*init_vcl;
-	vcl_fini_f	*fini_vcl;
+	vcl_event_f			*event_vcl;
 """)
 
 for i in returns:
@@ -1122,6 +1225,7 @@ vcl_output_lang_h(struct vsb *sb)
 {
 """)
 
+emit_file(fo, buildroot, "include/vdef.h")
 emit_file(fo, buildroot, "include/vcl.h")
 emit_file(fo, srcroot, "include/vrt.h")
 emit_file(fo, buildroot, "include/vrt_obj.h")

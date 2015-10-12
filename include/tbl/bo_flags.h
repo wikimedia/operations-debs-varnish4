@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Varnish Software AS
+ * Copyright (c) 2014-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -39,6 +39,6 @@ BO_FLAG(uncacheable,	0, 0, "")
 BO_FLAG(abandon,	0, 0, "")
 BO_FLAG(is_gzip,	0, 0, "")
 BO_FLAG(is_gunzip,	0, 0, "")
-BO_FLAG(should_close,	0, 0, "")
+BO_FLAG(was_304,	1, 0, "")
 
 /*lint -restore */

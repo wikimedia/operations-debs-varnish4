@@ -1,14 +1,14 @@
 -a
 
-	When writing output to a file, append to it rather than overwrite it.
+	When writing output to a file with the -w option, append to it rather than overwrite it.
+
+-A
+
+	When writing output to a file with the -w option, output data in ascii format.
 
 -b
 
 	Only display transactions and log records coming from backend communication.
-
--B
-
-	Output binary data suitable for reading with -r.
 
 -c
 
@@ -72,7 +72,11 @@
 
 -r filename
 
-	Read log in binary file format from this file.
+	Read log in binary file format from this file. The file can be created with ``varnishlog -w filename``.
+
+-t <seconds|off>
+
+	Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to "off", the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.
 
 -T seconds
 
@@ -88,7 +92,7 @@
 
 -w filename
 
-	Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP the file will be reopened allowing the old one to be rotated away.
+	Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP the file will be reopened allowing the old one to be rotated away. The file can then be read by varnishlog and other tools with the -r option, unless the -A option was specified.
 
 -x taglist
 

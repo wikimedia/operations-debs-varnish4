@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -32,13 +32,14 @@
 
 #define LOG_OPT_a							\
 	VOPT("a", "[-a]", "Append to file",				\
-	    "When writing output to a file, append to it rather than"	\
-	    " overwrite it."						\
+	    "When writing output to a file with the -w option, append"	\
+	    " to it rather than overwrite it."				\
 	)
 
-#define LOG_OPT_B							\
-	VOPT("B", "[-B]", "Binary output",				\
-	    "Output binary data suitable for reading with -r."		\
+#define LOG_OPT_A							\
+	VOPT("A", "[-A]", "Text output",				\
+	    "When writing output to a file with the -w option, output"	\
+	    " data in ascii format."					\
 	)
 
 #define LOG_OPT_w							\
@@ -46,12 +47,14 @@
 	    "Redirect output to file. The file will be overwritten"	\
 	    " unless the -a option was specified. If the application"	\
 	    " receives a SIGHUP the file will be reopened allowing"	\
-	    " the old one to be rotated away."				\
+	    " the old one to be rotated away. The file can then be"	\
+	    " read by varnishlog and other tools with the -r option,"   \
+	    " unless the -A option was specified."			\
 	)
 
 LOG_OPT_a
+LOG_OPT_A
 VSL_OPT_b
-LOG_OPT_B
 VSL_OPT_c
 VSL_OPT_C
 VUT_OPT_d
@@ -67,6 +70,7 @@ VUT_OPT_N
 VUT_OPT_P
 VUT_OPT_q
 VUT_OPT_r
+VUT_OPT_t
 VSL_OPT_T
 VSL_OPT_v
 VUT_OPT_V

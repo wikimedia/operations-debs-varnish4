@@ -33,12 +33,12 @@
 #include <stdlib.h>
 
 #include "cache.h"
+#include "http1/cache_http1.h"
 #include "common/heritage.h"
 
 #include "vcli_priv.h"
 #include "vrnd.h"
 
-#include "waiter/waiter.h"
 #include "hash/hash_slinger.h"
 
 
@@ -51,6 +51,7 @@ volatile struct params	*cache_param;
 
 static pthread_key_t req_key;
 static pthread_key_t bo_key;
+pthread_key_t witness_key;
 
 void
 THR_SetBusyobj(const struct busyobj *bo)
@@ -116,20 +117,25 @@ static uint32_t vxid_chunk = 32768;
 static struct lock vxid_lock;
 
 uint32_t
-VXID_Get(struct vxid_pool *v)
+VXID_Get(struct worker *wrk, uint32_t mask)
 {
+	struct vxid_pool *v;
+
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	v = &wrk->vxid_pool;
+	AZ(VXID(mask));
 	do {
 		if (v->count == 0) {
 			Lck_Lock(&vxid_lock);
 			v->next = vxid_base;
 			v->count = vxid_chunk;
-			vxid_base += v->count;
+			vxid_base = (vxid_base + v->count) & VSL_IDENTMASK;
 			Lck_Unlock(&vxid_lock);
 		}
 		v->count--;
 		v->next++;
 	} while (v->next == 0);
-	return (v->next);
+	return (v->next | mask);
 }
 
 /*--------------------------------------------------------------------
@@ -194,6 +200,7 @@ child_main(void)
 
 	AZ(pthread_key_create(&req_key, NULL));
 	AZ(pthread_key_create(&bo_key, NULL));
+	AZ(pthread_key_create(&witness_key, NULL));
 	AZ(pthread_key_create(&name_key, NULL));
 
 	THR_SetName("cache-main");
@@ -204,21 +211,19 @@ child_main(void)
 
 	Lck_New(&vxid_lock, lck_vxid);
 
-	WAIT_Init();
-	PAN_Init();
 	CLI_Init();
+	PAN_Init();
 	VFP_Init();
 
 	VCL_Init();
 
 	HTTP_Init();
 
-	VDI_Init();
 	VBO_Init();
-	VBE_InitCfg();
 	VBP_Init();
+	VBE_InitCfg();
 	Pool_Init();
-	Pipe_Init();
+	V1P_Init();
 
 	EXP_Init();
 	HSH_Init(heritage.hash);
@@ -240,8 +245,6 @@ child_main(void)
 	/* Wait for persistent storage to load if asked to */
 	if (FEATURE(FEATURE_WAIT_SILO))
 		SMP_Ready();
-
-	Pool_Accept();
 
 	CLI_Run();
 

@@ -109,6 +109,18 @@ const struct var vcc_vars[] = {
 	    NULL,	/* No writes allowed */
 		0,
 	},
+	{ "beresp.age", DURATION, 10,
+	    "VRT_r_beresp_age(ctx)",
+		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_RESPONSE,
+	    NULL,	/* No writes allowed */
+		0,
+	},
+	{ "beresp.backend", BACKEND, 14,
+	    "VRT_r_beresp_backend(ctx)",
+		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_RESPONSE,
+	    NULL,	/* No writes allowed */
+		0,
+	},
 	{ "beresp.backend.ip", IP, 17,
 	    "VRT_r_beresp_backend_ip(ctx)",
 		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_RESPONSE,
@@ -199,6 +211,12 @@ const struct var vcc_vars[] = {
 	    "VRT_l_beresp_uncacheable(ctx, ",
 		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_RESPONSE,
 	},
+	{ "beresp.was_304", BOOL, 14,
+	    "VRT_r_beresp_was_304(ctx)",
+		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_RESPONSE,
+	    NULL,	/* No writes allowed */
+		0,
+	},
 	{ "client.identity", STRING, 15,
 	    "VRT_r_client_identity(ctx)",
 		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
@@ -217,6 +235,14 @@ const struct var vcc_vars[] = {
 	    NULL,	/* No writes allowed */
 		0,
 	},
+	{ "local.ip", IP, 8,
+	    "VRT_r_local_ip(ctx)",
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
 	{ "now", TIME, 3,
 	    "VRT_r_now(ctx)",
 		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_FETCH
@@ -224,6 +250,12 @@ const struct var vcc_vars[] = {
 		 | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_INIT | VCL_MET_MISS
 		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
 		 | VCL_MET_RECV | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
+	{ "obj.age", DURATION, 7,
+	    "VRT_r_obj_age(ctx)",
+		VCL_MET_HIT,
 	    NULL,	/* No writes allowed */
 		0,
 	},
@@ -278,6 +310,14 @@ const struct var vcc_vars[] = {
 	{ "obj.uncacheable", BOOL, 15,
 	    "VRT_r_obj_uncacheable(ctx)",
 		VCL_MET_DELIVER,
+	    NULL,	/* No writes allowed */
+		0,
+	},
+	{ "remote.ip", IP, 9,
+	    "VRT_r_remote_ip(ctx)",
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
 	    NULL,	/* No writes allowed */
 		0,
 	},
@@ -403,6 +443,38 @@ const struct var vcc_vars[] = {
 	    NULL,	/* No writes allowed */
 		0,
 	},
+	{ "req_top.http.", HEADER, 13,
+	    "HDR_REQ_TOP",
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
+	{ "req_top.method", STRING, 14,
+	    "VRT_r_req_top_method(ctx)",
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
+	{ "req_top.proto", STRING, 13,
+	    "VRT_r_req_top_proto(ctx)",
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
+	{ "req_top.url", STRING, 11,
+	    "VRT_r_req_top_url(ctx)",
+		VCL_MET_DELIVER | VCL_MET_HASH | VCL_MET_HIT | VCL_MET_MISS
+		 | VCL_MET_PASS | VCL_MET_PIPE | VCL_MET_PURGE
+		 | VCL_MET_RECV | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
+	},
 	{ "resp", HTTP, 4,
 	    "VRT_r_resp(ctx)",
 		VCL_MET_DELIVER | VCL_MET_SYNTH,
@@ -414,6 +486,12 @@ const struct var vcc_vars[] = {
 		VCL_MET_DELIVER | VCL_MET_SYNTH,
 	    "HDR_RESP",
 		VCL_MET_DELIVER | VCL_MET_SYNTH,
+	},
+	{ "resp.is_streaming", BOOL, 17,
+	    "VRT_r_resp_is_streaming(ctx)",
+		VCL_MET_DELIVER | VCL_MET_SYNTH,
+	    NULL,	/* No writes allowed */
+		0,
 	},
 	{ "resp.proto", STRING, 10,
 	    "VRT_r_resp_proto(ctx)",

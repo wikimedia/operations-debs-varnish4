@@ -2,7 +2,7 @@ AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2006 Verdens Gang AS
 Copyright (c) 2006-2015 Varnish Software AS])
 AC_REVISION([$Id$])
-AC_INIT([Varnish], [4.0.3], [varnish-dev@varnish-cache.org])
+AC_INIT([Varnish], [4.1.0], [varnish-dev@varnish-cache.org])
 AC_CONFIG_SRCDIR(include/miniobj.h)
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -15,6 +15,7 @@ OCFLAGS="$CFLAGS"
 AC_CANONICAL_SYSTEM
 AC_LANG(C)
 
+AM_MAINTAINER_MODE([disable])
 AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
 AM_SILENT_RULES([yes])
 AC_DISABLE_STATIC
@@ -69,6 +70,17 @@ AC_ARG_WITH([rst2html],
 		   AC_MSG_WARN([rst2html not found - not building changelog])
 		fi])
 AM_CONDITIONAL(HAVE_RST2HTML,[test "x$RST2HTML" != "xno"])
+
+AC_ARG_WITH([dot],
+  AS_HELP_STRING([--with-dot=PATH],
+		 [Location of the dot tool from graphviz (auto)]),
+  [DOT="$withval"],
+  [AC_CHECK_PROGS(DOT, [dot], [no])
+   if test "x$DOT" = "xno"; then
+     AC_MSG_WARN(
+       [dot not found - can't generate graphviz output for documentation.])
+   fi])
+AM_CONDITIONAL(HAVE_DOT,[test "x$DOT" != "xno"])
 
 # Checks for libraries.
 save_LIBS="${LIBS}"
@@ -139,32 +151,36 @@ fi
 AC_SUBST(PCRE_CFLAGS)
 AC_SUBST(PCRE_LIBS)
 
-PKG_CHECK_MODULES([LIBEDIT], [libedit], 
-	# having the module does not imply having the header
-	[AC_CHECK_HEADERS([editline/readline.h],
-			  [AC_DEFINE([HAVE_LIBEDIT], [1], [Define if we have libedit])],
-			  [AC_MSG_ERROR([Found libedit, but header file is missing. Hint: Install dev package?])])],
-	[
-	 # AX_LIB_READLINE overwrites LIBS which leads to every binary getting
-	 # linked against libreadline uselessly. So we re-use LIBEDIT_LIBS which
-	 # we have for libedit to add the lib specifically where needed
-	 save_LIBS="${LIBS}"
-	 AX_LIB_READLINE
-	 LIBS="${save_LIBS}"
-	 if test "$ax_cv_lib_readline" = "no"; then
-		AC_MSG_ERROR([neither libedit nor another readline compatible library found])
-	 fi
-	 if test "x$ax_cv_lib_readline_history" != "xyes"; then
-		AC_MSG_ERROR([need readline history support])
-	 fi
-	 LIBEDIT_LIBS="$ax_cv_lib_readline"
+AC_CHECK_HEADERS([edit/readline/readline.h],
+	[AC_DEFINE([HAVE_LIBEDIT], [1], [Define if we have libedit])
+	LIBEDIT_LIBS="-ledit"],
+
+	[PKG_CHECK_MODULES([LIBEDIT], [libedit], 
+		# having the module does not imply having the header
+		[AC_CHECK_HEADERS([editline/readline.h],
+				  [AC_DEFINE([HAVE_LIBEDIT], [1], [Define if we have libedit])],
+				  [AC_MSG_ERROR([Found libedit, but header file is missing. Hint: Install dev package?])])],
+		[
+		 # AX_LIB_READLINE overwrites LIBS which leads to every binary getting
+		 # linked against libreadline uselessly. So we re-use LIBEDIT_LIBS which
+		 # we have for libedit to add the lib specifically where needed
+		 save_LIBS="${LIBS}"
+		 AX_LIB_READLINE
+		 LIBS="${save_LIBS}"
+		 if test "$ax_cv_lib_readline" = "no"; then
+			AC_MSG_ERROR([neither libedit nor another readline compatible library found])
+		 fi
+		 if test "x$ax_cv_lib_readline_history" != "xyes"; then
+			AC_MSG_ERROR([need readline history support])
+		 fi
+		 LIBEDIT_LIBS="$ax_cv_lib_readline"
+		])
 	])
 
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIME
-AC_CHECK_HEADERS([edit/readline/readline.h])
 AC_CHECK_HEADERS([sys/param.h])
 AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([sys/endian.h])
@@ -202,9 +218,9 @@ AC_CHECK_FUNCS([socket])
 AC_CHECK_FUNCS([strptime])
 AC_CHECK_FUNCS([fmtcheck])
 AC_CHECK_FUNCS([getdtablesize])
-AC_CHECK_FUNCS([timegm])
 AC_CHECK_FUNCS([nanosleep])
 AC_CHECK_FUNCS([setppriv])
+AC_CHECK_FUNCS([fallocate])
 
 save_LIBS="${LIBS}"
 LIBS="${PTHREAD_LIBS}"
@@ -598,9 +614,9 @@ AC_DEFINE_UNQUOTED([VCC_CC],"$VCC_CC",[C compiler command line for VCL code])
 # --enable-pcre-jit
 AC_ARG_ENABLE(pcre-jit,
     AS_HELP_STRING([--enable-pcre-jit],
-	[use the PCRE JIT compiler (default is NO)]),
+	[use the PCRE JIT compiler (default is YES)]),
     ,
-    [enable_pcre_jit=no])
+    [enable_pcre_jit=yes])
 
 if test "$enable_pcre_jit" = yes; then
    AC_DEFINE([USE_PCRE_JIT],[1],[use the PCRE JIT compiler])
@@ -626,6 +642,7 @@ AC_CONFIG_FILES([
     bin/varnishtest/Makefile
     bin/varnishncsa/Makefile
     doc/Makefile
+    doc/graphviz/Makefile
     doc/sphinx/Makefile
     doc/sphinx/conf.py
     etc/Makefile
@@ -641,7 +658,6 @@ AC_CONFIG_FILES([
     lib/libvmod_std/Makefile
     lib/libvmod_directors/Makefile
     man/Makefile
-    redhat/Makefile
     varnishapi.pc
     varnishapi-uninstalled.pc
 ])

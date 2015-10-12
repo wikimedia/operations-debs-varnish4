@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -29,8 +29,6 @@
  * Common functions for the utilities
  */
 
-#include "vdef.h"
-
 typedef int VUT_cb_f(void);
 
 struct VUT {
@@ -42,9 +40,12 @@ struct VUT {
 	int		D_opt;
 	int		g_arg;
 	int		k_arg;
+	char		*n_arg;
+	char		*N_arg;
 	char		*P_arg;
 	char		*q_arg;
 	char		*r_arg;
+	double		t_arg;
 
 	/* State */
 	struct VSL_data	*vsl;
@@ -65,7 +66,7 @@ struct VUT {
 extern struct VUT VUT;
 
 void VUT_Error(int status, const char *fmt, ...)
-	__printflike(2, 3);
+	__v_printflike(2, 3);
 
 int VUT_g_Arg(const char *arg);
 

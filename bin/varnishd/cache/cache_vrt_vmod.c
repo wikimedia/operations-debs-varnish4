@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -62,8 +62,8 @@ struct vmod {
 static VTAILQ_HEAD(,vmod)	vmods = VTAILQ_HEAD_INITIALIZER(vmods);
 
 int
-VRT_Vmod_Init(void **hdl, void *ptr, int len, const char *nm,
-    const char *path, const char *file_id, struct cli *cli)
+VRT_Vmod_Init(struct vmod **hdl, void *ptr, int len, const char *nm,
+    const char *path, const char *file_id, VRT_CTX)
 {
 	struct vmod *v;
 	const struct vmod_data *d;
@@ -71,12 +71,16 @@ VRT_Vmod_Init(void **hdl, void *ptr, int len, const char *nm,
 	void *dlhdl;
 
 	ASSERT_CLI();
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(ctx->msg);
+	AN(hdl);
+	AZ(*hdl);
 
 	dlhdl = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 	if (dlhdl == NULL) {
-		VCLI_Out(cli, "Loading VMOD %s from %s:\n", nm, path);
-		VCLI_Out(cli, "dlopen() failed: %s\n", dlerror());
-		VCLI_Out(cli, "Check child process permissions.\n");
+		VSB_printf(ctx->msg, "Loading VMOD %s from %s:\n", nm, path);
+		VSB_printf(ctx->msg, "dlopen() failed: %s\n", dlerror());
+		VSB_printf(ctx->msg, "Check child process permissions.\n");
 		return (1);
 	}
 
@@ -94,8 +98,9 @@ VRT_Vmod_Init(void **hdl, void *ptr, int len, const char *nm,
 		if (d == NULL ||
 		    d->file_id == NULL ||
 		    strcmp(d->file_id, file_id)) {
-			VCLI_Out(cli, "Loading VMOD %s from %s:\n", nm, path);
-			VCLI_Out(cli,
+			VSB_printf(ctx->msg,
+			    "Loading VMOD %s from %s:\n", nm, path);
+			VSB_printf(ctx->msg,
 			    "This is no longer the same file seen by"
 			    " the VCL-compiler.\n");
 			(void)dlclose(v->hdl);
@@ -111,8 +116,9 @@ VRT_Vmod_Init(void **hdl, void *ptr, int len, const char *nm,
 		    d->proto == NULL ||
 		    d->spec == NULL ||
 		    d->abi == NULL) {
-			VCLI_Out(cli, "Loading VMOD %s from %s:\n", nm, path);
-			VCLI_Out(cli, "VMOD data is mangled.\n");
+			VSB_printf(ctx->msg,
+			    "Loading VMOD %s from %s:\n", nm, path);
+			VSB_printf(ctx->msg, "VMOD data is mangled.\n");
 			(void)dlclose(v->hdl);
 			FREE_OBJ(v);
 			return (1);
@@ -137,15 +143,16 @@ VRT_Vmod_Init(void **hdl, void *ptr, int len, const char *nm,
 }
 
 void
-VRT_Vmod_Fini(void **hdl)
+VRT_Vmod_Fini(struct vmod **hdl)
 {
 	struct vmod *v;
 
 	ASSERT_CLI();
 
-	AN(*hdl);
-	CAST_OBJ_NOTNULL(v, *hdl, VMOD_MAGIC);
+	AN(hdl);
+	v = *hdl;
 	*hdl = NULL;
+	CHECK_OBJ_NOTNULL(v, VMOD_MAGIC);
 
 #ifndef DONT_DLCLOSE_VMODS
 	/*

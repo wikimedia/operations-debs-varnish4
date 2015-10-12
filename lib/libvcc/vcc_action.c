@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -49,7 +49,6 @@ parse_call(struct vcc *tl)
 	Fb(tl, 1, "if (VGC_function_%.*s(ctx))\n", PF(tl->t));
 	Fb(tl, 1, "\treturn (1);\n");
 	vcc_NextToken(tl);
-	return;
 }
 
 /*--------------------------------------------------------------------*/
@@ -219,9 +218,9 @@ parse_new(struct vcc *tl)
 	vcc_NextToken(tl);
 
 	bprintf(buf1, ", &vo_%s, \"%s\"", sy1->name, sy1->name);
-	vcc_Eval_Func(tl, s_init, buf1, "ASDF", s_init + strlen(s_init) + 1);
+	vcc_Eval_Func(tl, s_init, buf1, sy2->name, s_init + strlen(s_init) + 1);
 	ifp = New_IniFin(tl);
-	VSB_printf(ifp->fin, "\t%s(&vo_%s);", s_fini, sy1->name);
+	VSB_printf(ifp->fin, "\t\t%s(&vo_%s);", s_fini, sy1->name);
 	ExpectErr(tl, ';');
 
 	bprintf(buf1, ", vo_%s", sy1->name);
@@ -324,7 +323,7 @@ parse_return(struct vcc *tl)
 		}
 		ExpectErr(tl, '(');
 		vcc_NextToken(tl);
-		Fb(tl, 1, "VRT_error(ctx,\n");
+		Fb(tl, 1, "VRT_synth(ctx,\n");
 		tl->indent += INDENT;
 		vcc_Expr(tl, INT);
 		ERRCHK(tl);

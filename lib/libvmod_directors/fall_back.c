@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Varnish Software AS
+ * Copyright (c) 2013-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -31,7 +31,7 @@
 #include <stdlib.h>
 
 #include "cache/cache.h"
-#include "cache/cache_backend.h"
+#include "cache/cache_director.h"
 
 #include "vrt.h"
 #include "vcc_if.h"
@@ -45,33 +45,38 @@ struct vmod_directors_fallback {
 };
 
 static unsigned __match_proto__(vdi_healthy)
-vmod_rr_healthy(const struct director *dir, double *changed)
+vmod_fallback_healthy(const struct director *dir, const struct busyobj *bo,
+    double *changed)
 {
 	struct vmod_directors_fallback *rr;
 
 	CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_DIRECTORS_FALLBACK_MAGIC);
-	return (vdir_any_healthy(rr->vd, changed));
+	return (vdir_any_healthy(rr->vd, bo, changed));
 }
 
-static struct vbc * __match_proto__(vdi_getfd_f)
-vmod_rr_getfd(const struct director *dir, struct busyobj *bo)
+static const struct director * __match_proto__(vdi_resolve_f)
+vmod_fallback_resolve(const struct director *dir, struct worker *wrk,
+    struct busyobj *bo)
 {
 	struct vmod_directors_fallback *rr;
 	unsigned u;
 	VCL_BACKEND be = NULL;
 
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_DIRECTORS_FALLBACK_MAGIC);
 	vdir_lock(rr->vd);
 	for (u = 0; u < rr->vd->n_backend; u++) {
 		be = rr->vd->backend[u];
 		CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
-		if (be->healthy(be, NULL))
+		if (be->healthy(be, bo, NULL))
 			break;
 	}
 	vdir_unlock(rr->vd);
-	if (u == rr->vd->n_backend || be == NULL)
-		return (NULL);
-	return (be->getfd(be, bo));
+	if (u == rr->vd->n_backend)
+		be = NULL;
+	return (be);
 }
 
 VCL_VOID __match_proto__()
@@ -86,7 +91,8 @@ vmod_fallback__init(VRT_CTX,
 	ALLOC_OBJ(rr, VMOD_DIRECTORS_FALLBACK_MAGIC);
 	AN(rr);
 	*rrp = rr;
-	vdir_new(&rr->vd, vcl_name, vmod_rr_healthy, vmod_rr_getfd, rr);
+	vdir_new(&rr->vd, "fallback", vcl_name, vmod_fallback_healthy,
+	    vmod_fallback_resolve, rr);
 }
 
 VCL_VOID __match_proto__()

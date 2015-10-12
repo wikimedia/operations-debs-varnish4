@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -32,235 +32,227 @@
 
 #include "config.h"
 
-#include <ctype.h>
+#include <fnmatch.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "cache.h"
 
-#include "cache_backend.h"
+#include "vcl.h"
 #include "vcli.h"
 #include "vcli_priv.h"
-#include "vsa.h"
 #include "vrt.h"
 #include "vtim.h"
 
-/*
- * The list of backends is not locked, it is only ever accessed from
- * the CLI thread, so there is no need.
- */
+#include "cache_director.h"
+#include "cache_backend.h"
+
 static VTAILQ_HEAD(, backend) backends = VTAILQ_HEAD_INITIALIZER(backends);
+static VTAILQ_HEAD(, backend) cool_backends =
+    VTAILQ_HEAD_INITIALIZER(cool_backends);
+static struct lock backends_mtx;
+
+static const char * const vbe_ah_healthy	= "healthy";
+static const char * const vbe_ah_sick		= "sick";
+static const char * const vbe_ah_probe		= "probe";
+static const char * const vbe_ah_deleted	= "deleted";
 
 /*--------------------------------------------------------------------
+ * Create a new static or dynamic director::backend instance.
  */
 
-static void
-VBE_Nuke(struct backend *b)
-{
-
-	ASSERT_CLI();
-	VTAILQ_REMOVE(&backends, b, list);
-	free(b->ipv4);
-	free(b->ipv4_addr);
-	free(b->ipv6);
-	free(b->ipv6_addr);
-	free(b->port);
-	VSM_Free(b->vsc);
-	FREE_OBJ(b);
-	VSC_C_main->n_backend--;
-}
-
-/*--------------------------------------------------------------------
- */
-
-void
-VBE_Poll(void)
-{
-	struct backend *b, *b2;
-
-	ASSERT_CLI();
-	VTAILQ_FOREACH_SAFE(b, &backends, list, b2) {
-		assert(
-			b->admin_health == ah_healthy ||
-			b->admin_health == ah_sick ||
-			b->admin_health == ah_probe
-		);
-		if (b->refcount == 0 && b->probe == NULL)
-			VBE_Nuke(b);
-	}
-}
-
-/*--------------------------------------------------------------------
- * Drop a reference to a backend.
- * The last reference must come from the watcher in the CLI thread,
- * as only that thread is allowed to clean up the backend list.
- */
-
-void
-VBE_DropRefLocked(struct backend *b, const struct acct_bereq *acct_bereq)
-{
-	int i;
-	struct vbc *vbe, *vbe2;
-
-	CHECK_OBJ_NOTNULL(b, BACKEND_MAGIC);
-	assert(b->refcount > 0);
-
-	if (acct_bereq != NULL) {
-#define ACCT(foo) \
-		b->vsc->foo += acct_bereq->foo;
-#include "tbl/acct_fields_bereq.h"
-#undef ACCT
-	}
-
-	i = --b->refcount;
-	Lck_Unlock(&b->mtx);
-	if (i > 0)
-		return;
-
-	ASSERT_CLI();
-	VTAILQ_FOREACH_SAFE(vbe, &b->connlist, list, vbe2) {
-		VTAILQ_REMOVE(&b->connlist, vbe, list);
-		if (vbe->fd >= 0) {
-			AZ(close(vbe->fd));
-			vbe->fd = -1;
-		}
-		vbe->backend = NULL;
-		VBE_ReleaseConn(vbe);
-	}
-	VBE_Nuke(b);
-}
-
-void
-VBE_DropRefVcl(struct backend *b)
-{
-
-	CHECK_OBJ_NOTNULL(b, BACKEND_MAGIC);
-
-	Lck_Lock(&b->mtx);
-	b->vsc->vcls--;
-	VBE_DropRefLocked(b, NULL);
-}
-
-void
-VBE_DropRefConn(struct backend *b, const struct acct_bereq *acct_bereq)
-{
-
-	CHECK_OBJ_NOTNULL(b, BACKEND_MAGIC);
-
-	Lck_Lock(&b->mtx);
-	assert(b->n_conn > 0);
-	b->n_conn--;
-	VBE_DropRefLocked(b, acct_bereq);
-}
-
-/*--------------------------------------------------------------------
- * See lib/libvcc/vcc_backend.c::emit_sockaddr()
- */
-
-static void
-copy_sockaddr(struct suckaddr **sa, const struct suckaddr *src)
-{
-
-	assert(VSA_Sane(src));
-	*sa = calloc(1, vsa_suckaddr_len);
-	XXXAN(*sa);
-	memcpy(*sa, src, vsa_suckaddr_len);
-	assert(VSA_Sane(*sa));
-}
-
-/*--------------------------------------------------------------------
- * Add a backend/director instance when loading a VCL.
- * If an existing backend is matched, grab a refcount and return.
- * Else create a new backend structure with reference initialized to one.
- */
-
-struct backend *
-VBE_AddBackend(struct cli *cli, const struct vrt_backend *vb)
+struct director *
+VRT_new_backend(VRT_CTX, const struct vrt_backend *vrt)
 {
 	struct backend *b;
-	char buf[128];
+	struct vsb *vsb;
+	struct vcl *vcl;
+	struct tcp_pool *tp = NULL;
+	const struct vrt_backend_probe *vbp;
 
-	AN(vb->vcl_name);
-	assert(vb->ipv4_suckaddr != NULL || vb->ipv6_suckaddr != NULL);
-	(void)cli;
-	ASSERT_CLI();
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vrt, VRT_BACKEND_MAGIC);
+	assert(vrt->ipv4_suckaddr != NULL || vrt->ipv6_suckaddr != NULL);
 
-	/* Run through the list and see if we already have this backend */
-	VTAILQ_FOREACH(b, &backends, list) {
-		CHECK_OBJ_NOTNULL(b, BACKEND_MAGIC);
-		if (strcmp(b->vcl_name, vb->vcl_name))
-			continue;
-		if (vb->ipv4_suckaddr != NULL &&
-		    VSA_Compare(b->ipv4, vb->ipv4_suckaddr))
-			continue;
-		if (vb->ipv6_suckaddr != NULL &&
-		    VSA_Compare(b->ipv6, vb->ipv6_suckaddr))
-			continue;
-		b->refcount++;
-		b->vsc->vcls++;
-		return (b);
-	}
+	vcl = ctx->vcl;
+	AN(vcl);
+	AN(vrt->vcl_name);
 
 	/* Create new backend */
 	ALLOC_OBJ(b, BACKEND_MAGIC);
 	XXXAN(b);
 	Lck_New(&b->mtx, lck_backend);
-	b->refcount = 1;
 
-	bprintf(buf, "%s(%s,%s,%s)",
-	    vb->vcl_name,
-	    vb->ipv4_addr == NULL ? "" : vb->ipv4_addr,
-	    vb->ipv6_addr == NULL ? "" : vb->ipv6_addr, vb->port);
+#define DA(x)	do { if (vrt->x != NULL) REPLACE((b->x), (vrt->x)); } while (0)
+#define DN(x)	do { b->x = vrt->x; } while (0)
+	VRT_BACKEND_HANDLE();
+#undef DA
+#undef DN
 
-	b->vsc = VSM_Alloc(sizeof *b->vsc, VSC_CLASS, VSC_type_vbe, buf);
-	b->vsc->vcls++;
+	vsb = VSB_new_auto();
+	AN(vsb);
+	VSB_printf(vsb, "%s.%s", VCL_Name(vcl), vrt->vcl_name);
+	AZ(VSB_finish(vsb));
 
-	VTAILQ_INIT(&b->connlist);
+	b->display_name = strdup(VSB_data(vsb));
+	AN(b->display_name);
+	VSB_delete(vsb);
 
-	/*
-	 * This backend may live longer than the VCL that instantiated it
-	 * so we cannot simply reference the VCL's copy of things.
-	 */
-	REPLACE(b->vcl_name, vb->vcl_name);
-	REPLACE(b->display_name, buf);
-	REPLACE(b->ipv4_addr, vb->ipv4_addr);
-	REPLACE(b->ipv6_addr, vb->ipv6_addr);
-	REPLACE(b->port, vb->port);
-
-	/*
-	 * Copy over the sockaddrs
-	 */
-	if (vb->ipv4_suckaddr != NULL)
-		copy_sockaddr(&b->ipv4, vb->ipv4_suckaddr);
-	if (vb->ipv6_suckaddr != NULL)
-		copy_sockaddr(&b->ipv6, vb->ipv6_suckaddr);
-
-	assert(b->ipv4 != NULL || b->ipv6 != NULL);
+	b->vcl = vcl;
 
 	b->healthy = 1;
 	b->health_changed = VTIM_real();
-	b->admin_health = ah_probe;
+	b->admin_health = vbe_ah_probe;
 
+	vbp = vrt->probe;
+	if (vbp == NULL)
+		vbp = VCL_DefaultProbe(vcl);
+
+	Lck_Lock(&backends_mtx);
 	VTAILQ_INSERT_TAIL(&backends, b, list);
 	VSC_C_main->n_backend++;
-	return (b);
+	b->tcp_pool = VBT_Ref(vrt->ipv4_suckaddr, vrt->ipv6_suckaddr);
+	if (vbp != NULL) {
+		tp = VBT_Ref(vrt->ipv4_suckaddr, vrt->ipv6_suckaddr);
+		assert(b->tcp_pool == tp);
+	}
+	Lck_Unlock(&backends_mtx);
+
+	VBE_fill_director(b);
+
+	if (vbp != NULL)
+		VBP_Insert(b, vbp, tp);
+
+	VCL_AddBackend(ctx->vcl, b);
+
+	return (b->director);
+}
+
+/*--------------------------------------------------------------------
+ * Delete a dynamic director::backend instance.  Undeleted dynamic and
+ * static instances are GC'ed when the VCL is discarded (in cache_vcl.c)
+ */
+
+void
+VRT_delete_backend(VRT_CTX, struct director **dp)
+{
+	struct director *d;
+	struct backend *be;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(dp);
+	d = *dp;
+	*dp = NULL;
+	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
+	Lck_Lock(&be->mtx);
+	be->admin_health = vbe_ah_deleted;
+	be->health_changed = VTIM_real();
+	be->cooled = VTIM_real() + 60.;
+	VTAILQ_REMOVE(&backends, be, list);
+	VTAILQ_INSERT_TAIL(&cool_backends, be, list);
+	Lck_Unlock(&be->mtx);
+}
+
+/*---------------------------------------------------------------------
+ * These are for cross-calls with cache_vcl.c only.
+ */
+
+void
+VBE_Event(struct backend *be, enum vcl_event_e ev)
+{
+
+	CHECK_OBJ_NOTNULL(be, BACKEND_MAGIC);
+
+	if (ev == VCL_EVENT_WARM) {
+		be->vsc = VSM_Alloc(sizeof *be->vsc,
+		    VSC_CLASS, VSC_type_vbe, be->display_name);
+		AN(be->vsc);
+	}
+
+	if (be->probe != NULL && ev == VCL_EVENT_WARM)
+		VBP_Control(be, 1);
+
+	if (be->probe != NULL && ev == VCL_EVENT_COLD)
+		VBP_Control(be, 0);
+
+	if (ev == VCL_EVENT_COLD) {
+		VSM_Free(be->vsc);
+		be->vsc = NULL;
+	}
+}
+
+void
+VBE_Delete(struct backend *be)
+{
+	CHECK_OBJ_NOTNULL(be, BACKEND_MAGIC);
+
+	if (be->probe != NULL)
+		VBP_Remove(be);
+
+	Lck_Lock(&backends_mtx);
+	if (be->cooled > 0)
+		VTAILQ_REMOVE(&cool_backends, be, list);
+	else
+		VTAILQ_REMOVE(&backends, be, list);
+	VSC_C_main->n_backend--;
+	VBT_Rel(&be->tcp_pool);
+	Lck_Unlock(&backends_mtx);
+
+#define DA(x)	do { if (be->x != NULL) free(be->x); } while (0)
+#define DN(x)	/**/
+	VRT_BACKEND_HANDLE();
+#undef DA
+#undef DN
+
+	free(be->display_name);
+	AZ(be->vsc);
+	Lck_Delete(&be->mtx);
+	FREE_OBJ(be);
 }
 
 /*---------------------------------------------------------------------
  * String to admin_health
  */
 
-static enum admin_health
+static const char *
 vbe_str2adminhealth(const char *wstate)
 {
 
-	if (strcasecmp(wstate, "healthy") == 0)
-		return (ah_healthy);
-	if (strcasecmp(wstate, "sick") == 0)
-		return (ah_sick);
-	if (strcmp(wstate, "auto") == 0)
-		return (ah_probe);
-	return (ah_invalid);
+#define FOO(x, y) if (strcasecmp(wstate, #x) == 0) return (vbe_ah_##y)
+	FOO(healthy,	healthy);
+	FOO(sick,	sick);
+	FOO(probe,	probe);
+	FOO(auto,	probe);
+	return (NULL);
+#undef FOO
+}
+
+/*--------------------------------------------------------------------
+ * Test if backend is healthy and report when it last changed
+ */
+
+unsigned
+VBE_Healthy(const struct backend *backend, double *changed)
+{
+	CHECK_OBJ_NOTNULL(backend, BACKEND_MAGIC);
+
+	if (changed != NULL)
+		*changed = backend->health_changed;
+
+	if (backend->admin_health == vbe_ah_probe)
+		return (backend->healthy);
+
+	if (backend->admin_health == vbe_ah_sick)
+		return (0);
+
+	if (backend->admin_health == vbe_ah_deleted)
+		return (0);
+
+	if (backend->admin_health == vbe_ah_healthy)
+		return (1);
+
+	WRONG("Wrong admin health");
 }
 
 /*---------------------------------------------------------------------
@@ -268,7 +260,7 @@ vbe_str2adminhealth(const char *wstate)
  *
  * Return -1 on match-argument parse errors.
  *
- * If the call-back function returns non-zero, the search is terminated
+ * If the call-back function returns negative, the search is terminated
  * and we relay that return value.
  *
  * Otherwise we return the number of matches.
@@ -279,95 +271,42 @@ typedef int bf_func(struct cli *cli, struct backend *b, void *priv);
 static int
 backend_find(struct cli *cli, const char *matcher, bf_func *func, void *priv)
 {
+	int i, found = 0;
+	struct vsb *vsb;
+	struct vcl *vcc = NULL;
 	struct backend *b;
-	const char *s;
-	const char *name_b;
-	ssize_t name_l = 0;
-	const char *ip_b = NULL;
-	ssize_t ip_l = 0;
-	const char *port_b = NULL;
-	ssize_t port_l = 0;
-	int all, found = 0;
-	int i;
 
-	name_b = matcher;
-	if (matcher != NULL) {
-		s = strchr(matcher,'(');
-
-		if (s != NULL)
-			name_l = s - name_b;
-		else
-			name_l = strlen(name_b);
-
-		if (s != NULL) {
-			s++;
-			while (isspace(*s))
-				s++;
-			ip_b = s;
-			while (*s != '\0' &&
-			    *s != ')' &&
-			    *s != ':' &&
-			    !isspace(*s))
-				s++;
-			ip_l = s - ip_b;
-			while (isspace(*s))
-				s++;
-			if (*s == ':') {
-				s++;
-				while (isspace(*s))
-					s++;
-				port_b = s;
-				while (*s != '\0' && *s != ')' && !isspace(*s))
-					s++;
-				port_l = s - port_b;
-			}
-			while (isspace(*s))
-				s++;
-			if (*s != ')') {
-				VCLI_Out(cli,
-				    "Match string syntax error:"
-				    " ')' not found.");
-				VCLI_SetResult(cli, CLIS_CANT);
-				return (-1);
-			}
-			s++;
-			while (isspace(*s))
-				s++;
-			if (*s != '\0') {
-				VCLI_Out(cli,
-				    "Match string syntax error:"
-				    " junk after ')'");
-				VCLI_SetResult(cli, CLIS_CANT);
-				return (-1);
-			}
-		}
+	VCL_Refresh(&vcc);
+	AN(vcc);
+	vsb = VSB_new_auto();
+	AN(vsb);
+	if (matcher == NULL || *matcher == '\0' || !strcmp(matcher, "*")) {
+		// all backends in active VCL
+		VSB_printf(vsb, "%s.*", VCL_Name(vcc));
+	} else if (strchr(matcher, '.') != NULL) {
+		// use pattern as is
+		VSB_cat(vsb, matcher);
+	} else {
+		// pattern applies to active vcl
+		VSB_printf(vsb, "%s.%s", VCL_Name(vcc), matcher);
 	}
-
-	for (all = 0; all < 2 && found == 0; all++) {
-		if (all == 0 && name_b == NULL)
+	AZ(VSB_finish(vsb));
+	Lck_Lock(&backends_mtx);
+	VTAILQ_FOREACH(b, &backends, list) {
+		if (b->admin_health == vbe_ah_deleted)
 			continue;
-		VTAILQ_FOREACH(b, &backends, list) {
-			CHECK_OBJ_NOTNULL(b, BACKEND_MAGIC);
-			if (port_b != NULL &&
-			    strncmp(b->port, port_b, port_l) != 0)
-				continue;
-			if (name_b != NULL &&
-			    strncmp(b->vcl_name, name_b, name_l) != 0)
-				continue;
-			if (all == 0 && b->vcl_name[name_l] != '\0')
-				continue;
-			if (ip_b != NULL &&
-			    (b->ipv4_addr == NULL ||
-				strncmp(b->ipv4_addr, ip_b, ip_l)) &&
-			    (b->ipv6_addr == NULL ||
-				strncmp(b->ipv6_addr, ip_b, ip_l)))
-				continue;
-			found++;
-			i = func(cli, b, priv);
-			if (i)
-				return (i);
+		if (fnmatch(VSB_data(vsb), b->display_name, 0))
+			continue;
+		found++;
+		i = func(cli, b, priv);
+		if (i < 0) {
+			found = i;
+			break;
 		}
 	}
+	Lck_Unlock(&backends_mtx);
+	VSB_delete(vsb);
+	VCL_Rel(&vcc);
 	return (found);
 }
 
@@ -376,27 +315,15 @@ backend_find(struct cli *cli, const char *matcher, bf_func *func, void *priv)
 static int __match_proto__()
 do_list(struct cli *cli, struct backend *b, void *priv)
 {
-	int *hdr;
+	int *probes;
 
 	AN(priv);
-	hdr = priv;
-	if (!*hdr) {
-		VCLI_Out(cli, "%-30s %-6s %-10s %s",
-		    "Backend name", "Refs", "Admin", "Probe");
-		*hdr = 1;
-	}
+	probes = priv;
 	CHECK_OBJ_NOTNULL(b, BACKEND_MAGIC);
 
-	VCLI_Out(cli, "\n%-30s %-6d", b->display_name, b->refcount);
+	VCLI_Out(cli, "\n%-30s", b->display_name);
 
-	if (b->admin_health == ah_probe)
-		VCLI_Out(cli, " %-10s", "probe");
-	else if (b->admin_health == ah_sick)
-		VCLI_Out(cli, " %-10s", "sick");
-	else if (b->admin_health == ah_healthy)
-		VCLI_Out(cli, " %-10s", "healthy");
-	else
-		VCLI_Out(cli, " %-10s", "invalid");
+	VCLI_Out(cli, " %-10s", b->admin_health);
 
 	if (b->probe == NULL)
 		VCLI_Out(cli, " %s", "Healthy (no probe)");
@@ -405,7 +332,7 @@ do_list(struct cli *cli, struct backend *b, void *priv)
 			VCLI_Out(cli, " %s", "Healthy ");
 		else
 			VCLI_Out(cli, " %s", "Sick ");
-		VBP_Summary(cli, b->probe);
+		VBP_Status(cli, b, *probes);
 	}
 
 	/* XXX: report b->health_changed */
@@ -416,12 +343,24 @@ do_list(struct cli *cli, struct backend *b, void *priv)
 static void
 cli_backend_list(struct cli *cli, const char * const *av, void *priv)
 {
-	int hdr = 0;
+	int probes = 0;
 
-	(void)av;
 	(void)priv;
 	ASSERT_CLI();
-	(void)backend_find(cli, av[2], do_list, &hdr);
+	if (av[2] != NULL && !strcmp(av[2], "-p")) {
+		av++;
+		probes = 1;
+	} else if (av[2] != NULL && av[2][0] == '-') {
+		VCLI_Out(cli, "Invalid flags %s", av[2]);
+		VCLI_SetResult(cli, CLIS_PARAM);
+		return;
+	} else if (av[3] != NULL) {
+		VCLI_Out(cli, "Too many arguments");
+		VCLI_SetResult(cli, CLIS_PARAM);
+		return;
+	}
+	VCLI_Out(cli, "%-30s %-10s %s", "Backend name", "Admin", "Probe");
+	(void)backend_find(cli, av[2], do_list, &probes);
 }
 
 /*---------------------------------------------------------------------*/
@@ -429,14 +368,17 @@ cli_backend_list(struct cli *cli, const char * const *av, void *priv)
 static int __match_proto__()
 do_set_health(struct cli *cli, struct backend *b, void *priv)
 {
-	enum admin_health state;
+	const char **ah;
 	unsigned prev;
 
 	(void)cli;
-	state = *(enum admin_health*)priv;
+	AN(priv);
+	ah = priv;
+	AN(*ah);
 	CHECK_OBJ_NOTNULL(b, BACKEND_MAGIC);
 	prev = VBE_Healthy(b, NULL);
-	b->admin_health = state;
+	if (b->admin_health != vbe_ah_deleted)
+		b->admin_health = *ah;
 	if (prev != VBE_Healthy(b, NULL))
 		b->health_changed = VTIM_real();
 
@@ -446,7 +388,7 @@ do_set_health(struct cli *cli, struct backend *b, void *priv)
 static void
 cli_backend_set_health(struct cli *cli, const char * const *av, void *priv)
 {
-	enum admin_health state;
+	const char *ah;
 	int n;
 
 	(void)av;
@@ -454,13 +396,13 @@ cli_backend_set_health(struct cli *cli, const char * const *av, void *priv)
 	ASSERT_CLI();
 	AN(av[2]);
 	AN(av[3]);
-	state = vbe_str2adminhealth(av[3]);
-	if (state == ah_invalid) {
+	ah = vbe_str2adminhealth(av[3]);
+	if (ah == NULL) {
 		VCLI_Out(cli, "Invalid state %s", av[3]);
 		VCLI_SetResult(cli, CLIS_PARAM);
 		return;
 	}
-	n = backend_find(cli, av[2], do_set_health, &state);
+	n = backend_find(cli, av[2], do_set_health, &ah);
 	if (n == 0) {
 		VCLI_Out(cli, "No Backends matches");
 		VCLI_SetResult(cli, CLIS_PARAM);
@@ -470,9 +412,9 @@ cli_backend_set_health(struct cli *cli, const char * const *av, void *priv)
 /*---------------------------------------------------------------------*/
 
 static struct cli_proto backend_cmds[] = {
-	{ "backend.list", "backend.list [<backend_expression>]",
+	{ "backend.list", "backend.list [-p] [<backend_expression>]",
 	    "\tList backends.",
-	    0, 1, "", cli_backend_list },
+	    0, 2, "", cli_backend_list },
 	{ "backend.set_health",
 	    "backend.set_health <backend_expression> <state>",
 	    "\tSet health status on the backends.",
@@ -483,8 +425,34 @@ static struct cli_proto backend_cmds[] = {
 /*---------------------------------------------------------------------*/
 
 void
+VBE_Poll(void)
+{
+	struct backend *be;
+	double now = VTIM_real();
+
+	Lck_Lock(&backends_mtx);
+	while (1) {
+		be = VTAILQ_FIRST(&cool_backends);
+		if (be == NULL)
+			break;
+		if (be->cooled > now)
+			break;
+		if (be->n_conn > 0)
+			continue;
+		Lck_Unlock(&backends_mtx);
+		VCL_DelBackend(be);
+		VBE_Delete(be);
+		Lck_Lock(&backends_mtx);
+	}
+	Lck_Unlock(&backends_mtx);
+}
+
+/*---------------------------------------------------------------------*/
+
+void
 VBE_InitCfg(void)
 {
 
 	CLI_AddFuncs(backend_cmds);
+	Lck_New(&backends_mtx, lck_vbe);
 }

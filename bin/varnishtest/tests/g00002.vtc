@@ -4,7 +4,7 @@ server s1 {
 	rxreq
 	expect req.http.accept-encoding == "gzip"
 	expect req.url == "/foo"
-	txresp -nolen -gziplen 4100
+	txresp -proto HTTP/1.0 -nolen -gziplen 4100
 	accept
 	rxreq
 	expect req.url == "/bar"
@@ -23,6 +23,7 @@ varnish v1 \
 } -start
 
 varnish v1 -cliok "param.set fetch_chunksize 4k"
+varnish v1 -cliok "param.set vsl_mask +VfpAcct"
 
 client c1 {
 	txreq -url /foo -hdr "Accept-Encoding: gzip"
@@ -41,6 +42,7 @@ client c1 {
 	rxresp
 	expect resp.http.content-encoding == <undef>
 	expect resp.bodylen == 4100
+	delay .1
 
 	# See varnish can gunzip it, inside ESI
 	txreq -url /bar -hdr "Accept-Encoding: null"

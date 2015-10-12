@@ -57,7 +57,7 @@ struct sma {
 };
 
 static struct storage *
-sma_alloc(struct stevedore *st, size_t size)
+sma_alloc(const struct stevedore *st, size_t size)
 {
 	struct sma_sc *sma_sc;
 	struct sma *sma = NULL;
@@ -117,7 +117,6 @@ sma_alloc(struct stevedore *st, size_t size)
 	sma->s.priv = sma;
 	sma->s.len = 0;
 	sma->s.space = size;
-	sma->s.stevedore = st;
 	sma->s.magic = STORAGE_MAGIC;
 	return (&sma->s);
 }
@@ -245,13 +244,14 @@ sma_open(const struct stevedore *st)
 }
 
 const struct stevedore sma_stevedore = {
-	.magic	=	STEVEDORE_MAGIC,
-	.name	=	"malloc",
-	.init	=	sma_init,
-	.open	=	sma_open,
-	.alloc	=	sma_alloc,
-	.free	=	sma_free,
-	.trim	=	sma_trim,
+	.magic		=	STEVEDORE_MAGIC,
+	.name		=	"malloc",
+	.init		=	sma_init,
+	.open		=	sma_open,
+	.alloc		=	sma_alloc,
+	.free		=	sma_free,
+	.trim		=	sma_trim,
+	.methods	=	&default_oc_methods,
 	.var_free_space =	sma_free_space,
 	.var_used_space =	sma_used_space,
 };

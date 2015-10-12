@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -31,13 +31,9 @@
 
 #include "config.h"
 
-
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "cache.h"
 
-#include "cache_backend.h"
+#include "cache_director.h"
 #include "hash/hash_slinger.h"
 #include "vav.h"
 #include "vcl.h"
@@ -52,30 +48,16 @@ const void * const vrt_magic_string_unset = &vrt_magic_string_unset;
 /*--------------------------------------------------------------------*/
 
 void
-VRT_error(VRT_CTX, unsigned code, const char *reason)
+VRT_synth(VRT_CTX, unsigned code, const char *reason)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-	VSLb(ctx->vsl, SLT_Debug, "VCL_error(%u, %s)", code,
-	    reason ?  reason : "(null)");
 	if (code < 100 || code > 999)
 		code = 503;
 	ctx->req->err_code = (uint16_t)code;
 	ctx->req->err_reason =
 	    reason ? reason : http_Status2Reason(ctx->req->err_code);
-}
-
-/*--------------------------------------------------------------------*/
-
-void
-VRT_count(VRT_CTX, unsigned u)
-{
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (ctx->vsl != NULL)
-		VSLb(ctx->vsl, SLT_VCL_trace, "%u %u.%u", u,
-		    ctx->vcl->ref[u].line, ctx->vcl->ref[u].pos);
 }
 
 /*--------------------------------------------------------------------*/
@@ -90,8 +72,8 @@ VRT_acl_log(VRT_CTX, const char *msg)
 
 /*--------------------------------------------------------------------*/
 
-static struct http *
-vrt_selecthttp(VRT_CTX, enum gethdr_e where)
+struct http *
+VRT_selecthttp(VRT_CTX, enum gethdr_e where)
 {
 	struct http *hp;
 
@@ -99,6 +81,9 @@ vrt_selecthttp(VRT_CTX, enum gethdr_e where)
 	switch (where) {
 	case HDR_REQ:
 		hp = ctx->http_req;
+		break;
+	case HDR_REQ_TOP:
+		hp = ctx->http_req_top;
 		break;
 	case HDR_BEREQ:
 		hp = ctx->http_bereq;
@@ -109,25 +94,28 @@ vrt_selecthttp(VRT_CTX, enum gethdr_e where)
 	case HDR_RESP:
 		hp = ctx->http_resp;
 		break;
-	case HDR_OBJ:
-		hp = ctx->http_obj;
-		break;
 	default:
-		WRONG("vrt_selecthttp 'where' invalid");
+		WRONG("VRT_selecthttp 'where' invalid");
 	}
 	return (hp);
 }
 
 /*--------------------------------------------------------------------*/
 
-char *
+const char *
 VRT_GetHdr(VRT_CTX, const struct gethdr_s *hs)
 {
-	char *p;
+	const char *p;
 	struct http *hp;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	hp = vrt_selecthttp(ctx, hs->where);
+	if (hs->where == HDR_OBJ) {
+		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
+		CHECK_OBJ_NOTNULL(ctx->req->objcore, OBJCORE_MAGIC);
+		return(HTTP_GetHdrPack(ctx->req->wrk, ctx->req->objcore,
+		    hs->what));
+	}
+	hp = VRT_selecthttp(ctx, hs->where);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 	if (!http_GetHdr(hp, hs->what, &p))
 		return (NULL);
@@ -225,7 +213,7 @@ VRT_SetHdr(VRT_CTX , const struct gethdr_s *hs,
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	AN(hs);
 	AN(hs->what);
-	hp = vrt_selecthttp(ctx, hs->where);
+	hp = VRT_selecthttp(ctx, hs->where);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 	va_start(ap, p);
 	if (p == vrt_magic_string_unset) {
@@ -265,21 +253,21 @@ VRT_hashdata(VRT_CTX, const char *str, ...)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-	HSH_AddString(ctx->req, str);
+	AN(ctx->specific);
+	HSH_AddString(ctx->req, ctx->specific, str);
 	va_start(ap, str);
 	while (1) {
 		p = va_arg(ap, const char *);
 		if (p == vrt_magic_string_end)
 			break;
-		HSH_AddString(ctx->req, p);
-		VSLb(ctx->vsl, SLT_Hash, "%s", str);
+		HSH_AddString(ctx->req, ctx->specific, p);
 	}
 	va_end(ap);
 	/*
 	 * Add a 'field-separator' to make it more difficult to
 	 * manipulate the hash.
 	 */
-	HSH_AddString(ctx->req, NULL);
+	HSH_AddString(ctx->req, ctx->specific, NULL);
 }
 
 /*--------------------------------------------------------------------*/
@@ -388,16 +376,7 @@ VRT_synth_page(VRT_CTX, const char *str, ...)
 	const char *p;
 	struct vsb *vsb;
 
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (ctx->method == VCL_MET_BACKEND_ERROR) {
-		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
-		vsb = ctx->bo->synth_body;
-	} else {
-		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-		vsb = ctx->req->synth_body;
-	}
-	AN(vsb);
-
+	CAST_OBJ_NOTNULL(vsb, ctx->specific, VSB_MAGIC);
 	va_start(ap, str);
 	p = str;
 	while (p != vrt_magic_string_end) {
@@ -476,6 +455,8 @@ VRT_ban_string(VRT_CTX, const char *str)
 
 /*--------------------------------------------------------------------
  *
+ * XXX this really should be ssize_t VRT_CacheReqBody(VRT_CTX, size_t)
+ * - change with next VRT major bump
  */
 
 int
@@ -487,9 +468,9 @@ VRT_CacheReqBody(VRT_CTX, long long maxsize)
 	if (ctx->method != VCL_MET_RECV) {
 		VSLb(ctx->vsl, SLT_VCL_Error,
 		    "req.body can only be cached in vcl_recv{}");
-		return (0);
+		return (-1);
 	}
-	return (HTTP1_CacheReqBody(ctx->req, maxsize));
+	return (VRB_Cache(ctx->req, maxsize));
 }
 
 /*--------------------------------------------------------------------
@@ -504,21 +485,11 @@ VRT_purge(VRT_CTX, double ttl, double grace, double keep)
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req->wrk, WORKER_MAGIC);
 	if (ctx->method == VCL_MET_HIT)
-		HSH_Purge(ctx->req->wrk, ctx->req->obj->objcore->objhead,
+		HSH_Purge(ctx->req->wrk, ctx->req->objcore->objhead,
 		    ttl, grace, keep);
 	else if (ctx->method == VCL_MET_MISS)
 		HSH_Purge(ctx->req->wrk, ctx->req->objcore->objhead,
 		    ttl, grace, keep);
-}
-
-/*--------------------------------------------------------------------
- */
-
-void
-VRT_priv_fini(const struct vmod_priv *p)
-{
-	if (p->priv != (void*)0 && p->free != (void*)0)
-		p->free(p->priv);
 }
 
 /*--------------------------------------------------------------------

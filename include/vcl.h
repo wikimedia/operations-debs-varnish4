@@ -12,8 +12,17 @@ struct ws;
 struct cli;
 struct worker;
 
-typedef int vcl_init_f(struct cli *);
-typedef void vcl_fini_f(struct cli *);
+enum vcl_event_e {
+	VCL_EVENT_LOAD,
+	VCL_EVENT_WARM,
+	VCL_EVENT_USE,
+	VCL_EVENT_COLD,
+	VCL_EVENT_DISCARD,
+};
+
+typedef int vcl_event_f(VRT_CTX, enum vcl_event_e);
+typedef int vcl_init_f(VRT_CTX);
+typedef void vcl_fini_f(VRT_CTX);
 typedef int vcl_func_f(VRT_CTX);
 
 /* VCL Methods */
@@ -39,36 +48,35 @@ typedef int vcl_func_f(VRT_CTX);
 /* VCL Returns */
 #define VCL_RET_ABANDON			0
 #define VCL_RET_DELIVER			1
-#define VCL_RET_FETCH			2
-#define VCL_RET_HASH			3
-#define VCL_RET_LOOKUP			4
-#define VCL_RET_OK			5
-#define VCL_RET_PASS			6
-#define VCL_RET_PIPE			7
-#define VCL_RET_PURGE			8
-#define VCL_RET_RESTART			9
-#define VCL_RET_RETRY			10
-#define VCL_RET_SYNTH			11
+#define VCL_RET_FAIL			2
+#define VCL_RET_FETCH			3
+#define VCL_RET_HASH			4
+#define VCL_RET_LOOKUP			5
+#define VCL_RET_MISS			6
+#define VCL_RET_OK			7
+#define VCL_RET_PASS			8
+#define VCL_RET_PIPE			9
+#define VCL_RET_PURGE			10
+#define VCL_RET_RESTART			11
+#define VCL_RET_RETRY			12
+#define VCL_RET_SYNTH			13
 
-#define VCL_RET_MAX			12
+#define VCL_RET_MAX			14
 
 struct VCL_conf {
-	unsigned	magic;
-#define VCL_CONF_MAGIC	0x7406c509	/* from /dev/random */
+	unsigned			magic;
+#define VCL_CONF_MAGIC			0x7406c509	/* from /dev/random */
 
-	struct director	**director;
-	unsigned	ndirector;
-	struct vrt_ref	*ref;
-	unsigned	nref;
-	unsigned	busy;
-	unsigned	discard;
+	struct director			**default_director;
+	const struct vrt_backend_probe	*default_probe;
+	unsigned			nref;
+	struct vrt_ref			*ref;
 
-	unsigned	nsrc;
-	const char	**srcname;
-	const char	**srcbody;
+	unsigned			nsrc;
+	const char			**srcname;
+	const char			**srcbody;
 
-	vcl_init_f	*init_vcl;
-	vcl_fini_f	*fini_vcl;
+	vcl_event_f			*event_vcl;
 	vcl_func_f	*recv_func;
 	vcl_func_f	*pipe_func;
 	vcl_func_f	*pass_func;

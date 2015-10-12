@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -56,19 +56,15 @@
  * In a perfect world, we should vector through VRE to get to PCRE,
  * but since we rely on PCRE's ability to encode the regexp into a
  * byte string, that would be a little bit artificial, so this is
- * the exception that confirmes the rule.
+ * the exception that confirms the rule.
  *
  */
 
 #include "config.h"
 
-#include <math.h>
 #include <pcre.h>
-#include <stdarg.h>
-#include <stdio.h>
 
 #include "cache.h"
-#include "storage/storage.h"
 
 #include "hash/hash_slinger.h"
 #include "vcli.h"
@@ -84,7 +80,7 @@
 #define BANS_TIMESTAMP		0
 #define BANS_LENGTH		8
 #define BANS_FLAGS		12
-#define BANS_HEAD_LEN		13
+#define BANS_HEAD_LEN		16
 
 #define BANS_FLAG_REQ		(1<<0)
 #define BANS_FLAG_OBJ		(1<<1)
@@ -296,6 +292,9 @@ ban_add_lump(const struct ban *b, const void *p, uint32_t len)
 {
 	uint8_t buf[sizeof len];
 
+	buf[0] = 0xff;
+	while (VSB_len(b->vsb) & PALGN)
+		VSB_bcat(b->vsb, buf, 1);
 	vbe32enc(buf, len);
 	VSB_bcat(b->vsb, buf, sizeof buf);
 	VSB_bcat(b->vsb, p, len);
@@ -307,6 +306,8 @@ ban_get_lump(const uint8_t **bs)
 	const void *r;
 	unsigned ln;
 
+	while (**bs == 0xff)
+		*bs += 1;
 	ln = vbe32dec(*bs);
 	*bs += 4;
 	r = (const void*)*bs;
@@ -518,6 +519,7 @@ BAN_Insert(struct ban *b)
 		return (ban_ins_error(NULL));
 	}
 
+	memset(b->spec, 0, BANS_HEAD_LEN);
 	t0 = VTIM_real();
 	memcpy(b->spec + BANS_TIMESTAMP, &t0, sizeof t0);
 	b->spec[BANS_FLAGS] = b->flags & 0xff;
@@ -568,7 +570,7 @@ BAN_Insert(struct ban *b)
 	/* Hunt down duplicates, and mark them as completed */
 	bi = b;
 	Lck_Lock(&ban_mtx);
-	while(!ban_shutdown && bi != be) {
+	while (!ban_shutdown && bi != be) {
 		bi = VTAILQ_NEXT(bi, list);
 		if (bi->flags & BANS_FLAG_COMPLETED)
 			continue;
@@ -827,16 +829,16 @@ BAN_Compile(void)
  */
 
 static int
-ban_evaluate(const uint8_t *bs, const struct http *objhttp,
+ban_evaluate(struct worker *wrk, const uint8_t *bs, struct objcore *oc,
     const struct http *reqhttp, unsigned *tests)
 {
 	struct ban_test bt;
 	const uint8_t *be;
-	char *arg1;
-	char buf[10];
+	const char *p;
+	const char *arg1;
 
 	be = bs + ban_len(bs);
-	bs += 13;
+	bs += BANS_HEAD_LEN;
 	while (bs < be) {
 		(*tests)++;
 		ban_iter(&bs, &bt);
@@ -848,14 +850,14 @@ ban_evaluate(const uint8_t *bs, const struct http *objhttp,
 			break;
 		case BANS_ARG_REQHTTP:
 			AN(reqhttp);
-			(void)http_GetHdr(reqhttp, bt.arg1_spec, &arg1);
+			(void)http_GetHdr(reqhttp, bt.arg1_spec, &p);
+			arg1 = p;
 			break;
 		case BANS_ARG_OBJHTTP:
-			(void)http_GetHdr(objhttp, bt.arg1_spec, &arg1);
+			arg1 = HTTP_GetHdrPack(wrk, oc, bt.arg1_spec);
 			break;
 		case BANS_ARG_OBJSTATUS:
-			arg1 = buf;
-			sprintf(buf, "%d", objhttp->status);
+			arg1 = HTTP_GetHdrPack(wrk, oc, H__Status);
 			break;
 		default:
 			WRONG("Wrong BAN_ARG code");
@@ -899,19 +901,19 @@ ban_evaluate(const uint8_t *bs, const struct http *objhttp,
  *	1 Ban matched, object removed from ban list.
  */
 
-static int
-ban_check_object(struct object *o, struct vsl_log *vsl,
-    const struct http *req_http)
+int
+BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 {
 	struct ban *b;
-	struct objcore *oc;
+	struct vsl_log *vsl;
 	struct ban * volatile b0;
 	unsigned tests;
 
-	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
-	CHECK_OBJ_NOTNULL(req_http, HTTP_MAGIC);
-	oc = o->objcore;
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+
+	vsl = req->vsl;
+
 	CHECK_OBJ_NOTNULL(oc->ban, BAN_MAGIC);
 
 	/* First do an optimistic unlocked check */
@@ -939,7 +941,7 @@ ban_check_object(struct object *o, struct vsl_log *vsl,
 		CHECK_OBJ_NOTNULL(b, BAN_MAGIC);
 		if (b->flags & BANS_FLAG_COMPLETED)
 			continue;
-		if (ban_evaluate(b->spec, o->http, req_http, &tests))
+		if (ban_evaluate(wrk, b->spec, oc, req->http, &tests))
 			break;
 	}
 
@@ -958,22 +960,15 @@ ban_check_object(struct object *o, struct vsl_log *vsl,
 
 	if (b == oc->ban) {	/* not banned */
 		oc->ban = b0;
-		oc_updatemeta(oc);
+		ObjUpdateMeta(wrk, oc);
 		return (0);
 	} else {
 		oc->ban = NULL;
-		VSLb(vsl, SLT_ExpBan, "%u banned lookup", o->vxid);
+		VSLb(vsl, SLT_ExpBan, "%u banned lookup", ObjGetXID(wrk, oc));
 		VSC_C_main->bans_obj_killed++;
-		EXP_Rearm(o, o->exp.t_origin, 0, 0, 0);	// XXX fake now
+		EXP_Rearm(oc, oc->exp.t_origin, 0, 0, 0);	// XXX fake now
 		return (1);
 	}
-}
-
-int
-BAN_CheckObject(struct object *o, struct req *req)
-{
-
-	return (ban_check_object(o, req->vsl, req->http) > 0);
 }
 
 static void
@@ -1064,7 +1059,6 @@ ban_lurker_test_ban(struct worker *wrk, struct vsl_log *vsl, struct ban *bt,
 {
 	struct ban *bl, *bln;
 	struct objcore *oc;
-	struct object *o;
 	unsigned tests;
 	int i;
 
@@ -1087,8 +1081,6 @@ ban_lurker_test_ban(struct worker *wrk, struct vsl_log *vsl, struct ban *bt,
 		oc = ban_lurker_getfirst(vsl, bt);
 		if (oc == NULL)
 			return;
-		o = oc_getobj(&wrk->stats, oc);
-		CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
 		i = 0;
 		VTAILQ_FOREACH_REVERSE_SAFE(bl, obans, banhead_s, l_list, bln) {
 			if (bl->flags & BANS_FLAG_COMPLETED) {
@@ -1097,18 +1089,21 @@ ban_lurker_test_ban(struct worker *wrk, struct vsl_log *vsl, struct ban *bt,
 				continue;
 			}
 			tests = 0;
-			i = ban_evaluate(bl->spec, o->http, NULL, &tests);
+			i = ban_evaluate(wrk, bl->spec, oc, NULL, &tests);
 			VSC_C_main->bans_lurker_tested++;
 			VSC_C_main->bans_lurker_tests_tested += tests;
 			if (i)
 				break;
 		}
 		if (i) {
-			VSLb(vsl, SLT_ExpBan, "%u banned by lurker", o->vxid);
-			EXP_Rearm(o, o->exp.t_origin, 0, 0, 0);	// XXX fake now
+			VSLb(vsl, SLT_ExpBan, "%u banned by lurker",
+			    ObjGetXID(wrk, oc));
+
+			EXP_Rearm(oc, oc->exp.t_origin, 0, 0, 0);
+					// XXX ^ fake now
 			VSC_C_main->bans_lurker_obj_killed++;
 		}
-		(void)HSH_DerefObjCore(&wrk->stats, &oc);
+		(void)HSH_DerefObjCore(wrk, &oc);
 	}
 }
 

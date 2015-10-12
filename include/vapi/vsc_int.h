@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -46,7 +46,7 @@ enum VSC_level_e {
 
 /* Define the vsc type structs */
 #define VSC_DO(u,l,t)			struct VSC_C_##l {
-#define VSC_F(n,t,l,f,v,e,d)			t n;
+#define VSC_F(n,t,l,s,f,v,d,e)			t n;
 #define VSC_DONE(u,l,t)			};
 #include "tbl/vsc_all.h"
 #undef VSC_DO

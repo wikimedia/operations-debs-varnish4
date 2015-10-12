@@ -41,7 +41,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "cache/cache.h"
 #include "storage/storage.h"
@@ -52,7 +51,6 @@
 #include "vsha256.h"
 #include "vtim.h"
 
-#include "persistent.h"
 #include "storage/storage_persistent.h"
 
 /*--------------------------------------------------------------------*/
@@ -424,7 +422,7 @@ smp_close(const struct stevedore *st)
  */
 
 static struct storage *
-smp_allocx(struct stevedore *st, size_t min_size, size_t max_size,
+smp_allocx(const struct stevedore *st, size_t min_size, size_t max_size,
     struct smp_object **so, unsigned *idx, struct smp_seg **ssg)
 {
 	struct smp_sc *sc;
@@ -474,7 +472,7 @@ smp_allocx(struct stevedore *st, size_t min_size, size_t max_size,
 			sc->next_top -= sizeof(**so);
 			*so = (void*)(sc->base + sc->next_top);
 			/* Render this smp_object mostly harmless */
-			(*so)->ttl = 0.;
+			EXP_Clr(&(*so)->exp);
 			(*so)->ban = 0.;
 			(*so)->ptr = 0;
 			sg->objs = *so;
@@ -490,12 +488,10 @@ smp_allocx(struct stevedore *st, size_t min_size, size_t max_size,
 	assert(max_size >= min_size);
 
 	/* Fill the storage structure */
-	memset(ss, 0, sizeof *ss);
-	ss->magic = STORAGE_MAGIC;
+	INIT_OBJ(ss, STORAGE_MAGIC);
 	ss->ptr = PRNUP(sc, ss + 1);
 	ss->space = max_size;
 	ss->priv = sc;
-	ss->stevedore = st;
 	if (ssg != NULL)
 		*ssg = sg;
 	return (ss);
@@ -505,39 +501,39 @@ smp_allocx(struct stevedore *st, size_t min_size, size_t max_size,
  * Allocate an object
  */
 
-static struct object *
-smp_allocobj(struct stevedore *stv, struct busyobj *bo,
-    unsigned ltot, const struct stv_objsecrets *soc)
+static int
+smp_allocobj(const struct stevedore *stv, struct objcore *oc, unsigned wsl)
 {
 	struct object *o;
 	struct storage *st;
 	struct smp_sc	*sc;
 	struct smp_seg *sg;
 	struct smp_object *so;
-	struct objcore *oc;
 	unsigned objidx;
+	unsigned ltot;
 
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	if (bo->fetch_objcore == NULL)
-		return (NULL);		/* from cnt_error */
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	CAST_OBJ_NOTNULL(sc, stv->priv, SMP_SC_MAGIC);
-	AN((bo->exp.ttl + bo->exp.grace + bo->exp.keep) > 0.);
 
+	/* Don't entertain already dead objects */
+	if ((oc->exp.ttl + oc->exp.grace + oc->exp.keep) <= 0.)
+		return (0);
+
+	ltot = sizeof(struct object) + PRNDUP(wsl);
 	ltot = IRNUP(sc, ltot);
 
 	st = smp_allocx(stv, ltot, ltot, &so, &objidx, &sg);
 	if (st == NULL)
-		return (NULL);
+		return (0);
 
 	assert(st->space >= ltot);
-	ltot = st->len = st->space;
 
-	o = STV_MkObject(stv, bo, st->ptr, ltot, soc);
+	o = STV_MkObject(stv, oc, st->ptr);
+	AN(oc->stobj->stevedore);
+	assert(oc->stobj->stevedore == stv);
 	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
 	o->objstore = st;
-
-	oc = o->objcore;
-	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	st->len = sizeof(*o);
 
 	Lck_Lock(&sc->mtx);
 	sg->nfixed++;
@@ -546,14 +542,14 @@ smp_allocobj(struct stevedore *stv, struct busyobj *bo,
 	/* We have to do this somewhere, might as well be here... */
 	assert(sizeof so->hash == DIGEST_LEN);
 	memcpy(so->hash, oc->objhead->digest, DIGEST_LEN);
-	so->ttl = oc->timer_when;
+	so->exp = oc->exp;
 	so->ptr = (uint8_t*)o - sc->base;
 	so->ban = BAN_Time(oc->ban);
 
 	smp_init_oc(oc, sg, objidx);
 
 	Lck_Unlock(&sc->mtx);
-	return (o);
+	return (1);
 }
 
 /*--------------------------------------------------------------------
@@ -561,7 +557,7 @@ smp_allocobj(struct stevedore *stv, struct busyobj *bo,
  */
 
 static struct storage *
-smp_alloc(struct stevedore *st, size_t size)
+smp_alloc(const struct stevedore *st, size_t size)
 {
 
 	return (smp_allocx(st,
@@ -598,6 +594,7 @@ const struct stevedore smp_stevedore = {
 	.signal_close = smp_signal_close,
 	.baninfo =	smp_baninfo,
 	.banexport =	smp_banexport,
+	.methods =	&smp_oc_methods,
 };
 
 /*--------------------------------------------------------------------
@@ -678,7 +675,7 @@ static struct cli_proto debug_cmds[] = {
 		"\tsync\tClose current segment, open a new one\n"
 		"\tdump\tinclude objcores in silo summary",
 		0, 2, "d", debug_persistent },
-        { NULL }
+	{ NULL }
 };
 
 /*--------------------------------------------------------------------*/

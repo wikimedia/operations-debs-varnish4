@@ -1,7 +1,7 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
  * Copyright (c) 2012 Fastly Inc
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -59,20 +59,12 @@
 # endif
 #endif
 
-#ifndef __printflike
-# if __GNUC_PREREQ(2, 95) || defined(__INTEL_COMPILER)
-#  define __printflike(f,a) __attribute__((format(printf, f, a)))
-# else
-#  define __printflike(f,a)
-# endif
-#endif
-
-#ifndef __unused
-# if __GNUC_PREREQ(2, 95) || defined(__INTEL_COMPILER)
-#  define __unused __attribute__((__unused__))
-# else
-#  define __unused
-# endif
+#ifdef __printflike
+#  define __v_printflike(f,a) __printflike(f,a)
+#elif __GNUC_PREREQ(2, 95) || defined(__INTEL_COMPILER)
+#  define __v_printflike(f,a) __attribute__((format(printf, f, a)))
+#else
+#  define __v_printflike(f,a)
 #endif
 
 /**********************************************************************
@@ -86,5 +78,6 @@
  */
 #define __match_proto__(xxx)		/*lint -e{818} */
 
+#define NEEDLESS_RETURN(foo)	return (foo)
 
 #endif /* VDEF_H_INCLUDED */

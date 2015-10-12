@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -35,8 +35,6 @@
 
 #include "vcc_compile.h"
 
-#include "vss.h"
-
 /*--------------------------------------------------------------------
  * Struct sockaddr is not really designed to be a compile time
  * initialized data structure, so we encode it as a byte-string
@@ -44,24 +42,19 @@
  */
 
 static void
-Emit_Sockaddr(struct vcc *tl, const struct token *t_host, const char *port)
+Emit_Sockaddr(struct vcc *tl, const struct token *t_host,
+    const struct token *t_port)
 {
 	const char *ipv4, *ipv4a, *ipv6, *ipv6a, *pa;
-	const char *err;
-	char *hop, *pop;
+	char buf[256];
 
 	AN(t_host->dec);
 
-	err = VSS_parse(t_host->dec, &hop, &pop);
-	if (err != NULL) {
-		VSB_printf(tl->sb,
-		    "Backend host '%.*s': %s\n", PF(t_host), err);
-		vcc_ErrWhere(tl, t_host);
-		return;
-	}
-	Resolve_Sockaddr(tl,
-	    hop != NULL ? hop : t_host->dec,
-	    pop != NULL ? pop : port,
+	if (t_port != NULL)
+		bprintf(buf, "%s %s", t_host->dec, t_port->dec);
+	else
+		bprintf(buf, "%s", t_host->dec);
+	Resolve_Sockaddr(tl, buf, "80",
 	    &ipv4, &ipv4a, &ipv6, &ipv6a, &pa, 2, t_host, "Backend host");
 	ERRCHK(tl);
 	if (ipv4 != NULL) {
@@ -98,12 +91,14 @@ vcc_ProbeRedef(struct vcc *tl, struct token **t_did,
 }
 
 static void
-vcc_ParseProbeSpec(struct vcc *tl)
+vcc_ParseProbeSpec(struct vcc *tl, const struct token *nm, char **name)
 {
 	struct fld_spec *fs;
 	struct token *t_field;
 	struct token *t_did = NULL, *t_window = NULL, *t_threshold = NULL;
 	struct token *t_initial = NULL;
+	struct vsb *vsb;
+	char *retval;
 	unsigned window, threshold, initial, status;
 	double t;
 
@@ -120,12 +115,24 @@ vcc_ParseProbeSpec(struct vcc *tl)
 
 	SkipToken(tl, '{');
 
+	vsb = VSB_new_auto();
+	AN(vsb);
+	if (nm != NULL)
+		VSB_printf(vsb, "vgc_probe_%.*s", PF(nm));
+	else
+		VSB_printf(vsb, "vgc_probe__%d", tl->nprobe++);
+	AZ(VSB_finish(vsb));
+	retval = TlDup(tl, VSB_data(vsb));
+	VSB_delete(vsb);
+	if (name != NULL)
+		*name = retval;
+
 	window = 0;
 	threshold = 0;
 	initial = 0;
 	status = 0;
-	Fh(tl, 0, "static const struct vrt_backend_probe vgc_probe__%d = {\n",
-	    tl->nprobe++);
+	Fh(tl, 0, "static const struct vrt_backend_probe %s = {\n", retval);
+	Fh(tl, 0, "\t.magic = VRT_BACKEND_PROBE_MAGIC,\n");
 	while (tl->t->tok != '}') {
 
 		vcc_IsField(tl, &t_field, fs);
@@ -242,7 +249,8 @@ void
 vcc_ParseProbe(struct vcc *tl)
 {
 	struct token *t_probe;
-	int i;
+	struct symbol *sym;
+	char *p;
 
 	vcc_NextToken(tl);		/* ID: probe */
 
@@ -250,15 +258,24 @@ vcc_ParseProbe(struct vcc *tl)
 	ERRCHK(tl);
 	t_probe = tl->t;
 	vcc_NextToken(tl);
-	i = vcc_AddDef(tl, t_probe, SYM_PROBE);
-	if (i > 1) {
+
+	sym = VCC_GetSymbolTok(tl, t_probe, SYM_PROBE);
+	AN(sym);
+	if (sym->ndef > 0) {
 		VSB_printf(tl->sb, "Probe %.*s redefined\n", PF(t_probe));
 		vcc_ErrWhere(tl, t_probe);
+		return;
 	}
+	sym->fmt = PROBE;
+	sym->eval = vcc_Eval_Probe;
+	sym->ndef++;
+	ERRCHK(tl);
 
-	Fh(tl, 0, "\n#define vgc_probe_%.*s\tvgc_probe__%d\n",
-	    PF(t_probe), tl->nprobe);
-	vcc_ParseProbeSpec(tl);
+	vcc_ParseProbeSpec(tl, t_probe, &p);
+	if (vcc_IdIs(t_probe, "default")) {
+		vcc_AddRef(tl, t_probe, SYM_PROBE);
+		tl->default_probe = p;
+	}
 }
 
 /*--------------------------------------------------------------------
@@ -268,7 +285,7 @@ vcc_ParseProbe(struct vcc *tl)
  */
 
 static void
-vcc_ParseHostDef(struct vcc *tl, const struct token *t_be)
+vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 {
 	struct token *t_field;
 	struct token *t_host = NULL;
@@ -277,13 +294,9 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be)
 	struct fld_spec *fs;
 	struct inifin *ifp;
 	struct vsb *vsb;
+	char *p;
 	unsigned u;
 	double t;
-	char vgcname[MAX_BACKEND_NAME + 8];
-
-	sprintf(vgcname, "_%.*s", PF(t_be));
-
-	Fh(tl, 1, "\n#define VGC_backend_%s %d\n", vgcname, tl->ndirector);
 
 	fs = vcc_FldSpec(tl,
 	    "!host",
@@ -305,6 +318,7 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be)
 	Fb(tl, 0, "\nstatic const struct vrt_backend vgc_dir_priv_%s = {\n",
 	    vgcname);
 
+	Fb(tl, 0, "\t.magic = VRT_BACKEND_MAGIC,\n");
 	Fb(tl, 0, "\t.vcl_name = \"%.*s", PF(t_be));
 	Fb(tl, 0, "\",\n");
 
@@ -366,8 +380,8 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be)
 			SkipToken(tl, ';');
 			Fb(tl, 0, "\t.max_connections = %u,\n", u);
 		} else if (vcc_IdIs(t_field, "probe") && tl->t->tok == '{') {
-			Fb(tl, 0, "\t.probe = &vgc_probe__%d,\n", tl->nprobe);
-			vcc_ParseProbeSpec(tl);
+			vcc_ParseProbeSpec(tl, NULL, &p);
+			Fb(tl, 0, "\t.probe = &%s,\n", p);
 			ERRCHK(tl);
 		} else if (vcc_IdIs(t_field, "probe") && tl->t->tok == ID) {
 			Fb(tl, 0, "\t.probe = &vgc_probe_%.*s,\n", PF(tl->t));
@@ -393,10 +407,7 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be)
 
 	/* Check that the hostname makes sense */
 	assert(t_host != NULL);
-	if (t_port != NULL)
-		Emit_Sockaddr(tl, t_host, t_port->dec);
-	else
-		Emit_Sockaddr(tl, t_host, "80");
+	Emit_Sockaddr(tl, t_host, t_port);
 	ERRCHK(tl);
 
 	ExpectErr(tl, '}');
@@ -423,10 +434,8 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be)
 
 	ifp = New_IniFin(tl);
 	VSB_printf(ifp->ini,
-	    "\tVRT_init_dir(cli, VCL_conf.director,\n"
-	    "\t    VGC_backend_%s, &vgc_dir_priv_%s);", vgcname, vgcname);
-	VSB_printf(ifp->fin, "\tVRT_fini_dir(cli, VGCDIR(%s));", vgcname);
-	tl->ndirector++;
+	    "\t%s =\n\t    VRT_new_backend(ctx, &vgc_dir_priv_%s);",
+	    vgcname, vgcname);
 }
 
 /*--------------------------------------------------------------------
@@ -437,8 +446,8 @@ void
 vcc_ParseBackend(struct vcc *tl)
 {
 	struct token *t_first, *t_be;
-	int isfirst;
 	struct symbol *sym;
+	char vgcname[MAX_BACKEND_NAME + 20];
 
 	t_first = tl->t;
 	vcc_NextToken(tl);		/* ID: backend */
@@ -458,7 +467,8 @@ vcc_ParseBackend(struct vcc *tl)
 	t_be = tl->t;
 	vcc_NextToken(tl);
 
-	isfirst = tl->ndirector;
+	sprintf(vgcname, "vgc_backend_%.*s", PF(t_be));
+	Fh(tl, 0, "\nstatic struct director *%s;\n", vgcname);
 
 	sym = VCC_GetSymbolTok(tl, t_be, SYM_BACKEND);
 	AN(sym);
@@ -469,10 +479,11 @@ vcc_ParseBackend(struct vcc *tl)
 	}
 	sym->fmt = BACKEND;
 	sym->eval = vcc_Eval_Backend;
+	sym->eval_priv = TlDup(tl, vgcname);
 	sym->ndef++;
 	ERRCHK(tl);
 
-	vcc_ParseHostDef(tl, t_be);
+	vcc_ParseHostDef(tl, t_be, vgcname);
 	ERRCHK(tl);
 
 	if (tl->err) {
@@ -482,8 +493,8 @@ vcc_ParseBackend(struct vcc *tl)
 		return;
 	}
 
-	if (isfirst == 1 || vcc_IdIs(t_be, "default")) {
-		tl->defaultdir = tl->ndirector - 1;
-		tl->t_defaultdir = t_be;
+	if (tl->default_director == NULL || vcc_IdIs(t_be, "default")) {
+		tl->default_director = sym->eval_priv;
+		tl->t_default_director = t_be;
 	}
 }

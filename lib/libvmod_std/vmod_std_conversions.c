@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2014 Varnish Software AS
+ * Copyright (c) 2010-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -39,6 +39,7 @@
 
 #include "cache/cache.h"
 
+#include "vnum.h"
 #include "vrt.h"
 #include "vsa.h"
 #include "vtim.h"
@@ -47,7 +48,7 @@
 VCL_DURATION __match_proto__(td_std_duration)
 vmod_duration(VRT_CTX, VCL_STRING p, VCL_DURATION d)
 {
-	char *e;
+	const char *e;
 	double r;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -63,12 +64,9 @@ vmod_duration(VRT_CTX, VCL_STRING p, VCL_DURATION d)
 
 	e = NULL;
 
-	r = strtod(p, &e);
+	r = VNUMpfx(p, &e);
 
-	if (!isfinite(r))
-		return (d);
-
-	if (e == NULL)
+	if (isnan(r) || e == NULL)
 		return (d);
 
 	while(isspace(*e))
@@ -142,7 +140,11 @@ vmod_ip(VRT_CTX, VCL_STRING s, VCL_IP d)
 	assert(VSA_Sane(d));
 
 	p = WS_Alloc(ctx->ws, vsa_suckaddr_len);
-	AN(p);
+	if (p == NULL) {
+		VSLb(ctx->vsl, SLT_VCL_Error,
+		    "vmod std.ip(): insufficient workspace");
+		return d;
+	}
 	r = NULL;
 
 	if (s != NULL) {
@@ -170,7 +172,6 @@ vmod_ip(VRT_CTX, VCL_STRING s, VCL_IP d)
 VCL_REAL __match_proto__(td_std_real)
 vmod_real(VRT_CTX, VCL_STRING p, VCL_REAL d)
 {
-	char *e;
 	double r;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -178,51 +179,64 @@ vmod_real(VRT_CTX, VCL_STRING p, VCL_REAL d)
 	if (p == NULL)
 		return (d);
 
-	while (isspace(*p))
-		p++;
+	r = VNUM(p);
 
-	if (*p != '+' && *p != '-' && !isdigit(*p))
-		return (d);
-
-	e = NULL;
-
-	r = strtod(p, &e);
-
-	if (!isfinite(r))
-		return (d);
-
-	if (e == NULL || *e != '\0')
+	if (isnan(r))
 		return (d);
 
 	return (r);
 }
 
-VCL_TIME __match_proto__(td_std_real2time)
-vmod_real2time(VRT_CTX, VCL_REAL r)
+VCL_INT __match_proto__(td_std_real2integer)
+vmod_real2integer(VRT_CTX, VCL_REAL r, VCL_INT i)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	if (!isfinite(r))
+		return (i);
+	r = round(r);
+	if (r > LONG_MAX || r < LONG_MIN)
+		return(i);
+	return ((long)r);
+}
+
+VCL_TIME __match_proto__(td_std_real2time)
+vmod_real2time(VRT_CTX, VCL_REAL r, VCL_TIME t)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	if (!isfinite(r))
+		return (t);
 
 	return (r);
 }
 
 VCL_INT __match_proto__(td_std_time2integer)
-vmod_time2integer(VRT_CTX, VCL_TIME t)
+vmod_time2integer(VRT_CTX, VCL_TIME t, VCL_INT i)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 
-	return ((long)floor(t));
+	if (!isfinite(t))
+		return (i);
+	t = round(t);
+	if (t > LONG_MAX || t < LONG_MIN)
+		return(i);
+	return ((long)t);
 }
 
 VCL_REAL __match_proto__(td_std_time2real)
-vmod_time2real(VRT_CTX, VCL_TIME t)
+vmod_time2real(VRT_CTX, VCL_TIME t, VCL_REAL r)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	if (!isfinite(t))
+		return (r);
 
 	return (t);
 }
 
 VCL_TIME __match_proto__(td_std_time)
-vmod_time(const struct vrt_ctx *ctx, VCL_STRING p, VCL_TIME d)
+vmod_time(VRT_CTX, VCL_STRING p, VCL_TIME d)
 {
 	double r;
 

@@ -13,7 +13,11 @@ nobase_pkginclude_HEADERS = \
 	tbl/http_headers.h \
 	tbl/http_response.h \
 	tbl/locks.h \
+	tbl/obj_attr.h \
+	tbl/params.h \
 	tbl/req_body.h \
+	tbl/req_flags.h \
+	tbl/sess_attr.h \
 	tbl/sess_close.h \
 	tbl/steps.h \
 	tbl/symbol_kind.h \
@@ -53,7 +57,9 @@ nobase_pkginclude_HEADERS += \
 	vrt_obj.h \
 	vsa.h \
 	vsb.h \
-	vsha256.h
+	vsha256.h \
+	vtcp.h \
+	vtim.h
 
 # Private headers
 nobase_noinst_HEADERS = \
@@ -62,7 +68,6 @@ nobase_noinst_HEADERS = \
 	compat/execinfo.h \
 	flopen.h \
 	libvcc.h \
-	persistent.h \
 	vcli_common.h \
 	vcli_priv.h \
 	vcli_serve.h \
@@ -78,15 +83,17 @@ nobase_noinst_HEADERS = \
 	vnum.h \
 	vpf.h \
 	vrnd.h \
+	vsl_priv.h \
+	vsm_priv.h \
 	vsub.h \
 	vss.h \
 	vtcp.h \
-	vtim.h \
 	vtree.h \
 	vut.h \
 	vut_options.h
 
-tbl/vrt_stv_var.h tbl/vcl_returns.h tbl/vcc_types.h vcl.h vrt_obj.h: $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir)/include/vrt.h
+tbl/vrt_stv_var.h tbl/vcl_returns.h tbl/vcc_types.h vrt_obj.h: vcl.h
+vcl.h: $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir)/include/vrt.h
 	mkdir -p tbl
 	@PYTHON@ $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir) $(top_builddir)
 

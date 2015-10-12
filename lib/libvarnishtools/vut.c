@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -39,8 +39,10 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
+#include <math.h>
 
 #include "compat/daemon.h"
+#include "vdef.h"
 #include "vpf.h"
 #include "vapi/vsm.h"
 #include "vapi/vsl.h"
@@ -48,6 +50,7 @@
 #include "vas.h"
 #include "miniobj.h"
 #include "vcs.h"
+#include "vnum.h"
 
 #include "vut.h"
 
@@ -153,21 +156,12 @@ VUT_Arg(int opt, const char *arg)
 			VUT_Error(1, "-k: Invalid number '%s'", arg);
 		return (1);
 	case 'n':
-		/* Varnish instance */
-		if (VUT.vsm == NULL)
-			VUT.vsm = VSM_New();
-		AN(VUT.vsm);
-		if (VSM_n_Arg(VUT.vsm, arg) <= 0)
-			VUT_Error(1, "%s", VSM_Error(VUT.vsm));
+		/* Varnish instance name */
+		REPLACE(VUT.n_arg, arg);
 		return (1);
 	case 'N':
 		/* Varnish stale VSM file */
-		if (VUT.vsm == NULL)
-			VUT.vsm = VSM_New();
-		AN(VUT.vsm);
-		if (VSM_N_Arg(VUT.vsm, arg) <= 0)
-			VUT_Error(1, "%s", VSM_Error(VUT.vsm));
-		VUT.d_opt = 1;	/* Enforces -d */
+		REPLACE(VUT.N_arg, arg);
 		return (1);
 	case 'P':
 		/* PID file */
@@ -180,6 +174,18 @@ VUT_Arg(int opt, const char *arg)
 	case 'r':
 		/* Binary file input */
 		REPLACE(VUT.r_arg, arg);
+		return (1);
+	case 't':
+		/* VSM connect timeout */
+		if (!strcasecmp("off", arg))
+			VUT.t_arg = -1.;
+		else {
+			VUT.t_arg = VNUM(arg);
+			if (isnan(VUT.t_arg))
+				VUT_Error(1, "-t: Syntax error");
+			if (VUT.t_arg < 0.)
+				VUT_Error(1, "-t: Range error");
+		}
 		return (1);
 	case 'V':
 		/* Print version number and exit */
@@ -204,41 +210,87 @@ VUT_Init(const char *progname)
 	VUT.vsl = VSL_New();
 	AN(VUT.vsl);
 	VUT.k_arg = -1;
+	VUT.t_arg = 5.;
 }
 
 void
 VUT_Setup(void)
 {
 	struct VSL_cursor *c;
+	double t_start;
+	int i;
 
 	AN(VUT.vsl);
+	AZ(VUT.vsm);
+	AZ(VUT.vslq);
 
-	/* Input */
-	if (VUT.r_arg && VUT.vsm)
-		VUT_Error(1, "Can't have both -n and -r options");
+	/* Check input arguments */
+	if ((VUT.n_arg == NULL ? 0 : 1) +
+	    (VUT.N_arg == NULL ? 0 : 1) +
+	    (VUT.r_arg == NULL ? 0 : 1) > 1)
+		VUT_Error(1, "Only one of -n, -N and -r options may be used");
+
+	/* Create and validate the query expression */
+	VUT.vslq = VSLQ_New(VUT.vsl, NULL, VUT.g_arg, VUT.q_arg);
+	if (VUT.vslq == NULL)
+		VUT_Error(1, "Query expression error:\n%s", VSL_Error(VUT.vsl));
+
+	/* Setup input */
 	if (VUT.r_arg) {
 		REPLACE(VUT.name, VUT.r_arg);
 		c = VSL_CursorFile(VUT.vsl, VUT.r_arg, 0);
+		if (c == NULL)
+			VUT_Error(1, "Can't open log file (%s)",
+			    VSL_Error(VUT.vsl));
 	} else {
-		if (VUT.vsm == NULL)
-			/* Default uses VSM with n=hostname */
-			VUT.vsm = VSM_New();
+		VUT.vsm = VSM_New();
 		AN(VUT.vsm);
-		if (VSM_Open(VUT.vsm))
-			VUT_Error(1, "Can't open VSM file (%s)",
-			    VSM_Error(VUT.vsm));
+		if (VUT.n_arg && VSM_n_Arg(VUT.vsm, VUT.n_arg) <= 0)
+			VUT_Error(1, "%s", VSM_Error(VUT.vsm));
+		if (VUT.N_arg && VSM_N_Arg(VUT.vsm, VUT.N_arg) <= 0)
+			VUT_Error(1, "%s", VSM_Error(VUT.vsm));
 		REPLACE(VUT.name, VSM_Name(VUT.vsm));
-		c = VSL_CursorVSM(VUT.vsl, VUT.vsm,
-		    (VUT.d_opt ? VSL_COPT_TAILSTOP : VSL_COPT_TAIL)
-		    | VSL_COPT_BATCH);
-	}
-	if (c == NULL)
-		VUT_Error(1, "Can't open log (%s)", VSL_Error(VUT.vsl));
+		t_start = NAN;
+		c = NULL;
+		while (1) {
+			i = VSM_Open(VUT.vsm);
+			if (!i)
+				c = VSL_CursorVSM(VUT.vsl, VUT.vsm,
+				    (VUT.d_opt ? VSL_COPT_TAILSTOP :
+					VSL_COPT_TAIL)
+				    | VSL_COPT_BATCH);
+			if (c)
+				break;
 
-	/* Create query */
-	VUT.vslq = VSLQ_New(VUT.vsl, &c, VUT.g_arg, VUT.q_arg);
-	if (VUT.vslq == NULL)
-		VUT_Error(1, "Query expression error:\n%s", VSL_Error(VUT.vsl));
+			if (isnan(t_start) && VUT.t_arg > 0.) {
+				VUT_Error(0, "Can't open log -"
+				    " retrying for %.0f seconds", VUT.t_arg);
+				t_start = VTIM_real();
+			}
+			VSM_Close(VUT.vsm);
+			if (VUT.t_arg <= 0.)
+				break;
+			if (VTIM_real() - t_start > VUT.t_arg)
+				break;
+
+			VSM_ResetError(VUT.vsm);
+			VSL_ResetError(VUT.vsl);
+			VTIM_sleep(0.5);
+		}
+
+		if (VUT.t_arg >= 0. && (i || !c)) {
+			if (i)
+				VUT_Error(1, "Can't open VSM file (%s)",
+				    VSM_Error(VUT.vsm));
+			else
+				VUT_Error(1, "Can't open log (%s)",
+				    VSL_Error(VUT.vsl));
+		} else if (!isnan(t_start))
+			VUT_Error(0, "Log opened");
+	}
+
+	if (c)
+		VSLQ_SetCursor(VUT.vslq, &c);
 	AZ(c);
 
 	/* Signal handlers */
@@ -269,6 +321,8 @@ VUT_Setup(void)
 void
 VUT_Fini(void)
 {
+	free(VUT.n_arg);
+	free(VUT.N_arg);
 	free(VUT.r_arg);
 	free(VUT.P_arg);
 	free(VUT.name);
@@ -306,14 +360,12 @@ VUT_Main(void)
 		if (VUT.sigusr1) {
 			/* Flush and report any incomplete records */
 			VUT.sigusr1 = 0;
-			if (VUT.vslq != NULL)
-				VSLQ_Flush(VUT.vslq, vut_dispatch, NULL);
+			VSLQ_Flush(VUT.vslq, vut_dispatch, NULL);
 		}
 
-		if (VUT.vslq == NULL) {
+		if (VUT.vsm != NULL && !VSM_IsOpen(VUT.vsm)) {
 			/* Reconnect VSM */
 			AZ(VUT.r_arg);
-			AN(VUT.vsm);
 			VTIM_sleep(0.1);
 			if (VSM_Open(VUT.vsm)) {
 				VSM_ResetError(VUT.vsm);
@@ -326,8 +378,7 @@ VUT_Main(void)
 				VSM_Close(VUT.vsm);
 				continue;
 			}
-			VUT.vslq = VSLQ_New(VUT.vsl, &c, VUT.g_arg, VUT.q_arg);
-			AN(VUT.vslq);
+			VSLQ_SetCursor(VUT.vslq, &c);
 			AZ(c);
 			VUT_Error(0, "Log reacquired");
 		}
@@ -356,17 +407,15 @@ VUT_Main(void)
 		/* XXX: Make continuation optional */
 
 		VSLQ_Flush(VUT.vslq, vut_dispatch, NULL);
-		VSLQ_Delete(&VUT.vslq);
-		AZ(VUT.vslq);
 
-		if (i == -2) {
+		if (i == -2)
 			/* Abandoned */
 			VUT_Error(0, "Log abandoned");
-			VSM_Close(VUT.vsm);
-		} else if (i < -2) {
+		else if (i < -2)
 			/* Overrun */
 			VUT_Error(0, "Log overrun");
-		}
+
+		VSM_Close(VUT.vsm);
 	}
 
 	return (i);

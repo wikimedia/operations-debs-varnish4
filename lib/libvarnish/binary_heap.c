@@ -29,13 +29,12 @@
  * Implementation of a binary heap API
  *
  * See also:
- *	http://portal.acm.org/citation.cfm?doid=1785414.1785434
+ *	http://dl.acm.org/citation.cfm?doid=1785414.1785434
  *	(or: http://queue.acm.org/detail.cfm?id=1814327)
  */
 
 #include "config.h"
 
-#include <errno.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>

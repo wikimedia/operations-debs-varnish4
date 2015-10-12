@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2014 Varnish Software AS
+ * Copyright (c) 2010-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -33,7 +33,6 @@
 #include <netinet/in.h>
 
 #include <ctype.h>
-#include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -44,7 +43,7 @@
 #include "vtim.h"
 
 #include "cache/cache.h"
-#include "cache/cache_backend.h"
+#include "cache/cache_director.h"
 
 #include "vcc_if.h"
 
@@ -143,7 +142,7 @@ vmod_log(VRT_CTX, const char *fmt, ...)
 	u = WS_Reserve(ctx->ws, 0);
 	t.b = ctx->ws->f;
 	va_start(ap, fmt);
-	t.e = VRT_StringList(t.b, u, fmt, ap);
+	t.e = VRT_StringList(ctx->ws->f, u, fmt, ap);
 	va_end(ap);
 	if (t.e != NULL) {
 		assert(t.e > t.b);
@@ -164,7 +163,7 @@ vmod_syslog(VRT_CTX, VCL_INT fac, const char *fmt, ...)
 	u = WS_Reserve(ctx->ws, 0);
 	t.b = ctx->ws->f;
 	va_start(ap, fmt);
-	t.e = VRT_StringList(t.b, u, fmt, ap);
+	t.e = VRT_StringList(ctx->ws->f, u, fmt, ap);
 	va_end(ap);
 	if (t.e != NULL)
 		syslog((int)fac, "%s", t.b);
@@ -174,16 +173,11 @@ vmod_syslog(VRT_CTX, VCL_INT fac, const char *fmt, ...)
 VCL_VOID __match_proto__(td_std_collect)
 vmod_collect(VRT_CTX, VCL_HEADER hdr)
 {
+	struct http *hp;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (hdr->where == HDR_REQ)
-		http_CollectHdr(ctx->http_req, hdr->what);
-	else if (hdr->where == HDR_BEREQ)
-		http_CollectHdr(ctx->http_bereq, hdr->what);
-	else if (hdr->where == HDR_BERESP)
-		http_CollectHdr(ctx->http_beresp, hdr->what);
-	else if (hdr->where == HDR_RESP)
-		http_CollectHdr(ctx->http_resp, hdr->what);
+	hp = VRT_selecthttp(ctx, hdr->where);
+	http_CollectHdr(hp, hdr->what);
 }
 
 VCL_BOOL __match_proto__(td_std_healthy)
@@ -193,7 +187,7 @@ vmod_healthy(VRT_CTX, VCL_BACKEND be)
 	if (be == NULL)
 		return (0);
 	CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
-	return (VDI_Healthy(be));
+	return (VDI_Healthy(be, ctx->bo));
 }
 
 VCL_INT __match_proto__(td_std_port)
@@ -231,22 +225,25 @@ vmod_timestamp(VRT_CTX, VCL_STRING label)
 	}
 }
 
-VCL_STRING __match_proto__(td_std_strstr)
-vmod_strstr(VRT_CTX, VCL_STRING mstr, VCL_STRING msubstr)
-{
-        CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-        if ((mstr == NULL) || (msubstr == NULL))
-		return (NULL);
-	else
-		return(strstr(mstr, msubstr));
-}
-
 VCL_VOID __match_proto__(td_std_cache_req_body)
 vmod_cache_req_body(VRT_CTX, VCL_BYTES size)
 {
 	int result;
+	ssize_t ss;
+
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	result = VRT_CacheReqBody(ctx, size);
-	VSLb(ctx->vsl, SLT_Debug,"VRT_CacheReqBody(%zu): %d", (size_t)size, result);
+	if (size < 0)
+		size = 0;
+	ss = (ssize_t)size;
+	result = VRT_CacheReqBody(ctx, ss);
+	VSLb(ctx->vsl, SLT_Debug, "VRT_CacheReqBody(%zd): %d", ss, result);
+}
+
+VCL_STRING __match_proto__(td_std_strstr)
+vmod_strstr(VRT_CTX, VCL_STRING s1, VCL_STRING s2)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (s1 == NULL || s2 == NULL)
+		return (NULL);
+	return (strstr(s1, s2));
 }

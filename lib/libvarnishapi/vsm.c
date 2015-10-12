@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -43,14 +43,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "miniobj.h"
+#include "vdef.h"
 #include "vas.h"
+#include "miniobj.h"
 
-#include "vapi/vsm.h"
-#include "vapi/vsm_int.h"
-#include "vtim.h"
 #include "vin.h"
 #include "vsb.h"
+#include "vsm_priv.h"
+#include "vtim.h"
+
+#include "vapi/vsm.h"
+
 #include "vsm_api.h"
 
 #ifndef MAP_HASSEMAPHORE
@@ -199,7 +202,7 @@ VSM_Delete(struct VSM_data *vd)
 }
 
 /*--------------------------------------------------------------------
- * The internal VSM open function
+ * The VSM open function
  *
  * Return:
  *	0 = success
@@ -280,6 +283,16 @@ VSM_Open(struct VSM_data *vd)
 	vd->t_ok = VTIM_mono();
 
 	return (0);
+}
+
+/*--------------------------------------------------------------------*/
+
+int
+VSM_IsOpen(const struct VSM_data *vd)
+{
+
+	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
+	return (vd->head != NULL);
 }
 
 /*--------------------------------------------------------------------*/

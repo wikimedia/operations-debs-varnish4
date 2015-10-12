@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -27,8 +27,6 @@
  * SUCH DAMAGE.
  *
  */
-
-#include <vdef.h>
 
 struct vsc;
 struct vsb;
@@ -57,5 +55,5 @@ struct VSM_data {
 };
 
 int vsm_diag(struct VSM_data *vd, const char *fmt, ...)
-    __printflike(2, 3);
+    __v_printflike(2, 3);
 void VSC_Delete(struct VSM_data *vd);

@@ -18,7 +18,7 @@ This parameter (multiplicatively) reduce the sleep duration for each successful 
 acceptor_sleep_incr
 ~~~~~~~~~~~~~~~~~~~
 	* Units: seconds
-	* Default: 0.001
+	* Default: 0.000
 	* Minimum: 0.000
 	* Maximum: 1.000
 	* Flags: experimental
@@ -46,7 +46,17 @@ auto_restart
 	* Units: bool
 	* Default: on
 
-Restart child process automatically if it dies.
+Automatically restart the child/worker process if it dies.
+
+.. _ref_param_backend_idle_timeout:
+
+backend_idle_timeout
+~~~~~~~~~~~~~~~~~~~~
+	* Units: seconds
+	* Default: 60.000
+	* Minimum: 1.000
+
+Timeout before we close unused backend connections.
 
 .. _ref_param_ban_dups:
 
@@ -55,7 +65,8 @@ ban_dups
 	* Units: bool
 	* Default: on
 
-Eliminate older identical bans when new bans are created.  This test is CPU intensive and scales with the number and complexity of active (non-Gone) bans.  If identical bans are frequent, the amount of CPU needed to actually test  the bans will be similarly reduced.
+Eliminate older identical bans when a new ban is added.  This saves CPU cycles by not comparing objects to identical bans.
+This is a waste of time if you have many bans which are never identical.
 
 .. _ref_param_ban_lurker_age:
 
@@ -65,7 +76,7 @@ ban_lurker_age
 	* Default: 60.000
 	* Minimum: 0.000
 
-The ban lurker does not process bans until they are this old.  Right when a ban is added, the most frequently hit objects will get tested against it as part of object lookup.  This parameter prevents the ban-lurker from kicking in, until the rush is over.
+The ban lurker only process bans when they are this old.  When a ban is added, the most frequently hit objects will get tested against it as part of object lookup.  This parameter prevents the ban-lurker from kicking in, until the rush is over.
 
 .. _ref_param_ban_lurker_batch:
 
@@ -74,7 +85,7 @@ ban_lurker_batch
 	* Default: 1000
 	* Minimum: 1
 
-How many objects the ban lurker examines before taking a ban_lurker_sleep.  Use this to pace the ban lurker so it does not eat too much CPU.
+The ban lurker slees ${ban_lurker_sleep} after examining this many objects.  Use this to pace the ban-lurker if it eats too many resources.
 
 .. _ref_param_ban_lurker_sleep:
 
@@ -84,8 +95,8 @@ ban_lurker_sleep
 	* Default: 0.010
 	* Minimum: 0.000
 
-The ban lurker thread sleeps between work batches, in order to not monopolize CPU power.  When nothing is done, it sleeps a fraction of a second before looking for new work to do.
-A value of zero disables the ban lurker.
+How long the ban lurker sleeps after examining ${ban_lurker_batch} objects.
+A value of zero will disable the ban lurker entirely.
 
 .. _ref_param_between_bytes_timeout:
 
@@ -95,16 +106,10 @@ between_bytes_timeout
 	* Default: 60.000
 	* Minimum: 0.000
 
-Default timeout between bytes when receiving data from backend. We only wait for this many seconds between bytes before giving up. A value of 0 means it will never time out. VCL can override this default value for each backend request and backend request. This parameter does not apply to pipe.
-
-.. _ref_param_busyobj_worker_cache:
-
-busyobj_worker_cache
-~~~~~~~~~~~~~~~~~~~~
-	* Units: bool
-	* Default: off
-
-Cache free busyobj per worker thread. Disable this if you have very high hitrates and want to save the memory of one busyobj per worker thread.
+We only wait for this many seconds between bytes received from the backend before giving up the fetch.
+A value of zero means never give up.
+VCL values, per backend or per backend request take precedence.
+This parameter does not apply to pipe'ed requests.
 
 .. _ref_param_cc_command:
 
@@ -223,6 +228,15 @@ Use +/- prefix to set/reset individual bits:
 	*flush_head*
 		Flush after http1 head
 
+	*vtc_mode*
+		Varnishtest Mode
+
+	*witness*
+		Emit WITNESS lock records
+
+	*vsm_keep*
+		Keep the VSM file on restart
+
 .. _ref_param_default_grace:
 
 default_grace
@@ -322,24 +336,6 @@ first_byte_timeout
 	* Minimum: 0.000
 
 Default timeout for receiving first byte from backend. We only wait for this many seconds for the first byte before giving up. A value of 0 means it will never time out. VCL can override this default value for each backend and backend request. This parameter does not apply to pipe.
-
-.. _ref_param_group:
-
-group
-~~~~~
-	* Default: nogroup (65534)
-	* Flags: must_restart, only_root
-
-The unprivileged group to run as.
-
-.. _ref_param_group_cc:
-
-group_cc
-~~~~~~~~
-	* Default: <not set>
-	* Flags: only_root
-
-On some systems the C-compiler is restricted so not everybody can run it.  This parameter makes it possible to add an extra group to the sandbox process which runs the cc_command, in order to gain access to such a restricted C-compiler.
 
 .. _ref_param_gzip_buffer:
 
@@ -463,16 +459,6 @@ Time to wait with no data sent. If no data has been transmitted in this many
 seconds the session is closed.
 See setsockopt(2) under SO_SNDTIMEO for more information.
 
-.. _ref_param_listen_address:
-
-listen_address
-~~~~~~~~~~~~~~
-	* Default: :80
-	* Flags: must_restart
-
-Whitespace separated list of network endpoints where Varnish will accept requests.
-Possible formats: host, host:port, :port
-
 .. _ref_param_listen_depth:
 
 listen_depth
@@ -545,16 +531,30 @@ pcre_match_limit
 	* Default: 10000
 	* Minimum: 1
 
-The limit for the  number of internal matching function calls in a pcre_exec() execution.
+The limit for the number of calls to the internal match() function in pcre_exec().
+
+(See: PCRE_EXTRA_MATCH_LIMIT in pcre docs.)
+
+This parameter limits how much CPU time regular expression matching can soak up.
 
 .. _ref_param_pcre_match_limit_recursion:
 
 pcre_match_limit_recursion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-	* Default: 10000
+	* Default: 20
 	* Minimum: 1
 
-The limit for the  number of internal matching function recursions in a pcre_exec() execution.
+The recursion depth-limit for the internal match() function in a pcre_exec().
+
+(See: PCRE_EXTRA_MATCH_LIMIT_RECURSION in pcre docs.)
+
+This puts an upper limit on the amount of stack used by PCRE for certain classes of regular expressions.
+
+We have set the default value low in order to prevent crashes, at the cost of possible regexp matching failures.
+
+Matching failures will show up in the log as VCL_Error messages with regexp errors -27 or -21.
+
+Testcase r01576 can be useful when tuning this parameter.
 
 .. _ref_param_ping_interval:
 
@@ -603,24 +603,6 @@ pool_sess
 	* Default: 10,100,10
 
 Parameters for per worker pool session memory pool.
-The three numbers are:
-
-	*min_pool*
-		minimum size of free pool.
-
-	*max_pool*
-		maximum size of free pool.
-
-	*max_age*
-		max age of free element.
-
-.. _ref_param_pool_vbc:
-
-pool_vbc
-~~~~~~~~
-	* Default: 10,100,10
-
-Parameters for backend connection memory pool.
 The three numbers are:
 
 	*min_pool*
@@ -721,10 +703,10 @@ Objects created with (ttl+grace+keep) shorter than this are always put in transi
 sigsegv_handler
 ~~~~~~~~~~~~~~~
 	* Units: bool
-	* Default: off
+	* Default: on
 	* Flags: must_restart
 
-Install a signal handler which tries to dump debug information on segmentation faults.
+Install a signal handler which tries to dump debug information on segmentation faults, bus errors and abort signals.
 
 .. _ref_param_syslog_cli_traffic:
 
@@ -800,8 +782,6 @@ Wait this long after destroying a thread.
 
 This controls the decay of thread pools when idle(-ish).
 
-Minimum is 0.01 seconds.
-
 .. _ref_param_thread_pool_fail_delay:
 
 thread_pool_fail_delay
@@ -831,8 +811,6 @@ thread_pool_max
 The maximum number of worker threads in each pool.
 
 Do not set this higher than you have to, since excess worker threads soak up RAM and CPU and generally just get in the way of getting work done.
-
-Minimum is 10 threads.
 
 .. _ref_param_thread_pool_min:
 
@@ -873,8 +851,6 @@ thread_pool_timeout
 Thread idle threshold.
 
 Threads in excess of thread_pool_min, which have been idle for at least this long, will be destroyed.
-
-Minimum is 10 seconds.
 
 .. _ref_param_thread_pools:
 
@@ -926,7 +902,7 @@ timeout_idle
 	* Minimum: 0.000
 
 Idle timeout for client connections.
-A connection is considered idle, until we receive a non-white-space character on it.
+A connection is considered idle, until we have received the full request headers.
 
 .. _ref_param_timeout_linger:
 
@@ -940,25 +916,6 @@ timeout_linger
 How long the worker thread lingers on an idle session before handing it over to the waiter.
 When sessions are reused, as much as half of all reuses happen within the first 100 msec of the previous request completing.
 Setting this too high results in worker threads not doing anything for their keep, setting it too low just means that more sessions take a detour around the waiter.
-
-.. _ref_param_timeout_req:
-
-timeout_req
-~~~~~~~~~~~
-	* Units: seconds
-	* Default: 2.000
-	* Minimum: 0.000
-
-Max time to receive clients request headers, measured from first non-white-space character to double CRNL.
-
-.. _ref_param_user:
-
-user
-~~~~
-	* Default: nobody (65534)
-	* Flags: must_restart, only_root
-
-The unprivileged user to run as.
 
 .. _ref_param_vcc_allow_inline_c:
 
@@ -987,6 +944,16 @@ vcc_unsafe_path
 
 Allow '/' in vmod & include paths.
 Allow 'import ... from ...'.
+
+.. _ref_param_vcl_cooldown:
+
+vcl_cooldown
+~~~~~~~~~~~~
+	* Units: seconds
+	* Default: 600.000
+	* Minimum: 0.000
+
+How long a VCL is kept warm after being replaced as the active VCL (granularity approximately 30 seconds).
 
 .. _ref_param_vcl_dir:
 
@@ -1021,7 +988,7 @@ The minimum tracks the vsl_reclen parameter + 12 bytes.
 
 vsl_mask
 ~~~~~~~~
-	* Default: -VCL_trace,-WorkThread,-Hash
+	* Default: -VCL_trace,-WorkThread,-Hash,-VfpAcct
 
 Mask individual VSL messages from being logged.
 
@@ -1065,15 +1032,6 @@ vsm_space
 
 The amount of space to allocate for stats counters in the VSM memory segment.  If you make this too small, some counters will be invisible.  Making it too large just costs memory resources.
 
-.. _ref_param_waiter:
-
-waiter
-~~~~~~
-	* Default: epoll (possible values: epoll, poll)
-	* Flags: must_restart, wizard
-
-Select the waiter kernel interface.
-
 .. _ref_param_workspace_backend:
 
 workspace_backend
@@ -1101,11 +1059,11 @@ Bytes of HTTP protocol workspace for clients HTTP req/resp.  If larger than 4k, 
 workspace_session
 ~~~~~~~~~~~~~~~~~
 	* Units: bytes
-	* Default: 384b
+	* Default: 0.50k
 	* Minimum: 0.25k
 	* Flags: delayed
 
-Bytes of workspace for session and TCP connection addresses.  If larger than 4k, use a multiple of 4k for VM efficiency.
+Allocation size for session structure and workspace.    The workspace is primarily used for TCP connection addresses.  If larger than 4k, use a multiple of 4k for VM efficiency.
 
 .. _ref_param_workspace_thread:
 
