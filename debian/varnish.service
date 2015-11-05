@@ -2,10 +2,10 @@
 Description=Varnish HTTP accelerator
 
 [Service]
-Type=forking
+Type=simple
 LimitNOFILE=131072
 LimitMEMLOCK=82000
-ExecStart=/usr/sbin/varnishd -a :6081 -T localhost:6082 -f /etc/varnish/default.vcl -S /etc/varnish/secret -s malloc,256m
+ExecStart=/usr/sbin/varnishd -F -j unix,user=vcache -a :6081 -T localhost:6082 -f /etc/varnish/default.vcl -S /etc/varnish/secret -s malloc,256m
 ExecReload=/usr/share/varnish/reload-vcl
 StandardOutput=null
 

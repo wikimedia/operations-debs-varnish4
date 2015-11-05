@@ -8,6 +8,7 @@ set -u
 
 # Settings
 daemon_user="varnish"
+worker_user="vcache"
 log_user="varnishlog"
 daemon_dir=/var/lib/varnish/$(uname -n)
 log_dir="/var/log/varnish"
@@ -53,6 +54,7 @@ case ${1:-} in
     configure)
 
         varnish_setup_user $daemon_user
+        varnish_setup_user $worker_user
         varnish_setup_user $log_user
         
         varnish_create_storagedir
