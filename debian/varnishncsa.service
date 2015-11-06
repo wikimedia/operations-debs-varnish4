@@ -4,6 +4,7 @@ After=varnish.service
 
 [Service]
 User=varnishlog
+Group=varnish
 ExecStart=/usr/bin/varnishncsa -a -w /var/log/varnish/varnishncsa.log
 ExecReload=/bin/kill -HUP $MAINPID
 PrivateDevices=true
