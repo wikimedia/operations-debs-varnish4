@@ -1,3 +1,18 @@
+varnish (4.1.0-2) unstable; urgency=medium
+
+  * The varnish cache worker now runs as the "vcache" user.
+  * Group membership in "varnish" is now needed to access the shared memory
+    used for varnish log and stats. The varnishlog, varnishncsa services run
+    as this group.  /var/log/varnish is now owned by this group.
+  * Examples for systemd for changing the varnish and varnishncsa commandlines
+    have been added to /usr/share/doc/varnish/examples
+  * [d948695] autopkgtest: use less complex tests for debci
+  * [eb01441] varnish.service, remove redundant syntax check
+  * [b072816] systemd units: restrict default access to files and devices.
+    No network access for varnishlog and varnishncsa
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Fri, 06 Nov 2015 11:18:10 +0100
+
 varnish (4.1.0-1) unstable; urgency=medium
 
   [ Tollef Fog Heen ]
