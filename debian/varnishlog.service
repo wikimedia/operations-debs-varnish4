@@ -6,6 +6,11 @@ After=varnish.service
 User=varnishlog
 ExecStart=/usr/bin/varnishlog -a -w /var/log/varnish/varnish.log
 ExecReload=/bin/kill -HUP $MAINPID
+PrivateDevices=true
+PrivateNetwork=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
 
 [Install]
 WantedBy=multi-user.target
