@@ -40,7 +40,7 @@ varnish_create_storagedir() {
 
 varnish_setup_logdir() {
     if ! dpkg-statoverride --list $log_dir >/dev/null; then
-        dpkg-statoverride --update --add $log_user $log_user 0750 $log_dir
+        dpkg-statoverride --update --add $log_user $daemon_group 0750 $log_dir
     fi
 }
 
@@ -64,9 +64,11 @@ upgrade_change_log_permissions() {
 
 # In varnish 4.1, the varnish shared memory log is readable by the "varnish"
 # group, instead of by everyone.  We need to update the "varnishlog" user to
-# reflect this.
+# reflect this, as well as the permissions on /var/log/varnish
 change_group_for_varnishlog_user() {
     usermod -g $daemon_group $log_user
+    dpkg-statoverride --remove $log_dir
+    dpkg-statoverride --update --add $log_user $daemon_group 0750 $log_dir
 }
 
 case ${1:-} in
