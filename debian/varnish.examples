@@ -1,2 +1,3 @@
+debian/varnish.systemd-drop-in.conf
 etc/example.vcl
 etc/builtin.vcl
