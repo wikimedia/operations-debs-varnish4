@@ -85,7 +85,7 @@ case ${1:-} in
             upgrade_change_log_permissions
         fi
 
-        if dpkg --compare-versions "4.1.0-2~" ">" "${2:-}"; then
+        if dpkg --compare-versions "4.1.0-2~" "gt-nl" "${2:-}"; then
             change_group_for_varnishlog_user
         fi
         ;;
