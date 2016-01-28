@@ -1,3 +1,9 @@
+varnish (4.1.1-1) UNRELEASED; urgency=medium
+
+  * Imported upstream release 4.1.1
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Thu, 28 Jan 2016 20:33:24 +0100
+
 varnish (4.1.0-2) unstable; urgency=medium
 
   * The varnish cache worker now runs as the "vcache" user.
