@@ -7,10 +7,7 @@ SPHINXBUILD   = sphinx-build -W -q -N
 PAPER         = a4
 BUILDDIR      = build
 
-# Internal variables.
-PAPEROPT_a4     = -D latex_paper_size=a4
-PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(builddir)
+ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees -D latex_paper_size=$(PAPER) $(SPHINXOPTS) $(builddir)
 
 .PHONY: help clean html dirhtml pickle json htmlhelp qthelp latex changes linkcheck doctest
 
@@ -127,6 +124,10 @@ distclean-local:
 include/params.rst: $(top_builddir)/bin/varnishd/varnishd
 	$(top_builddir)/bin/varnishd/varnishd -x dumprstparam > include/params.rst
 BUILT_SOURCES = include/params.rst
+
+include/counters.rst: $(top_builddir)/bin/varnishstat/vsc2rst
+	$(top_builddir)/bin/varnishstat/vsc2rst > $@
+BUILT_SOURCES += include/counters.rst
 
 # XXX add varnishstat here when it's been _opt2rst'ed
 

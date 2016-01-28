@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -51,6 +52,22 @@ struct vsub_priv {
 	int		lines;
 	int		maxlines;
 };
+
+void
+VSUB_closefrom(int fd)
+{
+
+	assert(fd >= 0);
+
+#ifdef HAVE_CLOSEFROM
+	closefrom(fd);
+#else
+	int i = sysconf(_SC_OPEN_MAX);
+	assert(i > 0);
+	for (; i > fd; i--)
+		(void)close(i);
+#endif
+}
 
 static int
 vsub_vlu(void *priv, const char *str)
@@ -70,7 +87,7 @@ unsigned
 VSUB_run(struct vsb *sb, vsub_func_f *func, void *priv, const char *name,
     int maxlines)
 {
-	int rv, p[2], sfd, status;
+	int rv, p[2], status;
 	pid_t pid;
 	struct vlu *vlu;
 	struct vsub_priv sp;
@@ -100,13 +117,12 @@ VSUB_run(struct vsb *sb, vsub_func_f *func, void *priv, const char *name,
 		assert(dup2(p[1], STDOUT_FILENO) == STDOUT_FILENO);
 		assert(dup2(p[1], STDERR_FILENO) == STDERR_FILENO);
 		/* Close all other fds */
-		for (sfd = STDERR_FILENO+1; sfd < sysconf(_SC_OPEN_MAX); sfd++)
-			(void)close(sfd);
+		VSUB_closefrom(STDERR_FILENO + 1);
 		func(priv);
 		/*
 		 * func should either exec or exit, so getting here should be
 		 * treated like an assertion failure - except that we don't know
-		 * if it's safe to trigger an acutal assertion
+		 * if it's safe to trigger an actual assertion
 		 */
 		_exit(4);
 	}

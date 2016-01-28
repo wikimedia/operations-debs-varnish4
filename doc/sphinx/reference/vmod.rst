@@ -231,7 +231,7 @@ STRING_LIST
 
 	Consider this contrived example::
 
-		set bereq.http.foo = std.toupper(req.http.foo + req.http.bar);
+		set req.http.foo = std.toupper(req.http.foo + req.http.bar);
 
 	The usual way to do this, would be be to allocate memory for
 	the concatenated string, then pass that to ``toupper()`` which in
@@ -302,7 +302,8 @@ The VCL compiler supports the following private pointers:
 * ``PRIV_VCL`` "per vcl" private pointers are useful for such global
   state that applies to all calls in this VCL, for instance flags that
   determine if regular expressions are case-sensitive in this vmod or
-  similar.
+  similar. The ``PRIV_VCL`` object is the same object that is passed
+  to the VMOD's event function.
 
 The way it works in the vmod code, is that a ``struct vmod_priv *`` is
 passed to the functions where one of the ``PRIV_*`` argument types is
@@ -357,10 +358,10 @@ Event functions
 
 VMODs can have an "event" function which is called when a VCL which imports
 the VMOD is loaded, made active, or discarded.  This corresponds to the
-``VCL_EVENT_LOAD``, ``VCL_EVENT_USE``, and ``VCL_EVENT_DISCARD`` events,
-respectively.  In addition, this function will be called when the VCL state is
-changed to cold or warm, corresponding to the ``VCL_EVENT_COLD`` and
-``VCL_EVENT_WARM`` events.
+``VCL_EVENT_LOAD``, and ``VCL_EVENT_DISCARD`` events, respectively.  In
+addition, this function will be called when the VCL temperature is changed to
+cold or warm, corresponding to the ``VCL_EVENT_COLD`` and ``VCL_EVENT_WARM``
+events.
 
 The first argument to the event function is a VRT context.
 
@@ -378,11 +379,53 @@ discarded and free this global state when the count reaches zero.
 VMOD writers are *strongly* encouraged to release all per-VCL resources for a
 given VCL when it emits a ``VCL_EVENT_COLD`` event. You will get a chance to
 reacquire the resources before the VCL becomes active again and be notified
-first with a ``VCL_EVENT_WARM`` event, and then a ``VCL_EVENT_USE`` event.
-Unless a user decides that a given VCL should always be warm, an inactive VMOD
-will eventually become cold and should manage resources accordingly.
+first with a ``VCL_EVENT_WARM`` event. Unless a user decides that a given VCL
+should always be warm, an inactive VMOD will eventually become cold and should
+manage resources accordingly.
 
-.. TODO vmod objects
+An event function must return zero upon success. It is only possible to fail
+an initialization with the ``VCL_EVENT_LOAD`` or ``VCL_EVENT_WARM`` events.
+Should such a failure happen, a ``VCL_EVENT_DISCARD`` or ``VCL_EVENT_COLD``
+event will be sent to the VMODs that succeeded to put them back in a cold
+state. The VMOD that failed will not receive this event, and therefore must
+not be left half-initialized should a failure occur.
+
+If your VMOD is running an asynchronous background job you can hold a reference
+to the VCL to prevent it from going cold too soon and get the same guarantees
+as backends with ongoing requests for instance. For that, you must acquire the
+reference by calling ``VRT_ref_vcl`` when you receive a ``VCL_EVENT_WARM`` and
+later calling ``VRT_rel_vcl`` once the background job is over. Receiving a
+``VCL_EVENT_COLD`` is your cue to terminate any background job bound to a VCL.
+
+You can find an example of VCL references in vmod-debug::
+
+	priv_vcl->vclref = VRT_ref_vcl(ctx, "vmod-debug");
+	...
+	VRT_rel_vcl(&ctx, &priv_vcl->vclref);
+
+In this simplified version, you can see that you need at least a VCL-bound data
+structure like a ``PRIV_VCL`` or a VMOD object to keep track of the reference
+and later release it. You also have to provide a description, it will be printed
+to the user if they try to warm up a cooling VCL::
+
+	$ varnishadm vcl.list
+	available  auto/cooling       0 vcl1
+	active     auto/warm          0 vcl2
+
+	$ varnishadm vcl.state vcl1 warm
+	Command failed with error code 300
+	Failed <vcl.state vcl1 auto>
+	Message:
+		VCL vcl1 is waiting for:
+		- vmod-debug
+
+In the case where properly releasing resources may take some time, you can
+opt for an asynchronous worker, either by spawning a thread and tracking it, or
+by using Varnish's worker pools.
+
+There is also a ``VCL_EVENT_USE`` event. Please note that this event is now
+deprecated and may be removed in a future release. A warm VCL should be ready
+to use so no additional task should be postponed at use time.
 
 When to lock, and when not to lock
 ==================================
@@ -393,7 +436,7 @@ their own locking to protect shared resources.
 When a VCL is loaded or unloaded, the event and priv->free are
 run sequentially all in a single thread, and there is guaranteed
 to be no other activity related to this particular VCL, nor are
-there  init/fini activity in any other VCL or VMOD at this time.
+there init/fini activity in any other VCL or VMOD at this time.
 
 That means that the VMOD init, and any object init/fini functions
 are already serialized in sensible order, and won't need any locking,

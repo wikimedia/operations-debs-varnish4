@@ -40,7 +40,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#include "common/params.h"
 #include "mgt/mgt.h"
 
 #include "libvcc.h"
@@ -53,8 +52,9 @@ struct vcc_priv {
 	unsigned	magic;
 #define VCC_PRIV_MAGIC	0x70080cb8
 	char		*dir;
-	const char	*src;
-	char		*srcfile;
+	const char	*vclsrc;
+	const char	*vclsrcfile;
+	char		*csrcfile;
 	char		*libfile;
 };
 
@@ -65,7 +65,7 @@ unsigned mgt_vcc_err_unref;
 unsigned mgt_vcc_allow_inline_c;
 unsigned mgt_vcc_unsafe_path;
 
-static struct vcc *vcc;
+static struct vcp *vcp;
 
 #define VGC_SRC		"vgc.c"
 #define VGC_LIB		"vgc.so"
@@ -95,12 +95,12 @@ run_vcc(void *priv)
 
 	sb = VSB_new_auto();
 	XXXAN(sb);
-	VCC_VCL_dir(vcc, mgt_vcl_dir);
-	VCC_VMOD_dir(vcc, mgt_vmod_dir);
-	VCC_Err_Unref(vcc, mgt_vcc_err_unref);
-	VCC_Allow_InlineC(vcc, mgt_vcc_allow_inline_c);
-	VCC_Unsafe_Path(vcc, mgt_vcc_unsafe_path);
-	csrc = VCC_Compile(vcc, sb, vp->src);
+	VCP_VCL_dir(vcp, mgt_vcl_dir);
+	VCP_VMOD_dir(vcp, mgt_vmod_dir);
+	VCP_Err_Unref(vcp, mgt_vcc_err_unref);
+	VCP_Allow_InlineC(vcp, mgt_vcc_allow_inline_c);
+	VCP_Unsafe_Path(vcp, mgt_vcc_unsafe_path);
+	csrc = VCC_Compile(vcp, sb, vp->vclsrc, vp->vclsrcfile);
 	AZ(VSB_finish(sb));
 	if (VSB_len(sb))
 		printf("%s", VSB_data(sb));
@@ -110,13 +110,13 @@ run_vcc(void *priv)
 
 	fd = open(VGC_SRC, O_WRONLY|O_TRUNC|O_CREAT, 0600);
 	if (fd < 0) {
-		fprintf(stderr, "VCC cannot open %s", vp->srcfile);
+		fprintf(stderr, "VCC cannot open %s", vp->csrcfile);
 		exit(2);
 	}
 	l = strlen(csrc);
 	i = write(fd, csrc, l);
 	if (i != l) {
-		fprintf(stderr, "VCC cannot write %s", vp->srcfile);
+		fprintf(stderr, "VCC cannot write %s", vp->csrcfile);
 		exit(2);
 	}
 	AZ(close(fd));
@@ -224,7 +224,7 @@ mgt_vcc_compile(struct vcc_priv *vp, struct vsb *sb, int C_flag)
 	char *csrc;
 	unsigned subs;
 
-	if (mgt_vcc_touchfile(vp->srcfile, sb))
+	if (mgt_vcc_touchfile(vp->csrcfile, sb))
 		return (2);
 	if (mgt_vcc_touchfile(vp->libfile, sb))
 		return (2);
@@ -234,7 +234,7 @@ mgt_vcc_compile(struct vcc_priv *vp, struct vsb *sb, int C_flag)
 		return (subs);
 
 	if (C_flag) {
-		csrc = VFIL_readfile(NULL, vp->srcfile, NULL);
+		csrc = VFIL_readfile(NULL, vp->csrcfile, NULL);
 		AN(csrc);
 		VSB_cat(sb, csrc);
 		free(csrc);
@@ -252,7 +252,7 @@ mgt_vcc_compile(struct vcc_priv *vp, struct vsb *sb, int C_flag)
 
 char *
 mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
-    int C_flag)
+    const char *vclsrcfile, int C_flag)
 {
 	struct vcc_priv vp;
 	struct vsb *sb;
@@ -264,7 +264,8 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 	XXXAN(sb);
 
 	INIT_OBJ(&vp, VCC_PRIV_MAGIC);
-	vp.src = vclsrc;
+	vp.vclsrc = vclsrc;
+	vp.vclsrcfile = vclsrcfile;
 
 	VSB_printf(sb, "vcl_%s", vclname);
 	AZ(VSB_finish(sb));
@@ -272,18 +273,17 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 	AN(vp.dir);
 	VJ_make_vcldir(vp.dir);
 
-
 	VSB_clear(sb);
 	VSB_printf(sb, "%s/%s", vp.dir, VGC_SRC);
 	AZ(VSB_finish(sb));
-	vp.srcfile = strdup(VSB_data(sb));
-	AN(vp.srcfile);
+	vp.csrcfile = strdup(VSB_data(sb));
+	AN(vp.csrcfile);
 	VSB_clear(sb);
 
 	VSB_printf(sb, "%s/%s", vp.dir, VGC_LIB);
 	AZ(VSB_finish(sb));
 	vp.libfile = strdup(VSB_data(sb));
-	AN(vp.srcfile);
+	AN(vp.csrcfile);
 	VSB_clear(sb);
 
 	status = mgt_vcc_compile(&vp, sb, C_flag);
@@ -293,8 +293,8 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 		VCLI_Out(cli, "%s", VSB_data(sb));
 	VSB_delete(sb);
 
-	(void)unlink(vp.srcfile);
-	free(vp.srcfile);
+	(void)unlink(vp.csrcfile);
+	free(vp.csrcfile);
 
 	free(vp.dir);
 
@@ -319,7 +319,7 @@ void
 mgt_vcc_init(void)
 {
 
-	vcc = VCC_New();
-	AN(vcc);
-	VCC_Builtin_VCL(vcc, builtin_vcl);
+	vcp = VCP_New();
+	AN(vcp);
+	VCP_Builtin_VCL(vcp, builtin_vcl);
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #-
 # Copyright (c) 2006 Verdens Gang AS
 # Copyright (c) 2006-2015 Varnish Software AS
@@ -139,11 +139,11 @@ returns =(
 	# Housekeeping
 
 	('init',
-		"",
+		"H",
 		('ok', 'fail')
 	),
 	('fini',
-		"",
+		"H",
 		('ok',)
 	),
 )
@@ -674,7 +674,7 @@ sp_variables = [
 		'HTTP',
 		( 'deliver', 'synth'),
 		( ), """
-		The entire response HTTP data structure
+		The entire response HTTP data structure.
 		"""
 	),
 	('resp.proto',
@@ -689,6 +689,9 @@ sp_variables = [
 		( 'deliver', 'synth', ),
 		( 'deliver', 'synth', ), """
 		The HTTP status code that will be returned.
+
+		Assigning a HTTP standardized code to resp.status will also
+		set resp.reason to the corresponding status message.
 		"""
 	),
 	('resp.reason',
@@ -990,7 +993,8 @@ fo.write("#endif\n")
 
 fo.write("\n#ifdef VCL_MET_MAC\n")
 for i in ll:
-	fo.write("VCL_MET_MAC(%s, %s," % (i[0].lower(), i[0].upper()))
+	fo.write("VCL_MET_MAC(%s, %s, %s," %
+	    (i[0].lower(), i[0].upper(), i[1]))
 	p = " (\n\t"
 	lll = list(i[2])
 	lll.sort()
@@ -1225,7 +1229,7 @@ vcl_output_lang_h(struct vsb *sb)
 {
 """)
 
-emit_file(fo, buildroot, "include/vdef.h")
+emit_file(fo, srcroot, "include/vdef.h")
 emit_file(fo, buildroot, "include/vcl.h")
 emit_file(fo, srcroot, "include/vrt.h")
 emit_file(fo, buildroot, "include/vrt_obj.h")
@@ -1312,6 +1316,8 @@ def rst_where(fo, h, l):
 		elif j == "client":
 			ll.append(j)
 		elif j == "backend":
+			ll.append(j)
+		elif j == "all":
 			ll.append(j)
 		else:
 			ll.append("vcl_" + j)

@@ -44,7 +44,7 @@
 
 #define VRT_MAJOR_VERSION	3U
 
-#define VRT_MINOR_VERSION	0U
+#define VRT_MINOR_VERSION	1U
 
 
 /***********************************************************************/
@@ -294,6 +294,10 @@ struct vmod_priv {
 #ifdef VCL_RET_MAX
 typedef int vmod_event_f(VRT_CTX, struct vmod_priv *, enum vcl_event_e);
 #endif
+
+struct vclref;
+struct vclref * VRT_ref_vcl(VRT_CTX, const char *);
+void VRT_rel_vcl(VRT_CTX, struct vclref **);
 
 void VRT_priv_fini(const struct vmod_priv *p);
 struct vmod_priv *VRT_priv_task(VRT_CTX, void *vmod_id);

@@ -58,15 +58,19 @@ CONTENTS
 * :ref:`obj_fallback`
 * :ref:`func_fallback.add_backend`
 * :ref:`func_fallback.backend`
+* :ref:`func_fallback.remove_backend`
 * :ref:`obj_hash`
 * :ref:`func_hash.add_backend`
 * :ref:`func_hash.backend`
+* :ref:`func_hash.remove_backend`
 * :ref:`obj_random`
 * :ref:`func_random.add_backend`
 * :ref:`func_random.backend`
+* :ref:`func_random.remove_backend`
 * :ref:`obj_round_robin`
 * :ref:`func_round_robin.add_backend`
 * :ref:`func_round_robin.backend`
+* :ref:`func_round_robin.remove_backend`
 
 .. _obj_round_robin:
 
@@ -90,10 +94,24 @@ Prototype
 	VOID round_robin.add_backend(BACKEND)
 
 Description
-       Add a backend to the round-robin director.
+	Add a backend to the round-robin director.
 Example
-       vdir.add_backend(backend1);
-       vdir.add_backend(backend2);
+	vdir.add_backend(backend1);
+	vdir.add_backend(backend2);
+
+.. _func_round_robin.remove_backend:
+
+VOID round_robin.remove_backend(BACKEND)
+----------------------------------------
+
+Prototype
+	VOID round_robin.remove_backend(BACKEND)
+
+Description
+	Remove a backend from the round-robin director.
+Example
+	vdir.remove_backend(backend1);
+	vdir.remove_backend(backend2);
 
 .. _func_round_robin.backend:
 
@@ -104,9 +122,9 @@ Prototype
 	BACKEND round_robin.backend()
 
 Description
-       Pick a backend from the director.
+	Pick a backend from the director.
 Example
-       set req.backend_hint = vdir.backend();
+	set req.backend_hint = vdir.backend();
 
 
 .. _obj_fallback:
@@ -142,6 +160,20 @@ Example
 	vdir.add_backend(backend1);
 	vdir.add_backend(backend2);
 
+.. _func_fallback.remove_backend:
+
+VOID fallback.remove_backend(BACKEND)
+-------------------------------------
+
+Prototype
+	VOID fallback.remove_backend(BACKEND)
+
+Description
+	Remove a backend from the director.
+Example
+	vdir.remove_backend(backend1);
+	vdir.remove_backend(backend2);
+
 .. _func_fallback.backend:
 
 BACKEND fallback.backend()
@@ -151,9 +183,9 @@ Prototype
 	BACKEND fallback.backend()
 
 Description
-       Pick a backend from the director.
+	Pick a backend from the director.
 Example
-       set req.backend_hint = vdir.backend();
+	set req.backend_hint = vdir.backend();
 
 
 .. _obj_random:
@@ -187,10 +219,23 @@ Description
 	to this director.
 
 Example
+	# 2/3 to backend1, 1/3 to backend2.
 	vdir.add_backend(backend1, 10.0);
 	vdir.add_backend(backend2, 5.0);
-	# 2/3 to backend1, 1/3 to backend2.
 
+.. _func_random.remove_backend:
+
+VOID random.remove_backend(BACKEND)
+-----------------------------------
+
+Prototype
+	VOID random.remove_backend(BACKEND)
+
+Description
+	Remove a backend from the director.
+Example
+	vdir.remove_backend(backend1);
+	vdir.remove_backend(backend2);
 
 .. _func_random.backend:
 
@@ -214,10 +259,10 @@ Object hash
 Description
 	Create a hashing backend director.
 
-	The director chooses the backend server by computing a hash/digest of
-	the string given to .backend().
+	The director chooses the backend server by computing a hash/digest
+	of the string given to .backend().
 
-	Commonly used with ``client.identity`` or a session cookie to get
+	Commonly used with ``client.ip`` or a session cookie to get
 	sticky sessions.
 
 Example
@@ -241,6 +286,19 @@ Example
 	vdir.add_backend(backend1, 1.0);
 	vdir.add_backend(backend2, 1.0);
 
+.. _func_hash.remove_backend:
+
+VOID hash.remove_backend(BACKEND)
+---------------------------------
+
+Prototype
+	VOID hash.remove_backend(BACKEND)
+
+Description
+	Remove a backend from the director.
+Example
+	vdir.remove_backend(backend1);
+	vdir.remove_backend(backend2);
 
 .. _func_hash.backend:
 
@@ -257,3 +315,11 @@ Description
 Example
 	# pick a backend based on the cookie header from the client
 	set req.backend_hint = vdir.backend(req.http.cookie);
+
+COPYRIGHT
+=========
+
+This document is licensed under the same licence as Varnish
+itself. See LICENCE for details.
+
+* Copyright (c) 2013-2015 Varnish Software AS

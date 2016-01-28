@@ -1,8 +1,8 @@
 AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2006 Verdens Gang AS
-Copyright (c) 2006-2015 Varnish Software AS])
+Copyright (c) 2006-2016 Varnish Software AS])
 AC_REVISION([$Id$])
-AC_INIT([Varnish], [4.1.0], [varnish-dev@varnish-cache.org])
+AC_INIT([Varnish], [4.1.1], [varnish-dev@varnish-cache.org])
 AC_CONFIG_SRCDIR(include/miniobj.h)
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -151,11 +151,35 @@ fi
 AC_SUBST(PCRE_CFLAGS)
 AC_SUBST(PCRE_LIBS)
 
+# --enable-pcre-jit
+AC_ARG_ENABLE(pcre-jit,
+  AS_HELP_STRING([--enable-pcre-jit],
+    [use the PCRE JIT compiler (default is YES)]),
+    [],
+    [enable_pcre_jit=yes])
+if test "$enable_pcre_jit" = yes; then
+  AC_MSG_CHECKING(for PCRE JIT usability)
+  save_CFLAGS="${CFLAGS}"
+  CFLAGS="${PCRE_CFLAGS}"
+  AC_COMPILE_IFELSE(
+    [AC_LANG_PROGRAM([[#include "pcre.h"
+                       #if PCRE_MAJOR != 8 || PCRE_MINOR < 32
+                       #error no jit
+                       #endif]])],
+    [AC_MSG_RESULT(yes)
+     AC_DEFINE([USE_PCRE_JIT], [1], [Use the PCRE JIT compiler])
+    ],
+    [AC_MSG_RESULT(no)]
+  )
+  CFLAGS="${save_CFLAGS}"
+fi
+
+
 AC_CHECK_HEADERS([edit/readline/readline.h],
 	[AC_DEFINE([HAVE_LIBEDIT], [1], [Define if we have libedit])
 	LIBEDIT_LIBS="-ledit"],
 
-	[PKG_CHECK_MODULES([LIBEDIT], [libedit], 
+	[PKG_CHECK_MODULES([LIBEDIT], [libedit],
 		# having the module does not imply having the header
 		[AC_CHECK_HEADERS([editline/readline.h],
 				  [AC_DEFINE([HAVE_LIBEDIT], [1], [Define if we have libedit])],
@@ -221,6 +245,7 @@ AC_CHECK_FUNCS([getdtablesize])
 AC_CHECK_FUNCS([nanosleep])
 AC_CHECK_FUNCS([setppriv])
 AC_CHECK_FUNCS([fallocate])
+AC_CHECK_FUNCS([closefrom])
 
 save_LIBS="${LIBS}"
 LIBS="${PTHREAD_LIBS}"
@@ -229,29 +254,29 @@ AC_CHECK_FUNCS([pthread_mutex_isowned_np])
 AC_CHECK_FUNCS([pthread_timedjoin_np])
 LIBS="${save_LIBS}"
 
-# Support for visibility attribute 
-save_CFLAGS="${CFLAGS}" 
-CFLAGS="${CFLAGS} -Werror" 
+# Support for visibility attribute
+save_CFLAGS="${CFLAGS}"
+CFLAGS="${CFLAGS} -Werror"
 
-AC_CACHE_CHECK([whether we have support for visibility attributes], 
-	[ac_cv_have_viz], 
-	[AC_RUN_IFELSE( 
-		[AC_LANG_PROGRAM([[ 
-			#if ((__GNUC__-0) * 10 + __GNUC_MINOR__-0 >= 33) 
-			#  define ZLIB_INTERNAL __attribute__((visibility ("hidden"))) 
-			#else 
-			#  define ZLIB_INTERNAL 
-			#endif 
-			int ZLIB_INTERNAL foo; 
-		]],[])], 
-	[ac_cv_have_viz=yes], 
-	[ac_cv_have_viz=no]) 
+AC_CACHE_CHECK([whether we have support for visibility attributes],
+	[ac_cv_have_viz],
+	[AC_RUN_IFELSE(
+		[AC_LANG_PROGRAM([[
+			#if ((__GNUC__-0) * 10 + __GNUC_MINOR__-0 >= 33)
+			#  define ZLIB_INTERNAL __attribute__((visibility ("hidden")))
+			#else
+			#  define ZLIB_INTERNAL
+			#endif
+			int ZLIB_INTERNAL foo;
+		]],[])],
+	[ac_cv_have_viz=yes],
+	[ac_cv_have_viz=no])
 ])
-if test "$ac_cv_have_viz" = no; then 
-	libvgz_extra_cflags="-DNO_VIZ" 
-	AC_SUBST(libvgz_extra_cflags) 
-fi 
-CFLAGS="${save_CFLAGS}" 
+if test "$ac_cv_have_viz" = no; then
+	libvgz_extra_cflags="-DNO_VIZ"
+	AC_SUBST(libvgz_extra_cflags)
+fi
+CFLAGS="${save_CFLAGS}"
 
 # Use jemalloc on Linux
 JEMALLOC_LDADD=
@@ -309,7 +334,7 @@ AC_SYS_LARGEFILE
 save_LIBS="${LIBS}"
 LIBS="${LIBS} ${RT_LIBS}"
 AC_CHECK_FUNCS([clock_gettime])
-AC_CHECK_FUNCS([gethrtime]) 
+AC_CHECK_FUNCS([gethrtime])
 LIBS="${save_LIBS}"
 
 # --enable-kqueue
@@ -610,17 +635,6 @@ else
 fi
 
 AC_DEFINE_UNQUOTED([VCC_CC],"$VCC_CC",[C compiler command line for VCL code])
-
-# --enable-pcre-jit
-AC_ARG_ENABLE(pcre-jit,
-    AS_HELP_STRING([--enable-pcre-jit],
-	[use the PCRE JIT compiler (default is YES)]),
-    ,
-    [enable_pcre_jit=yes])
-
-if test "$enable_pcre_jit" = yes; then
-   AC_DEFINE([USE_PCRE_JIT],[1],[use the PCRE JIT compiler])
-fi
 
 # Stupid automake needs this
 VTC_TESTS="$(cd $srcdir/bin/varnishtest && echo tests/*.vtc)"

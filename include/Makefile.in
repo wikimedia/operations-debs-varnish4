@@ -295,7 +295,7 @@ nobase_noinst_HEADERS = \
 	vut_options.h
 
 BUILT_SOURCES = vcs_version.h vmod_abi.h
-MAINTAINERCLEANFILES = vcs_version.h 
+MAINTAINERCLEANFILES = vcs_version.h
 CLEANFILES = \
 	tbl/vcl_returns.h \
 	tbl/vrt_stv_var.h \

@@ -30,7 +30,7 @@
 /*
  * XXX:
  *	Better error messages, throughout.
- *	>It also accured to me that we could link the errors to the error
+ *	>It also occurred to me that we could link the errors to the error
  *	>documentation.
  *	>
  *	>Unreferenced  function 'request_policy', first mention is
@@ -66,7 +66,7 @@
 
 struct method method_tab[] = {
 	{ "none", 0U, 0},
-#define VCL_MET_MAC(l,U,m)	{ "vcl_"#l, m, VCL_MET_##U },
+#define VCL_MET_MAC(l,U,t,b)	{ "vcl_"#l, b, VCL_MET_##U },
 #include "tbl/vcl_returns.h"
 #undef VCL_MET_MAC
 	{ NULL, 0U, 0}
@@ -325,20 +325,23 @@ EmitCoordinates(const struct vcc *tl, struct vsb *vsb)
 /*--------------------------------------------------------------------
  * Init/Fini/Event
  *
- * We call Fini-s in the opposite order of init-s.
- * Other events are called in same order as init-s, no matter which
- * event it might be.
+ * We call DISCARD and COLD events in the opposite order of LOAD and
+ * WARM. The child will panic if a USE event fails, since a WARM event
+ * leads to a usable state.
  */
 
 static void
 EmitInitFini(const struct vcc *tl)
 {
 	struct inifin *p;
+	unsigned has_event = 0;
 
-	Fh(tl, 0, "\nstatic unsigned vgc_inistep;\n");
+	Fh(tl, 0, "\n");
+	Fh(tl, 0, "static unsigned vgc_inistep;\n");
+	Fh(tl, 0, "static unsigned vgc_warmupstep;\n");
 
 	/*
-	 * INIT
+	 * LOAD
 	 */
 	Fc(tl, 0, "\nstatic int\nVGC_Load(VRT_CTX)\n{\n\n");
 	Fc(tl, 0, "\tvgc_inistep = 0;\n\n");
@@ -349,6 +352,10 @@ EmitInitFini(const struct vcc *tl)
 			Fc(tl, 0, "\t/* %u */\n%s\n", p->n, VSB_data(p->ini));
 		Fc(tl, 0, "\tvgc_inistep = %u;\n\n", p->n);
 		VSB_delete(p->ini);
+
+		AZ(VSB_finish(p->event));
+		if (VSB_len(p->event))
+			has_event = 1;
 	}
 
 	Fc(tl, 0, "\t(void)VGC_function_vcl_init(ctx);\n");
@@ -356,7 +363,7 @@ EmitInitFini(const struct vcc *tl)
 	Fc(tl, 0, "}\n");
 
 	/*
-	 * FINI
+	 * DISCARD
 	 */
 	Fc(tl, 0, "\nstatic int\nVGC_Discard(VRT_CTX)\n{\n\n");
 
@@ -375,6 +382,66 @@ EmitInitFini(const struct vcc *tl)
 	Fc(tl, 0, "\treturn(0);\n");
 	Fc(tl, 0, "}\n");
 
+	if (has_event) {
+		/*
+		 * WARM
+		 */
+		Fc(tl, 0, "\nstatic int\n");
+		Fc(tl, 0, "VGC_Warmup(VRT_CTX, enum vcl_event_e ev)\n{\n\n");
+
+		Fc(tl, 0, "\tvgc_warmupstep = 0;\n\n");
+		VTAILQ_FOREACH(p, &tl->inifin, list) {
+			assert(p->n > 0);
+			if (VSB_len(p->event)) {
+				Fc(tl, 0, "\t/* %u */\n", p->n);
+				Fc(tl, 0, "\tif (%s)\n", VSB_data(p->event));
+				Fc(tl, 0, "\t\treturn (1);\n");
+				Fc(tl, 0, "\tvgc_warmupstep = %u;\n\n", p->n);
+			}
+		}
+
+		Fc(tl, 0, "\treturn (0);\n");
+		Fc(tl, 0, "}\n");
+
+		/*
+		 * USE (deprecated)
+		 */
+		Fc(tl, 0, "\nstatic int\n");
+		Fc(tl, 0, "VGC_Use(VRT_CTX, enum vcl_event_e ev)\n{\n\n");
+
+		VTAILQ_FOREACH(p, &tl->inifin, list) {
+			assert(p->n > 0);
+			if (VSB_len(p->event)) {
+				Fc(tl, 0, "\t/* %u */\n", p->n);
+				Fc(tl, 0, "\tif (%s)\n", VSB_data(p->event));
+				Fc(tl, 0, "\t\treturn (1);\n\n");
+			}
+		}
+
+		Fc(tl, 0, "\treturn (0);\n");
+		Fc(tl, 0, "}\n");
+
+		/*
+		 * COLD
+		 */
+		Fc(tl, 0, "\nstatic int\n");
+		Fc(tl, 0, "VGC_Cooldown(VRT_CTX, enum vcl_event_e ev)\n{\n");
+		Fc(tl, 0, "\tint retval = 0;\n\n");
+
+		VTAILQ_FOREACH_REVERSE(p, &tl->inifin, inifinhead, list) {
+			if (VSB_len(p->event)) {
+				Fc(tl, 0, "\t/* %u */\n", p->n);
+				Fc(tl, 0, "\tif (vgc_warmupstep >= %u &&\n", p->n);
+				Fc(tl, 0, "\t    %s != 0)\n", VSB_data(p->event));
+				Fc(tl, 0, "\t\tretval = 1;\n\n");
+			}
+			VSB_delete(p->event);
+		}
+
+		Fc(tl, 0, "\treturn (retval);\n");
+		Fc(tl, 0, "}\n");
+	}
+
 	/*
 	 * EVENTS
 	 */
@@ -383,16 +450,20 @@ EmitInitFini(const struct vcc *tl)
 	Fc(tl, 0, "{\n");
 	Fc(tl, 0, "\tif (ev == VCL_EVENT_LOAD)\n");
 	Fc(tl, 0, "\t\treturn(VGC_Load(ctx));\n");
+	if (has_event) {
+		Fc(tl, 0, "\tif (ev == VCL_EVENT_WARM)\n");
+		Fc(tl, 0, "\t\treturn(VGC_Warmup(ctx, ev));\n");
+		Fc(tl, 0, "\tif (ev == VCL_EVENT_USE)\n");
+		Fc(tl, 0, "\t\treturn(VGC_Use(ctx, ev));\n");
+		Fc(tl, 0, "\tif (ev == VCL_EVENT_COLD)\n");
+		Fc(tl, 0, "\t\treturn(VGC_Cooldown(ctx, ev));\n");
+	}
 	Fc(tl, 0, "\tif (ev == VCL_EVENT_DISCARD)\n");
 	Fc(tl, 0, "\t\treturn(VGC_Discard(ctx));\n");
 	Fc(tl, 0, "\n");
-	VTAILQ_FOREACH(p, &tl->inifin, list) {
-		AZ(VSB_finish(p->event));
-		if (VSB_len(p->event))
-			Fc(tl, 0, "\t/* %u */\n%s\n", p->n, VSB_data(p->event));
-		VSB_delete(p->event);
-	}
-	Fc(tl, 0, "\treturn (0);\n");
+	if (!has_event)
+		Fc(tl, 0, "\t(void)vgc_warmupstep;\n");
+	Fc(tl, 0, "\treturn (%d);\n", has_event ? 1 : 0);
 	Fc(tl, 0, "}\n");
 }
 
@@ -412,7 +483,7 @@ EmitStruct(const struct vcc *tl)
 	Fc(tl, 0, "\t.nsrc = VGC_NSRCS,\n");
 	Fc(tl, 0, "\t.srcname = srcname,\n");
 	Fc(tl, 0, "\t.srcbody = srcbody,\n");
-#define VCL_MET_MAC(l,u,b) \
+#define VCL_MET_MAC(l,u,t,b) \
 	Fc(tl, 0, "\t." #l "_func = VGC_function_vcl_" #l ",\n");
 #include "tbl/vcl_returns.h"
 #undef VCL_MET_MAC
@@ -450,22 +521,23 @@ vcc_destroy_source(struct source *sp)
 /*--------------------------------------------------------------------*/
 
 static struct source *
-vcc_file_source(const struct vcc *tl, struct vsb *sb, const char *fn)
+vcc_file_source(const struct vcp * const vcp, struct vsb *sb, const char *fn)
 {
-	char *f;
+	char *f, *fnp;
 	struct source *sp;
 
-	if (!tl->unsafe_path && strchr(fn, '/') != NULL) {
-		VSB_printf(sb, "Include path is unsafe '%s'\n", fn);
+	if (!vcp->unsafe_path && strchr(fn, '/') != NULL) {
+		VSB_printf(sb, "VCL filename '%s' is unsafe.\n", fn);
 		return (NULL);
 	}
-	f = VFIL_readfile(tl->vcl_dir, fn, NULL);
-	if (f == NULL) {
-		VSB_printf(sb, "Cannot read file '%s': %s\n",
-		    fn, strerror(errno));
+	f = NULL;
+	if (VFIL_searchpath(vcp->vcl_path, NULL, &f, fn, &fnp) || f == NULL) {
+		VSB_printf(sb, "Cannot read file '%s' (%s)\n",
+		    fnp != NULL ? fnp : fn, strerror(errno));
 		return (NULL);
 	}
-	sp = vcc_new_source(f, NULL, fn);
+	sp = vcc_new_source(f, NULL, fnp);
+	free(fnp);
 	sp->freeit = f;
 	return (sp);
 }
@@ -477,6 +549,8 @@ vcc_resolve_includes(struct vcc *tl)
 {
 	struct token *t, *t1, *t2;
 	struct source *sp;
+	struct vsb *vsb;
+	const char *p;
 
 	VTAILQ_FOREACH(t, &tl->tokens, list) {
 		if (t->tok != ID || !vcc_IdIs(t, "include"))
@@ -500,7 +574,31 @@ vcc_resolve_includes(struct vcc *tl)
 			return;
 		}
 
-		sp = vcc_file_source(tl, tl->sb, t1->dec);
+		if (t1->dec[0] == '.' && t1->dec[1] == '/') {
+			/*
+			 * Nested include filenames, starting with "./" are
+			 * resolved relative to the VCL file which contains
+			 * the include directive.
+			 */
+			if (t1->src->name[0] != '/') {
+				VSB_printf(tl->sb,
+				    "include \"./xxxxx\"; needs absolute "
+				    "filename of including file.\n");
+				vcc_ErrWhere(tl, t1);
+				return;
+			}
+			vsb = VSB_new_auto();
+			AN(vsb);
+			p = strrchr(t1->src->name, '/');
+			AN(p);
+			VSB_bcat(vsb, t1->src->name, p - t1->src->name);
+			VSB_cat(vsb, t1->dec + 1);
+			AZ(VSB_finish(vsb));
+			sp = vcc_file_source(tl->param, tl->sb, VSB_data(vsb));
+			VSB_delete(vsb);
+		} else {
+			sp = vcc_file_source(tl->param, tl->sb, t1->dec);
+		}
 		if (sp == NULL) {
 			vcc_ErrWhere(tl, t1);
 			return;
@@ -522,24 +620,16 @@ vcc_resolve_includes(struct vcc *tl)
 /*--------------------------------------------------------------------*/
 
 static struct vcc *
-vcc_NewVcc(const struct vcc *tl0)
+vcc_NewVcc(const struct vcp *vcp)
 {
 	struct vcc *tl;
 	int i;
 
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
 	ALLOC_OBJ(tl, VCC_MAGIC);
 	AN(tl);
-	if (tl0 != NULL) {
-		REPLACE(tl->builtin_vcl, tl0->builtin_vcl);
-		REPLACE(tl->vcl_dir, tl0->vcl_dir);
-		REPLACE(tl->vmod_dir, tl0->vmod_dir);
-		tl->vars = tl0->vars;
-		tl->err_unref = tl0->err_unref;
-		tl->allow_inline_c = tl0->allow_inline_c;
-		tl->unsafe_path = tl0->unsafe_path;
-	} else {
-		tl->err_unref = 1;
-	}
+	tl->param = vcp;
+	tl->vars = vcc_vars;
 	VTAILQ_INIT(&tl->symbols);
 	VTAILQ_INIT(&tl->inifin);
 	VTAILQ_INIT(&tl->membits);
@@ -606,7 +696,8 @@ vcc_DestroyTokenList(struct vcc *tl, char *ret)
  */
 
 static char *
-vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
+vcc_CompileSource(const struct vcp * const vcp, struct vsb *sb,
+    struct source *sp)
 {
 	struct vcc *tl;
 	struct symbol *sym;
@@ -616,7 +707,7 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 	char *of;
 	int i;
 
-	tl = vcc_NewVcc(tl0);
+	tl = vcc_NewVcc(vcp);
 	tl->sb = sb;
 
 	vcc_Expr_Init(tl);
@@ -649,7 +740,7 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
 		return (vcc_DestroyTokenList(tl, NULL));
 
 	/* Register and lex the builtin VCL */
-	sp = vcc_new_source(tl->builtin_vcl, NULL, "Builtin");
+	sp = vcc_new_source(tl->param->builtin_vcl, NULL, "Builtin");
 	assert(sp != NULL);
 	VTAILQ_INSERT_TAIL(&tl->sources, sp, list);
 	sp->idx = tl->nsources++;
@@ -759,15 +850,22 @@ vcc_CompileSource(const struct vcc *tl0, struct vsb *sb, struct source *sp)
  */
 
 char *
-VCC_Compile(const struct vcc *tl, struct vsb *sb, const char *b)
+VCC_Compile(const struct vcp *vcp, struct vsb *sb,
+    const char *vclsrc, const char *vclsrcfile)
 {
 	struct source *sp;
 	char *r;
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
+	AN(sb);
+	AN(vclsrcfile);
 
-	sp = vcc_new_source(b, NULL, "input");
+	if (vclsrc != NULL)
+		sp = vcc_new_source(vclsrc, NULL, vclsrcfile);
+	else
+		sp = vcc_file_source(vcp, sb, vclsrcfile);
 	if (sp == NULL)
 		return (NULL);
-	r = vcc_CompileSource(tl, sb, sp);
+	r = vcc_CompileSource(vcp, sb, sp);
 	return (r);
 }
 
@@ -775,16 +873,15 @@ VCC_Compile(const struct vcc *tl, struct vsb *sb, const char *b)
  * Allocate a compiler instance
  */
 
-struct vcc *
-VCC_New(void)
+struct vcp *
+VCP_New(void)
 {
-	struct vcc *tl;
+	struct vcp *vcp;
 
-	tl = vcc_NewVcc(NULL);
+	ALLOC_OBJ(vcp, VCP_MAGIC);
+	AN(vcp);
 
-	tl->vars = vcc_vars;
-
-	return (tl);
+	return (vcp);
 }
 
 /*--------------------------------------------------------------------
@@ -792,11 +889,11 @@ VCC_New(void)
  */
 
 void
-VCC_Builtin_VCL(struct vcc *tl, const char *str)
+VCP_Builtin_VCL(struct vcp *vcp, const char *str)
 {
 
-	CHECK_OBJ_NOTNULL(tl, VCC_MAGIC);
-	REPLACE(tl->builtin_vcl, str);
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
+	REPLACE(vcp->builtin_vcl, str);
 }
 
 /*--------------------------------------------------------------------
@@ -804,11 +901,12 @@ VCC_Builtin_VCL(struct vcc *tl, const char *str)
  */
 
 void
-VCC_VCL_dir(struct vcc *tl, const char *str)
+VCP_VCL_dir(struct vcp *vcp, const char *str)
 {
 
-	CHECK_OBJ_NOTNULL(tl, VCC_MAGIC);
-	REPLACE(tl->vcl_dir, str);
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
+	REPLACE(vcp->vcl_dir, str);
+	VFIL_setpath(&vcp->vcl_path, str);
 }
 
 /*--------------------------------------------------------------------
@@ -816,11 +914,12 @@ VCC_VCL_dir(struct vcc *tl, const char *str)
  */
 
 void
-VCC_VMOD_dir(struct vcc *tl, const char *str)
+VCP_VMOD_dir(struct vcp *vcp, const char *str)
 {
 
-	CHECK_OBJ_NOTNULL(tl, VCC_MAGIC);
-	REPLACE(tl->vmod_dir, str);
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
+	REPLACE(vcp->vmod_dir, str);
+	VFIL_setpath(&vcp->vmod_path, str);
 }
 
 /*--------------------------------------------------------------------
@@ -828,25 +927,25 @@ VCC_VMOD_dir(struct vcc *tl, const char *str)
  */
 
 void
-VCC_Err_Unref(struct vcc *tl, unsigned u)
+VCP_Err_Unref(struct vcp *vcp, unsigned u)
 {
 
-	CHECK_OBJ_NOTNULL(tl, VCC_MAGIC);
-	tl->err_unref = u;
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
+	vcp->err_unref = u;
 }
 
 void
-VCC_Allow_InlineC(struct vcc *tl, unsigned u)
+VCP_Allow_InlineC(struct vcp *vcp, unsigned u)
 {
 
-	CHECK_OBJ_NOTNULL(tl, VCC_MAGIC);
-	tl->allow_inline_c = u;
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
+	vcp->allow_inline_c = u;
 }
 
 void
-VCC_Unsafe_Path(struct vcc *tl, unsigned u)
+VCP_Unsafe_Path(struct vcp *vcp, unsigned u)
 {
 
-	CHECK_OBJ_NOTNULL(tl, VCC_MAGIC);
-	tl->unsafe_path = u;
+	CHECK_OBJ_NOTNULL(vcp, VCP_MAGIC);
+	vcp->unsafe_path = u;
 }

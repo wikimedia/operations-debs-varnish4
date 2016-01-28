@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.1.0 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -354,6 +354,17 @@ relative to the values listed below, in order to conserve VM space:</p>
 <h4>List of Parameters<a class="headerlink" href="#list-of-parameters" title="Permalink to this headline">¶</a></h4>
 <p>This text is produced from the same text you will find in the CLI if
 you use the param.show command:</p>
+<div class="section" id="accept-filter">
+<span id="ref-param-accept-filter"></span><h5>accept_filter<a class="headerlink" href="#accept-filter" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: off</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>Enable kernel accept-filters (if available in the kernel).</p>
+</div>
 <div class="section" id="acceptor-sleep-decay">
 <span id="ref-param-acceptor-sleep-decay"></span><h5>acceptor_sleep_decay<a class="headerlink" href="#acceptor-sleep-decay" title="Permalink to this headline">¶</a></h5>
 <blockquote>
@@ -436,7 +447,7 @@ This is a waste of time if you have many bans which are never identical.</p>
 <li>Minimum: 0.000</li>
 </ul>
 </div></blockquote>
-<p>The ban lurker only process bans when they are this old.  When a ban is added, the most frequently hit objects will get tested against it as part of object lookup.  This parameter prevents the ban-lurker from kicking in, until the rush is over.</p>
+<p>The ban lurker will ignore bans until they are this old.  When a ban is added, the active traffic will be tested against it as part of object lookup.  This parameter holds the ban-lurker off, until the rush is over.</p>
 </div>
 <div class="section" id="ban-lurker-batch">
 <span id="ref-param-ban-lurker-batch"></span><h5>ban_lurker_batch<a class="headerlink" href="#ban-lurker-batch" title="Permalink to this headline">¶</a></h5>
@@ -446,7 +457,7 @@ This is a waste of time if you have many bans which are never identical.</p>
 <li>Minimum: 1</li>
 </ul>
 </div></blockquote>
-<p>The ban lurker slees ${ban_lurker_sleep} after examining this many objects.  Use this to pace the ban-lurker if it eats too many resources.</p>
+<p>The ban lurker sleeps ${ban_lurker_sleep} after examining this many objects.  Use this to pace the ban-lurker if it eats too many resources.</p>
 </div>
 <div class="section" id="ban-lurker-sleep">
 <span id="ref-param-ban-lurker-sleep"></span><h5>ban_lurker_sleep<a class="headerlink" href="#ban-lurker-sleep" title="Permalink to this headline">¶</a></h5>
@@ -457,7 +468,7 @@ This is a waste of time if you have many bans which are never identical.</p>
 <li>Minimum: 0.000</li>
 </ul>
 </div></blockquote>
-<p>How long the ban lurker sleeps after examining ${ban_lurker_batch} objects.
+<p>How long the ban lurker sleeps after examining ${ban_lurker_batch} objects.  Use this to pace the ban-lurker if it eats too many resources.
 A value of zero will disable the ban lurker entirely.</p>
 </div>
 <div class="section" id="between-bytes-timeout">
@@ -608,7 +619,7 @@ NB: Must be specified with -p to have effect.</p>
 <li>Units: seconds</li>
 <li>Default: 10.000</li>
 <li>Minimum: 0.000</li>
-<li>Flags:</li>
+<li>Flags: obj_sticky</li>
 </ul>
 </div></blockquote>
 <p>Default grace period.  We will deliver an object this long after it has expired, provided another thread is attempting to get a new copy.</p>
@@ -620,7 +631,7 @@ NB: Must be specified with -p to have effect.</p>
 <li>Units: seconds</li>
 <li>Default: 0.000</li>
 <li>Minimum: 0.000</li>
-<li>Flags:</li>
+<li>Flags: obj_sticky</li>
 </ul>
 </div></blockquote>
 <p>Default keep period.  We will keep a useless object around this long, making it available for conditional backend fetches.  That means that the object will be removed from the cache at the end of ttl+grace+keep.</p>
@@ -632,7 +643,7 @@ NB: Must be specified with -p to have effect.</p>
 <li>Units: seconds</li>
 <li>Default: 120.000</li>
 <li>Minimum: 0.000</li>
-<li>Flags:</li>
+<li>Flags: obj_sticky</li>
 </ul>
 </div></blockquote>
 <p>The TTL assigned to objects if neither the backend nor the VCL code assigns one.</p>
@@ -825,7 +836,7 @@ The memory for the request is allocated from the client workspace (param: worksp
 </ul>
 </div></blockquote>
 <p>Maximum number of bytes of HTTP backend response we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
-The memory for the request is allocated from the worker workspace (param: thread_pool_workspace) and this parameter limits how much of that the request is allowed to take up.</p>
+The memory for the request is allocated from the backend workspace (param: workspace_backend) and this parameter limits how much of that the request is allowed to take up.</p>
 </div>
 <div class="section" id="ref-param-idle-send-timeout">
 <span id="idle-send-timeout"></span><h5>idle_send_timeout<a class="headerlink" href="#ref-param-idle-send-timeout" title="Permalink to this headline">¶</a></h5>
@@ -910,7 +921,7 @@ Be aware that restarts are likely to cause a hit against the backend, so don't i
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>Maximum number of objects we attempt to nuke in orderto make space for a object body.</p>
+<p>Maximum number of objects we attempt to nuke in order to make space for a object body.</p>
 </div>
 <div class="section" id="pcre-match-limit">
 <span id="ref-param-pcre-match-limit"></span><h5>pcre_match_limit<a class="headerlink" href="#pcre-match-limit" title="Permalink to this headline">¶</a></h5>
@@ -1366,7 +1377,7 @@ Allow 'import ... from ...'.</p>
 <li>Default: /opt/varnish/etc/varnish</li>
 </ul>
 </div></blockquote>
-<p>Directory from which relative VCL filenames (vcl.load and include) are opened.</p>
+<p>Directory (or colon separated list of directories) from which relative VCL filenames (vcl.load and include) are to be found.</p>
 </div>
 <div class="section" id="vmod-dir">
 <span id="ref-param-vmod-dir"></span><h5>vmod_dir<a class="headerlink" href="#vmod-dir" title="Permalink to this headline">¶</a></h5>
@@ -1375,7 +1386,7 @@ Allow 'import ... from ...'.</p>
 <li>Default: /opt/varnish/lib/varnish/vmods</li>
 </ul>
 </div></blockquote>
-<p>Directory where VCL modules are to be found.</p>
+<p>Directory (or colon separated list of directories) where VMODs are to be found.</p>
 </div>
 <div class="section" id="vsl-buffer">
 <span id="ref-param-vsl-buffer"></span><h5>vsl_buffer<a class="headerlink" href="#vsl-buffer" title="Permalink to this headline">¶</a></h5>
@@ -1404,7 +1415,7 @@ Setting this too high costs memory, setting it too low will cause more VSL flush
 <dd>Set default value</dd>
 </dl>
 </div></blockquote>
-<p>Use +/- prefixe in front of VSL tag name, to mask/unmask individual VSL messages.</p>
+<p>Use +/- prefix in front of VSL tag name, to mask/unmask individual VSL messages.</p>
 </div>
 <div class="section" id="vsl-reclen">
 <span id="ref-param-vsl-reclen"></span><h5>vsl_reclen<a class="headerlink" href="#vsl-reclen" title="Permalink to this headline">¶</a></h5>
@@ -1517,12 +1528,12 @@ signal and</li>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="varnish-cli.html#varnish-cli-7"><em>varnish-cli</em></a></li>
 <li><a class="reference internal" href="varnishlog.html#varnishlog-1"><em>varnishlog</em></a></li>
 <li><a class="reference internal" href="varnishhist.html#varnishhist-1"><em>varnishhist</em></a></li>
 <li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><em>varnishncsa</em></a></li>
 <li><a class="reference internal" href="varnishstat.html#varnishstat-1"><em>varnishstat</em></a></li>
 <li><a class="reference internal" href="varnishtop.html#varnishtop-1"><em>varnishtop</em></a></li>
+<li><a class="reference internal" href="varnish-cli.html#varnish-cli-7"><em>varnish-cli</em></a></li>
 <li><a class="reference internal" href="vcl.html#vcl-7"><em>VCL</em></a></li>
 </ul>
 </div>
@@ -1567,6 +1578,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#run-time-parameter-flags">Run Time Parameter Flags</a></li>
 <li><a class="reference internal" href="#default-value-exceptions-on-32-bit-systems">Default Value Exceptions on 32 bit Systems</a></li>
 <li><a class="reference internal" href="#list-of-parameters">List of Parameters</a><ul>
+<li><a class="reference internal" href="#accept-filter">accept_filter</a></li>
 <li><a class="reference internal" href="#acceptor-sleep-decay">acceptor_sleep_decay</a></li>
 <li><a class="reference internal" href="#acceptor-sleep-incr">acceptor_sleep_incr</a></li>
 <li><a class="reference internal" href="#acceptor-sleep-max">acceptor_sleep_max</a></li>
@@ -1708,7 +1720,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

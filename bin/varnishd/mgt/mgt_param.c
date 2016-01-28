@@ -36,7 +36,6 @@
 
 #include "mgt/mgt.h"
 #include "common/heritage.h"
-#include "common/params.h"
 
 #include "mgt/mgt_param.h"
 #include "vav.h"
@@ -139,7 +138,7 @@ mcf_addpar(struct parspec *ps)
 
 /*--------------------------------------------------------------------
  * Wrap the text nicely.
- * Lines are allowed to contain to TABS and we render that as a table
+ * Lines are allowed to contain two TABS and we render that as a table
  * taking the width of the first column into account.
  */
 
@@ -574,6 +573,10 @@ MCF_DumpRstParam(void)
 			}
 			if (pp->flags & ONLY_ROOT) {
 				printf("%sonly_root", q);
+				q = ", ";
+			}
+			if (pp->flags & OBJ_STICKY) {
+				printf("%sobj_sticky", q);
 				q = ", ";
 			}
 			printf("\n");

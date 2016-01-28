@@ -238,7 +238,6 @@ SES_RxStuff(struct http_conn *htc, htc_complete_f *func,
 			/* Working on it */
 			if (t1 != NULL && isnan(*t1))
 				*t1 = now;
-			tmo = tn - now;
 		} else if (hs != HTC_S_EMPTY)
 			WRONG("htc_status_e");
 
@@ -322,8 +321,6 @@ SES_Proto_Req(struct worker *wrk, void *arg)
 		WRONG("Wrong session step");
 	}
 	WS_Assert(wrk->aws);
-	if (DO_DEBUG(DBG_VCLREL) && wrk->vcl != NULL)
-		VCL_Rel(&wrk->vcl);
 	THR_SetRequest(NULL);
 }
 

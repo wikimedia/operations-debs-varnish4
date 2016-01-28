@@ -327,14 +327,14 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 		/*
 		 * A HEAD request can never have a body in the reply,
 		 * no matter what the headers might say.
-		 * [RFC2516 4.3 p33]
+		 * [RFC7231 4.3.2 p25]
 		 */
 		wrk->stats->fetch_head++;
 		bo->htc->body_status = BS_NONE;
 	} else if (http_GetStatus(bo->beresp) <= 199) {
 		/*
 		 * 1xx responses never have a body.
-		 * [RFC2616 4.3 p33]
+		 * [RFC7230 3.3.2 p31]
 		 * ... but we should never see them.
 		 */
 		wrk->stats->fetch_1xx++;
@@ -342,10 +342,11 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	} else if (http_IsStatus(bo->beresp, 204)) {
 		/*
 		 * 204 is "No Content", obviously don't expect a body.
-		 * [RFC2616 10.2.5 p60]
+		 * [RFC7230 3.3.1 p29 and 3.3.2 p31]
 		 */
 		wrk->stats->fetch_204++;
-		if (http_GetHdr(bo->beresp, H_Content_Length, NULL) ||
+		if ((http_GetHdr(bo->beresp, H_Content_Length, NULL) &&
+		    bo->htc->content_length != 0) ||
 		    http_GetHdr(bo->beresp, H_Transfer_Encoding, NULL))
 			bo->htc->body_status = BS_ERROR;
 		else
@@ -353,7 +354,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	} else if (http_IsStatus(bo->beresp, 304)) {
 		/*
 		 * 304 is "Not Modified" it has no body.
-		 * [RFC2616 10.3.5 p63]
+		 * [RFC7230 3.3 p28]
 		 */
 		wrk->stats->fetch_304++;
 		bo->htc->body_status = BS_NONE;
@@ -578,7 +579,7 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	    (bo->do_gunzip && !bo->is_gzip))
 		bo->do_gunzip = 0;
 
-	/* We wont gzip unless it is non-empty and ungziped */
+	/* We wont gzip unless it is non-empty and ungzip'ed */
 	if (bo->htc->body_status == BS_NONE ||
 	    bo->htc->content_length == 0 ||
 	    (bo->do_gzip && !bo->is_gunzip))
@@ -776,18 +777,14 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_NOTNULL(bo->fetch_objcore, OBJCORE_MAGIC);
+	AN(bo->fetch_objcore->flags & OC_F_BUSY);
 	assert(bo->director_state == DIR_S_NULL);
-
-	if(bo->fetch_objcore->stobj->stevedore != NULL)
-		ObjFreeObj(bo->wrk, bo->fetch_objcore);
 
 	now = W_TIM_real(wrk);
 	VSLb_ts_busyobj(bo, "Error", now);
 
-	AN(bo->fetch_objcore->flags & OC_F_BUSY);
-
-	synth_body = VSB_new_auto();
-	AN(synth_body);
+	if(bo->fetch_objcore->stobj->stevedore != NULL)
+		ObjFreeObj(bo->wrk, bo->fetch_objcore);
 
 	// XXX: reset all beresp flags ?
 
@@ -796,29 +793,40 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	http_TimeHeader(bo->beresp, "Date: ", now);
 	http_SetHeader(bo->beresp, "Server: Varnish");
 
-	EXP_Clr(&bo->fetch_objcore->exp);
-	bo->fetch_objcore->exp.t_origin = bo->t_prev;
+	if (bo->fetch_objcore->objhead->waitinglist != NULL) {
+		/*
+		 * If there is a waitinglist, it means that there is no
+		 * grace-able object, so cache the error return for a
+		 * short time, so the waiting list can drain, rather than
+		 * each objcore on the waiting list sequentially attempt
+		 * to fetch from the backend.
+		 */
+		bo->fetch_objcore->exp.t_origin = now;
+		bo->fetch_objcore->exp.ttl = 1;
+		bo->fetch_objcore->exp.grace = 5;
+		bo->fetch_objcore->exp.keep = 5;
+	} else {
+		EXP_Clr(&bo->fetch_objcore->exp);
+		bo->fetch_objcore->exp.t_origin = now;
+	}
+
+	synth_body = VSB_new_auto();
+	AN(synth_body);
 
 	VCL_backend_error_method(bo->vcl, wrk, NULL, bo, synth_body);
 
 	AZ(VSB_finish(synth_body));
 
-	if (wrk->handling == VCL_RET_RETRY ||
-	    wrk->handling == VCL_RET_ABANDON) {
+	if (wrk->handling == VCL_RET_ABANDON) {
 		VSB_delete(synth_body);
+		return (F_STP_FAIL);
+	}
 
-		if (bo->director_state != DIR_S_NULL) {
-			bo->htc->doclose = SC_RESP_CLOSE;
-			VDI_Finish(bo->wrk, bo);
-		}
-
-		if (wrk->handling == VCL_RET_RETRY) {
-			if (bo->retries++ < cache_param->max_retries)
-				return (F_STP_RETRY);
-			VSLb(bo->vsl, SLT_VCL_Error,
-			    "Too many retries, delivering 503");
-		}
-
+	if (wrk->handling == VCL_RET_RETRY) {
+		VSB_delete(synth_body);
+		if (bo->retries++ < cache_param->max_retries)
+			return (F_STP_RETRY);
+		VSLb(bo->vsl, SLT_VCL_Error, "Too many retries, failing");
 		return (F_STP_FAIL);
 	}
 
@@ -964,6 +972,7 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	AN(oc->flags & OC_F_BUSY);
 	CHECK_OBJ_ORNULL(oldoc, OBJCORE_MAGIC);
 
 
@@ -996,6 +1005,7 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 
 	if (mode != VBF_BACKGROUND)
 		HSH_Ref(oc);
+	AZ(bo->fetch_objcore);
 	bo->fetch_objcore = oc;
 
 	AZ(bo->stale_oc);

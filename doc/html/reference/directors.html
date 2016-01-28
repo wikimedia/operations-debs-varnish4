@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Writing a Director &mdash; Varnish version 4.1.0 documentation</title>
+    <title>Writing a Director &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,9 +25,9 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
-    <link rel="next" title="VSL" href="vsl.html" />
+    <link rel="next" title="varnish-counters" href="varnish-counters.html" />
     <link rel="prev" title="vmod_directors" href="vmod_directors.generated.html" /> 
   </head>
   <body>
@@ -38,12 +38,12 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="vsl.html" title="VSL"
+          <a href="varnish-counters.html" title="varnish-counters"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="vmod_directors.generated.html" title="vmod_directors"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -144,7 +144,9 @@ backends.</p>
 but dynamic backends can only be created when the VCL is warm. If your backends
 are created by an independent thread (basically outside of VCL scope) you must
 subscribe to VCL events and watch for VCL state (see
-<a class="reference internal" href="vmod.html#ref-vmod-event-functions"><em>Event functions</em></a>). You are also encouraged to comply with the
+<a class="reference internal" href="vmod.html#ref-vmod-event-functions"><em>Event functions</em></a>). Varnish will panic if you try to create a
+backend on a cold VCL, and <tt class="docutils literal"><span class="pre">VRT_new_backend</span></tt> will return <tt class="docutils literal"><span class="pre">NULL</span></tt> if the VCL
+is cooling. You are also encouraged to comply with the
 <a class="reference internal" href="varnish-cli.html#ref-vcl-temperature"><em>VCL Temperature</em></a> in general.</p>
 </div>
 <div class="section" id="health-probes">
@@ -218,8 +220,8 @@ Varnish code base.</p>
   <p class="topless"><a href="vmod_directors.generated.html"
                         title="previous chapter">vmod_directors</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="vsl.html"
-                        title="next chapter">VSL</a></p>
+  <p class="topless"><a href="varnish-counters.html"
+                        title="next chapter">varnish-counters</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="../_sources/reference/directors.txt"
@@ -249,12 +251,12 @@ Varnish code base.</p>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="vsl.html" title="VSL"
+          <a href="varnish-counters.html" title="varnish-counters"
              >next</a> |</li>
         <li class="right" >
           <a href="vmod_directors.generated.html" title="vmod_directors"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

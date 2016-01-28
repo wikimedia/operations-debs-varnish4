@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -44,7 +45,11 @@ struct priv_vcl {
 #define PRIV_VCL_MAGIC		0x8E62FA9D
 	char			*foo;
 	uintptr_t		exp_cb;
+	struct vcl		*vcl;
+	struct vclref		*vclref;
 };
+
+static VCL_DURATION vcl_release_delay = 0.0;
 
 VCL_VOID __match_proto__(td_debug_panic)
 vmod_panic(VRT_CTX, const char *str, ...)
@@ -245,28 +250,16 @@ priv_vcl_free(void *priv)
 		EXP_Deregister_Callback(&priv_vcl->exp_cb);
 		VSL(SLT_Debug, 0, "exp_cb: deregistered");
 	}
+	AZ(priv_vcl->vcl);
+	AZ(priv_vcl->vclref);
 	FREE_OBJ(priv_vcl);
 	AZ(priv_vcl);
 }
 
-int __match_proto__(vmod_event_f)
-event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
+static int
+event_load(VRT_CTX, struct vmod_priv *priv)
 {
 	struct priv_vcl *priv_vcl;
-	const char *ev;
-
-	switch (e) {
-		case VCL_EVENT_COLD: ev = "VCL_EVENT_COLD"; break;
-		case VCL_EVENT_WARM: ev = "VCL_EVENT_WARM"; break;
-		case VCL_EVENT_USE:  ev = "VCL_EVENT_USE";  break;
-		default: ev = NULL;
-	}
-
-	if (ev != NULL)
-		VSL(SLT_Debug, 0, "%s: %s", VCL_Name(ctx->vcl), ev);
-
-	if (e != VCL_EVENT_LOAD)
-		return (0);
 
 	AN(ctx->msg);
 	if (cache_param->nuke_limit == 42) {
@@ -281,6 +274,84 @@ event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 	priv->priv = priv_vcl;
 	priv->free = priv_vcl_free;
 	return (0);
+}
+
+static int
+event_warm(VRT_CTX, const struct vmod_priv *priv)
+{
+	struct priv_vcl *priv_vcl;
+	char buf[32];
+
+	VSL(SLT_Debug, 0, "%s: VCL_EVENT_WARM", VCL_Name(ctx->vcl));
+
+	AN(ctx->msg);
+	if (cache_param->max_esi_depth == 42) {
+		VSB_printf(ctx->msg, "max_esi_depth is not the answer.");
+		return (-1);
+	}
+
+	CAST_OBJ_NOTNULL(priv_vcl, priv->priv, PRIV_VCL_MAGIC);
+	AZ(priv_vcl->vcl);
+	AZ(priv_vcl->vclref);
+
+	bprintf(buf, "vmod-debug ref on %s", VCL_Name(ctx->vcl));
+	priv_vcl->vcl = ctx->vcl;
+	priv_vcl->vclref = VRT_ref_vcl(ctx, buf);
+	return (0);
+}
+
+static void*
+cooldown_thread(void *priv)
+{
+	struct vrt_ctx ctx;
+	struct priv_vcl *priv_vcl;
+
+	CAST_OBJ_NOTNULL(priv_vcl, priv, PRIV_VCL_MAGIC);
+	AN(priv_vcl->vcl);
+	AN(priv_vcl->vclref);
+
+	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
+	ctx.vcl = priv_vcl->vcl;
+
+	VTIM_sleep(vcl_release_delay);
+	VRT_rel_vcl(&ctx, &priv_vcl->vclref);
+	priv_vcl->vcl = NULL;
+	return (NULL);
+}
+
+static int
+event_cold(VRT_CTX, const struct vmod_priv *priv)
+{
+	pthread_t thread;
+	struct priv_vcl *priv_vcl;
+
+	CAST_OBJ_NOTNULL(priv_vcl, priv->priv, PRIV_VCL_MAGIC);
+	AN(priv_vcl->vcl);
+	AN(priv_vcl->vclref);
+
+	VSL(SLT_Debug, 0, "%s: VCL_EVENT_COLD", VCL_Name(ctx->vcl));
+
+	if (vcl_release_delay == 0.0) {
+		VRT_rel_vcl(ctx, &priv_vcl->vclref);
+		priv_vcl->vcl = NULL;
+		return (0);
+	}
+
+	AZ(pthread_create(&thread, NULL, cooldown_thread, priv_vcl));
+	AZ(pthread_detach(thread));
+	return (0);
+}
+
+int __match_proto__(vmod_event_f)
+event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
+{
+
+	switch (e) {
+		case VCL_EVENT_LOAD: return event_load(ctx, priv);
+		case VCL_EVENT_WARM: return event_warm(ctx, priv);
+		case VCL_EVENT_COLD: return event_cold(ctx, priv);
+		default: return (0);
+	}
 }
 
 VCL_VOID __match_proto__(td_debug_sleep)
@@ -358,4 +429,13 @@ vmod_workspace_overflow(VRT_CTX, VCL_ENUM which)
 	WS_Assert(ws);
 
 	WS_MarkOverflow(ws);
+}
+
+void
+vmod_vcl_release_delay(VRT_CTX, VCL_DURATION delay)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	assert(delay > 0.0);
+	vcl_release_delay = delay;
 }

@@ -1,4 +1,73 @@
 ================================
+Varnish Cache 4.1.1 (2016-01-28)
+================================
+
+* No code changes since 4.1.1-beta2.
+
+
+======================================
+Varnish Cache 4.1.1-beta2 (2016-01-22)
+======================================
+
+* Improvements to VCL temperature handling added. This opens for reliably
+  deny warming a cooling VCL from a VMOD.
+
+Bugs fixed
+----------
+
+* 1802_ - Segfault after VCL change
+* 1825_ - Cannot Start Varnish After Just Restarting The Service
+* 1842_ - Handle missing waiting list gracefully.
+* 1845_ - Handle whitespace after floats in test fields
+
+.. _1802: https://www.varnish-cache.org/trac/ticket/1802
+.. _1825: https://www.varnish-cache.org/trac/ticket/1825
+.. _1842: https://www.varnish-cache.org/trac/ticket/1842
+.. _1845: https://www.varnish-cache.org/trac/ticket/1845
+
+
+======================================
+Varnish Cache 4.1.1-beta1 (2016-01-15)
+======================================
+
+Changes since 4.1.0:
+
+- Format of "ban.list" has changed slightly.
+- [varnishncsa] -w is now required when running deamonized.
+- [varnishncsa] Log format can now be read from file.
+- Port fields extracted from PROXY1 header now work as expected.
+- New VCL state "busy" introduced (mostly for vmod writers).
+- Last traces of varnishreplay removed.
+- If-Modified-Since is now ignored if we have If-None-Match.
+- Zero Content-Length is no longer sent on 304 responses.
+- vcl_dir and vmod_dir now accept a colon separated list of directories.
+- Nested includes starting with "./" are relative to the including
+  VCL file now.
+
+
+Bugs fixed
+----------
+
+- 1763_ - Restart epoll_wait on EINTR error
+- 1788_ - ObjIter has terrible performance profile when busyobj != NULL
+- 1798_ - Varnish requests painfully slow with large files
+- 1816_ - Use a weak comparison function for If-None-Match
+- 1818_ - Allow grace-hits on hit-for-pass objects, [..]
+- 1821_ - Always slim private & pass objects after delivery.
+- 1823_ - Rush the objheader if there is a waiting list when it is deref'ed.
+- 1826_ - Ignore 0 Content-Lengths in 204 responses
+
+.. _1763: https://www.varnish-cache.org/trac/ticket/1763
+.. _1788: https://www.varnish-cache.org/trac/ticket/1788
+.. _1798: https://www.varnish-cache.org/trac/ticket/1798
+.. _1816: https://www.varnish-cache.org/trac/ticket/1816
+.. _1818: https://www.varnish-cache.org/trac/ticket/1818
+.. _1821: https://www.varnish-cache.org/trac/ticket/1821
+.. _1823: https://www.varnish-cache.org/trac/ticket/1823
+.. _1826: https://www.varnish-cache.org/trac/ticket/1826
+
+
+================================
 Varnish Cache 4.1.0 (2015-09-30)
 ================================
 
@@ -1557,7 +1626,7 @@ Changes from 2.1.1 to 2.1.2
 varnishd
 --------
 
--  When adding Range support for 2.1.1, we accidentially introduced a
+-  When adding Range support for 2.1.1, we accidentally introduced a
    bug which would append garbage to objects larger than the chunk size,
    by default 128k. Browsers would do the right thing due to
    Content-Length, but some load balancers would get very confused.
@@ -1964,7 +2033,7 @@ varnishd
    send out a zero-sized chunk which signifies end-of-transmission. We
    now ignore zero-sized chunks.
 
--  We accidentially slept for far too long when we reached the maximum
+-  We accidentally slept for far too long when we reached the maximum
    number of open file descriptors. This has been corrected and
    accept\_fd\_holdoff now works correctly.
 
@@ -2196,7 +2265,7 @@ varnishd
 -  Solaris is now supported.
 
 -  There is now a regsuball function, which works like regsub except it
-   replaces all occurences of the regex, not just the first.
+   replaces all occurrences of the regex, not just the first.
 
 -  Backend and director declarations can have a .connect\_timeout
    parameter, which tells us how long to wait for a successful
@@ -2601,7 +2670,7 @@ varnishreplay
 varnishstat
 -----------
 
--  Don't print lifetime averages when it doesn't make any sense—for
+-  Don't print lifetime averages when it doesn't make any sense, for
    instance, there is no point in dividing the amount in bytes of free
    cache space by the lifetime in seconds of the varnishd process.
 
@@ -2734,7 +2803,7 @@ varnishncsa
 Documentation
 -------------
 
--  The documentation—especially the VCL documentation—has been greatly
+-  The documentation, especially the VCL documentation, has been greatly
    extended and improved.
 
 Build system

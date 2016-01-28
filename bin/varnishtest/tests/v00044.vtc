@@ -7,7 +7,7 @@ server s1 -repeat 20 {
 	close
 } -start
 
-# The debug vmod logs some vcl events
+# The debug vmod logs temperature vcl events
 varnish v1 -arg "-p vcl_cooldown=1" -vcl {
 	import ${vmod_debug};
 	backend default {
@@ -69,7 +69,6 @@ varnish v1 -clierr 106 "vcl.state vcl2 cold"
 logexpect l1 -v v1 -g raw {
 	expect * 0 Debug "vcl1: VCL_EVENT_COLD"
 	expect * 0 Debug "vcl1: VCL_EVENT_WARM"
-	expect * 0 Debug "vcl1: VCL_EVENT_USE"
 } -start
 
 # ...when you use a cold VCL
@@ -84,3 +83,11 @@ delay .4
 varnish v1 -expect VBE.vcl1.default.happy >= 0
 delay 4
 varnish v1 -expect !VBE.vcl1.default.happy
+
+# A VMOD's warm-up can fail
+varnish v1 -cliok "param.set max_esi_depth 42"
+varnish v1 -clierr 300 "vcl.state vcl1 warm"
+
+# A warm-up failure can also fail a child start
+varnish v1 -cliok stop
+varnish v1 -clierr 300 start

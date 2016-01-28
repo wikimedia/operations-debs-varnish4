@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishncsa [\-a] [\-C] [\-d] [\-D] [\-F format] [\-g <request|vxid>] [\-h] [\-n name] [\-N filename] [\-P file] [\-q query] [\-r filename] [\-t <seconds|off>] [\-V] [\-w filename]
+varnishncsa [\-a] [\-C] [\-d] [\-D] [\-F format] [\-f formatfile] [\-g <request|vxid>] [\-h] [\-n name] [\-N filename] [\-P file] [\-q query] [\-r filename] [\-t <seconds|off>] [\-V] [\-w filename]
 .SH DESCRIPTION
 .sp
 The varnishncsa utility reads varnishd(1) shared memory logs and
@@ -62,6 +62,9 @@ Daemonize.
 .BI \-F \ format
 Set the output log format string.
 .TP
+.BI \-f \ formatfile
+Read output format from a file. Will read a single line from the specified file, and use that line as the format.
+.TP
 .BI \-g \ <request|vxid>
 The grouping of the log records. The default is to group by vxid.
 .TP
@@ -90,7 +93,7 @@ Timeout before returning error on initial VSM connection. If set the VSM connect
 Print version information and exit.
 .TP
 .BI \-w \ filename
-Redirect output to file. The file will be overwritten unless the \-a option was specified. If the application receives a SIGHUP the file will be reopened allowing the old one to be rotated away.
+Redirect output to file. The file will be overwritten unless the \-a option was specified. If the application receives a SIGHUP in daemon mode the file will be reopened allowing the old one to be rotated away. This option is required when running in daemon mode.
 .UNINDENT
 .SH FORMAT
 .sp

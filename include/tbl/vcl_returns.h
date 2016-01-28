@@ -77,32 +77,32 @@ VCL_RET_MAC(synth, SYNTH,
 #endif
 
 #ifdef VCL_MET_MAC
-VCL_MET_MAC(backend_error, BACKEND_ERROR, (
+VCL_MET_MAC(backend_error, BACKEND_ERROR, B, (
 	(1U << VCL_RET_ABANDON) |
 	(1U << VCL_RET_DELIVER) |
 	(1U << VCL_RET_RETRY)
 ))
-VCL_MET_MAC(backend_fetch, BACKEND_FETCH, (
+VCL_MET_MAC(backend_fetch, BACKEND_FETCH, B, (
 	(1U << VCL_RET_ABANDON) |
 	(1U << VCL_RET_FETCH)
 ))
-VCL_MET_MAC(backend_response, BACKEND_RESPONSE, (
+VCL_MET_MAC(backend_response, BACKEND_RESPONSE, B, (
 	(1U << VCL_RET_ABANDON) |
 	(1U << VCL_RET_DELIVER) |
 	(1U << VCL_RET_RETRY)
 ))
-VCL_MET_MAC(deliver, DELIVER, (
+VCL_MET_MAC(deliver, DELIVER, C, (
 	(1U << VCL_RET_DELIVER) |
 	(1U << VCL_RET_RESTART) |
 	(1U << VCL_RET_SYNTH)
 ))
-VCL_MET_MAC(fini, FINI, (
+VCL_MET_MAC(fini, FINI, H, (
 	(1U << VCL_RET_OK)
 ))
-VCL_MET_MAC(hash, HASH, (
+VCL_MET_MAC(hash, HASH, C, (
 	(1U << VCL_RET_LOOKUP)
 ))
-VCL_MET_MAC(hit, HIT, (
+VCL_MET_MAC(hit, HIT, C, (
 	(1U << VCL_RET_DELIVER) |
 	(1U << VCL_RET_FETCH) |
 	(1U << VCL_RET_MISS) |
@@ -110,37 +110,37 @@ VCL_MET_MAC(hit, HIT, (
 	(1U << VCL_RET_RESTART) |
 	(1U << VCL_RET_SYNTH)
 ))
-VCL_MET_MAC(init, INIT, (
+VCL_MET_MAC(init, INIT, H, (
 	(1U << VCL_RET_FAIL) |
 	(1U << VCL_RET_OK)
 ))
-VCL_MET_MAC(miss, MISS, (
+VCL_MET_MAC(miss, MISS, C, (
 	(1U << VCL_RET_FETCH) |
 	(1U << VCL_RET_PASS) |
 	(1U << VCL_RET_RESTART) |
 	(1U << VCL_RET_SYNTH)
 ))
-VCL_MET_MAC(pass, PASS, (
+VCL_MET_MAC(pass, PASS, C, (
 	(1U << VCL_RET_FETCH) |
 	(1U << VCL_RET_RESTART) |
 	(1U << VCL_RET_SYNTH)
 ))
-VCL_MET_MAC(pipe, PIPE, (
+VCL_MET_MAC(pipe, PIPE, C, (
 	(1U << VCL_RET_PIPE) |
 	(1U << VCL_RET_SYNTH)
 ))
-VCL_MET_MAC(purge, PURGE, (
+VCL_MET_MAC(purge, PURGE, C, (
 	(1U << VCL_RET_RESTART) |
 	(1U << VCL_RET_SYNTH)
 ))
-VCL_MET_MAC(recv, RECV, (
+VCL_MET_MAC(recv, RECV, C, (
 	(1U << VCL_RET_HASH) |
 	(1U << VCL_RET_PASS) |
 	(1U << VCL_RET_PIPE) |
 	(1U << VCL_RET_PURGE) |
 	(1U << VCL_RET_SYNTH)
 ))
-VCL_MET_MAC(synth, SYNTH, (
+VCL_MET_MAC(synth, SYNTH, C, (
 	(1U << VCL_RET_DELIVER) |
 	(1U << VCL_RET_RESTART)
 ))

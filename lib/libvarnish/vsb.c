@@ -142,14 +142,16 @@ VSB_extend(struct vsb *s, int addlen)
 	if (!VSB_CANEXTEND(s))
 		return (-1);
 	newsize = VSB_extendsize(s->s_size + addlen);
-	newbuf = SBMALLOC(newsize);
+	if (VSB_ISDYNAMIC(s))
+		newbuf = realloc(s->s_buf, newsize);
+	else
+		newbuf = SBMALLOC(newsize);
 	if (newbuf == NULL)
 		return (-1);
-	memcpy(newbuf, s->s_buf, s->s_size);
-	if (VSB_ISDYNAMIC(s))
-		SBFREE(s->s_buf);
-	else
+	if (!VSB_ISDYNAMIC(s)) {
+		memcpy(newbuf, s->s_buf, s->s_size);
 		VSB_SETFLAG(s, VSB_DYNAMIC);
+	}
 	s->s_buf = newbuf;
 	s->s_size = newsize;
 	return (0);
@@ -276,22 +278,25 @@ VSB_put_byte(struct vsb *s, int c)
  * Append a byte string to an vsb.
  */
 int
-VSB_bcat(struct vsb *s, const void *buf, size_t len)
+VSB_bcat(struct vsb *s, const void *buf, ssize_t len)
 {
-	const char *str = buf;
-	const char *end = str + len;
-
 	assert_VSB_integrity(s);
 	assert_VSB_state(s, 0);
 
+	assert(len >= 0);
 	if (s->s_error != 0)
 		return (-1);
+	if (len == 0)
+		return (0);
 	_vsb_indent(s);
-	for (; str < end; str++) {
-		VSB_put_byte(s, *str);
+	if (len > VSB_FREESPACE(s)) {
+		if (VSB_extend(s, len - VSB_FREESPACE(s)) < 0)
+			s->s_error = ENOMEM;
 		if (s->s_error != 0)
 			return (-1);
 	}
+	memcpy(s->s_buf + s->s_len, buf, len);
+	s->s_len += len;
 	return (0);
 }
 
@@ -350,6 +355,10 @@ VSB_vprintf(struct vsb *s, const char *fmt, va_list ap)
 		va_copy(ap_copy, ap);
 		len = vsnprintf(&s->s_buf[s->s_len], VSB_FREESPACE(s) + 1,
 		    fmt, ap_copy);
+		if (len < 0) {
+			s->s_error = errno;
+			return (-1);
+		}
 		va_end(ap_copy);
 	} while (len > VSB_FREESPACE(s) &&
 	    VSB_extend(s, len - VSB_FREESPACE(s)) == 0);
@@ -515,7 +524,10 @@ VSB_quote(struct vsb *s, const char *p, int len, int how)
 			(void)VSB_putc(s, *q);
 			break;
 		case '\n':
-			(void)VSB_cat(s, "\\n");
+			if (how & VSB_QUOTE_NONL)
+				(void)VSB_cat(s, "\n");
+			else
+				(void)VSB_cat(s, "\\n");
 			break;
 		case '\r':
 			(void)VSB_cat(s, "\\r");

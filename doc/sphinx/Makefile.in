@@ -219,14 +219,11 @@ SPHINXOPTS =
 SPHINXBUILD = sphinx-build -W -q -N
 PAPER = a4
 BUILDDIR = build
-
-# Internal variables.
-PAPEROPT_a4 = -D latex_paper_size=a4
-PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(builddir)
+ALLSPHINXOPTS = -d $(BUILDDIR)/doctrees -D latex_paper_size=$(PAPER) $(SPHINXOPTS) $(builddir)
 EXTRA_DIST = conf.py index.rst include glossary installation phk \
 	tutorial users-guide whats-new $(BUILT_SOURCES)
-BUILT_SOURCES = include/params.rst include/varnishncsa_options.rst \
+BUILT_SOURCES = include/params.rst include/counters.rst \
+	include/varnishncsa_options.rst \
 	include/varnishncsa_synopsis.rst \
 	include/varnishlog_options.rst include/varnishlog_synopsis.rst \
 	include/varnishtop_options.rst include/varnishtop_synopsis.rst \
@@ -535,6 +532,9 @@ distclean-local:
 
 include/params.rst: $(top_builddir)/bin/varnishd/varnishd
 	$(top_builddir)/bin/varnishd/varnishd -x dumprstparam > include/params.rst
+
+include/counters.rst: $(top_builddir)/bin/varnishstat/vsc2rst
+	$(top_builddir)/bin/varnishstat/vsc2rst > $@
 
 # XXX add varnishstat here when it's been _opt2rst'ed
 

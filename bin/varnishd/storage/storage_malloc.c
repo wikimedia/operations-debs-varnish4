@@ -56,6 +56,8 @@ struct sma {
 	struct sma_sc		*sc;
 };
 
+static struct VSC_C_lck *lck_sma;
+
 static struct storage *
 sma_alloc(const struct stevedore *st, size_t size)
 {
@@ -86,7 +88,7 @@ sma_alloc(const struct stevedore *st, size_t size)
 	 * Do not collaps the sma allocation with sma->s.ptr: it is not
 	 * a good idea.  Not only would it make ->trim impossible,
 	 * performance-wise it would be a catastropy with chunksized
-	 * allocations growing another full page, just to accomodate the sma.
+	 * allocations growing another full page, just to accommodate the sma.
 	 */
 
 	p = malloc(size);
@@ -104,6 +106,7 @@ sma_alloc(const struct stevedore *st, size_t size)
 		 * XXX: Not want to pick up the lock twice just for stats.
 		 */
 		sma_sc->stats->c_fail++;
+		sma_sc->sma_alloc -= size;
 		sma_sc->stats->c_bytes -= size;
 		sma_sc->stats->g_alloc--;
 		sma_sc->stats->g_bytes -= size;
@@ -234,6 +237,9 @@ sma_open(const struct stevedore *st)
 {
 	struct sma_sc *sma_sc;
 
+	ASSERT_CLI();
+	if (lck_sma == NULL)
+		lck_sma = Lck_CreateClass("sma");
 	CAST_OBJ_NOTNULL(sma_sc, st->priv, SMA_SC_MAGIC);
 	Lck_New(&sma_sc->sma_mtx, lck_sma);
 	sma_sc->stats = VSM_Alloc(sizeof *sma_sc->stats,

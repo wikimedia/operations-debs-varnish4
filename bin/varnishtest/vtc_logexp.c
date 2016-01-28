@@ -43,7 +43,7 @@
  *   -T <seconds>         Transaction end timeout
  *
  *
- * logexpect lN -v <id> [-g <grouping>] [-d 0|1] [-q query] {
+ * logexpect lN -v <id> [-g <grouping>] [-d 0|1] [-q query] [vsl arguments] {
  *    expect <skip> <vxid> <tag> <regex>
  * }
  *
@@ -283,7 +283,6 @@ logexp_thread(void *priv)
 	AN(le->vsm);
 	AN(le->vslq);
 
-	i = 0;
 	AZ(le->test);
 	vtc_log(le->vl, 4, "beg|");
 	if (le->query != NULL)

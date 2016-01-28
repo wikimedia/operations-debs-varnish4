@@ -35,7 +35,6 @@
 #include "cache/cache_director.h"
 
 #include "vrt.h"
-#include "vbm.h"
 #include "vend.h"
 #include "vsha256.h"
 
@@ -47,7 +46,6 @@ struct vmod_directors_hash {
 	unsigned				magic;
 #define VMOD_DIRECTORS_HASH_MAGIC		0xc08dd611
 	struct vdir				*vd;
-	struct vbitmap				*vbm;
 };
 
 VCL_VOID __match_proto__()
@@ -61,8 +59,6 @@ vmod_hash__init(VRT_CTX, struct vmod_directors_hash **rrp,
 	AZ(*rrp);
 	ALLOC_OBJ(rr, VMOD_DIRECTORS_HASH_MAGIC);
 	AN(rr);
-	rr->vbm = vbit_init(8);
-	AN(rr->vbm);
 	*rrp = rr;
 	vdir_new(&rr->vd, "hash", vcl_name, NULL, NULL, rr);
 }
@@ -76,7 +72,6 @@ vmod_hash__fini(struct vmod_directors_hash **rrp)
 	*rrp = NULL;
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_HASH_MAGIC);
 	vdir_delete(&rr->vd);
-	vbit_destroy(rr->vbm);
 	FREE_OBJ(rr);
 }
 
@@ -88,6 +83,16 @@ vmod_hash_add_backend(VRT_CTX,
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_HASH_MAGIC);
 	(void)vdir_add_backend(rr->vd, be, w);
+}
+
+VCL_VOID __match_proto__()
+vmod_hash_remove_backend(VRT_CTX,
+    struct vmod_directors_hash *rr, VCL_BACKEND be)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_HASH_MAGIC);
+	(void)vdir_remove_backend(rr->vd, be);
 }
 
 VCL_BACKEND __match_proto__()
@@ -102,6 +107,7 @@ vmod_hash_backend(VRT_CTX, struct vmod_directors_hash *rr,
 	double r;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_ORNULL(ctx->bo, BUSYOBJ_MAGIC);
 
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_HASH_MAGIC);
 	SHA256_Init(&sha_ctx);
@@ -118,6 +124,6 @@ vmod_hash_backend(VRT_CTX, struct vmod_directors_hash *rr,
 	r = vbe32dec(sha256);
 	r = scalbn(r, -32);
 	assert(r >= 0 && r <= 1.0);
-	be = vdir_pick_be(rr->vd, r);
+	be = vdir_pick_be(rr->vd, r, ctx->bo);
 	return (be);
 }

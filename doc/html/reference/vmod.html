@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VMOD - Varnish Modules &mdash; Varnish version 4.1.0 documentation</title>
+    <title>VMOD - Varnish Modules &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_std" href="vmod_std.generated.html" />
     <link rel="prev" title="VSM: Shared Memory Logging and Statistics" href="vsm.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -233,7 +233,7 @@ doing text-processing in Varnish, and this is one way we
 to avoid that, by not editing separate pieces of a string
 together to one string, unless we have to.</p>
 <p>Consider this contrived example:</p>
-<div class="highlight-python"><pre>set bereq.http.foo = std.toupper(req.http.foo + req.http.bar);</pre>
+<div class="highlight-python"><pre>set req.http.foo = std.toupper(req.http.foo + req.http.bar);</pre>
 </div>
 <p>The usual way to do this, would be be to allocate memory for
 the concatenated string, then pass that to <tt class="docutils literal"><span class="pre">toupper()</span></tt> which in
@@ -291,7 +291,8 @@ pointer will be passed.</li>
 <li><tt class="docutils literal"><span class="pre">PRIV_VCL</span></tt> &quot;per vcl&quot; private pointers are useful for such global
 state that applies to all calls in this VCL, for instance flags that
 determine if regular expressions are case-sensitive in this vmod or
-similar.</li>
+similar. The <tt class="docutils literal"><span class="pre">PRIV_VCL</span></tt> object is the same object that is passed
+to the VMOD's event function.</li>
 </ul>
 <p>The way it works in the vmod code, is that a <tt class="docutils literal"><span class="pre">struct</span> <span class="pre">vmod_priv</span> <span class="pre">*</span></tt> is
 passed to the functions where one of the <tt class="docutils literal"><span class="pre">PRIV_*</span></tt> argument types is
@@ -336,10 +337,10 @@ if (foo &gt; 25) {
 <span id="ref-vmod-event-functions"></span><h2>Event functions<a class="headerlink" href="#event-functions" title="Permalink to this headline">¶</a></h2>
 <p>VMODs can have an &quot;event&quot; function which is called when a VCL which imports
 the VMOD is loaded, made active, or discarded.  This corresponds to the
-<tt class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></tt>, <tt class="docutils literal"><span class="pre">VCL_EVENT_USE</span></tt>, and <tt class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></tt> events,
-respectively.  In addition, this function will be called when the VCL state is
-changed to cold or warm, corresponding to the <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> and
-<tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> events.</p>
+<tt class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></tt>, and <tt class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></tt> events, respectively.  In
+addition, this function will be called when the VCL temperature is changed to
+cold or warm, corresponding to the <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> and <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt>
+events.</p>
 <p>The first argument to the event function is a VRT context.</p>
 <p>The second argument is the vmod_priv specific to this particular VCL,
 and if necessary, a VCL specific VMOD &quot;fini&quot; function can be attached
@@ -352,9 +353,47 @@ discarded and free this global state when the count reaches zero.</p>
 <p>VMOD writers are <em>strongly</em> encouraged to release all per-VCL resources for a
 given VCL when it emits a <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> event. You will get a chance to
 reacquire the resources before the VCL becomes active again and be notified
-first with a <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> event, and then a <tt class="docutils literal"><span class="pre">VCL_EVENT_USE</span></tt> event.
-Unless a user decides that a given VCL should always be warm, an inactive VMOD
-will eventually become cold and should manage resources accordingly.</p>
+first with a <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> event. Unless a user decides that a given VCL
+should always be warm, an inactive VMOD will eventually become cold and should
+manage resources accordingly.</p>
+<p>An event function must return zero upon success. It is only possible to fail
+an initialization with the <tt class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></tt> or <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> events.
+Should such a failure happen, a <tt class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></tt> or <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt>
+event will be sent to the VMODs that succeeded to put them back in a cold
+state. The VMOD that failed will not receive this event, and therefore must
+not be left half-initialized should a failure occur.</p>
+<p>If your VMOD is running an asynchronous background job you can hold a reference
+to the VCL to prevent it from going cold too soon and get the same guarantees
+as backends with ongoing requests for instance. For that, you must acquire the
+reference by calling <tt class="docutils literal"><span class="pre">VRT_ref_vcl</span></tt> when you receive a <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> and
+later calling <tt class="docutils literal"><span class="pre">VRT_rel_vcl</span></tt> once the background job is over. Receiving a
+<tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> is your cue to terminate any background job bound to a VCL.</p>
+<p>You can find an example of VCL references in vmod-debug:</p>
+<div class="highlight-python"><pre>priv_vcl-&gt;vclref = VRT_ref_vcl(ctx, "vmod-debug");
+...
+VRT_rel_vcl(&amp;ctx, &amp;priv_vcl-&gt;vclref);</pre>
+</div>
+<p>In this simplified version, you can see that you need at least a VCL-bound data
+structure like a <tt class="docutils literal"><span class="pre">PRIV_VCL</span></tt> or a VMOD object to keep track of the reference
+and later release it. You also have to provide a description, it will be printed
+to the user if they try to warm up a cooling VCL:</p>
+<div class="highlight-python"><pre>$ varnishadm vcl.list
+available  auto/cooling       0 vcl1
+active     auto/warm          0 vcl2
+
+$ varnishadm vcl.state vcl1 warm
+Command failed with error code 300
+Failed &lt;vcl.state vcl1 auto&gt;
+Message:
+        VCL vcl1 is waiting for:
+        - vmod-debug</pre>
+</div>
+<p>In the case where properly releasing resources may take some time, you can
+opt for an asynchronous worker, either by spawning a thread and tracking it, or
+by using Varnish's worker pools.</p>
+<p>There is also a <tt class="docutils literal"><span class="pre">VCL_EVENT_USE</span></tt> event. Please note that this event is now
+deprecated and may be removed in a future release. A warm VCL should be ready
+to use so no additional task should be postponed at use time.</p>
 </div>
 <div class="section" id="when-to-lock-and-when-not-to-lock">
 <h2>When to lock, and when not to lock<a class="headerlink" href="#when-to-lock-and-when-not-to-lock" title="Permalink to this headline">¶</a></h2>
@@ -363,7 +402,7 @@ their own locking to protect shared resources.</p>
 <p>When a VCL is loaded or unloaded, the event and priv-&gt;free are
 run sequentially all in a single thread, and there is guaranteed
 to be no other activity related to this particular VCL, nor are
-there  init/fini activity in any other VCL or VMOD at this time.</p>
+there init/fini activity in any other VCL or VMOD at this time.</p>
 <p>That means that the VMOD init, and any object init/fini functions
 are already serialized in sensible order, and won't need any locking,
 unless they access VMOD specific global state, shared with other VCLs.</p>
@@ -455,7 +494,7 @@ and use <tt class="docutils literal"><span class="pre">import</span> <span class
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

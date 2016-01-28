@@ -15,6 +15,8 @@ varnishd_SOURCES = \
 	cache/cache_backend_probe.c \
 	cache/cache_backend_tcp.c \
 	cache/cache_ban.c \
+	cache/cache_ban_build.c \
+	cache/cache_ban_lurker.c \
 	cache/cache_busyobj.c \
 	cache/cache_cli.c \
 	cache/cache_deliver_proc.c \
@@ -95,10 +97,11 @@ varnishd_SOURCES = \
 	waiter/cache_waiter_epoll.c \
 	waiter/cache_waiter_kqueue.c \
 	waiter/cache_waiter_poll.c \
-	waiter/cache_waiter_ports.c 
+	waiter/cache_waiter_ports.c
 
 noinst_HEADERS = \
 	builtin_vcl.h \
+	cache/cache_ban.h \
 	cache/cache_esi.h \
 	cache/cache_pool.h \
 	cache/cache_priv.h \

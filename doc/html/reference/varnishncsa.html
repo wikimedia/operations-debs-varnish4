@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishncsa &mdash; Varnish version 4.1.0 documentation</title>
+    <title>varnishncsa &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishstat" href="varnishstat.html" />
     <link rel="prev" title="varnishlog" href="varnishlog.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="varnishlog.html" title="varnishlog"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -67,7 +67,7 @@
 </table>
 <div class="section" id="synopsis">
 <h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
-<p>varnishncsa [-a] [-C] [-d] [-D] [-F format] [-g &lt;request|vxid&gt;] [-h] [-n name] [-N filename] [-P file] [-q query] [-r filename] [-t &lt;seconds|off&gt;] [-V] [-w filename]</p>
+<p>varnishncsa [-a] [-C] [-d] [-D] [-F format] [-f formatfile] [-g &lt;request|vxid&gt;] [-h] [-n name] [-N filename] [-P file] [-q query] [-r filename] [-t &lt;seconds|off&gt;] [-V] [-w filename]</p>
 </div>
 <div class="section" id="description">
 <h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
@@ -98,6 +98,9 @@ applicable transactions. Non-request transactions are ignored.</p>
 <tr><td class="option-group">
 <kbd><span class="option">-F <var>format</var></span></kbd></td>
 <td>Set the output log format string.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-f <var>formatfile</var></span></kbd></td>
+<td>Read output format from a file. Will read a single line from the specified file, and use that line as the format.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-g <var>&lt;request|vxid&gt;</var></span></kbd></td>
 </tr>
@@ -129,7 +132,7 @@ applicable transactions. Non-request transactions are ignored.</p>
 <td>Print version information and exit.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-w <var>filename</var></span></kbd></td>
-<td>Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP the file will be reopened allowing the old one to be rotated away.</td></tr>
+<td>Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP in daemon mode the file will be reopened allowing the old one to be rotated away. This option is required when running in daemon mode.</td></tr>
 </tbody>
 </table>
 </div>
@@ -298,7 +301,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishlog.html" title="varnishlog"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

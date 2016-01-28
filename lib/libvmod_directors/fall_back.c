@@ -66,7 +66,7 @@ vmod_fallback_resolve(const struct director *dir, struct worker *wrk,
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_DIRECTORS_FALLBACK_MAGIC);
-	vdir_lock(rr->vd);
+	vdir_rdlock(rr->vd);
 	for (u = 0; u < rr->vd->n_backend; u++) {
 		be = rr->vd->backend[u];
 		CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
@@ -115,6 +115,15 @@ vmod_fallback_add_backend(VRT_CTX,
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_FALLBACK_MAGIC);
 	(void)vdir_add_backend(rr->vd, be, 0.0);
+}
+
+VCL_VOID __match_proto__()
+vmod_fallback_remove_backend(VRT_CTX,
+    struct vmod_directors_fallback *fb, VCL_BACKEND be)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(fb, VMOD_DIRECTORS_FALLBACK_MAGIC);
+	(void)vdir_remove_backend(fb->vd, be);
 }
 
 VCL_BACKEND __match_proto__()

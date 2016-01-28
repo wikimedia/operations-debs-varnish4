@@ -47,19 +47,6 @@ int main(int argc, char **argv)
 {
 	(void)argc;
 	(void)argv;
-	P("================");
-	P("varnish-counters");
-	P("================");
-	P("");
-
-	P("---------------------------------");
-	P("Varnish counter field definitions");
-	P("---------------------------------");
-	P("");
-
-	P(":Manual section: 7");
-	P("");
-
 	P("COUNTER LEVELS");
 	P("==============");
 	P("");

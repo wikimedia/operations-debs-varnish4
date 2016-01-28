@@ -102,6 +102,7 @@ enum {
 
 struct VSC_C_lck;
 struct ban;
+struct ban_proto;
 struct backend;
 struct busyobj;
 struct cli;
@@ -403,6 +404,7 @@ struct objcore {
 	uint16_t		flags;
 #define OC_F_BUSY		(1<<1)
 #define OC_F_PASS		(1<<2)
+#define OC_F_INCOMPLETE		(1<<3)
 #define OC_F_PRIVATE		(1<<8)
 #define OC_F_FAILED		(1<<9)
 
@@ -655,19 +657,19 @@ struct sess {
 typedef enum htc_status_e htc_complete_f(struct http_conn *);
 
 /* cache_ban.c */
-struct ban *BAN_New(void);
-int BAN_AddTest(struct ban *, const char *, const char *, const char *);
-void BAN_Free(struct ban *b);
-char *BAN_Insert(struct ban *b);
-void BAN_Free_Errormsg(char *);
-void BAN_NewObjCore(struct objcore *oc);
-void BAN_DestroyObj(struct objcore *oc);
-int BAN_CheckObject(struct worker *, struct objcore *, struct req *);
+
+/* for constructing bans */
+struct ban_proto *BAN_Build(void);
+const char *BAN_AddTest(struct ban_proto *,
+    const char *, const char *, const char *);
+const char *BAN_Commit(struct ban_proto *b);
+void BAN_Abandon(struct ban_proto *b);
+
+/* for stevedoes resurrecting bans */
+void BAN_Hold(void);
+void BAN_Release(void);
 void BAN_Reload(const uint8_t *ban, unsigned len);
-struct ban *BAN_TailRef(void);
-void BAN_Compile(void);
-struct ban *BAN_RefBan(struct objcore *oc, double t0, const struct ban *tail);
-void BAN_TailDeref(struct ban **ban);
+struct ban *BAN_RefBan(struct objcore *oc, double t0);
 double BAN_Time(const struct ban *ban);
 
 /* cache_busyobj.c */
@@ -677,17 +679,6 @@ void VBO_extend(struct busyobj *, ssize_t);
 ssize_t VBO_waitlen(struct worker *, struct busyobj *, ssize_t l);
 void VBO_setstate(struct busyobj *bo, enum busyobj_state_e next);
 void VBO_waitstate(struct busyobj *bo, enum busyobj_state_e want);
-
-/* cache_req_body.c */
-int VRB_Ignore(struct req *req);
-ssize_t VRB_Cache(struct req *req, ssize_t maxsize);
-typedef int (req_body_iter_f)(struct req *, void *priv, void *ptr, size_t);
-ssize_t VRB_Iterate(struct req *req, req_body_iter_f *func, void *priv);
-void VRB_Free(struct req *req);
-
-/* cache_req_fsm.c [CNT] */
-enum req_fsm_nxt CNT_Request(struct worker *, struct req *);
-void CNT_AcctLogCharge(struct dstat *, struct req *);
 
 /* cache_cli.c [CLI] */
 extern pthread_t cli_thread;
@@ -804,7 +795,8 @@ enum sess_close http_DoConnection(struct http *hp);
 
 htc_complete_f HTTP1_Complete;
 uint16_t HTTP1_DissectRequest(struct http_conn *, struct http *);
-uint16_t HTTP1_DissectResponse(struct http_conn *, struct http *);
+uint16_t HTTP1_DissectResponse(struct http_conn *, struct http *resp,
+    const struct http *req);
 unsigned HTTP1_Write(const struct worker *w, const struct http *hp, const int*);
 
 #define HTTPH(a, b, c) extern char b[];
@@ -838,6 +830,8 @@ int Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double);
 #define Lck_Unlock(a) Lck__Unlock(a, __func__, __LINE__)
 #define Lck_Trylock(a) Lck__Trylock(a, __func__, __LINE__)
 #define Lck_AssertHeld(a) Lck__Assert(a, 1)
+
+struct VSC_C_lck *Lck_CreateClass(const char *name);
 
 #define LOCK(nam) extern struct VSC_C_lck *lck_##nam;
 #include "tbl/locks.h"
@@ -909,6 +903,17 @@ struct req *Req_New(const struct worker *, struct sess *);
 void Req_Release(struct req *);
 int Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req);
 void Req_Fail(struct req *req, enum sess_close reason);
+
+/* cache_req_body.c */
+int VRB_Ignore(struct req *req);
+ssize_t VRB_Cache(struct req *req, ssize_t maxsize);
+typedef int (req_body_iter_f)(struct req *, void *priv, void *ptr, size_t);
+ssize_t VRB_Iterate(struct req *req, req_body_iter_f *func, void *priv);
+void VRB_Free(struct req *req);
+
+/* cache_req_fsm.c [CNT] */
+enum req_fsm_nxt CNT_Request(struct worker *, struct req *);
+void CNT_AcctLogCharge(struct dstat *, struct req *);
 
 /* cache_session.c [SES] */
 struct sess *SES_New(struct pool *);
@@ -1000,7 +1005,7 @@ void VCL_Refresh(struct vcl **);
 void VCL_Rel(struct vcl **);
 const char *VCL_Return_Name(unsigned);
 
-#define VCL_MET_MAC(l,u,b) \
+#define VCL_MET_MAC(l,u,t,b) \
     void VCL_##l##_method(struct vcl *, struct worker *, struct req *, \
 	struct busyobj *bo, void *specific);
 #include "tbl/vcl_returns.h"

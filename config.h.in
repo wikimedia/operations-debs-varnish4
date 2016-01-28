@@ -9,6 +9,9 @@
 /* Define to 1 if you have the `clock_gettime' function. */
 #undef HAVE_CLOCK_GETTIME
 
+/* Define to 1 if you have the `closefrom' function. */
+#undef HAVE_CLOSEFROM
+
 /* Define to 1 if a SysV or X/Open compatible Curses library is present */
 #undef HAVE_CURSES
 
@@ -282,7 +285,7 @@
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
 
-/* use the PCRE JIT compiler */
+/* Use the PCRE JIT compiler */
 #undef USE_PCRE_JIT
 
 /* Enable extensions on AIX 3, Interix.  */

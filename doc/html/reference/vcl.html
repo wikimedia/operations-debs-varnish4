@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VCL &mdash; Varnish version 4.1.0 documentation</title>
+    <title>VCL &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Varnish Processing States" href="states.html" />
     <link rel="prev" title="The Varnish Reference Manual" href="index.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -111,8 +111,8 @@ with a special &quot;vcl 4.0;&quot; marker at the top of the file.</p>
 <div class="section" id="conditionals">
 <h4>Conditionals<a class="headerlink" href="#conditionals" title="Permalink to this headline">¶</a></h4>
 <p>VCL has <em>if</em> and <em>else</em> statements. Nested logic can be implemented
-with the <em>elseif</em> statement. (<em>elsif</em>/<em>elif</em>/<em>else if</em> is equivalent.)</p>
-<p>Note that are no loops or iterators of any kind in VCL.</p>
+with the <em>elseif</em> statement (<em>elsif</em>/<em>elif</em>/<em>else if</em> are equivalent).</p>
+<p>Note that there are no loops or iterators of any kind in VCL.</p>
 </div>
 <div class="section" id="strings-booleans-time-duration-and-integers">
 <h4>Strings, booleans, time, duration and integers<a class="headerlink" href="#strings-booleans-time-duration-and-integers" title="Permalink to this headline">¶</a></h4>
@@ -627,7 +627,7 @@ in the client director.</p>
 <p>now</p>
 <blockquote>
 <div><p>Type: TIME</p>
-<p>Readable from: vcl_all</p>
+<p>Readable from: all</p>
 <p>The current time, in seconds since the epoch. When
 used in string context it returns a formatted string.</p>
 </div></blockquote>
@@ -849,7 +849,7 @@ Identical to req.url in non-ESI requests.</p>
 <blockquote>
 <div><p>Type: HTTP</p>
 <p>Readable from: vcl_deliver, vcl_synth</p>
-<p>The entire response HTTP data structure</p>
+<p>The entire response HTTP data structure.</p>
 </div></blockquote>
 <p>resp.http.</p>
 <blockquote>
@@ -885,6 +885,8 @@ from the backend.</p>
 <p>Readable from: vcl_deliver, vcl_synth</p>
 <p>Writable from: vcl_deliver, vcl_synth</p>
 <p>The HTTP status code that will be returned.</p>
+<p>Assigning a HTTP standardized code to resp.status will also
+set resp.reason to the corresponding status message.</p>
 </div></blockquote>
 </div>
 <div class="section" id="server">
@@ -892,13 +894,13 @@ from the backend.</p>
 <p>server.hostname</p>
 <blockquote>
 <div><p>Type: STRING</p>
-<p>Readable from: vcl_all</p>
+<p>Readable from: all</p>
 <p>The host name of the server.</p>
 </div></blockquote>
 <p>server.identity</p>
 <blockquote>
 <div><p>Type: STRING</p>
-<p>Readable from: vcl_all</p>
+<p>Readable from: all</p>
 <p>The identity of the server, as set by the -i
 parameter.  If the -i parameter is not passed to varnishd,
 server.identity will be set to the name of the instance, as
@@ -1102,7 +1104,7 @@ itself. See LICENSE for details.</p>
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
