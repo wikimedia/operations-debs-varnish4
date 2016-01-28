@@ -155,14 +155,26 @@ struct inifin {
 
 VTAILQ_HEAD(inifinhead, inifin);
 
+struct vcp {
+	unsigned		magic;
+#define VCP_MAGIC		0xd90acfbc
+
+	char			*builtin_vcl;
+	char			*vcl_dir;
+	struct vfil_path	*vcl_path;
+	char			*vmod_dir;
+	struct vfil_path	*vmod_path;
+	unsigned		err_unref;
+	unsigned		allow_inline_c;
+	unsigned		unsafe_path;
+};
+
 struct vcc {
 	unsigned		magic;
 #define VCC_MAGIC		0x24ad719d
 
 	/* Parameter/Template section */
-	char			*builtin_vcl;
-	char			*vcl_dir;
-	char			*vmod_dir;
+	const struct vcp	*param;
 
 	const struct var	*vars;
 	VTAILQ_HEAD(, symbol)	symbols;
@@ -202,9 +214,6 @@ struct vcc {
 
 	unsigned		unique;
 
-	unsigned		err_unref;
-	unsigned		allow_inline_c;
-	unsigned		unsafe_path;
 };
 
 struct var {

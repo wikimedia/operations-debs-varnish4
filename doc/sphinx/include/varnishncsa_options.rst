@@ -18,6 +18,10 @@
 
 	Set the output log format string.
 
+-f formatfile
+
+	Read output format from a file. Will read a single line from the specified file, and use that line as the format.
+
 -g <request|vxid>
 
 	The grouping of the log records. The default is to group by vxid.
@@ -56,5 +60,5 @@
 
 -w filename
 
-	Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP the file will be reopened allowing the old one to be rotated away.
+	Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP in daemon mode the file will be reopened allowing the old one to be rotated away. This option is required when running in daemon mode.
 

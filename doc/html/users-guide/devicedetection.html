@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Device detection &mdash; Varnish version 4.1.0 documentation</title>
+    <title>Device detection &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,10 +25,10 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="Reporting and statistics" href="report.html" />
-    <link rel="prev" title="Implementing websocket support" href="vcl-example-websockets.html" /> 
+    <link rel="prev" title="Adding WebSockets support" href="vcl-example-websockets.html" /> 
   </head>
   <body>
     <div class="related">
@@ -41,9 +41,9 @@
           <a href="report.html" title="Reporting and statistics"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="vcl-example-websockets.html" title="Implementing websocket support"
+          <a href="vcl-example-websockets.html" title="Adding WebSockets support"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
@@ -77,7 +77,7 @@ that the <cite>req.http.X-UA-Device</cite> header is present and unique per clie
 <p>There are different commercial and free offerings in doing grouping and
 identifying clients in further detail. For a basic and community
 based regular expression set, see
-<a class="reference external" href="https://github.com/varnish/varnish-devicedetect/">https://github.com/varnish/varnish-devicedetect/</a>.</p>
+<a class="reference external" href="https://github.com/varnishcache/varnish-devicedetect/">https://github.com/varnishcache/varnish-devicedetect/</a>.</p>
 <div class="section" id="serve-the-different-content-on-the-same-url">
 <h2>Serve the different content on the same URL<a class="headerlink" href="#serve-the-different-content-on-the-same-url" title="Permalink to this headline">¶</a></h2>
 <p>The tricks involved are:
@@ -153,8 +153,8 @@ headers are (by default) available for the script.</p>
 }
 
 # override the header before it is sent to the backend
-sub vcl_miss { if (req.http.X-UA-Device) { set bereq.http.User-Agent = req.http.X-UA-Device; } }
-sub vcl_pass { if (req.http.X-UA-Device) { set bereq.http.User-Agent = req.http.X-UA-Device; } }
+sub vcl_miss { if (req.http.X-UA-Device) { set req.http.User-Agent = req.http.X-UA-Device; } }
+sub vcl_pass { if (req.http.X-UA-Device) { set req.http.User-Agent = req.http.X-UA-Device; } }
 
 # standard Vary handling code from previous examples.
 sub vcl_backend_response {
@@ -301,7 +301,7 @@ sub vcl_synth {
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="vcl-example-websockets.html"
-                        title="previous chapter">Implementing websocket support</a></p>
+                        title="previous chapter">Adding WebSockets support</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="report.html"
                         title="next chapter">Reporting and statistics</a></p>
@@ -337,9 +337,9 @@ sub vcl_synth {
           <a href="report.html" title="Reporting and statistics"
              >next</a> |</li>
         <li class="right" >
-          <a href="vcl-example-websockets.html" title="Implementing websocket support"
+          <a href="vcl-example-websockets.html" title="Adding WebSockets support"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>

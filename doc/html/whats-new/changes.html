@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Changes in Varnish 4.1 &mdash; Varnish version 4.1.0 documentation</title>
+    <title>Changes in Varnish 4.1 &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,9 +25,9 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="What&#39;s new in Varnish 4.1" href="index.html" />
-    <link rel="next" title="Upgrading to Varnish 4.1 (unreleased)" href="upgrading.html" />
+    <link rel="next" title="Upgrading to Varnish 4.1" href="upgrading.html" />
     <link rel="prev" title="What&#39;s new in Varnish 4.1" href="index.html" /> 
   </head>
   <body>
@@ -38,12 +38,12 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="upgrading.html" title="Upgrading to Varnish 4.1 (unreleased)"
+          <a href="upgrading.html" title="Upgrading to Varnish 4.1"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="index.html" title="What&#39;s new in Varnish 4.1"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &raquo;</li> 
       </ul>
     </div>  
@@ -84,10 +84,11 @@ are not present for cold VCLs.</p>
 available  auto/warm       0 boot
 available  auto/warm       0 62f5275f-a937-4df9-9fbb-c12336bdfdb8</pre>
 </div>
-<p>A single VCL's state can be chanced with the <cite>vcl.state</cite> call in
+<p>A single VCL's state can be changed with the <cite>vcl.state</cite> call in
 <tt class="docutils literal"><span class="pre">varnishadm</span></tt>:</p>
-<div class="highlight-python"><pre>vcl.state &lt;configname&gt; [auto|cold|warm]
-    Force the state of the named configuration.</pre>
+<div class="highlight-python"><pre>vcl.state &lt;configname&gt; &lt;state&gt;
+    Force the state of the specified configuration.
+    State is any of auto, warm or cold values.</pre>
 </div>
 <p>Example:</p>
 <div class="highlight-python"><pre>varnish&gt; vcl.state 62f5275f-a937-4df9-9fbb-c12336bdfdb8 cold
@@ -170,6 +171,10 @@ and any ESI sub-requests it leads to.</p>
 <li>Varnish will now use the <tt class="docutils literal"><span class="pre">stale-while-revalidate</span></tt> defined in RFC5861
 to set object grace time.</li>
 <li>-smalloc storage is now recommended over -sfile on Linux systems.</li>
+<li>New VCL variable <tt class="docutils literal"><span class="pre">beresp.was_304</span></tt> has been introduced in
+<tt class="docutils literal"><span class="pre">vcl_backend_response</span></tt>. Will be set to <tt class="docutils literal"><span class="pre">true</span></tt> if the response
+from the backend was a positive result of a conditional fetch (<tt class="docutils literal"><span class="pre">304</span>
+<span class="pre">Not</span> <span class="pre">Modified</span></tt>).</li>
 </ul>
 </div>
 
@@ -198,7 +203,7 @@ to set object grace time.</li>
                         title="previous chapter">What's new in Varnish 4.1</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="upgrading.html"
-                        title="next chapter">Upgrading to Varnish 4.1 (unreleased)</a></p>
+                        title="next chapter">Upgrading to Varnish 4.1</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="../_sources/whats-new/changes.txt"
@@ -228,12 +233,12 @@ to set object grace time.</li>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="upgrading.html" title="Upgrading to Varnish 4.1 (unreleased)"
+          <a href="upgrading.html" title="Upgrading to Varnish 4.1"
              >next</a> |</li>
         <li class="right" >
           <a href="index.html" title="What&#39;s new in Varnish 4.1"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >What's new in Varnish 4.1</a> &raquo;</li> 
       </ul>
     </div>

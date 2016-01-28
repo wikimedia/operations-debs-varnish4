@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Achieving a high hitrate &mdash; Varnish version 4.1.0 documentation</title>
+    <title>Achieving a high hitrate &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="Varnish and Website Performance" href="performance.html" />
     <link rel="next" title="Purging and banning" href="purging.html" />
     <link rel="prev" title="Varnish and Website Performance" href="performance.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &raquo;</li> 
       </ul>
@@ -213,8 +213,7 @@ cookies named &quot;COOKIE1&quot; and &quot;COOKIE2&quot; and you can marvel at 
 <p>A somewhat simpler example that can accomplish almost the same functionality can be
 found below. Instead of filtering out &quot;other&quot; cookies it instead picks out
 &quot;the one&quot; cookie that is needed, copies it to another header and then
-copies it back to the request, deleting the original cookie header.
-.. XXX:Verify correctness of request above! benc</p>
+copies it back to the request, deleting the original cookie header.</p>
 <div class="highlight-python"><pre>sub vcl_recv {
     # save the original cookie header so we can mangle it
     set req.http.X-Varnish-PHP_SID = req.http.Cookie;
@@ -300,11 +299,9 @@ the cache but it isn't really recommended.</p>
 <p>Some sites are accessed via lots of hostnames.
 <a class="reference external" href="http://www.varnish-software.com/">http://www.varnish-software.com/</a>, <a class="reference external" href="http://varnish-software.com/">http://varnish-software.com/</a> and
 <a class="reference external" href="http://varnishsoftware.com/">http://varnishsoftware.com/</a> all point at the same site. Since Varnish
-doesn't know they are the same,
-.. XXX: heavy meaning change above. benc
-Varnish will cache different versions of every page for every
-hostname. You can mitigate this in your web server configuration
-by setting up redirects or by using the following VCL:</p>
+doesn't know they are the same, Varnish will cache different versions of
+every page for every hostname. You can mitigate this in your web server
+configuration by setting up redirects or by using the following VCL:</p>
 <div class="highlight-python"><pre>if (req.http.host ~ "(?i)^(www.)?varnish-?software.com") {
     set req.http.host = "varnish-software.com";
 }</pre>
@@ -449,7 +446,7 @@ above code as a template.</p>
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" >Varnish and Website Performance</a> &raquo;</li> 
       </ul>

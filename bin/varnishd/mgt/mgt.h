@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 #include "common/common.h"
+#include "common/params.h"
 
 struct cli;
 struct parspec;
@@ -122,6 +123,13 @@ struct choice {
 };
 const void *pick(const struct choice *cp, const char *which, const char *kind);
 
+extern const char C_ERR[];	// Things are not as they should be
+extern const char C_INFO[];	// Normal stuff, keep a record for later
+extern const char C_DEBUG[];	// More detail than you'd normally want
+extern const char C_SECURITY[];	// Security issues
+extern const char C_CLI[];	// CLI traffic between master and child
+void MGT_complain(const char *loud, const char *, ...) __v_printflike(2, 3);
+
 /* mgt_param.c */
 void MCF_InitParams(struct cli *);
 void MCF_CollectParams(void);
@@ -153,13 +161,13 @@ void STV_Config_Transient(void);
 
 /* mgt_vcc.c */
 char *mgt_VccCompile(struct cli *, const char *vclname, const char *vclsrc,
-    int C_flag);
+    const char *vclsrcfile, int C_flag);
 void mgt_vcc_init(void);
 
 void mgt_vcl_init(void);
-void mgt_vcc_default(struct cli *, const char *b_arg, const char *vclsrc,
-    int Cflag);
-int mgt_push_vcls_and_start(unsigned *status, char **p);
+void mgt_vcc_startup(struct cli *, const char *b_arg, const char *f_arg,
+    const char *vclsrc, int Cflag);
+int mgt_push_vcls_and_start(struct cli *, unsigned *status, char **p);
 int mgt_has_vcl(void);
 extern char *mgt_cc_cmd;
 extern const char *mgt_vcl_dir;
@@ -168,18 +176,20 @@ extern unsigned mgt_vcc_err_unref;
 extern unsigned mgt_vcc_allow_inline_c;
 extern unsigned mgt_vcc_unsafe_path;
 
-#define REPORT0(pri, fmt)				\
-	do {						\
-		fprintf(stderr, fmt "\n");		\
-		syslog(pri, fmt);			\
-	} while (0)
-
-#define REPORT(pri, fmt, ...)				\
-	do {						\
-		fprintf(stderr, fmt "\n", __VA_ARGS__);	\
-		syslog(pri, fmt, __VA_ARGS__);		\
-	} while (0)
-
 #if defined(PTHREAD_CANCELED) || defined(PTHREAD_MUTEX_DEFAULT)
 #error "Keep pthreads out of in manager process"
 #endif
+
+static inline int
+MGT_FEATURE(enum feature_bits x)
+{
+	return (mgt_param.feature_bits[(unsigned)x>>3] &
+	    (0x80U >> ((unsigned)x & 7)));
+}
+
+static inline int
+MGT_DO_DEBUG(enum debug_bits x)
+{
+	return (mgt_param.debug_bits[(unsigned)x>>3] &
+	    (0x80U >> ((unsigned)x & 7)));
+}

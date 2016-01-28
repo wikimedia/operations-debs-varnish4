@@ -37,6 +37,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
@@ -56,6 +57,7 @@
 #include "vpf.h"
 #include "vrnd.h"
 #include "vsha256.h"
+#include "vsub.h"
 #include "vtim.h"
 #include "waiter/mgt_waiter.h"
 
@@ -118,6 +120,57 @@ build_vident(void)
 		VSB_printf(vident, ",%s", uts.release);
 		VSB_printf(vident, ",%s", uts.machine);
 	}
+}
+
+/*--------------------------------------------------------------------
+ * 'Ello, I wish to register a complaint...
+ */
+
+#ifndef LOG_AUTHPRIV
+#  define LOG_AUTHPRIV 0
+#endif
+
+const char C_ERR[] = "Error:";
+const char C_INFO[] = "Info:";
+const char C_DEBUG[] = "Debug:";
+const char C_SECURITY[] = "Security:";
+const char C_CLI[] = "Cli:";
+
+void
+MGT_complain(const char *loud, const char *fmt, ...)
+{
+	va_list ap;
+	struct vsb *vsb;
+	int sf;
+
+	if (loud == C_CLI && !mgt_param.syslog_cli_traffic)
+		return;
+	vsb = VSB_new_auto();
+	AN(vsb);
+	va_start(ap, fmt);
+	VSB_vprintf(vsb, fmt, ap);
+	va_end(ap);
+	AZ(VSB_finish(vsb));
+
+	if (loud == C_ERR)
+		sf = LOG_ERR;
+	else if (loud == C_INFO)
+		sf = LOG_INFO;
+	else if (loud == C_DEBUG)
+		sf = LOG_DEBUG;
+	else if (loud == C_SECURITY)
+		sf = LOG_WARNING | LOG_AUTHPRIV;
+	else if (loud == C_CLI)
+		sf = LOG_INFO;
+	else
+		WRONG("Wrong complaint loudness");
+
+	if (loud != C_CLI)
+		fprintf(stderr, "%s %s\n", loud, VSB_data(vsb));
+
+	if (!MGT_DO_DEBUG(DBG_VTC_MODE))
+		syslog(sf, "%s", VSB_data(vsb));
+	VSB_delete(vsb);
 }
 
 /*--------------------------------------------------------------------*/
@@ -302,12 +355,6 @@ cli_stdin_close(void *priv)
 {
 
 	(void)priv;
-	(void)close(0);
-	(void)close(1);
-	(void)close(2);
-	AZ(open("/dev/null", O_RDONLY));
-	assert(open("/dev/null", O_WRONLY) == 1);
-	assert(open("/dev/null", O_WRONLY) == 2);
 
 	if (d_flag) {
 		mgt_stop_child();
@@ -315,6 +362,13 @@ cli_stdin_close(void *priv)
 		if (pfh != NULL)
 			(void)VPF_Remove(pfh);
 		exit(0);
+	} else {
+		(void)close(0);
+		(void)close(1);
+		(void)close(2);
+		AZ(open("/dev/null", O_RDONLY));
+		assert(open("/dev/null", O_WRONLY) == 1);
+		assert(open("/dev/null", O_WRONLY) == 2);
 	}
 }
 
@@ -395,6 +449,10 @@ init_params(struct cli *cli)
 		MCF_SetDefault("gzip_buffer", "4k");
 	}
 
+#if !defined(HAVE_ACCEPT_FILTERS) || defined(__linux)
+	MCF_SetDefault("accept_filter", "off");
+#endif
+
 	low = sysconf(_SC_THREAD_STACK_MIN);
 	bprintf(stackmin, "%jd", (intmax_t)low);
 	MCF_SetMinimum("thread_pool_stack", stackmin);
@@ -420,9 +478,10 @@ identify(const char *i_arg)
 	strcpy(id, "varnishd");
 
 	if (i_arg != NULL) {
-		if (strlen(i_arg) + 1 > sizeof heritage.identity)
-			ARGV_ERR("Identity (-i) name too long.\n");
-		strcpy(heritage.identity, i_arg);
+		if (strlen(i_arg) + 1 > 1024)
+			ARGV_ERR("Identity (-i) name too long (max 1023).\n");
+		heritage.identity = strdup(i_arg);
+		AN(heritage.identity);
 		i = strlen(id);
 		id[i++] = '/';
 		for (; i < (sizeof(id) - 1L); i++) {
@@ -473,8 +532,7 @@ main(int argc, char * const *argv)
 	 * Start out by closing all unwanted file descriptors we might
 	 * have inherited from sloppy process control daemons.
 	 */
-	for (o = getdtablesize(); o > STDERR_FILENO; o--)
-		(void)close(o);
+	VSUB_closefrom(STDERR_FILENO + 1);
 
 	VRND_Seed();
 
@@ -694,7 +752,7 @@ main(int argc, char * const *argv)
 	mgt_vcl_init();
 
 	if (b_arg != NULL || f_arg != NULL) {
-		mgt_vcc_default(cli, b_arg, vcl, C_flag);
+		mgt_vcc_startup(cli, b_arg, f_arg, vcl, C_flag);
 		if (C_flag && cli->result == CLIS_OK) {
 			AZ(VSB_finish(cli->sb));
 			fprintf(stderr, "%s\n", VSB_data(cli->sb));
@@ -750,9 +808,7 @@ main(int argc, char * const *argv)
 
 	assert(pfh == NULL || !VPF_Write(pfh));
 
-	if (d_flag)
-		fprintf(stderr, "Platform: %s\n", VSB_data(vident) + 1);
-	syslog(LOG_NOTICE, "Platform: %s\n", VSB_data(vident) + 1);
+	MGT_complain(C_DEBUG, "Platform: %s\n", VSB_data(vident) + 1);
 
 	mgt_pid = getpid();	/* daemon() changed this */
 

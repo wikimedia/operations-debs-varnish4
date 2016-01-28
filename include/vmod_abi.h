@@ -1,1 +1,1 @@
-#define VMOD_ABI_Version "Varnish 4.1.0 3041728"
+#define VMOD_ABI_Version "Varnish 4.1.1 66bb824"

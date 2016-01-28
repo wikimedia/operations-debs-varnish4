@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #ifdef HAVE_SYS_FILIO_H
 #  include <sys/filio.h>
 #endif
@@ -323,10 +324,10 @@ VTCP_close(int *s)
 void
 VTCP_set_read_timeout(int s, double seconds)
 {
+#ifdef SO_RCVTIMEO_WORKS
 	struct timeval timeout;
 	timeout.tv_sec = (int)floor(seconds);
 	timeout.tv_usec = (int)(1e6 * (seconds - timeout.tv_sec));
-#ifdef SO_RCVTIMEO_WORKS
 	/*
 	 * Solaris bug (present at least in snv_151 and older): If this fails
 	 * with EINVAL, the socket is half-closed (SS_CANTSENDMORE) and the
@@ -337,6 +338,7 @@ VTCP_set_read_timeout(int s, double seconds)
 	    &timeout, sizeof timeout));
 #else
 	(void)s;
+	(void)seconds;
 #endif
 }
 
@@ -545,7 +547,7 @@ VTCP_Check(int a)
 		return (1);
 #if (defined (__SVR4) && defined (__sun)) || defined (__NetBSD__)
 	/*
-	 * Solaris returns EINVAL if the other end unexepectedly reset the
+	 * Solaris returns EINVAL if the other end unexpectedly reset the
 	 * connection.
 	 * This is a bug in Solaris and documented behaviour on NetBSD.
 	 */

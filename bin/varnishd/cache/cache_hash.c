@@ -67,15 +67,15 @@ static struct objhead *private_oh;
 
 /*---------------------------------------------------------------------*/
 
-struct objcore *
-HSH_NewObjCore(struct worker *wrk)
+static struct objcore *
+hsh_NewObjCore(struct worker *wrk)
 {
 	struct objcore *oc;
 
 	ALLOC_OBJ(oc, OBJCORE_MAGIC);
 	XXXAN(oc);
 	wrk->stats->n_objectcore++;
-	oc->flags |= OC_F_BUSY;
+	oc->flags |= OC_F_BUSY | OC_F_INCOMPLETE;
 	return (oc);
 }
 
@@ -104,7 +104,7 @@ hsh_prealloc(struct worker *wrk)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 
 	if (wrk->nobjcore == NULL)
-		wrk->nobjcore = HSH_NewObjCore(wrk);
+		wrk->nobjcore = hsh_NewObjCore(wrk);
 	CHECK_OBJ_NOTNULL(wrk->nobjcore, OBJCORE_MAGIC);
 
 	if (wrk->nobjhead == NULL) {
@@ -135,11 +135,11 @@ HSH_Private(struct worker *wrk)
 
 	CHECK_OBJ_NOTNULL(private_oh, OBJHEAD_MAGIC);
 
-	oc = HSH_NewObjCore(wrk);
+	oc = hsh_NewObjCore(wrk);
 	AN(oc);
 	oc->refcnt = 1;
 	oc->objhead = private_oh;
-	oc->flags |= OC_F_PRIVATE;
+	oc->flags |= OC_F_PRIVATE | OC_F_BUSY;
 	Lck_Lock(&private_oh->mtx);
 	VTAILQ_INSERT_TAIL(&private_oh->objcs, oc, list);
 	private_oh->refcnt++;
@@ -441,8 +441,7 @@ HSH_Lookup(struct req *req, struct objcore **ocp, struct objcore **bocp,
 			*ocp = oc;
 			return (HSH_HIT);
 		}
-		if (oc->exp.t_origin > exp_t_origin &&
-		    !(oc->flags & OC_F_PASS)) {
+		if (oc->exp.t_origin > exp_t_origin) {
 			/* record the newest object */
 			exp_oc = oc;
 			exp_t_origin = oc->exp.t_origin;
@@ -524,7 +523,9 @@ hsh_rush(struct worker *wrk, struct objhead *oh)
 	CHECK_OBJ_NOTNULL(oh, OBJHEAD_MAGIC);
 	Lck_AssertHeld(&oh->mtx);
 	wl = oh->waitinglist;
-	CHECK_OBJ_NOTNULL(wl, WAITINGLIST_MAGIC);
+	CHECK_OBJ_ORNULL(wl, WAITINGLIST_MAGIC);
+	if (wl == NULL)
+		return;
 	for (u = 0; u < cache_param->rush_exponent; u++) {
 		req = VTAILQ_FIRST(&wl->list);
 		if (req == NULL)
@@ -651,6 +652,7 @@ HSH_Fail(struct objcore *oc)
 
 	Lck_Lock(&oh->mtx);
 	oc->flags |= OC_F_FAILED;
+	oc->flags &= ~OC_F_INCOMPLETE;
 	oc->busyobj = NULL;
 	Lck_Unlock(&oh->mtx);
 }
@@ -670,6 +672,7 @@ HSH_Complete(struct objcore *oc)
 
 	Lck_Lock(&oh->mtx);
 	oc->busyobj = NULL;
+	oc->flags &= ~OC_F_INCOMPLETE;
 	Lck_Unlock(&oh->mtx);
 }
 
@@ -813,11 +816,31 @@ HSH_DerefObjHead(struct worker *wrk, struct objhead **poh)
 	CHECK_OBJ_NOTNULL(oh, OBJHEAD_MAGIC);
 
 	if (oh == private_oh) {
+		AZ(oh->waitinglist);
 		Lck_Lock(&oh->mtx);
 		assert(oh->refcnt > 1);
 		oh->refcnt--;
 		Lck_Unlock(&oh->mtx);
 		return(1);
+	}
+
+	/*
+	 * Make absolutely certain that we do not let the final ref
+	 * disappear until the waitinglist is empty.
+	 * This is necessary because the req's on the waiting list do
+	 * not hold any ref on the objhead of their own, and we cannot
+	 * just make the hold the same ref's as objcore, that would
+	 * confuse hashers.
+	 */
+	while (oh->waitinglist != NULL) {
+		Lck_Lock(&oh->mtx);
+		assert(oh->refcnt > 0);
+		r = oh->refcnt;
+		hsh_rush(wrk, oh);
+		Lck_Unlock(&oh->mtx);
+		if (r > 1)
+			break;
+		usleep(100000);
 	}
 
 	assert(oh->refcnt > 0);

@@ -47,6 +47,7 @@
 
 #include "vav.h"
 #include "vnum.h"
+#include "vre.h"
 #include "vtim.h"
 
 #define		MAX_TOKENS		200
@@ -578,6 +579,9 @@ cmd_feature(CMD_ARGS)
 		if (sizeof(void*) == 8 && !strcmp(av[i], "64bit"))
 			continue;
 
+		if (!strcmp(av[i], "pcre_jit") && VRE_has_jit)
+			continue;
+
 		if (!strcmp(av[i], "!OSX")) {
 #if !defined(__APPLE__) || !defined(__MACH__)
 			continue;
@@ -680,7 +684,7 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
 	vtc_stop = 1;
 	vtc_log(vltop, 1, "RESETTING after %s", fn);
 	reset_cmds(cmds);
-	vtc_error = old_err;
+	vtc_error |= old_err;
 
 	if (vtc_error)
 		vtc_log(vltop, 1, "TEST %s FAILED", fn);

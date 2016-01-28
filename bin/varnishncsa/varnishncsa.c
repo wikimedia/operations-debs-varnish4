@@ -41,6 +41,8 @@
 
 #include "config.h"
 
+#define _WITH_GETLINE
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -100,12 +102,12 @@ struct format {
 	unsigned		magic;
 #define FORMAT_MAGIC		0xC3119CDA
 
+	char			time_type;
 	VTAILQ_ENTRY(format)	list;
 	format_f		*func;
 	struct fragment		*frag;
 	char			*string;
 	const char *const	*strptr;
-	char			time_type;
 	char			*time_fmt;
 };
 
@@ -529,6 +531,7 @@ addf_auth(const char *str)
 	struct format *f;
 
 	ALLOC_OBJ(f, FORMAT_MAGIC);
+	AN(f);
 	f->func = &format_auth;
 	if (str != NULL) {
 		f->string = strdup(str);
@@ -927,6 +930,34 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	return (0);
 }
 
+static int __match_proto__(VUT_cb_f)
+sighup(void)
+{
+	return (1);
+}
+
+static char *
+read_format(const char *formatfile)
+{
+	FILE *fmtfile;
+	size_t len = 0;
+	char *fmt = NULL;
+
+	fmtfile = fopen(formatfile, "r");
+	if (fmtfile == NULL)
+		VUT_Error(1, "Can't open format file (%s)", strerror(errno));
+	if (getline(&fmt, &len, fmtfile) == -1) {
+		free(fmt);
+		if (feof(fmtfile))
+			VUT_Error(1, "Empty format file");
+		else
+			VUT_Error(1, "Can't read format from file (%s)",
+			    strerror(errno));
+	}
+	fclose(fmtfile);
+	return (fmt);
+}
+
 int
 main(int argc, char * const *argv)
 {
@@ -956,6 +987,13 @@ main(int argc, char * const *argv)
 			format = strdup(optarg);
 			AN(format);
 			break;
+		case 'f':
+			/* Format string from file */
+			if (format != NULL)
+				free(format);
+			format = read_format(optarg);
+			AN(format);
+			break;
 		case 'h':
 			/* Usage help */
 			usage(0);
@@ -971,6 +1009,9 @@ main(int argc, char * const *argv)
 
 	if (optind != argc)
 		usage(1);
+
+	if (VUT.D_opt && !CTX.w_arg)
+		VUT_Error(1, "Missing -w option");
 
 	/* Check for valid grouping mode */
 	assert(VUT.g_arg < VSL_g__MAX);
@@ -988,10 +1029,12 @@ main(int argc, char * const *argv)
 	/* Setup output */
 	VUT.dispatch_f = &dispatch_f;
 	VUT.dispatch_priv = NULL;
+	VUT.sighup_f = sighup;
 	if (CTX.w_arg) {
 		openout(CTX.a_opt);
 		AN(CTX.fo);
-		VUT.sighup_f = &rotateout;
+		if (VUT.D_opt)
+			VUT.sighup_f = &rotateout;
 	} else
 		CTX.fo = stdout;
 	VUT.idle_f = &flushout;

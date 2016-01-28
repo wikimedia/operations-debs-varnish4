@@ -65,8 +65,10 @@ am_varnishd_OBJECTS = varnishd-cache_acceptor.$(OBJEXT) \
 	varnishd-cache_backend_cfg.$(OBJEXT) \
 	varnishd-cache_backend_probe.$(OBJEXT) \
 	varnishd-cache_backend_tcp.$(OBJEXT) \
-	varnishd-cache_ban.$(OBJEXT) varnishd-cache_busyobj.$(OBJEXT) \
-	varnishd-cache_cli.$(OBJEXT) \
+	varnishd-cache_ban.$(OBJEXT) \
+	varnishd-cache_ban_build.$(OBJEXT) \
+	varnishd-cache_ban_lurker.$(OBJEXT) \
+	varnishd-cache_busyobj.$(OBJEXT) varnishd-cache_cli.$(OBJEXT) \
 	varnishd-cache_deliver_proc.$(OBJEXT) \
 	varnishd-cache_director.$(OBJEXT) \
 	varnishd-cache_esi_deliver.$(OBJEXT) \
@@ -361,6 +363,8 @@ varnishd_SOURCES = \
 	cache/cache_backend_probe.c \
 	cache/cache_backend_tcp.c \
 	cache/cache_ban.c \
+	cache/cache_ban_build.c \
+	cache/cache_ban_lurker.c \
 	cache/cache_busyobj.c \
 	cache/cache_cli.c \
 	cache/cache_deliver_proc.c \
@@ -441,10 +445,11 @@ varnishd_SOURCES = \
 	waiter/cache_waiter_epoll.c \
 	waiter/cache_waiter_kqueue.c \
 	waiter/cache_waiter_poll.c \
-	waiter/cache_waiter_ports.c 
+	waiter/cache_waiter_ports.c
 
 noinst_HEADERS = \
 	builtin_vcl.h \
+	cache/cache_ban.h \
 	cache/cache_esi.h \
 	cache/cache_pool.h \
 	cache/cache_priv.h \
@@ -582,6 +587,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_backend_probe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_backend_tcp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_ban.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_ban_build.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_ban_lurker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_busyobj.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_cli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishd-cache_deliver_proc.Po@am__quote@
@@ -768,6 +775,34 @@ varnishd-cache_ban.obj: cache/cache_ban.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_ban.c' object='varnishd-cache_ban.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_ban.obj `if test -f 'cache/cache_ban.c'; then $(CYGPATH_W) 'cache/cache_ban.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_ban.c'; fi`
+
+varnishd-cache_ban_build.o: cache/cache_ban_build.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_ban_build.o -MD -MP -MF $(DEPDIR)/varnishd-cache_ban_build.Tpo -c -o varnishd-cache_ban_build.o `test -f 'cache/cache_ban_build.c' || echo '$(srcdir)/'`cache/cache_ban_build.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_ban_build.Tpo $(DEPDIR)/varnishd-cache_ban_build.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_ban_build.c' object='varnishd-cache_ban_build.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_ban_build.o `test -f 'cache/cache_ban_build.c' || echo '$(srcdir)/'`cache/cache_ban_build.c
+
+varnishd-cache_ban_build.obj: cache/cache_ban_build.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_ban_build.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_ban_build.Tpo -c -o varnishd-cache_ban_build.obj `if test -f 'cache/cache_ban_build.c'; then $(CYGPATH_W) 'cache/cache_ban_build.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_ban_build.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_ban_build.Tpo $(DEPDIR)/varnishd-cache_ban_build.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_ban_build.c' object='varnishd-cache_ban_build.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_ban_build.obj `if test -f 'cache/cache_ban_build.c'; then $(CYGPATH_W) 'cache/cache_ban_build.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_ban_build.c'; fi`
+
+varnishd-cache_ban_lurker.o: cache/cache_ban_lurker.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_ban_lurker.o -MD -MP -MF $(DEPDIR)/varnishd-cache_ban_lurker.Tpo -c -o varnishd-cache_ban_lurker.o `test -f 'cache/cache_ban_lurker.c' || echo '$(srcdir)/'`cache/cache_ban_lurker.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_ban_lurker.Tpo $(DEPDIR)/varnishd-cache_ban_lurker.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_ban_lurker.c' object='varnishd-cache_ban_lurker.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_ban_lurker.o `test -f 'cache/cache_ban_lurker.c' || echo '$(srcdir)/'`cache/cache_ban_lurker.c
+
+varnishd-cache_ban_lurker.obj: cache/cache_ban_lurker.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_ban_lurker.obj -MD -MP -MF $(DEPDIR)/varnishd-cache_ban_lurker.Tpo -c -o varnishd-cache_ban_lurker.obj `if test -f 'cache/cache_ban_lurker.c'; then $(CYGPATH_W) 'cache/cache_ban_lurker.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_ban_lurker.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishd-cache_ban_lurker.Tpo $(DEPDIR)/varnishd-cache_ban_lurker.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cache/cache_ban_lurker.c' object='varnishd-cache_ban_lurker.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -c -o varnishd-cache_ban_lurker.obj `if test -f 'cache/cache_ban_lurker.c'; then $(CYGPATH_W) 'cache/cache_ban_lurker.c'; else $(CYGPATH_W) '$(srcdir)/cache/cache_ban_lurker.c'; fi`
 
 varnishd-cache_busyobj.o: cache/cache_busyobj.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishd_CFLAGS) $(CFLAGS) -MT varnishd-cache_busyobj.o -MD -MP -MF $(DEPDIR)/varnishd-cache_busyobj.Tpo -c -o varnishd-cache_busyobj.o `test -f 'cache/cache_busyobj.c' || echo '$(srcdir)/'`cache/cache_busyobj.c

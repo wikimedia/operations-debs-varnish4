@@ -540,7 +540,7 @@ static void
 print_duration(WINDOW *w, time_t t)
 {
 
-	wprintw(w, "%4d+%02d:%02d:%02d",
+	wprintw(w, "%4lu+%02lu:%02lu:%02lu",
 	    t / 86400, (t % 86400) / 3600, (t % 3600) / 60, t % 60);
 }
 
@@ -790,8 +790,8 @@ draw_line_bitmap(WINDOW *w, int y, int x, int X, struct pt *pt)
 		case COL_VAL:
 			if (X - x < COLW)
 				return;
-			mvwprintw(w, y, x, "   %010.10jx",
-			    (pt->cur >> 24) & 0xffffffffffLL);
+			mvwprintw(w, y, x, "   %10.10jx",
+			    (uintmax_t)((pt->cur >> 24) & 0xffffffffffLL));
 			x += COLW;
 			break;
 		case COL_MAP:
@@ -934,7 +934,7 @@ draw_bar_b(void)
 	    page_start + l_points < n_ptarray ?
 		page_start + l_points : n_ptarray,
 	    n_ptarray);
-	mvwprintw(w_bar_b, 0, X - strlen(buf), buf);
+	mvwprintw(w_bar_b, 0, X - strlen(buf), "%s", buf);
 	X -= strlen(buf) + 2;
 
 	level = VSC_LevelDesc(verbosity);
@@ -943,10 +943,8 @@ draw_bar_b(void)
 		    level->label);
 		X -= strlen(level->label) + 2;
 	}
-	if (!hide_unseen) {
+	if (!hide_unseen)
 		mvwprintw(w_bar_b, 0, X - 6, "%s", "UNSEEN");
-		X -= 8;
-	}
 
 	wnoutrefresh(w_bar_b);
 }

@@ -40,8 +40,16 @@
 	    "Set the output log format string."				\
 	)
 
+#define NCSA_OPT_f							\
+	VOPT("f:", "[-f formatfile]", "Read output format from file",   \
+	    "Read output format from a file. Will read a single line"   \
+	    " from the specified file, and use that line as the"	\
+	    " format."							\
+	)
+
+
 #define NCSA_OPT_g							\
-	VOPT("g:", "[-g <request|vxid>]", "Grouping mode (default: vxid)",		\
+	VOPT("g:", "[-g <request|vxid>]", "Grouping mode (default: vxid)", \
 	    "The grouping of the log records. The default is to group"	\
 	    " by vxid."							\
 	)
@@ -50,8 +58,9 @@
 	VOPT("w:", "[-w filename]", "Output filename",			\
 	    "Redirect output to file. The file will be overwritten"	\
 	    " unless the -a option was specified. If the application"	\
-	    " receives a SIGHUP the file will be reopened allowing"	\
-	    " the old one to be rotated away."				\
+	    " receives a SIGHUP in daemon mode the file will be"	\
+	    " reopened allowing the old one to be rotated away. This"	\
+	    " option is required when running in daemon mode."		\
 	)
 
 NCSA_OPT_a
@@ -59,6 +68,7 @@ VSL_OPT_C
 VUT_OPT_d
 VUT_OPT_D
 NCSA_OPT_F
+NCSA_OPT_f
 NCSA_OPT_g
 VUT_OPT_h
 VUT_OPT_n

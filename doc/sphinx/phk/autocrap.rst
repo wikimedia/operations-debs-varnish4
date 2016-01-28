@@ -47,7 +47,7 @@ right before you can even think about compiling the source code.
 
 Second, it doesn't actually work, you still have to do the hard work
 and figure out the right way to explain to the autocrap tools what
-you are trying to do and how to do it, only you have to do so in 
+you are trying to do and how to do it, only you have to do so in
 a language which is used to produce M4 macro invocations etc. etc.
 
 In the meantime, the UNIX diversity has shrunk from 50+ significantly
@@ -55,7 +55,7 @@ different dialects to just a handful: Linux, \*BSD, Solaris and AIX
 and the autocrap tools have become part of the portability problem,
 rather than part of the solution.
 
-Amongst the silly activites of the autocrap generated configure script
+Amongst the silly activities of the autocrap generated configure script
 in Varnish are:
 
 * Looks for ANSI-C header files (show me a system later

@@ -86,9 +86,9 @@ Logical or.
 .SS Conditionals
 .sp
 VCL has \fIif\fP and \fIelse\fP statements. Nested logic can be implemented
-with the \fIelseif\fP statement. (\fIelsif\fP/\fIelif\fP/\fIelse if\fP is equivalent.)
+with the \fIelseif\fP statement (\fIelsif\fP/\fIelif\fP/\fIelse if\fP are equivalent).
 .sp
-Note that are no loops or iterators of any kind in VCL.
+Note that there are no loops or iterators of any kind in VCL.
 .SS Strings, booleans, time, duration and integers
 .sp
 These are the data types in Varnish. You can \fIset\fP or \fIunset\fP these.
@@ -865,7 +865,7 @@ now
 .INDENT 3.5
 Type: TIME
 .sp
-Readable from: vcl_all
+Readable from: all
 .sp
 The current time, in seconds since the epoch. When
 used in string context it returns a formatted string.
@@ -1236,7 +1236,7 @@ Type: HTTP
 .sp
 Readable from: vcl_deliver, vcl_synth
 .sp
-The entire response HTTP data structure
+The entire response HTTP data structure.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1301,6 +1301,9 @@ Readable from: vcl_deliver, vcl_synth
 Writable from: vcl_deliver, vcl_synth
 .sp
 The HTTP status code that will be returned.
+.sp
+Assigning a HTTP standardized code to resp.status will also
+set resp.reason to the corresponding status message.
 .UNINDENT
 .UNINDENT
 .SS server
@@ -1310,7 +1313,7 @@ server.hostname
 .INDENT 3.5
 Type: STRING
 .sp
-Readable from: vcl_all
+Readable from: all
 .sp
 The host name of the server.
 .UNINDENT
@@ -1321,7 +1324,7 @@ server.identity
 .INDENT 3.5
 Type: STRING
 .sp
-Readable from: vcl_all
+Readable from: all
 .sp
 The identity of the server, as set by the \-i
 parameter.  If the \-i parameter is not passed to varnishd,

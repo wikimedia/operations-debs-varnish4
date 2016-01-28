@@ -62,8 +62,7 @@ vpx_proto1(const struct worker *wrk, struct req *req)
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-
-	VSL(SLT_Debug, req->sp->fd, "PROXY1");
+	CHECK_OBJ_NOTNULL(req->sp, SESS_MAGIC);
 
 	q = strchr(req->htc->rxbuf_b, '\r');
 	if (q == NULL)
@@ -80,7 +79,7 @@ vpx_proto1(const struct worker *wrk, struct req *req)
 	for (i = 0; i < 5; i++) {
 		p = strchr(p, ' ');
 		if (p == NULL) {
-			VSLb(req->vsl, SLT_ProxyGarbage,
+			VSL(SLT_ProxyGarbage, req->sp->vxid,
 			    "PROXY1: Too few fields");
 			return (-1);
 		}
@@ -89,20 +88,17 @@ vpx_proto1(const struct worker *wrk, struct req *req)
 	}
 
 	if (strchr(p, ' ')) {
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY1: Too many fields");
 		return (-1);
 	}
-
-	VSL(SLT_Debug, req->sp->fd, "PROXY1 <%s> <%s> <%s> <%s> <%s>",
-	    fld[0], fld[1], fld[2], fld[3], fld[4]);
 
 	if (!strcmp(fld[0], "TCP4"))
 		pfam = AF_INET;
 	else if (!strcmp(fld[0], "TCP6"))
 		pfam = AF_INET6;
 	else {
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY1: Wrong TCP[46] field");
 		return (-1);
 	}
@@ -113,14 +109,14 @@ vpx_proto1(const struct worker *wrk, struct req *req)
 
 	i = getaddrinfo(fld[1], fld[3], &hints, &res);
 	if (i != 0) {
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY1: Cannot resolve source address (%s)",
 		    gai_strerror(i));
 		return (-1);
 	}
 	AZ(res->ai_next);
 	if (res->ai_family != pfam) {
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY1: %s got wrong protocol (%d)",
 		    fld[0], res->ai_family);
 		freeaddrinfo(res);
@@ -129,19 +125,19 @@ vpx_proto1(const struct worker *wrk, struct req *req)
 	SES_Reserve_client_addr(req->sp, &sa);
 	AN(VSA_Build(sa, res->ai_addr, res->ai_addrlen));
 	SES_Set_String_Attr(req->sp, SA_CLIENT_IP, fld[1]);
-	SES_Set_String_Attr(req->sp, SA_CLIENT_PORT, fld[2]);
+	SES_Set_String_Attr(req->sp, SA_CLIENT_PORT, fld[3]);
 	freeaddrinfo(res);
 
 	i = getaddrinfo(fld[2], fld[4], &hints, &res);
 	if (i != 0) {
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY1: Cannot resolve destination address (%s)",
 		    gai_strerror(i));
 		return (-1);
 	}
 	AZ(res->ai_next);
 	if (res->ai_family != pfam) {
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY1: %s got wrong protocol (%d)",
 		    fld[0], res->ai_family);
 		freeaddrinfo(res);
@@ -151,7 +147,7 @@ vpx_proto1(const struct worker *wrk, struct req *req)
 	AN(VSA_Build(sa, res->ai_addr, res->ai_addrlen));
 	freeaddrinfo(res);
 
-	VSLb(req->vsl, SLT_Proxy, "1 %s %s %s %s",
+	VSL(SLT_Proxy, req->sp->vxid, "1 %s %s %s %s",
 	    fld[1], fld[3], fld[2], fld[4]);
 	req->htc->pipeline_b = q;
 	return (0);
@@ -182,6 +178,7 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	CHECK_OBJ_NOTNULL(req->sp, SESS_MAGIC);
 
 	assert(req->htc->rxbuf_e - req->htc->rxbuf_b >= 16L);
 	l = vbe16dec(req->htc->rxbuf_b + 14);
@@ -191,7 +188,7 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 
 	/* Version @12 top half */
 	if ((p[12] >> 4) != 2) {
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY2: bad version (%d)", p[12] >> 4);
 		return (-1);
 	}
@@ -205,7 +202,7 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 		/* Proxied connection */
 		break;
 	default:
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY2: bad command (%d)", p[12] & 0x0f);
 		return (-1);
 	}
@@ -214,14 +211,14 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 	switch(p[13]) {
 	case 0x00:
 		/* UNSPEC|UNSPEC, ignore proxy header */
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY2: Ignoring UNSPEC|UNSPEC addresses");
 		return (0);
 	case 0x11:
 		/* IPv4|TCP */
 		pfam = AF_INET;
 		if (l < 12) {
-			VSLb(req->vsl, SLT_ProxyGarbage,
+			VSL(SLT_ProxyGarbage, req->sp->vxid,
 			    "PROXY2: Ignoring short IPv4 addresses (%d)", l);
 			return (0);
 		}
@@ -230,14 +227,14 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 		/* IPv6|TCP */
 		pfam = AF_INET6;
 		if (l < 36) {
-			VSLb(req->vsl, SLT_ProxyGarbage,
+			VSL(SLT_ProxyGarbage, req->sp->vxid,
 			    "PROXY2: Ignoring short IPv6 addresses (%d)", l);
 			return (0);
 		}
 		break;
 	default:
 		/* Ignore proxy header */
-		VSLb(req->vsl, SLT_ProxyGarbage,
+		VSL(SLT_ProxyGarbage, req->sp->vxid,
 		    "PROXY2: Ignoring unsupported protocol (0x%02x)", p[13]);
 		return (0);
 	}
@@ -286,7 +283,7 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 	SES_Set_String_Attr(req->sp, SA_CLIENT_IP, hb);
 	SES_Set_String_Attr(req->sp, SA_CLIENT_PORT, pb);
 
-	VSLb(req->vsl, SLT_Proxy, "2 %s %s %s %s", hb, pb, ha, pa);
+	VSL(SLT_Proxy, req->sp->vxid, "2 %s %s %s %s", hb, pb, ha, pa);
 	return (0);
 }
 
@@ -347,7 +344,7 @@ VPX_Proto_Sess(struct worker *wrk, void *priv)
 	CAST_OBJ_NOTNULL(req, priv, REQ_MAGIC);
 	sp = req->sp;
 
-	/* Per specifiction */
+	/* Per specification */
 	assert(sizeof vpx1_sig == 5);
 	assert(sizeof vpx2_sig == 12);
 

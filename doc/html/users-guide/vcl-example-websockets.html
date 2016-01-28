@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Implementing websocket support &mdash; Varnish version 4.1.0 documentation</title>
+    <title>Adding WebSockets support &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="VCL Examples" href="vcl-examples.html" />
     <link rel="next" title="Device detection" href="devicedetection.html" />
     <link rel="prev" title="ACLs" href="vcl-example-acls.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vcl-example-acls.html" title="ACLs"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li>
           <li><a href="vcl-examples.html" accesskey="U">VCL Examples</a> &raquo;</li> 
@@ -55,20 +55,15 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="implementing-websocket-support">
-<h1>Implementing websocket support<a class="headerlink" href="#implementing-websocket-support" title="Permalink to this headline">¶</a></h1>
-<p>Websockets is a technology for creating a bidirectional stream-based channel over HTTP.</p>
-<p>To run websockets through Varnish you need to pipe it, and copy the Upgrade header. Use the following
-VCL config to do so:</p>
-<div class="highlight-python"><pre>sub vcl_pipe {
-     if (req.http.upgrade) {
-         set bereq.http.upgrade = req.http.upgrade;
-     }
-}
-sub vcl_recv {
-     if (req.http.Upgrade ~ "(?i)websocket") {
-         return (pipe);
-     }
+  <div class="section" id="adding-websockets-support">
+<h1>Adding WebSockets support<a class="headerlink" href="#adding-websockets-support" title="Permalink to this headline">¶</a></h1>
+<p>WebSockets is a technology for creating a bidirectional stream-based
+channel over HTTP.</p>
+<p>To run WebSockets through Varnish you need to pipe it as follows:</p>
+<div class="highlight-python"><pre>sub vcl_recv {
+    if (req.http.upgrade ~ "(?i)websocket") {
+        return (pipe);
+    }
 }</pre>
 </div>
 </div>
@@ -119,7 +114,7 @@ sub vcl_recv {
         <li class="right" >
           <a href="vcl-example-acls.html" title="ACLs"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li>
           <li><a href="vcl-examples.html" >VCL Examples</a> &raquo;</li> 

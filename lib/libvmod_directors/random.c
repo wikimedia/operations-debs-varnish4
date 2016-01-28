@@ -71,7 +71,7 @@ vmod_random_resolve(const struct director *dir, struct worker *wrk,
 	CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_DIRECTORS_RANDOM_MAGIC);
 	r = scalbn(random(), -31);
 	assert(r >= 0 && r < 1.0);
-	be = vdir_pick_be(rr->vd, r);
+	be = vdir_pick_be(rr->vd, r, bo);
 	return (be);
 }
 
@@ -111,6 +111,14 @@ vmod_random_add_backend(VRT_CTX,
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_RANDOM_MAGIC);
 	(void)vdir_add_backend(rr->vd, be, w);
+}
+
+VCL_VOID vmod_random_remove_backend(VRT_CTX,
+    struct vmod_directors_random *rr, VCL_BACKEND be) __match_proto__()
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_RANDOM_MAGIC);
+	(void)vdir_remove_backend(rr->vd, be);
 }
 
 VCL_BACKEND __match_proto__()

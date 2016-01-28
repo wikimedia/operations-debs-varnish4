@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Why HTTP/2.0 does not seem interesting &mdash; Varnish version 4.1.0 documentation</title>
+    <title>Why HTTP/2.0 does not seem interesting &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="Varnish Does Not Hash" href="varnish_does_not_hash.html" />
     <link rel="prev" title="What SPDY did to my summer vacation" href="spdy.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="spdy.html" title="What SPDY did to my summer vacation"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
       </ul>
     </div>  
@@ -95,7 +95,7 @@ it will take to replace HTTP/1.1 in practice.</p>
 <p>We have learned, painfully, that an IPv6 which is only marginally
 better than IPv4 and which offers no tangible benefit for the people
 who have the cost/trouble of the upgrade, does not penetrate the
-network on its own, and barely even on goverments mandate.</p>
+network on its own, and barely even on governments mandate.</p>
 <p>We have also learned that a protocol which delivers the goods can
 replace all competition in virtually no time.</p>
 <p>See for instance how SSH replaced TELNET, REXEC, RSH, SUPDUP, and
@@ -114,15 +114,15 @@ on.</p>
 <p>Most notably HTTP/1.1 lacks a working session/endpoint-identity
 facility, a shortcoming which people have pasted over with the
 ill-conceived Cookie hack.</p>
-<p>Cookies are, as the EU commision correctly noted, fundamentally
+<p>Cookies are, as the EU commission correctly noted, fundamentally
 flawed, because they store potentially sensitive information on
 whatever computer the user happens to use, and as a result of various
 abuses and incompetences, EU felt compelled to legislate a &quot;notice
 and announce&quot; policy for HTTP-cookies.</p>
 <p>But it doesn't stop there:  The information stored in cookies have
-potentialiiy very high value for the HTTP server, and because the
+potentially very high value for the HTTP server, and because the
 server has no control over the integrity of the storage, we are now
-seing cookies being crypto-signed, to prevent forgeries.</p>
+seeing cookies being crypto-signed, to prevent forgeries.</p>
 <p>The term &quot;bass ackwards&quot; comes to mind.</p>
 <p>Cookies are also one of the main wasters of bandwidth, disabling
 caching by default, sending lots of cookies were they are are not
@@ -143,7 +143,7 @@ many other issues or troubles with HTTP/1.x.</p>
 new layer of complexity without removing any of the old complexity
 from the protocol.</p>
 <p>My conclusion is that HTTP/2.0 is really just a grandiose name for
-HTTP/1.2:  An attempt to smoothe out some sharp corners, to save a
+HTTP/1.2:  An attempt to smooth out some sharp corners, to save a
 bit of bandwidth, but not get anywhere near all the architectural
 problems of HTTP/1.1 and to preserve faithfully its heritage of
 badly thought out sedimentary hacks.</p>
@@ -164,7 +164,7 @@ densities, because they are the focal point of DoS mitigation, flash
 mobs and special event traffic spikes.</p>
 <p>In the time frame where HTTP/2.0 will become standardized, HTTP
 routers will routinely deal with 40Gbit/s traffic and people will
-start to arcitect for 1Tbit/s traffic.</p>
+start to architect for 1Tbit/s traffic.</p>
 <p>HTTP routers are usually only interested in a small part of the
 HTTP request and barely in the response at all, usually only the
 status code.</p>
@@ -215,7 +215,7 @@ the SPDY protocol, many ways in which the client can make the server
 expend resources, and foresee a lot of complexity in implementing
 the server side to mitigate and deflect malicious traffic.</p>
 <p>Server Push breaks the HTTP transaction model, and opens a pile of
-cans of security and privacy issues, which whould not be sneaked
+cans of security and privacy issues, which would not be sneaked
 in during the design of a transport-encoding for HTTP/1+ traffic,
 but rather be standardized as an independent and well analysed
 extension to HTTP in general.</p>
@@ -223,7 +223,7 @@ extension to HTTP in general.</p>
 <div class="section" id="http-speed-mobility">
 <h2>HTTP Speed+Mobility<a class="headerlink" href="#http-speed-mobility" title="Permalink to this headline">¶</a></h2>
 <p>Is really just SPDY with WebSockets underneath.</p>
-<p>I'm really not sure I see any benefit to that, execept that the
+<p>I'm really not sure I see any benefit to that, except that the
 encoding chosen is marginally more efficient to implement in
 hardware than SPDY.</p>
 <p>I have not understood why it has &quot;mobility&quot; in the name, a word
@@ -253,7 +253,7 @@ earn the name HTTP/2.0.</p>
 <p>Overall, I don't see any of the three proposals offer anything that
 will make the majority of web-sites go &quot;Ohh we've been waiting for
 that!&quot;</p>
-<p>Bigger sites will be entised by small bandwidth savings, but the
+<p>Bigger sites will be enticed by small bandwidth savings, but the
 majority of the HTTP users will see scant or no net positive benefit
 if one or more of these three proposals were to become HTTP/2.0</p>
 <p>Considering how sketchy the HTTP/1.1 interop is described it is hard
@@ -351,7 +351,7 @@ people will start to use, the Varnish project will be interested.</p>
         <li class="right" >
           <a href="spdy.html" title="What SPDY did to my summer vacation"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
       </ul>
     </div>

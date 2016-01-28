@@ -41,24 +41,17 @@
 
 #include "cache.h"
 
-/*The constability of lck depends on platform pthreads implementation */
-
 struct ilck {
 	unsigned		magic;
 #define ILCK_MAGIC		0x7b86c8a5
-	pthread_mutex_t		mtx;
 	int			held;
+	pthread_mutex_t		mtx;
 	pthread_t		owner;
-	VTAILQ_ENTRY(ilck)	list;
 	const char		*w;
 	struct VSC_C_lck	*stat;
 };
 
 static pthread_mutexattr_t attr;
-
-static VTAILQ_HEAD(, ilck)	ilck_head = VTAILQ_HEAD_INITIALIZER(ilck_head);
-
-static pthread_mutex_t		lck_mtx;
 
 /*--------------------------------------------------------------------*/
 
@@ -219,6 +212,7 @@ Lck__New(struct lock *lck, struct VSC_C_lck *st, const char *w)
 	struct ilck *ilck;
 
 	AN(st);
+	AN(w);
 	AZ(lck->priv);
 	ALLOC_OBJ(ilck, ILCK_MAGIC);
 	AN(ilck);
@@ -226,9 +220,6 @@ Lck__New(struct lock *lck, struct VSC_C_lck *st, const char *w)
 	ilck->stat = st;
 	ilck->stat->creat++;
 	AZ(pthread_mutex_init(&ilck->mtx, &attr));
-	AZ(pthread_mutex_lock(&lck_mtx));
-	VTAILQ_INSERT_TAIL(&ilck_head, ilck, list);
-	AZ(pthread_mutex_unlock(&lck_mtx));
 	lck->priv = ilck;
 }
 
@@ -240,11 +231,15 @@ Lck_Delete(struct lock *lck)
 	CAST_OBJ_NOTNULL(ilck, lck->priv, ILCK_MAGIC);
 	ilck->stat->destroy++;
 	lck->priv = NULL;
-	AZ(pthread_mutex_lock(&lck_mtx));
-	VTAILQ_REMOVE(&ilck_head, ilck, list);
-	AZ(pthread_mutex_unlock(&lck_mtx));
 	AZ(pthread_mutex_destroy(&ilck->mtx));
 	FREE_OBJ(ilck);
+}
+
+struct VSC_C_lck *
+Lck_CreateClass(const char *name)
+{
+	return(VSM_Alloc(sizeof(struct VSC_C_lck),
+	   VSC_CLASS, VSC_type_lck, name));
 }
 
 #define LOCK(nam) struct VSC_C_lck *lck_##nam;
@@ -259,10 +254,7 @@ LCK_Init(void)
 #if !defined(__APPLE__) && !defined(__MACH__)
 	AZ(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK));
 #endif
-	AZ(pthread_mutex_init(&lck_mtx, &attr));
-#define LOCK(nam)						\
-	lck_##nam = VSM_Alloc(sizeof(struct VSC_C_lck),		\
-	   VSC_CLASS, VSC_type_lck, #nam);
+#define LOCK(nam)	lck_##nam = Lck_CreateClass(#nam);
 #include "tbl/locks.h"
 #undef LOCK
 }

@@ -73,7 +73,7 @@ cnt_vdp(struct req *req, struct busyobj *bo)
 		else
 			sendbody = 0;
 	} else if (status < 200 || status == 204 || status == 304) {
-		req->resp_len = 0;
+		req->resp_len = -1;
 		sendbody = 0;
 	} else
 		sendbody = 1;
@@ -129,8 +129,12 @@ cnt_deliver(struct worker *wrk, struct req *req)
 		EXP_Touch(req->objcore, req->t_prev);
 
 	HTTP_Setup(req->resp, req->ws, req->vsl, SLT_RespMethod);
-	AZ(HTTP_Decode(req->resp,
-	    ObjGetattr(req->wrk, req->objcore, OA_HEADERS, NULL)));
+	if (HTTP_Decode(req->resp,
+	    ObjGetattr(req->wrk, req->objcore, OA_HEADERS, NULL))) {
+		req->err_code = 500;
+		req->req_step = R_STP_SYNTH;
+		return (REQ_FSM_MORE);
+	}
 	http_ForceField(req->resp, HTTP_HDR_PROTO, "HTTP/1.1");
 
 	if (req->is_hit)
@@ -205,18 +209,19 @@ cnt_deliver(struct worker *wrk, struct req *req)
 
 	cnt_vdp(req, bo);
 
-	if (bo != NULL)
-		VBO_DerefBusyObj(wrk, &bo);
-
 	VSLb_ts_req(req, "Resp", W_TIM_real(wrk));
 
 	if (http_HdrIs(req->resp, H_Connection, "close"))
 		req->doclose = SC_RESP_CLOSE;
 
-	if ((req->objcore->flags & OC_F_PASS) && bo != NULL) {
-		VBO_waitstate(bo, BOS_FINISHED);
+	if (req->objcore->flags & (OC_F_PRIVATE | OC_F_PASS)) {
+		if (bo != NULL)
+			VBO_waitstate(bo, BOS_FINISHED);
 		ObjSlim(wrk, req->objcore);
 	}
+
+	if (bo != NULL)
+		VBO_DerefBusyObj(wrk, &bo);
 
 	(void)HSH_DerefObjCore(wrk, &req->objcore);
 	http_Teardown(req->resp);
@@ -399,12 +404,17 @@ cnt_lookup(struct worker *wrk, struct req *req)
 	AZ(oc->flags & OC_F_BUSY);
 	req->objcore = oc;
 
-	if (oc->flags & OC_F_PASS) {
+	if ((oc->flags & OC_F_PASS) && boc != NULL) {
+		/* Treat a graced Hit-For-Pass as a miss */
+		req->objcore = boc;
+		req->stale_oc = oc;
+		req->req_step = R_STP_MISS;
+		return (REQ_FSM_MORE);
+	} else if (oc->flags & OC_F_PASS) {
 		/* Found a hit-for-pass */
 		VSLb(req->vsl, SLT_Debug, "XXXX HIT-FOR-PASS");
 		VSLb(req->vsl, SLT_HitPass, "%u",
 		    ObjGetXID(wrk, req->objcore));
-		AZ(boc);
 		(void)HSH_DerefObjCore(wrk, &req->objcore);
 		wrk->stats->cache_hitpass++;
 		req->req_step = R_STP_PASS;
@@ -444,7 +454,7 @@ cnt_lookup(struct worker *wrk, struct req *req)
 			 * like a pass
 			 */
 			VSLb(req->vsl, SLT_VCL_Error,
-			    "vcl_hit{} returns fetch without busy object."
+			    "vcl_hit{} returns miss without busy object."
 			    "  Doing pass.");
 			req->req_step = R_STP_PASS;
 		}
@@ -493,9 +503,9 @@ cnt_miss(struct worker *wrk, struct req *req)
 	case VCL_RET_FETCH:
 		wrk->stats->cache_miss++;
 		VBF_Fetch(wrk, req, req->objcore, req->stale_oc, VBF_NORMAL);
-		req->req_step = R_STP_FETCH;
 		if (req->stale_oc != NULL)
 			(void)HSH_DerefObjCore(wrk, &req->stale_oc);
+		req->req_step = R_STP_FETCH;
 		return (REQ_FSM_MORE);
 	case VCL_RET_SYNTH:
 		req->req_step = R_STP_SYNTH;

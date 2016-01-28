@@ -178,11 +178,8 @@ VRB_Free(struct req *req)
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 
-	if (req->body_oc != NULL) {
-		ObjFreeObj(req->wrk, req->body_oc);
-		FREE_OBJ(req->body_oc);
-		req->body_oc = NULL;
-	}
+	if (req->body_oc != NULL)
+		AZ(HSH_DerefObjCore(req->wrk, &req->body_oc));
 }
 
 /*----------------------------------------------------------------------
@@ -228,7 +225,7 @@ VRB_Cache(struct req *req, ssize_t maxsize)
 		return (-1);
 	}
 
-	req->body_oc = HSH_NewObjCore(req->wrk);
+	req->body_oc = HSH_Private(req->wrk);
 	AN(req->body_oc);
 	XXXAN(STV_NewObject(req->body_oc, req->wrk, TRANSIENT_STORAGE, 8));
 
@@ -271,6 +268,12 @@ VRB_Cache(struct req *req, ssize_t maxsize)
 
 	} while (vfps == VFP_OK);
 	VFP_Close(vfc);
+	ObjTrimStore(req->wrk, req->body_oc);
+
+	/* XXX: check missing:
+	    if (req->htc->content_length >= 0)
+		MUSTBE (req->req_bodybytes == req->htc->content_length);
+	*/
 
 	if (vfps == VFP_END) {
 		assert(req->req_bodybytes >= 0);

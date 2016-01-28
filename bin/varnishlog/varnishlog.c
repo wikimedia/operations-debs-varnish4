@@ -110,6 +110,12 @@ flushout(void)
 	return (0);
 }
 
+static int __match_proto__(VUT_cb_f)
+sighup(void)
+{
+	return (1);
+}
+
 int
 main(int argc, char * const *argv)
 {
@@ -145,15 +151,20 @@ main(int argc, char * const *argv)
 	if (optind != argc)
 		usage(1);
 
+	if (VUT.D_opt && !LOG.w_arg)
+		VUT_Error(1, "Missing -w option");
+
 	/* Setup output */
 	if (LOG.A_opt || !LOG.w_arg)
 		VUT.dispatch_f = VSL_PrintTransactions;
 	else
 		VUT.dispatch_f = VSL_WriteTransactions;
+	VUT.sighup_f = sighup;
 	if (LOG.w_arg) {
 		openout(LOG.a_opt);
 		AN(LOG.fo);
-		VUT.sighup_f = rotateout;
+		if (VUT.D_opt)
+			VUT.sighup_f = rotateout;
 	} else
 		LOG.fo = stdout;
 	VUT.idle_f = flushout;

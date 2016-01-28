@@ -197,6 +197,9 @@ pan_objcore(struct vsb *vsb, const char *typ, const struct objcore *oc)
 	VSB_indent(vsb, 2);
 	VSB_printf(vsb, "refcnt = %d,\n", oc->refcnt);
 	VSB_printf(vsb, "flags = 0x%x,\n", oc->flags);
+	VSB_printf(vsb, "exp_flags = 0x%x,\n", oc->exp_flags);
+	VSB_printf(vsb, "exp = { %f, %f, %f, %f }\n",
+	    oc->exp.t_origin, oc->exp.ttl, oc->exp.grace, oc->exp.keep);
 	VSB_printf(vsb, "objhead = %p,\n", oc->objhead);
 	VSB_printf(vsb, "stevedore = %p", oc->stobj->stevedore);
 	if (oc->stobj->stevedore != NULL) {
@@ -526,7 +529,7 @@ pan_ic(const char *func, const char *file, int line, const char *cond,
 		}
 	}
 	VSB_printf(pan_vsb, "\n");
-	VSB_bcat(pan_vsb, "", 1);	/* NUL termination */
+	VSB_putc(pan_vsb, '\0');	/* NUL termination */
 
 	if (FEATURE(FEATURE_NO_COREDUMP))
 		exit(4);

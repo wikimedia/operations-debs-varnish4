@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnish-cli &mdash; Varnish version 4.1.0 documentation</title>
+    <title>varnish-cli &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishadm" href="varnishadm.html" />
     <link rel="prev" title="Varnish Processing States" href="states.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -146,6 +146,9 @@ be entered with the \xnn syntax.</p>
 <dd>List all loaded configuration.</dd>
 <dt>vcl.show [-v] &lt;configname&gt;</dt>
 <dd>Display the source code for the specified configuration.</dd>
+<dt>vcl.state &lt;configname&gt; &lt;state&gt;</dt>
+<dd>Force the state of the specified configuration.
+State is any of auto, warm or cold values.</dd>
 <dt>param.show [-l] [&lt;param&gt;]</dt>
 <dd>Show parameters and their values.</dd>
 <dt>param.set &lt;param&gt; &lt;value&gt;</dt>
@@ -153,7 +156,7 @@ be entered with the \xnn syntax.</p>
 <dt>panic.show</dt>
 <dd>Return the last panic, if any.</dd>
 <dt>panic.clear [-z]</dt>
-<dd>Clear the last panic, if any.</dd>
+<dd>Clear the last panic, if any. -z will clear related varnishstat counter(s).</dd>
 <dt>storage.list</dt>
 <dd>List storage devices.</dd>
 <dt>backend.list [-p] [&lt;backend_expression&gt;]</dt>
@@ -173,6 +176,12 @@ State is any of auto, healthy or sick values.</dd>
 name, IP address and port in &quot;name(IP address:port)&quot; format. All fields
 are optional. If no exact matching backend is found, partial matching
 will be attempted based on the provided name, IP address and port fields.</p>
+<p>Examples:</p>
+<div class="highlight-python"><pre>backend.list def*
+backend.set_health default sick
+backend.set_health def* healthy
+backend.set_health * auto</pre>
+</div>
 </div>
 <div class="section" id="ban-expressions">
 <h4>Ban Expressions<a class="headerlink" href="#ban-expressions" title="Permalink to this headline">¶</a></h4>
@@ -295,26 +304,18 @@ the backend contains &quot;USERID=1663&quot;:</p>
 <div class="highlight-python"><pre>req.http.host ~ "^(?i)(www\.)example.com$" &amp;&amp; obj.http.set-cookie ~ "USERID=1663"</pre>
 </div>
 </div>
+<div class="section" id="authors">
+<h3>AUTHORS<a class="headerlink" href="#authors" title="Permalink to this headline">¶</a></h3>
+<p>This manual page was originally written by Per Buer and later modified by
+Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and Poul-Henning
+Kamp.</p>
+</div>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="varnishd.html#varnishd-1"><em>varnishd</em></a></li>
 <li><a class="reference internal" href="varnishadm.html#varnishadm-1"><em>varnishadm</em></a></li>
+<li><a class="reference internal" href="varnishd.html#varnishd-1"><em>varnishd</em></a></li>
 <li><a class="reference internal" href="vcl.html#vcl-7"><em>VCL</em></a></li>
-</ul>
-</div>
-<div class="section" id="history">
-<h3>HISTORY<a class="headerlink" href="#history" title="Permalink to this headline">¶</a></h3>
-<p>The Varnish manual page was written by Per Buer in 2011. Some of the
-text was taken from the Varnish Cache wiki, the <a class="reference internal" href="varnishd.html#varnishd-1"><em>varnishd</em></a> man
-page or the Varnish source code.</p>
-</div>
-<div class="section" id="copyright">
-<h3>COPYRIGHT<a class="headerlink" href="#copyright" title="Permalink to this headline">¶</a></h3>
-<p>This document is licensed under the same licence as Varnish
-itself. See LICENCE for details.</p>
-<ul class="simple">
-<li>Copyright (c) 2011-2015 Varnish Software AS</li>
 </ul>
 </div>
 </div>
@@ -341,9 +342,8 @@ itself. See LICENCE for details.</p>
 </ul>
 </li>
 <li><a class="reference internal" href="#examples">EXAMPLES</a></li>
+<li><a class="reference internal" href="#authors">AUTHORS</a></li>
 <li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
-<li><a class="reference internal" href="#history">HISTORY</a></li>
-<li><a class="reference internal" href="#copyright">COPYRIGHT</a></li>
 </ul>
 </li>
 </ul>
@@ -390,7 +390,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

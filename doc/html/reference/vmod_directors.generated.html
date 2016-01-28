@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>vmod_directors &mdash; Varnish version 4.1.0 documentation</title>
+    <title>vmod_directors &mdash; Varnish version 4.1.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.0',
+        VERSION:     '4.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.0 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Writing a Director" href="directors.html" />
     <link rel="prev" title="vmod_std" href="vmod_std.generated.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vmod_std.generated.html" title="vmod_std"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -97,15 +97,19 @@ add more backends to a director when a certain URL is called.</p>
 <li><a class="reference internal" href="#obj-fallback"><em>Object fallback</em></a></li>
 <li><a class="reference internal" href="#func-fallback-add-backend"><em>VOID fallback.add_backend(BACKEND)</em></a></li>
 <li><a class="reference internal" href="#func-fallback-backend"><em>BACKEND fallback.backend()</em></a></li>
+<li><a class="reference internal" href="#func-fallback-remove-backend"><em>VOID fallback.remove_backend(BACKEND)</em></a></li>
 <li><a class="reference internal" href="#obj-hash"><em>Object hash</em></a></li>
 <li><a class="reference internal" href="#func-hash-add-backend"><em>VOID hash.add_backend(BACKEND, REAL)</em></a></li>
 <li><a class="reference internal" href="#func-hash-backend"><em>BACKEND hash.backend(STRING_LIST)</em></a></li>
+<li><a class="reference internal" href="#func-hash-remove-backend"><em>VOID hash.remove_backend(BACKEND)</em></a></li>
 <li><a class="reference internal" href="#obj-random"><em>Object random</em></a></li>
 <li><a class="reference internal" href="#func-random-add-backend"><em>VOID random.add_backend(BACKEND, REAL)</em></a></li>
 <li><a class="reference internal" href="#func-random-backend"><em>BACKEND random.backend()</em></a></li>
+<li><a class="reference internal" href="#func-random-remove-backend"><em>VOID random.remove_backend(BACKEND)</em></a></li>
 <li><a class="reference internal" href="#obj-round-robin"><em>Object round_robin</em></a></li>
 <li><a class="reference internal" href="#func-round-robin-add-backend"><em>VOID round_robin.add_backend(BACKEND)</em></a></li>
 <li><a class="reference internal" href="#func-round-robin-backend"><em>BACKEND round_robin.backend()</em></a></li>
+<li><a class="reference internal" href="#func-round-robin-remove-backend"><em>VOID round_robin.remove_backend(BACKEND)</em></a></li>
 </ul>
 </div>
 <div class="section" id="object-round-robin">
@@ -128,6 +132,18 @@ add more backends to a director when a certain URL is called.</p>
 <dt>Example</dt>
 <dd>vdir.add_backend(backend1);
 vdir.add_backend(backend2);</dd>
+</dl>
+</div>
+<div class="section" id="void-round-robin-remove-backend-backend">
+<span id="func-round-robin-remove-backend"></span><h4>VOID round_robin.remove_backend(BACKEND)<a class="headerlink" href="#void-round-robin-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>VOID round_robin.remove_backend(BACKEND)</dd>
+<dt>Description</dt>
+<dd>Remove a backend from the round-robin director.</dd>
+<dt>Example</dt>
+<dd>vdir.remove_backend(backend1);
+vdir.remove_backend(backend2);</dd>
 </dl>
 </div>
 <div class="section" id="backend-round-robin-backend">
@@ -168,6 +184,18 @@ director.</p>
 vdir.add_backend(backend2);</dd>
 </dl>
 </div>
+<div class="section" id="void-fallback-remove-backend-backend">
+<span id="func-fallback-remove-backend"></span><h4>VOID fallback.remove_backend(BACKEND)<a class="headerlink" href="#void-fallback-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>VOID fallback.remove_backend(BACKEND)</dd>
+<dt>Description</dt>
+<dd>Remove a backend from the director.</dd>
+<dt>Example</dt>
+<dd>vdir.remove_backend(backend1);
+vdir.remove_backend(backend2);</dd>
+</dl>
+</div>
 <div class="section" id="backend-fallback-backend">
 <span id="func-fallback-backend"></span><h4>BACKEND fallback.backend()<a class="headerlink" href="#backend-fallback-backend" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
@@ -203,9 +231,21 @@ a weighted random probability distribution.</p>
 to this director.</p>
 </dd>
 <dt>Example</dt>
-<dd>vdir.add_backend(backend1, 10.0);
-vdir.add_backend(backend2, 5.0);
-# 2/3 to backend1, 1/3 to backend2.</dd>
+<dd># 2/3 to backend1, 1/3 to backend2.
+vdir.add_backend(backend1, 10.0);
+vdir.add_backend(backend2, 5.0);</dd>
+</dl>
+</div>
+<div class="section" id="void-random-remove-backend-backend">
+<span id="func-random-remove-backend"></span><h4>VOID random.remove_backend(BACKEND)<a class="headerlink" href="#void-random-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>VOID random.remove_backend(BACKEND)</dd>
+<dt>Description</dt>
+<dd>Remove a backend from the director.</dd>
+<dt>Example</dt>
+<dd>vdir.remove_backend(backend1);
+vdir.remove_backend(backend2);</dd>
 </dl>
 </div>
 <div class="section" id="backend-random-backend">
@@ -225,9 +265,9 @@ vdir.add_backend(backend2, 5.0);
 <dl class="docutils">
 <dt>Description</dt>
 <dd><p class="first">Create a hashing backend director.</p>
-<p>The director chooses the backend server by computing a hash/digest of
-the string given to .backend().</p>
-<p class="last">Commonly used with <tt class="docutils literal"><span class="pre">client.identity</span></tt> or a session cookie to get
+<p>The director chooses the backend server by computing a hash/digest
+of the string given to .backend().</p>
+<p class="last">Commonly used with <tt class="docutils literal"><span class="pre">client.ip</span></tt> or a session cookie to get
 sticky sessions.</p>
 </dd>
 <dt>Example</dt>
@@ -248,6 +288,18 @@ sticky sessions.</p>
 vdir.add_backend(backend2, 1.0);</dd>
 </dl>
 </div>
+<div class="section" id="void-hash-remove-backend-backend">
+<span id="func-hash-remove-backend"></span><h4>VOID hash.remove_backend(BACKEND)<a class="headerlink" href="#void-hash-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<dl class="docutils">
+<dt>Prototype</dt>
+<dd>VOID hash.remove_backend(BACKEND)</dd>
+<dt>Description</dt>
+<dd>Remove a backend from the director.</dd>
+<dt>Example</dt>
+<dd>vdir.remove_backend(backend1);
+vdir.remove_backend(backend2);</dd>
+</dl>
+</div>
 <div class="section" id="backend-hash-backend-string-list">
 <span id="func-hash-backend"></span><h4>BACKEND hash.backend(STRING_LIST)<a class="headerlink" href="#backend-hash-backend-string-list" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
@@ -262,6 +314,14 @@ vdir.add_backend(backend2, 1.0);</dd>
 set req.backend_hint = vdir.backend(req.http.cookie);</dd>
 </dl>
 </div>
+</div>
+<div class="section" id="copyright">
+<h3>COPYRIGHT<a class="headerlink" href="#copyright" title="Permalink to this headline">¶</a></h3>
+<p>This document is licensed under the same licence as Varnish
+itself. See LICENCE for details.</p>
+<ul class="simple">
+<li>Copyright (c) 2013-2015 Varnish Software AS</li>
+</ul>
 </div>
 </div>
 </div>
@@ -281,24 +341,29 @@ set req.backend_hint = vdir.backend(req.http.cookie);</dd>
 <li><a class="reference internal" href="#contents">CONTENTS</a></li>
 <li><a class="reference internal" href="#object-round-robin">Object round_robin</a><ul>
 <li><a class="reference internal" href="#void-round-robin-add-backend-backend">VOID round_robin.add_backend(BACKEND)</a></li>
+<li><a class="reference internal" href="#void-round-robin-remove-backend-backend">VOID round_robin.remove_backend(BACKEND)</a></li>
 <li><a class="reference internal" href="#backend-round-robin-backend">BACKEND round_robin.backend()</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#object-fallback">Object fallback</a><ul>
 <li><a class="reference internal" href="#void-fallback-add-backend-backend">VOID fallback.add_backend(BACKEND)</a></li>
+<li><a class="reference internal" href="#void-fallback-remove-backend-backend">VOID fallback.remove_backend(BACKEND)</a></li>
 <li><a class="reference internal" href="#backend-fallback-backend">BACKEND fallback.backend()</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#object-random">Object random</a><ul>
 <li><a class="reference internal" href="#void-random-add-backend-backend-real">VOID random.add_backend(BACKEND, REAL)</a></li>
+<li><a class="reference internal" href="#void-random-remove-backend-backend">VOID random.remove_backend(BACKEND)</a></li>
 <li><a class="reference internal" href="#backend-random-backend">BACKEND random.backend()</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#object-hash">Object hash</a><ul>
 <li><a class="reference internal" href="#void-hash-add-backend-backend-real">VOID hash.add_backend(BACKEND, REAL)</a></li>
+<li><a class="reference internal" href="#void-hash-remove-backend-backend">VOID hash.remove_backend(BACKEND)</a></li>
 <li><a class="reference internal" href="#backend-hash-backend-string-list">BACKEND hash.backend(STRING_LIST)</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#copyright">COPYRIGHT</a></li>
 </ul>
 </li>
 </ul>
@@ -345,7 +410,7 @@ set req.backend_hint = vdir.backend(req.http.cookie);</dd>
         <li class="right" >
           <a href="vmod_std.generated.html" title="vmod_std"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.0 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

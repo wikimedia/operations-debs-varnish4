@@ -107,8 +107,8 @@ Description
 	request so probably want to set it on every request should you
 	utilize it.
 Example
-	| if (req.url ~ ^/slow/) {
-	|	std.set_ip_tos(0x0);
+	| if (req.url ~ "^/slow/") {
+	|	std.set_ip_tos(0);
 	| }
 
 .. _func_random:
@@ -406,7 +406,7 @@ Description
 	Note that the comparison is case sensitive.
 Example
 	| if (std.strstr(req.url, req.http.restrict)) {
-	|     ...
+	|	...
 	| }
 
 	This will check if the content of req.http.restrict occurs
@@ -434,15 +434,15 @@ Description
 	| "784111777"
 Example
 	| if (std.time(resp.http.last-modified, now) < now - 1w) {
-	|     ...
+	|	...
 	| }
 
 
 SEE ALSO
 ========
 
-* :ref:`vsl(7)`
 * :ref:`varnishd(1)`
+* :ref:`vsl(7)`
 
 HISTORY
 =======
@@ -456,3 +456,5 @@ COPYRIGHT
 
 This document is licensed under the same licence as Varnish
 itself. See LICENCE for details.
+
+* Copyright (c) 2010-2015 Varnish Software AS

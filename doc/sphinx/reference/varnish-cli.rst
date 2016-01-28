@@ -119,6 +119,10 @@ vcl.list
 vcl.show [-v] <configname>
   Display the source code for the specified configuration.
 
+vcl.state <configname> <state>
+  Force the state of the specified configuration.
+  State is any of auto, warm or cold values.
+
 param.show [-l] [<param>]
   Show parameters and their values.
 
@@ -129,7 +133,7 @@ panic.show
   Return the last panic, if any.
 
 panic.clear [-z]
-  Clear the last panic, if any.
+  Clear the last panic, if any. -z will clear related varnishstat counter(s).
 
 storage.list
   List storage devices.
@@ -154,6 +158,14 @@ A backend expression can be a backend name or a combination of backend
 name, IP address and port in "name(IP address:port)" format. All fields
 are optional. If no exact matching backend is found, partial matching
 will be attempted based on the provided name, IP address and port fields.
+
+Examples::
+
+   backend.list def*
+   backend.set_health default sick
+   backend.set_health def* healthy
+   backend.set_health * auto
+
 
 Ban Expressions
 ---------------
@@ -301,24 +313,16 @@ the backend contains "USERID=1663"::
 
     req.http.host ~ "^(?i)(www\.)example.com$" && obj.http.set-cookie ~ "USERID=1663"
 
+AUTHORS
+=======
+
+This manual page was originally written by Per Buer and later modified by
+Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and Poul-Henning
+Kamp.
+
 SEE ALSO
 ========
 
-* :ref:`varnishd(1)`
 * :ref:`varnishadm(1)`
+* :ref:`varnishd(1)`
 * :ref:`vcl(7)`
-
-HISTORY
-=======
-
-The Varnish manual page was written by Per Buer in 2011. Some of the
-text was taken from the Varnish Cache wiki, the :ref:`varnishd(1)` man
-page or the Varnish source code.
-
-COPYRIGHT
-=========
-
-This document is licensed under the same licence as Varnish
-itself. See LICENCE for details.
-
-* Copyright (c) 2011-2015 Varnish Software AS

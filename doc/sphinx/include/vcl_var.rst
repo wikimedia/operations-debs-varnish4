@@ -433,7 +433,7 @@ now
 
 	Type: TIME
 
-	Readable from: vcl_all
+	Readable from: all
 
 	
 	The current time, in seconds since the epoch. When
@@ -786,7 +786,7 @@ resp
 	Readable from: vcl_deliver, vcl_synth
 
 	
-	The entire response HTTP data structure
+	The entire response HTTP data structure.
 	
 
 resp.http.
@@ -847,6 +847,9 @@ resp.status
 	
 	The HTTP status code that will be returned.
 	
+	Assigning a HTTP standardized code to resp.status will also
+	set resp.reason to the corresponding status message.
+	
 
 server
 ~~~~~~
@@ -855,7 +858,7 @@ server.hostname
 
 	Type: STRING
 
-	Readable from: vcl_all
+	Readable from: all
 
 	
 	The host name of the server.
@@ -865,7 +868,7 @@ server.identity
 
 	Type: STRING
 
-	Readable from: vcl_all
+	Readable from: all
 
 	
 	The identity of the server, as set by the -i

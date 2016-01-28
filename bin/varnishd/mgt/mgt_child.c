@@ -45,7 +45,6 @@
 
 #include "mgt/mgt.h"
 #include "common/heritage.h"
-#include "common/params.h"
 
 #include "vbm.h"
 #include "vcli.h"
@@ -87,20 +86,6 @@ static struct vlu	*child_std_vlu;
 static struct vsb *child_panic = NULL;
 static double mgt_uptime_t0 = 0.;
 
-/* XXX: Doesn't really belong here, but only place we use it */
-static inline int
-MGT_FEATURE(enum feature_bits x)
-{
-	return (mgt_param.feature_bits[(unsigned)x>>3] &
-	    (0x80U >> ((unsigned)x & 7)));
-}
-static inline int
-MGT_DO_DEBUG(enum debug_bits x)
-{
-	return (mgt_param.debug_bits[(unsigned)x>>3] &
-	    (0x80U >> ((unsigned)x & 7)));
-}
-
 static void mgt_reap_child(void);
 
 /*---------------------------------------------------------------------
@@ -125,18 +110,18 @@ mgt_panic_record(pid_t r)
 {
 	char time_str[30];
 
-	AN(heritage.panic_str[0]);
-	REPORT(LOG_ERR, "Child (%jd) Panic message:\n%s",
-	    (intmax_t)r, heritage.panic_str);
-
 	if (child_panic != NULL)
 		VSB_delete(child_panic);
 	child_panic = VSB_new_auto();
 	AN(child_panic);
 	VTIM_format(VTIM_real(), time_str);
 	VSB_printf(child_panic, "Last panic at: %s\n", time_str);
-	VSB_cat(child_panic, heritage.panic_str);
+	VSB_quote(child_panic, heritage.panic_str,
+	    strnlen(heritage.panic_str, heritage.panic_str_len),
+	    VSB_QUOTE_NONL);
 	AZ(VSB_finish(child_panic));
+	MGT_complain(C_ERR, "Child (%jd) %s",
+	    (intmax_t)r, VSB_data(child_panic));
 }
 
 static void
@@ -239,7 +224,7 @@ child_line(void *priv, const char *p)
 {
 	(void)priv;
 
-	REPORT(LOG_NOTICE, "Child (%jd) said %s", (intmax_t)child_pid, p);
+	MGT_complain(C_INFO, "Child (%jd) said %s", (intmax_t)child_pid, p);
 	return (0);
 }
 
@@ -322,7 +307,7 @@ mgt_launch_child(struct cli *cli)
 			VCLI_SetResult(cli, CLIS_CANT);
 			return;
 		}
-		REPORT0(LOG_ERR,
+		MGT_complain(C_ERR,
 		    "Child start failed: could not open sockets");
 		return;
 	}
@@ -396,7 +381,7 @@ mgt_launch_child(struct cli *cli)
 		exit(0);
 	}
 	assert(pid > 1);
-	REPORT(LOG_NOTICE, "child (%jd) Started", (intmax_t)pid);
+	MGT_complain(C_DEBUG, "Child (%jd) Started", (intmax_t)pid);
 	VSC_C_mgt->child_start = ++static_VSC_C_mgt.child_start;
 
 	/* Close stuff the child got */
@@ -433,8 +418,10 @@ mgt_launch_child(struct cli *cli)
 
 	mgt_cli_start_child(child_cli_in, child_cli_out);
 	child_pid = pid;
-	if (mgt_push_vcls_and_start(&u, &p)) {
-		REPORT(LOG_ERR, "Pushing vcls failed:\n%s", p);
+	if (mgt_push_vcls_and_start(cli, &u, &p)) {
+		VCLI_SetResult(cli, u);
+		MGT_complain(C_ERR, "Child (%jd) Pushing vcls failed:\n%s",
+		    (intmax_t)child_pid, p);
 		free(p);
 		child_state = CH_RUNNING;
 		mgt_stop_child();
@@ -504,7 +491,8 @@ mgt_reap_child(void)
 	/* Compose obituary */
 	vsb = VSB_new_auto();
 	XXXAN(vsb);
-	VSB_printf(vsb, "Child (%ld) %s", (long)r, status ? "died" : "ended");
+	VSB_printf(vsb, "Child (%jd) %s", (intmax_t)r,
+	    status ? "died" : "ended");
 	if (WIFEXITED(status) && WEXITSTATUS(status)) {
 		VSB_printf(vsb, " status=%d", WEXITSTATUS(status));
 		exit_status |= 0x20;
@@ -526,7 +514,7 @@ mgt_reap_child(void)
 	}
 #endif
 	AZ(VSB_finish(vsb));
-	REPORT(LOG_INFO, "%s", VSB_data(vsb));
+	MGT_complain(status ? C_ERR : C_INFO, "%s", VSB_data(vsb));
 	VSB_delete(vsb);
 
 	/* Dispose of shared memory but evacuate panic messages first */
@@ -550,7 +538,7 @@ mgt_reap_child(void)
 
 	child_pid = -1;
 
-	REPORT0(LOG_DEBUG, "Child cleanup complete");
+	MGT_complain(C_DEBUG, "Child cleanup complete");
 
 	if (child_state == CH_DIED && mgt_param.auto_restart)
 		mgt_launch_child(NULL);
@@ -578,7 +566,7 @@ MGT_Child_Cli_Fail(void)
 		return;
 	if (child_pid < 0)
 		return;
-	REPORT(LOG_ERR, "Child (%jd) not responding to CLI, killing it.",
+	MGT_complain(C_ERR, "Child (%jd) not responding to CLI, killing it.",
 	    (intmax_t)child_pid);
 	if (MGT_FEATURE(FEATURE_NO_COREDUMP))
 		(void)kill(child_pid, SIGKILL);
@@ -601,7 +589,7 @@ mgt_stop_child(void)
 
 	child_state = CH_STOPPING;
 
-	REPORT0(LOG_DEBUG, "Stopping Child");
+	MGT_complain(C_DEBUG, "Stopping Child");
 
 	mgt_reap_child();
 }
@@ -648,7 +636,7 @@ mgt_sigint(const struct vev *e, int what)
 
 	(void)e;
 	(void)what;
-	REPORT0(LOG_ERR, "Manager got SIGINT");
+	MGT_complain(C_ERR, "Manager got SIGINT");
 	(void)fflush(stdout);
 	if (child_pid >= 0)
 		mgt_stop_child();
@@ -718,7 +706,7 @@ MGT_Run(void)
 	AZ(sigaction(SIGHUP, &sac, NULL));
 
 	if (!d_flag && !mgt_has_vcl())
-		REPORT0(LOG_ERR, "No VCL loaded yet");
+		MGT_complain(C_ERR, "No VCL loaded yet");
 	else if (!d_flag) {
 		mgt_launch_child(NULL);
 		if (child_state != CH_RUNNING) {
@@ -732,7 +720,7 @@ MGT_Run(void)
 
 	i = vev_schedule(mgt_evb);
 	if (i != 0)
-		REPORT(LOG_ERR, "vev_schedule() = %d", i);
+		MGT_complain(C_ERR, "vev_schedule() = %d", i);
 
-	REPORT0(LOG_ERR, "manager dies");
+	MGT_complain(C_INFO, "manager dies");
 }

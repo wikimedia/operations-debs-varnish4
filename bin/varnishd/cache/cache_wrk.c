@@ -44,7 +44,7 @@
 static void Pool_Work_Thread(struct pool *pp, struct worker *wrk);
 
 /*--------------------------------------------------------------------
- * Create and starte a back-ground thread which as its own worker and
+ * Create and start a back-ground thread which as its own worker and
  * session data structures;
  */
 
@@ -339,6 +339,8 @@ Pool_Work_Thread(struct pool *pp, struct worker *wrk)
 			memset(&wrk->task, 0, sizeof wrk->task);
 			assert(wrk->pool == pp);
 			tp->func(wrk, tp->priv);
+			if (DO_DEBUG(DBG_VCLREL) && wrk->vcl != NULL)
+				VCL_Rel(&wrk->vcl);
 			tpx = wrk->task;
 			tp = &tpx;
 		} while (tp->func != NULL);

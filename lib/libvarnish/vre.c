@@ -36,11 +36,13 @@
 
 #include "vre.h"
 
-#if defined(USE_PCRE_JIT) && PCRE_MAJOR == 8 && PCRE_MINOR >= 32
+#if defined(USE_PCRE_JIT)
 #define VRE_STUDY_JIT_COMPILE PCRE_STUDY_JIT_COMPILE
 #else
 #define VRE_STUDY_JIT_COMPILE 0
 #endif
+
+const unsigned VRE_has_jit = VRE_STUDY_JIT_COMPILE;
 
 #if PCRE_MAJOR < 8 || (PCRE_MAJOR == 8 && PCRE_MINOR < 20)
 #  define pcre_free_study pcre_free
