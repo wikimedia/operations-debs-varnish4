@@ -4,10 +4,11 @@ After=varnish.service
 
 [Service]
 Type=forking
-PIDFile=/run/varnishlog.pid
+PIDFile=/run/varnishlog/varnishlog.pid
+RuntimeDirectory=varnishlog
 User=varnishlog
 Group=varnish
-ExecStart=/usr/bin/varnishlog -a -w /var/log/varnish/varnish.log -D -P /run/varnishlog.pid
+ExecStart=/usr/bin/varnishlog -a -w /var/log/varnish/varnish.log -D -P /run/varnishlog/varnishlog.pid
 ExecReload=/bin/kill -HUP $MAINPID
 PrivateDevices=true
 PrivateNetwork=true
