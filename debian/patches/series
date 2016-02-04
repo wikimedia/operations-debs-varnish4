@@ -1,0 +1,4 @@
+0001-varnishd-persistent-addrarg.patch
+0002-varnishd-persistent-fallocate.patch
+0003-varnishd-nukelru.patch
+0004-varnishd-persistent-mmap-exit.patch

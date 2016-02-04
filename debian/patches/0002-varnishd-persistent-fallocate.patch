@@ -1,0 +1,49 @@
+From: Emanuele Rocca <ema@wikimedia.org>
+Date: Sat, 16 Jan 2016 14:23:44 +0100
+Subject: varnishd-persistent-fallocate
+
+---
+ bin/varnishd/storage/mgt_storage_persistent.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/bin/varnishd/storage/mgt_storage_persistent.c b/bin/varnishd/storage/mgt_storage_persistent.c
+index 31b17d3..9ea6047 100644
+--- a/bin/varnishd/storage/mgt_storage_persistent.c
++++ b/bin/varnishd/storage/mgt_storage_persistent.c
+@@ -36,6 +36,7 @@
+ #include "config.h"
+ 
+ #include <sys/mman.h>
++#include <fcntl.h>
+ 
+ #include <errno.h>
+ #include <math.h>
+@@ -174,6 +175,28 @@ smp_mgt_init(struct stevedore *parent, int ac, char * const *av)
+ 
+ 	AZ(ftruncate(sc->fd, sc->mediasize));
+ 
++#if defined __linux__ && defined HAVE_FALLOCATE
++	/* fallocate new persistent files on Linux.
++	 * Notes:
++	 *   1) posix_fallocate() silently does horrible things if the kernel/fs
++	 *      doesn't have native support, hence direct fallocate() below.
++	 *   2) XFS (but not ext4) has an odd behavior where it will fail with
++	 *      ENOSPC when fallocate() is called for a second time on the same
++	 *      large file (> half fs size) that was already fallocate()'d earlier.
++	 */
++	if(fallocate(sc->fd, 0, 0, sc->mediasize)) {
++		if(errno == ENOSYS || errno == EOPNOTSUPP)
++			 printf("Warning: (-spersistent): fallocate() not supported by kernel/fs for file %s\n", sc->filename);
++		else
++			ARGV_ERR("(-spersistent): fallocate() for file %s failed: %s\n",
++					sc->filename, strerror(errno));
++	}
++	else {
++		printf("(-spersistent): file %s fallocate()'d to size %lli\n",
++				sc->filename, (long long int)sc->mediasize);
++	}
++#endif
++
+ 	/* Try to determine correct mmap address */
+ 	i = read(sc->fd, &sgn, sizeof sgn);
+ 	assert(i == sizeof sgn);

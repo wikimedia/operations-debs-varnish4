@@ -1,0 +1,31 @@
+From: Emanuele Rocca <ema@wikimedia.org>
+Date: Sat, 16 Jan 2016 15:19:56 +0100
+Subject: varnishd-nukelru
+
+Log a message when EXP_NukeOne can't destroy an object.
+---
+ bin/varnishd/cache/cache_expire.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/bin/varnishd/cache/cache_expire.c b/bin/varnishd/cache/cache_expire.c
+index e74b328..0d30e09 100644
+--- a/bin/varnishd/cache/cache_expire.c
++++ b/bin/varnishd/cache/cache_expire.c
+@@ -33,6 +33,7 @@
+ #include "config.h"
+ 
+ #include <stdlib.h>
++#include <stdio.h>
+ 
+ #include "cache.h"
+ 
+@@ -376,7 +377,8 @@ EXP_NukeOne(struct worker *wrk, struct lru *lru)
+ 	exp_mail_it(oc);
+ 
+ 	VSLb(wrk->vsl, SLT_ExpKill, "LRU x=%u", ObjGetXID(wrk, oc));
+-	(void)HSH_DerefObjCore(wrk, &oc);
++	if (HSH_DerefObjCore(wrk, &oc) != 0)
++		printf("Could not destroy object %u in EXP_NukeOne\n", ObjGetXID(wrk, oc));
+ 	return (1);
+ }
+ 

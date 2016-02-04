@@ -1,3 +1,36 @@
+varnish (4.1.1-1wm1) jessie-wikimedia; urgency=medium
+
+  * Local package (WMF).
+  * Forward-port patches from varnish3 to varnish4:
+    - 0001-varnishd-persistent-addrarg.patch
+    - 0002-varnishd-persistent-fallocate.patch
+    - 0003-varnishd-nukelru.patch
+    - 0004-varnishd-persistent-mmap-exit.patch
+  * Drop patches included upstream in varnish4:
+    - varnishd-file-fallocate.patch
+      eb1ca9d710bbfbf0ab9306b6e9b2789bbcf15c1e
+    - varnishd-no-size-reduce.patch
+      29097215caf53e30e77ccdee17b9fe9317e722f8
+    - libvmod_std-collect.patch
+      6a9302c986762616288b612f261aa2d066bdc57c
+    - varnishd-cachehitmiss-ignore-purge.patch
+      Increment miss counter if wrk->handling == VCL_RET_FETCH
+      129be2f9a9dd213d977edd7002432dcad1348e30
+      Increment hit counter if wrk->handling in (VCL_RET_DELIVER,
+      VCL_RET_PASS)
+      06df39d48695b31e6ff2610f5fe687dd525f5671
+  * Drop patches not needed anymore. For the details, see
+    https://phabricator.wikimedia.org/T124277.
+    - varnishncsa-udplog.patch
+    - vcl_error-allow-keepalive.patch
+    - filter-headers.patch
+  * debian/rules: do not start varnishd on pkg install by passing --no-start
+    to dh_installinit
+  * debian/varnish.postrm: postrm compatibility with /var/lib/varnish as a
+    mountpoint
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Thu, 04 Feb 2016 18:47:44 +0100
+
 varnish (4.1.1-1) unstable; urgency=medium
 
   * Imported upstream release 4.1.1
