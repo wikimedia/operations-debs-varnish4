@@ -79,8 +79,8 @@ override_dh_installdocs:
 # Override to add several init scripts
 override_dh_installinit:
 	dh_installinit -a --no-start
-	dh_installinit --name=varnishlog
-	dh_installinit --name=varnishncsa
+	dh_installinit --name=varnishlog --no-start
+	dh_installinit --name=varnishncsa --no-start
 
 override_dh_compress:
 	dh_compress -X/usr/share/doc/varnish-doc/html

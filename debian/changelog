@@ -24,7 +24,7 @@ varnish (4.1.1-1wm1) jessie-wikimedia; urgency=medium
     - varnishncsa-udplog.patch
     - vcl_error-allow-keepalive.patch
     - filter-headers.patch
-  * debian/rules: do not start varnishd on pkg install by passing --no-start
+  * debian/rules: do not start services on pkg install by passing --no-start
     to dh_installinit
   * debian/varnish.postrm: postrm compatibility with /var/lib/varnish as a
     mountpoint
