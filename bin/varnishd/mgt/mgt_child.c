@@ -295,7 +295,7 @@ mgt_launch_child(struct cli *cli)
 	unsigned u;
 	char *p;
 	struct vev *e;
-	int i, cp[2];
+	int i, j, k, cp[2];
 	struct sigaction sa;
 
 	if (child_state != CH_STOPPED && child_state != CH_DIED)
@@ -351,13 +351,29 @@ mgt_launch_child(struct cli *cli)
 		assert(dup2(heritage.std_fd, STDOUT_FILENO) == STDOUT_FILENO);
 		assert(dup2(heritage.std_fd, STDERR_FILENO) == STDERR_FILENO);
 
-		/* Close anything we shouldn't know about */
+		/*
+		 * Close all FDs the child shouldn't know about
+		 *
+		 * We cannot just close these filedescriptors, some random
+		 * library routine might miss it later on and wantonly close
+		 * a FD we use at that point in time. (See bug #1841).
+		 * We close the FD and replace it with /dev/null instead,
+		 * That prevents security leakage, and gives the library
+		 * code a valid FD to close when it discovers the changed
+		 * circumstances.
+		 */
 		closelog();
 
 		for (i = STDERR_FILENO + 1; i < CLOSE_FD_UP_TO; i++) {
 			if (vbit_test(fd_map, i))
 				continue;
-			(void)(close(i) == 0);
+			if (close(i) == 0) {
+				k = open("/dev/null", O_RDONLY);
+				assert(k >= 0);
+				j = dup2(k, i);
+				assert(j == i);
+				AZ(close(k));
+			}
 		}
 #ifdef HAVE_SETPROCTITLE
 		setproctitle("Varnish-Chld %s", heritage.name);
@@ -437,9 +453,9 @@ static void
 mgt_reap_child(void)
 {
 	int i;
-	int status;
+	int status = 0xffff;
 	struct vsb *vsb;
-	pid_t r;
+	pid_t r = 0;
 
 	assert(child_pid != -1);
 
@@ -467,14 +483,20 @@ mgt_reap_child(void)
 		ev_listen = NULL;
 	}
 
-	/* Wait 10 seconds for child to die */
-	for (i = 0; i < 10; i++) {
+	/* Compose obituary */
+	vsb = VSB_new_auto();
+	XXXAN(vsb);
+
+	/* Wait for child to die */
+	for (i = 0; i < mgt_param.cli_timeout; i++) {
 		r = waitpid(child_pid, &status, WNOHANG);
 		if (r == child_pid)
 			break;
 		(void)sleep(1);
 	}
 	if (r == 0) {
+		VSB_printf(vsb, "Child (%jd) not dying, killing", (intmax_t)r);
+
 		/* Kick it Jim... */
 		if (MGT_FEATURE(FEATURE_NO_COREDUMP))
 			(void)kill(child_pid, SIGKILL);
@@ -488,9 +510,6 @@ mgt_reap_child(void)
 
 	MAC_reopen_sockets(NULL);
 
-	/* Compose obituary */
-	vsb = VSB_new_auto();
-	XXXAN(vsb);
 	VSB_printf(vsb, "Child (%jd) %s", (intmax_t)r,
 	    status ? "died" : "ended");
 	if (WIFEXITED(status) && WEXITSTATUS(status)) {

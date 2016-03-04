@@ -402,14 +402,13 @@ The format is:
 .sp
 .nf
 .ft C
-%d %s %d %s %d [key value]...
-|  |  |  |  |  |
-|  |  |  |  |  +\- optional information
+%d %s %d %s %d
+|  |  |  |  |
 |  |  |  |  +\- server port
-|  |  |  +\- server ip
-|  |  +\- client port
-|  +\- client ip
-+\-\-\-\- PROXY protocol version
+|  |  |  +\-\-\-\- server ip
+|  |  +\-\-\-\-\-\-\- client port
+|  +\-\-\-\-\-\-\-\-\-\- client ip
++\-\-\-\-\-\-\-\-\-\-\-\-\- PROXY protocol version
 .ft P
 .fi
 .TP

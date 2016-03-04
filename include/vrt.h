@@ -44,12 +44,13 @@
 
 #define VRT_MAJOR_VERSION	3U
 
-#define VRT_MINOR_VERSION	1U
+#define VRT_MINOR_VERSION	2U
 
 
 /***********************************************************************/
 
 struct VCL_conf;
+struct vrt_acl;
 struct busyobj;
 struct director;
 struct http;
@@ -67,6 +68,7 @@ struct ws;
  * (alphabetic order)
  */
 
+typedef const struct vrt_acl *			VCL_ACL;
 typedef const struct director *			VCL_BACKEND;
 typedef const struct vmod_priv *		VCL_BLOB;
 typedef unsigned				VCL_BOOL;
@@ -237,7 +239,16 @@ struct vrt_ref {
 /* ACL related */
 #define VRT_ACL_MAXADDR		16	/* max(IPv4, IPv6) */
 
+typedef int acl_match_f(VRT_CTX, const VCL_IP);
+
+struct vrt_acl {
+	unsigned	magic;
+#define VRT_ACL_MAGIC	0x78329d96
+	acl_match_f	*match;
+};
+
 void VRT_acl_log(VRT_CTX, const char *msg);
+int VRT_acl_match(VRT_CTX, VCL_ACL, VCL_IP);
 
 /* req related */
 

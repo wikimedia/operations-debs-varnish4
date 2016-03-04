@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VMOD - Varnish Modules &mdash; Varnish version 4.1.1 documentation</title>
+    <title>VMOD - Varnish Modules &mdash; Varnish version 4.1.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.1',
+        VERSION:     '4.1.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_std" href="vmod_std.generated.html" />
     <link rel="prev" title="VSM: Shared Memory Logging and Statistics" href="vsm.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -144,6 +144,10 @@ language representation.  Here is a description of them.</p>
 <p>All but the PRIV and STRING_LIST types have typedefs: VCL_INT, VCL_REAL,
 etc.</p>
 <dl class="docutils">
+<dt>ACL</dt>
+<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vrt_acl</span> <span class="pre">*</span></tt></p>
+<p class="last">A type for named ACLs declared in VCL.</p>
+</dd>
 <dt>BACKEND</dt>
 <dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">director</span> <span class="pre">*</span></tt></p>
 <p class="last">A type for backend and director implementations. See
@@ -335,12 +339,12 @@ if (foo &gt; 25) {
 </div>
 <div class="section" id="event-functions">
 <span id="ref-vmod-event-functions"></span><h2>Event functions<a class="headerlink" href="#event-functions" title="Permalink to this headline">¶</a></h2>
-<p>VMODs can have an &quot;event&quot; function which is called when a VCL which imports
-the VMOD is loaded, made active, or discarded.  This corresponds to the
-<tt class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></tt>, and <tt class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></tt> events, respectively.  In
-addition, this function will be called when the VCL temperature is changed to
-cold or warm, corresponding to the <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> and <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt>
-events.</p>
+<p>VMODs can have an &quot;event&quot; function which is called when a VCL which
+imports the VMOD is loaded or discarded.  This corresponds to the
+<tt class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></tt> and <tt class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></tt> events, respectively.
+In addition, this function will be called when the VCL temperature is
+changed to cold or warm, corresponding to the <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> and
+<tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> events.</p>
 <p>The first argument to the event function is a VRT context.</p>
 <p>The second argument is the vmod_priv specific to this particular VCL,
 and if necessary, a VCL specific VMOD &quot;fini&quot; function can be attached
@@ -494,7 +498,7 @@ and use <tt class="docutils literal"><span class="pre">import</span> <span class
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

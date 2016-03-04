@@ -36,6 +36,7 @@
 
 #include "vcl.h"
 #include "vrt.h"
+#include "vsa.h"
 #include "vsb.h"
 #include "vtim.h"
 #include "vcc_if.h"
@@ -419,6 +420,31 @@ vmod_workspace_overflowed(VRT_CTX, VCL_ENUM which)
 	return (WS_Overflowed(ws));
 }
 
+static char *debug_ws_snap;
+void
+vmod_workspace_snap(VRT_CTX, VCL_ENUM which)
+{
+	struct ws *ws;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	ws = wsfind(ctx, which);
+	WS_Assert(ws);
+
+	debug_ws_snap = WS_Snapshot(ws);
+}
+
+void
+vmod_workspace_reset(VRT_CTX, VCL_ENUM which)
+{
+	struct ws *ws;
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	ws = wsfind(ctx, which);
+	WS_Assert(ws);
+
+	WS_Reset(ws, debug_ws_snap);
+}
+
 void
 vmod_workspace_overflow(VRT_CTX, VCL_ENUM which)
 {
@@ -438,4 +464,15 @@ vmod_vcl_release_delay(VRT_CTX, VCL_DURATION delay)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	assert(delay > 0.0);
 	vcl_release_delay = delay;
+}
+
+VCL_BOOL
+vmod_match_acl(VRT_CTX, VCL_ACL acl, VCL_IP ip)
+{
+
+	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_ORNULL(acl, VRT_ACL_MAGIC);
+	assert(VSA_Sane(ip));
+
+	return (VRT_acl_match(ctx, acl, ip));
 }

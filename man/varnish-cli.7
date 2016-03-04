@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH DESCRIPTION
 .sp
-Varnish as a command line interface (CLI) which can control and change
+Varnish has a command line interface (CLI) which can control and change
 most of the operational parameters and the configuration of Varnish,
 without interrupting the running service.
 .sp
@@ -168,7 +168,27 @@ State is any of auto, healthy or sick values.
 Mark obsolete all objects where all the conditions match.
 .TP
 .B ban.list
-List the active bans.
+List the active bans. The output format is:
+.INDENT 7.0
+.IP \(bu 2
+time the ban was issued
+.IP \(bu 2
+reference count
+.IP \(bu 2
+\fBC\fP for completed bans (replaced by a newer ban) or \fB\-\fP
+.IP \(bu 2
+if \fBlurker\fP debugging is enabled
+.INDENT 2.0
+.IP \(bu 2
+\fBR\fP for bans on request properties or \fB\-\fP
+.IP \(bu 2
+\fBO\fP for bans on object properties or \fB\-\fP
+.IP \(bu 2
+pointer to the ban object
+.UNINDENT
+.IP \(bu 2
+ban specification
+.UNINDENT
 .UNINDENT
 .SS Backend Expression
 .sp

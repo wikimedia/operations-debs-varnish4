@@ -56,13 +56,14 @@ volatile sig_atomic_t	vtc_error;	/* Error encountered */
 int			vtc_stop;	/* Stops current test without error */
 pthread_t		vtc_thread;
 static struct vtclog	*vltop;
-unsigned		vtc_maxdur;	/* Max duration of any test */
 
 /**********************************************************************
  * Macro facility
  */
 
 struct macro {
+	unsigned		magic;
+#define MACRO_MAGIC		0x803423e3
 	VTAILQ_ENTRY(macro)	list;
 	char			*name;
 	char			*val;
@@ -99,18 +100,16 @@ macro_def(struct vtclog *vl, const char *instance, const char *name,
 		if (!strcmp(name, m->name))
 			break;
 	if (m == NULL) {
-		m = calloc(sizeof *m, 1);
+		ALLOC_OBJ(m, MACRO_MAGIC);
 		AN(m);
 		REPLACE(m->name, name);
 		VTAILQ_INSERT_TAIL(&macro_list, m, list);
 	}
 	AN(m);
 	va_start(ap, fmt);
-	free(m->val);
-	m->val = NULL;
 	vbprintf(buf2, fmt, ap);
 	va_end(ap);
-	m->val = strdup(buf2);
+	REPLACE(m->val, buf2);
 	AN(m->val);
 	vtc_log(vl, 4, "macro def %s=%s", name, m->val);
 	AZ(pthread_mutex_unlock(&macro_mtx));
@@ -148,6 +147,7 @@ macro_get(const char *b, const char *e)
 	int l;
 	char *retval = NULL;
 
+
 	l = e - b;
 
 	if (l == 4 && !memcmp(b, "date", l)) {
@@ -159,9 +159,11 @@ macro_get(const char *b, const char *e)
 	}
 
 	AZ(pthread_mutex_lock(&macro_mtx));
-	VTAILQ_FOREACH(m, &macro_list, list)
-		if (!memcmp(b, m->name, l) && m->name[l] == '\0')
+	VTAILQ_FOREACH(m, &macro_list, list) {
+		CHECK_OBJ_NOTNULL(m, MACRO_MAGIC);
+		if (!strncmp(b, m->name, l) && m->name[l] == '\0')
 			break;
+}
 	if (m != NULL)
 		retval = strdup(m->val);
 	AZ(pthread_mutex_unlock(&macro_mtx));
@@ -208,13 +210,16 @@ macro_expand(struct vtclog *vl, const char *text)
 	return (vsb);
 }
 
-/* extmacro is a list of macro's that are defined from the
-   command line and are applied to the macro list of each test
-   instance. No locking is required as they are set before any tests
-   are started.
-*/
+/*
+ * extmacro is a list of macro's that are defined from the
+ * command line and are applied to the macro list of each test
+ * instance. No locking is required as they are set before any tests
+ *  are started.
+ */
 
 struct extmacro {
+	unsigned		magic;
+#define EXTMACRO_MAGIC		0x51019ded
 	VTAILQ_ENTRY(extmacro)	list;
 	char			*name;
 	char			*val;
@@ -234,24 +239,24 @@ extmacro_def(const char *name, const char *fmt, ...)
 		if (!strcmp(name, m->name))
 			break;
 	if (m == NULL && fmt != NULL) {
-		m = calloc(sizeof *m, 1);
+		ALLOC_OBJ(m, EXTMACRO_MAGIC);
 		AN(m);
 		REPLACE(m->name, name);
+		AN(m->name);
 		VTAILQ_INSERT_TAIL(&extmacro_list, m, list);
 	}
 	if (fmt != NULL) {
 		AN(m);
 		va_start(ap, fmt);
-		free(m->val);
 		vbprintf(buf, fmt, ap);
 		va_end(ap);
-		m->val = strdup(buf);
+		REPLACE(m->val, buf);
 		AN(m->val);
 	} else if (m != NULL) {
 		VTAILQ_REMOVE(&extmacro_list, m, list);
 		free(m->name);
 		free(m->val);
-		free(m);
+		FREE_OBJ(m);
 	}
 }
 
@@ -653,8 +658,10 @@ exec_file(const char *fn, const char *script, const char *tmpdir,
 	init_server();
 
 	/* Apply extmacro definitions */
-	VTAILQ_FOREACH(m, &extmacro_list, list)
+	VTAILQ_FOREACH(m, &extmacro_list, list) {
+		CHECK_OBJ_NOTNULL(m, EXTMACRO_MAGIC);
 		macro_def(vltop, NULL, m->name, "%s", m->val);
+	}
 
 	/*
 	 * We need an IP number which will not repond, ever, and that is a

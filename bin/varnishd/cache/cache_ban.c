@@ -143,10 +143,10 @@ ban_equal(const uint8_t *bs1, const uint8_t *bs2)
 
 	/*
 	 * Compare two ban-strings.
-	 * The memcmp() is safe because the first field we compare is the
-	 * length and that is part of the fixed header structure.
 	 */
 	u = vbe32dec(bs1 + BANS_LENGTH);
+	if (u != vbe32dec(bs2 + BANS_LENGTH))
+		return (0);
 	return (!memcmp(bs1 + BANS_LENGTH, bs2 + BANS_LENGTH, u - BANS_LENGTH));
 }
 
@@ -504,7 +504,7 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 {
 	struct ban *b;
 	struct vsl_log *vsl;
-	struct ban * volatile b0;
+	struct ban *b0, *bn;
 	unsigned tests;
 
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
@@ -524,10 +524,16 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 	/* If that fails, make a safe check */
 	Lck_Lock(&ban_mtx);
 	b0 = ban_start;
+	bn = oc->ban;
+	if (b0 != bn)
+		bn->refcount++;
 	Lck_Unlock(&ban_mtx);
 
-	if (b0 == oc->ban)
+	AN(bn);
+
+	if (b0 == bn)
 		return (0);
+
 
 	/*
 	 * This loop is safe without locks, because we know we hold
@@ -535,7 +541,7 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 	 * inspect the list past that ban.
 	 */
 	tests = 0;
-	for (b = b0; b != oc->ban; b = VTAILQ_NEXT(b, list)) {
+	for (b = b0; b != bn; b = VTAILQ_NEXT(b, list)) {
 		CHECK_OBJ_NOTNULL(b, BAN_MAGIC);
 		if (b->flags & BANS_FLAG_COMPLETED)
 			continue;
@@ -544,19 +550,18 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 	}
 
 	Lck_Lock(&ban_mtx);
+	bn->refcount--;
 	VSC_C_main->bans_tested++;
 	VSC_C_main->bans_tests_tested += tests;
 
-	oc->ban->refcount--;
-	VTAILQ_REMOVE(&oc->ban->objcore, oc, ban_list);
-	if (b == oc->ban) {
+	if (b == bn) {
 		/* not banned */
+		oc->ban->refcount--;
+		VTAILQ_REMOVE(&oc->ban->objcore, oc, ban_list);
 		VTAILQ_INSERT_TAIL(&b0->objcore, oc, ban_list);
 		b0->refcount++;
 		oc->ban = b0;
 		b = NULL;
-	} else {
-		oc->ban = NULL;
 	}
 
 	if (VTAILQ_LAST(&ban_head, banhead_s)->refcount == 0)

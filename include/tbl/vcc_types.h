@@ -4,6 +4,7 @@
  * Edit and run generate.py instead
  */
 /*lint -save -e525 -e539 */
+VCC_TYPE(ACL)
 VCC_TYPE(BACKEND)
 VCC_TYPE(BLOB)
 VCC_TYPE(BOOL)
