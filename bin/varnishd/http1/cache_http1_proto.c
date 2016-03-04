@@ -122,9 +122,14 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc)
 		if (vct_iscrlf(p))
 			break;
 		while (r < htc->rxbuf_e) {
-			if (!vct_iscrlf(r)) {
+			if (!vct_isctl(*r) || vct_issp(*r)) {
 				r++;
 				continue;
+			}
+			if (!vct_iscrlf(r)) {
+				VSLb(hp->vsl, SLT_BogoHeader,
+				    "Header has ctrl char 0x%02x", *r);
+				return (400);
 			}
 			q = r;
 			assert(r < htc->rxbuf_e);
@@ -283,6 +288,8 @@ http1_body_status(const struct http *hp, struct http_conn *htc)
 	htc->content_length = -1;
 
 	cl = http_GetContentLength(hp);
+	if (cl == -2)
+		return (BS_ERROR);
 	if (http_GetHdr(hp, H_Transfer_Encoding, &b)) {
 		if (strcasecmp(b, "chunked"))
 			return (BS_ERROR);
@@ -295,8 +302,6 @@ http1_body_status(const struct http *hp, struct http_conn *htc)
 		}
 		return (BS_CHUNKED);
 	}
-	if (cl == -2)
-		return (BS_ERROR);
 	if (cl >= 0) {
 		htc->content_length = cl;
 		return (cl == 0 ? BS_NONE : BS_LENGTH);
@@ -339,7 +344,7 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 {
 	uint16_t retval;
 	const char *p;
-	const char *b, *e;
+	const char *b = NULL, *e;
 
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
@@ -358,8 +363,12 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 		return (400);
 
 	/* RFC2616, section 5.2, point 1 */
-	if (!strncasecmp(hp->hd[HTTP_HDR_URL].b, "http://", 7)) {
+	if (!strncasecmp(hp->hd[HTTP_HDR_URL].b, "http://", 7))
 		b = e = hp->hd[HTTP_HDR_URL].b + 7;
+	else if (FEATURE(FEATURE_HTTPS_SCHEME) &&
+			!strncasecmp(hp->hd[HTTP_HDR_URL].b, "https://", 8))
+		b = e = hp->hd[HTTP_HDR_URL].b + 8;
+	if (b) {
 		while (*e != '/' && *e != '\0')
 			e++;
 		if (*e == '/') {
@@ -376,10 +385,13 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 	p = http_GetMethod(hp);
 	AN(p);
 
-	/* We handle EOF bodies only for PUT and POST */
-	if (htc->body_status == BS_EOF &&
-	    strcasecmp(p, "put") && strcasecmp(p, "post"))
+	if (htc->body_status == BS_EOF) {
+		assert(hp->protover == 10);
+		/* RFC1945 8.3 p32 and D.1.1 p58 */
+		if (!strcasecmp(p, "post") || !strcasecmp(p, "put"))
+			return (400);
 		htc->body_status = BS_NONE;
+	}
 
 	/* HEAD with a body is a hard error */
 	if (htc->body_status != BS_NONE && !strcasecmp(p, "head"))

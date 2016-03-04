@@ -351,7 +351,7 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 	struct token *t;
 	struct inifin *ifp;
 
-	Fh(tl, 0, "\nstatic int\n");
+	Fh(tl, 0, "\nstatic int __match_proto__(acl_match_f)\n");
 	Fh(tl, 0,
 	    "match_acl_%s_%s(VRT_CTX, const VCL_IP p)\n",
 	    anon ? "anon" : "named", acln);
@@ -364,7 +364,7 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 	Fh(tl, 0, "\t\tVRT_acl_log(ctx, \"NO_FAM %s\");\n", acln);
 	Fh(tl, 0, "\t\treturn(0);\n");
 	Fh(tl, 0, "\t}\n\n");
-	if (!tl->param->err_unref && !anon ) {
+	if (!tl->param->err_unref && !anon) {
 		ifp = New_IniFin(tl);
 		VSB_printf(ifp->ini,
 			"\tif (0) match_acl_named_%s(0, 0);\n", acln);
@@ -419,9 +419,9 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 			t = ae->t_addr;
 			do {
 				if (t->tok == CSTR) {
-					Fh(tl, 0, " \"\\\"\" " );
+					Fh(tl, 0, " \"\\\"\" ");
 					EncToken(tl->fh, t);
-					Fh(tl, 0, " \"\\\"\" " );
+					Fh(tl, 0, " \"\\\"\" ");
 				} else
 					Fh(tl, 0, " \"%.*s\"", PF(t));
 				if (t == ae->t_mask)
@@ -443,6 +443,15 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 	if (!anon)
 		Fh(tl, 0, "\tVRT_acl_log(ctx, \"NO_MATCH %s\");\n", acln);
 	Fh(tl, 0, "\treturn (0);\n}\n");
+
+	if (anon)
+		return;
+
+	/* Emit the struct that will be referenced */
+	Fh(tl, 0, "\nconst struct vrt_acl vrt_acl_named_%s = {\n", acln);
+	Fh(tl, 0, "\t.magic = VRT_ACL_MAGIC,\n");
+	Fh(tl, 0, "\t.match = &match_acl_named_%s,\n", acln);
+	Fh(tl, 0, "};\n\n");
 }
 
 void
@@ -465,7 +474,7 @@ void
 vcc_ParseAcl(struct vcc *tl)
 {
 	struct token *an;
-	int i;
+	struct symbol *sym;
 	char acln[1024];
 
 	vcc_NextToken(tl);
@@ -481,13 +490,20 @@ vcc_ParseAcl(struct vcc *tl)
 	an = tl->t;
 	vcc_NextToken(tl);
 
-	i = vcc_AddDef(tl, an, SYM_ACL);
-	if (i > 1) {
+	bprintf(acln, "%.*s", PF(an));
+
+	sym = VCC_GetSymbolTok(tl, an, SYM_ACL);
+	AN(sym);
+	if (sym->ndef > 0) {
 		VSB_printf(tl->sb, "ACL %.*s redefined\n", PF(an));
 		vcc_ErrWhere(tl, an);
 		return;
 	}
-	bprintf(acln, "%.*s", PF(an));
+	sym->fmt = ACL;
+	sym->eval = vcc_Eval_Acl;
+	sym->eval_priv = TlDup(tl, acln);
+	sym->ndef++;
+	ERRCHK(tl);
 
 	SkipToken(tl, '{');
 

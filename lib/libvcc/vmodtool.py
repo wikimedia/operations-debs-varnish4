@@ -42,10 +42,11 @@ import optparse
 import unittest
 import random
 from os import unlink
-from os.path import dirname, realpath, exists
+from os.path import dirname, exists, join, realpath
 from pprint import pprint, pformat
 
 ctypes = {
+	'ACL':		"VCL_ACL",
 	'BACKEND':	"VCL_BACKEND",
 	'BLOB':		"VCL_BLOB",
 	'BOOL':		"VCL_BOOL",
@@ -791,7 +792,15 @@ class FileSection(object):
 			o = parse_func(self, pobj=vx[1].nam)
 			vx[1].add_method(o)
 		else:
-			raise FormatError("Unknown keyword: %s" % t.str, "")
+			if opts.strict:
+				raise FormatError("Unknown keyword: %s" %
+				    t.str, "")
+			else:
+				print("WARNING: Unknown keyword: %s:" %
+				    t.str, file=sys.stderr)
+				o = None
+				while len(self.tl) > 0:
+				    self.get_token()
 
 		assert len(self.tl) == 0
 		if o is None and len(self.l) > 0:
@@ -833,14 +842,14 @@ class SimpleTestCase(unittest.TestCase):
 		from glob import glob
 		tmpfile = mktemp()
 		bdir = dirname(realpath(__file__))
-		for inputfile in glob(bdir + "/../libvmod_*/vmod.vcc"):
-			runmain(inputfile, outputname=tmpfile)
-			for suffix in [".c", ".h"]:
-				unlink(tmpfile + suffix)
+		for inputfile in glob(join(bdir, "../libvmod_*/vmod.vcc")):
+			runmain(inputfile, ".", tmpfile)
+			unlink(tmpfile + ".c")
+			unlink(tmpfile + ".h")
 
 
 #######################################################################
-def runmain(inputvcc, outputname="vcc_if"):
+def runmain(inputvcc, rstdir, outputprefix):
 	# Read the file in
 	lines = []
 	with open(inputvcc, "r") as fp:
@@ -904,8 +913,8 @@ def runmain(inputvcc, outputname="vcc_if"):
 	# Parsing done, now process
 	#
 
-	fc = open("%s.c" % outputname, "w")
-	fh = open("%s.h" % outputname, "w")
+	fc = open("%s.c" % outputprefix, "w")
+	fh = open("%s.h" % outputprefix, "w")
 
 	write_c_file_warning(fc)
 	write_c_file_warning(fh)
@@ -919,7 +928,7 @@ def runmain(inputvcc, outputname="vcc_if"):
 	fc.write('#include "config.h"\n')
 	fc.write('#include "vcl.h"\n')
 	fc.write('#include "vrt.h"\n')
-	fc.write('#include "vcc_if.h"\n')
+	fc.write('#include "%s.h"\n' % outputprefix)
 	fc.write('#include "vmod_abi.h"\n')
 	fc.write('\n')
 
@@ -930,7 +939,7 @@ def runmain(inputvcc, outputname="vcc_if"):
 	fh.close()
 
 	for suf in ("", ".man"):
-		fp = open("vmod_%s%s.rst" % (vx[0].nam, suf), "w")
+		fp = open(join(rstdir, "vmod_%s%s.rst" % (vx[0].nam, suf)), "w")
 		write_rst_file_warning(fp)
 
 		vx[0].doc_dump(fp, suf)
@@ -950,7 +959,11 @@ if __name__ == "__main__":
 	oparser = optparse.OptionParser(usage=usagetext)
 
 	oparser.add_option('-N', '--strict', action='store_true', default=False,
-	    help="Be strict when parsing input file. (vmod.vcc)")
+	    help="Be strict when parsing the input file")
+	oparser.add_option('-o', '--output', metavar="prefix", default='vcc_if',
+	    help='Output file prefix (default: "vcc_if")')
+	oparser.add_option('-w', '--rstdir', metavar="directory", default='.',
+	    help='Where to save the generated RST files (default: ".")')
 	oparser.add_option('', '--runtests', action='store_true', default=False,
 	    dest="runtests", help=optparse.SUPPRESS_HELP)
 	(opts, args) = oparser.parse_args()
@@ -973,4 +986,4 @@ if __name__ == "__main__":
 		oparser.print_help()
 		exit(-1)
 
-	runmain(i_vcc)
+	runmain(i_vcc, opts.rstdir, opts.output)

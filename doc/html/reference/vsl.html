@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VSL &mdash; Varnish version 4.1.1 documentation</title>
+    <title>VSL &mdash; Varnish version 4.1.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.1',
+        VERSION:     '4.1.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vsl-query" href="vsl-query.html" />
     <link rel="prev" title="varnish-counters" href="varnish-counters.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -322,14 +322,13 @@ G F E 159 173 80 1304 1314</pre>
 <dt>Proxy - PROXY protocol information</dt>
 <dd><p class="first">PROXY protocol information.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><pre>%d %s %d %s %d [key value]...
-|  |  |  |  |  |
-|  |  |  |  |  +- optional information
+<div class="last highlight-python"><pre>%d %s %d %s %d
+|  |  |  |  |
 |  |  |  |  +- server port
-|  |  |  +- server ip
-|  |  +- client port
-|  +- client ip
-+---- PROXY protocol version</pre>
+|  |  |  +---- server ip
+|  |  +------- client port
+|  +---------- client ip
++------------- PROXY protocol version</pre>
 </div>
 </dd>
 <dt>ProxyGarbage - Unparseable PROXY request</dt>
@@ -661,7 +660,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

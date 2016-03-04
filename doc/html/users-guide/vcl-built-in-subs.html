@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Built in subroutines &mdash; Varnish version 4.1.1 documentation</title>
+    <title>Built in subroutines &mdash; Varnish version 4.1.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.1',
+        VERSION:     '4.1.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="Request and response VCL objects" href="vcl-variables.html" />
     <link rel="prev" title="VCL Syntax" href="vcl-syntax.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vcl-syntax.html" title="VCL Syntax"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
@@ -245,7 +245,7 @@ error.</dd>
 <div class="section" id="vcl-synth">
 <span id="id9"></span><h3>vcl_synth<a class="headerlink" href="#vcl-synth" title="Permalink to this headline">¶</a></h3>
 <p>Called to deliver a synthetic object. A synthetic object is generated
-in VCL, not fetched from the backend. Its body may be contructed using
+in VCL, not fetched from the backend. Its body may be constructed using
 the <tt class="docutils literal"><span class="pre">synthetic()</span></tt> function.</p>
 <p>A <cite>vcl_synth</cite> defined object never enters the cache, contrary to a
 <a class="reference internal" href="#vcl-backend-error"><em>vcl_backend_error</em></a> defined object, which may end up in cache.</p>
@@ -326,7 +326,7 @@ control will be passed to <a class="reference internal" href="#vcl-backend-error
 <span id="id12"></span><h3>vcl_backend_error<a class="headerlink" href="#vcl-backend-error" title="Permalink to this headline">¶</a></h3>
 <p>This subroutine is called if we fail the backend fetch or if
 <em>max_retries</em> has been exceeded.</p>
-<p>A synthetic object is generated in VCL, whose body may be contructed
+<p>A synthetic object is generated in VCL, whose body may be constructed
 using the <tt class="docutils literal"><span class="pre">synthetic()</span></tt> function.</p>
 <p>The <cite>vcl_backend_error</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt>
 with one of the following keywords:</p>
@@ -454,7 +454,7 @@ with one of the following keywords:</p>
         <li class="right" >
           <a href="vcl-syntax.html" title="VCL Syntax"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>

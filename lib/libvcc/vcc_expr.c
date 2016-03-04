@@ -494,10 +494,29 @@ vcc_Eval_BoolConst(struct vcc *tl, struct expr **e, const struct symbol *sym)
  */
 
 void
+vcc_Eval_Acl(struct vcc *tl, struct expr **e, const struct symbol *sym)
+{
+
+	assert(sym->kind == SYM_ACL);
+	AN(sym->eval_priv);
+
+	vcc_ExpectCid(tl);
+	vcc_AddRef(tl, tl->t, SYM_ACL);
+	*e = vcc_mk_expr(ACL, "&vrt_acl_named_%s",
+	    (const char *)sym->eval_priv);
+	(*e)->constant = EXPR_VAR;	/* XXX ? */
+	vcc_NextToken(tl);
+}
+
+/*--------------------------------------------------------------------
+ */
+
+void
 vcc_Eval_Backend(struct vcc *tl, struct expr **e, const struct symbol *sym)
 {
 
 	assert(sym->kind == SYM_BACKEND);
+	AN(sym->eval_priv);
 
 	vcc_ExpectCid(tl);
 	vcc_AddRef(tl, tl->t, SYM_BACKEND);
@@ -800,6 +819,7 @@ vcc_expr4(struct vcc *tl, struct expr **e, enum var_type fmt)
 	struct expr *e1, *e2;
 	const char *ip;
 	const struct symbol *sym;
+	enum symkind kind;
 	double d;
 	int i;
 
@@ -819,10 +839,14 @@ vcc_expr4(struct vcc *tl, struct expr **e, enum var_type fmt)
 		 * XXX: look for SYM_VAR first for consistency ?
 		 */
 		sym = NULL;
-		if (fmt == BACKEND)
-			sym = VCC_FindSymbol(tl, tl->t, SYM_BACKEND);
-		if (fmt == PROBE)
-			sym = VCC_FindSymbol(tl, tl->t, SYM_PROBE);
+		switch (fmt) {
+		case ACL:	kind = SYM_ACL; break;
+		case BACKEND:	kind = SYM_BACKEND; break;
+		case PROBE:	kind = SYM_PROBE; break;
+		default:	kind = SYM_NONE; break;
+		}
+		if (kind != SYM_NONE)
+			sym = VCC_FindSymbol(tl, tl->t, kind);
 		if (sym == NULL)
 			sym = VCC_FindSymbol(tl, tl->t, SYM_VAR);
 		if (sym == NULL)
@@ -841,6 +865,7 @@ vcc_expr4(struct vcc *tl, struct expr **e, enum var_type fmt)
 		switch(sym->kind) {
 		case SYM_VAR:
 		case SYM_FUNC:
+		case SYM_ACL:
 		case SYM_BACKEND:
 		case SYM_PROBE:
 			AN(sym->eval);
@@ -942,6 +967,7 @@ vcc_expr_mul(struct vcc *tl, struct expr **e, enum var_type fmt)
 	case INT:	f2 = INT; break;
 	case DURATION:	f2 = REAL; break;
 	case BYTES:	f2 = REAL; break;
+	case REAL:	f2 = REAL; break;
 	default:
 		if (tl->t->tok != '*' && tl->t->tok != '/')
 			return;
@@ -1048,6 +1074,8 @@ vcc_expr_add(struct vcc *tl, struct expr **e, enum var_type fmt)
 		} else if ((*e)->fmt == BYTES && e2->fmt == BYTES) {
 			/* OK */
 		} else if ((*e)->fmt == INT && e2->fmt == INT) {
+			/* OK */
+		} else if ((*e)->fmt == REAL && e2->fmt == REAL) {
 			/* OK */
 		} else if ((*e)->fmt == DURATION && e2->fmt == DURATION) {
 			/* OK */

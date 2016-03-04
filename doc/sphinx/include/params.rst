@@ -314,6 +314,9 @@ Use +/- prefix to enable/disable individual feature:
 	*esi_remove_bom*
 		Remove UTF-8 BOM
 
+	*https_scheme*
+		Also split https URIs
+
 .. _ref_param_fetch_chunksize:
 
 fetch_chunksize

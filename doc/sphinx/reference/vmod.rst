@@ -115,7 +115,10 @@ language representation.  Here is a description of them.
 All but the PRIV and STRING_LIST types have typedefs: VCL_INT, VCL_REAL,
 etc.
 
-.. TODO document ACL if patchwork #314 is merged
+ACL
+	C-type: ``const struct vrt_acl *``
+
+	A type for named ACLs declared in VCL.
 
 BACKEND
 	C-type: ``const struct director *``
@@ -149,9 +152,9 @@ DURATION
 	A time interval, as in 25 seconds.
 
 ENUM
-        C-type: ``const char *``
+	C-type: ``const char *``
 
-        TODO
+	TODO
 
 HEADER
 	C-type: ``const struct gethdr_s *``
@@ -166,9 +169,9 @@ HEADER
 	the value, but not where it came from.
 
 HTTP
-        C-type: ``struct http *``
+	C-type: ``struct http *``
 
-        TODO
+	TODO
 
 INT
 	C-type: ``long``
@@ -356,12 +359,12 @@ The per-call vmod_privs are freed before the per-vcl vmod_priv.
 Event functions
 ===============
 
-VMODs can have an "event" function which is called when a VCL which imports
-the VMOD is loaded, made active, or discarded.  This corresponds to the
-``VCL_EVENT_LOAD``, and ``VCL_EVENT_DISCARD`` events, respectively.  In
-addition, this function will be called when the VCL temperature is changed to
-cold or warm, corresponding to the ``VCL_EVENT_COLD`` and ``VCL_EVENT_WARM``
-events.
+VMODs can have an "event" function which is called when a VCL which
+imports the VMOD is loaded or discarded.  This corresponds to the
+``VCL_EVENT_LOAD`` and ``VCL_EVENT_DISCARD`` events, respectively.
+In addition, this function will be called when the VCL temperature is
+changed to cold or warm, corresponding to the ``VCL_EVENT_COLD`` and
+``VCL_EVENT_WARM`` events.
 
 The first argument to the event function is a VRT context.
 

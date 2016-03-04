@@ -313,9 +313,10 @@ vca_make_session(struct worker *wrk, void *arg)
 		 * connection with minimum effort and fuzz, rather than try
 		 * to send an intelligent message back.
 		 */
+		vca_pace_bad();
+		(void)VTCP_nonblocking(wa->acceptsock);
 		AZ(close(wa->acceptsock));
 		wrk->stats->sess_drop++;
-		vca_pace_bad();
 		WS_Release(wrk->aws, 0);
 		return;
 	}
@@ -405,6 +406,12 @@ vca_accept_task(struct worker *wrk, void *arg)
 				   &wa.acceptaddrlen);
 		} while (i < 0 && errno == EAGAIN);
 
+		if (i < 0 && ls->sock == -2) {
+			/* Shut down in progress */
+			sleep(2);
+			continue;
+		}
+
 		if (i < 0) {
 			switch (errno) {
 			case ECONNABORTED:
@@ -416,7 +423,8 @@ vca_accept_task(struct worker *wrk, void *arg)
 			case EBADF:
 				VSL(SLT_Debug, ls->sock, "Accept failed: %s",
 				    strerror(errno));
-				return;
+				vca_pace_bad();
+				break;
 			default:
 				VSL(SLT_Debug, ls->sock, "Accept failed: %s",
 				    strerror(errno));
@@ -506,8 +514,12 @@ vca_acct(void *arg)
 	while (1) {
 		(void)sleep(1);
 		if (vca_tcp_opt_init()) {
-			VTAILQ_FOREACH(ls, &heritage.socks, list)
+			VTAILQ_FOREACH(ls, &heritage.socks, list) {
+				if (ls->sock == -2)
+					continue;	// raced VCA_Shutdown
+				assert (ls->sock > 0);
 				vca_tcp_opt_set(ls->sock, 1);
+			}
 		}
 		now = VTIM_real();
 		VSC_C_main->uptime = (uint64_t)(now - t0);
@@ -581,7 +593,7 @@ VCA_Shutdown(void)
 
 	VTAILQ_FOREACH(ls, &heritage.socks, list) {
 		i = ls->sock;
-		ls->sock = -1;
+		ls->sock = -2;
 		(void)close(i);
 	}
 }

@@ -519,8 +519,6 @@ vbf_fetch_body_helper(struct busyobj *bo)
 		}
 	} while (vfps == VFP_OK);
 
-	VFP_Close(vfc);
-
 	if (vfps == VFP_ERROR) {
 		AN(vfc->failed);
 		(void)VFP_Error(vfc, "Fetch pipeline failed to process");
@@ -533,6 +531,18 @@ vbf_fetch_body_helper(struct busyobj *bo)
 
 /*--------------------------------------------------------------------
  */
+
+#define vbf_vfp_push(bo, vfp, top)					\
+	do {								\
+		if (VFP_Push((bo)->vfc, (vfp), (top)) == NULL) {	\
+			assert (WS_Overflowed((bo)->vfc->http->ws));	\
+			(void)VFP_Error((bo)->vfc,			\
+			    "workspace_backend overflow");		\
+			(bo)->htc->doclose = SC_OVERLOAD;		\
+			VDI_Finish((bo)->wrk, bo);			\
+			return (F_STP_ERROR);				\
+		}							\
+	} while (0)
 
 static enum fetch_step
 vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
@@ -589,19 +599,19 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	assert(bo->do_gzip == 0 || bo->do_gunzip == 0);
 
 	if (bo->do_gunzip || (bo->is_gzip && bo->do_esi))
-		(void)VFP_Push(bo->vfc, &vfp_gunzip, 1);
+		vbf_vfp_push(bo, &vfp_gunzip, 1);
 
 	if (bo->htc->content_length != 0) {
 		if (bo->do_esi && bo->do_gzip) {
-			(void)VFP_Push(bo->vfc, &vfp_esi_gzip, 1);
+			vbf_vfp_push(bo, &vfp_esi_gzip, 1);
 		} else if (bo->do_esi && bo->is_gzip && !bo->do_gunzip) {
-			(void)VFP_Push(bo->vfc, &vfp_esi_gzip, 1);
+			vbf_vfp_push(bo, &vfp_esi_gzip, 1);
 		} else if (bo->do_esi) {
-			(void)VFP_Push(bo->vfc, &vfp_esi, 1);
+			vbf_vfp_push(bo, &vfp_esi, 1);
 		} else if (bo->do_gzip) {
-			(void)VFP_Push(bo->vfc, &vfp_gzip, 1);
+			vbf_vfp_push(bo, &vfp_gzip, 1);
 		} else if (bo->is_gzip && !bo->do_gunzip) {
-			(void)VFP_Push(bo->vfc, &vfp_testgunzip, 1);
+			vbf_vfp_push(bo, &vfp_testgunzip, 1);
 		}
 	}
 
@@ -635,9 +645,10 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	if (bo->do_gzip || bo->do_gunzip)
 		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_CHGGZIP, 1);
 
-	if (http_IsStatus(bo->beresp, 200) && (
-	    http_GetHdr(bo->beresp, H_Last_Modified, &p) ||
-	    http_GetHdr(bo->beresp, H_ETag, &p)))
+	if (!(bo->fetch_objcore->flags & OC_F_PASS) &&
+	    http_IsStatus(bo->beresp, 200) && (
+	      http_GetHdr(bo->beresp, H_Last_Modified, &p) ||
+	      http_GetHdr(bo->beresp, H_ETag, &p)))
 		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_IMSCAND, 1);
 
 	if (bo->htc->body_status != BS_NONE)
@@ -660,6 +671,8 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 		assert(bo->htc->body_status != BS_ERROR);
 		vbf_fetch_body_helper(bo);
 	}
+
+	VFP_Close(bo->vfc);
 
 	if (bo->vfc->failed) {
 		VDI_Finish(bo->wrk, bo);
