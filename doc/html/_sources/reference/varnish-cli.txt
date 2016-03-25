@@ -15,7 +15,7 @@ Varnish Command Line Interface
 DESCRIPTION
 ===========
 
-Varnish as a command line interface (CLI) which can control and change
+Varnish has a command line interface (CLI) which can control and change
 most of the operational parameters and the configuration of Varnish,
 without interrupting the running service.
 
@@ -149,7 +149,23 @@ ban <field> <operator> <arg> [&& <field> <oper> <arg> ...]
   Mark obsolete all objects where all the conditions match.
 
 ban.list
-  List the active bans.
+  List the active bans. The output format is:
+
+  * time the ban was issued
+
+  * reference count
+
+  * ``C`` for completed bans (replaced by a newer ban) or ``-``
+
+  * if ``lurker`` debugging is enabled
+
+    * ``R`` for bans on request properties or ``-``
+
+    * ``O`` for bans on object properties or ``-``
+
+    * pointer to the ban object
+
+  * ban specification
 
 Backend Expression
 ------------------

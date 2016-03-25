@@ -368,14 +368,14 @@ Proxy - PROXY protocol information
 	
 	The format is::
 	
-		%d %s %d %s %d [key value]...
-		|  |  |  |  |  |
-		|  |  |  |  |  +- optional information
+		%d %s %d %s %d
+		|  |  |  |  |
 		|  |  |  |  +- server port
-		|  |  |  +- server ip
-		|  |  +- client port
-		|  +- client ip
-		+---- PROXY protocol version
+		|  |  |  +---- server ip
+		|  |  +------- client port
+		|  +---------- client ip
+		+------------- PROXY protocol version
+	
 
 
 ProxyGarbage - Unparseable PROXY request

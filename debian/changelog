@@ -1,3 +1,13 @@
+varnish (4.1.2-1) unstable; urgency=medium
+
+  * Imported upstream release 4.1.2-1
+  * [784290d] Use Type=forking for systemd services.
+    Thanks to Lasse Karstensen
+  * [cbdc531] systemd: create /run directories for log daemons
+  * [0b9cd9a] Remove the varnishlog service
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Fri, 04 Mar 2016 21:39:05 +0100
+
 varnish (4.1.1-1wm2) jessie-wikimedia; urgency=medium
 
   * Add debian/patches/0005-vcc-real-plus-real.patch to allow arithmetic

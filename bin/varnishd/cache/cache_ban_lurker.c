@@ -60,6 +60,7 @@ ban_cleantail(void)
 		Lck_Lock(&ban_mtx);
 		b = VTAILQ_LAST(&ban_head, banhead_s);
 		if (b != VTAILQ_FIRST(&ban_head) && b->refcount == 0) {
+			assert(VTAILQ_EMPTY(&b->objcore));
 			if (b->flags & BANS_FLAG_COMPLETED)
 				VSC_C_main->bans_completed--;
 			if (b->flags & BANS_FLAG_OBJ)
@@ -144,6 +145,9 @@ ban_lurker_test_ban(struct worker *wrk, struct vsl_log *vsl, struct ban *bt,
 	unsigned tests;
 	int i;
 
+	/* It's an error to give an empty list to test against */
+	AZ(VTAILQ_EMPTY(obans));
+
 	/*
 	 * First see if there is anything to do, and if so, insert marker
 	 */
@@ -170,6 +174,7 @@ ban_lurker_test_ban(struct worker *wrk, struct vsl_log *vsl, struct ban *bt,
 				VTAILQ_REMOVE(obans, bl, l_list);
 				continue;
 			}
+			AZ(bl->flags & BANS_FLAG_REQ);
 			tests = 0;
 			i = ban_evaluate(wrk, bl->spec, oc, NULL, &tests);
 			VSC_C_main->bans_lurker_tested++;
@@ -222,12 +227,13 @@ ban_lurker_work(struct worker *wrk, struct vsl_log *vsl)
 	bd = NULL;
 	VTAILQ_INIT(&obans);
 	for (; b != NULL; b = VTAILQ_NEXT(b, list)) {
-		if (bd != NULL)
+		if (bd != NULL && bd != b)
 			ban_lurker_test_ban(wrk, vsl, b, &obans, bd);
 		if (b->flags & BANS_FLAG_COMPLETED)
 			continue;
 		if (b->flags & BANS_FLAG_REQ) {
-			bd = VTAILQ_NEXT(b, list);
+			if (bd != NULL)
+				bd = VTAILQ_NEXT(b, list);
 			continue;
 		}
 		n = ban_time(b->spec) - d;

@@ -23,9 +23,9 @@ Build-Depends:
  python-docutils,
  xsltproc,
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-varnish/pkg-varnish.git
-Vcs-Git: git://anonscm.debian.org/pkg-varnish/pkg-varnish.git
-Homepage: http://varnish-cache.org/
-Standards-Version: 3.9.6
+Vcs-Git: https://anonscm.debian.org/git/pkg-varnish/pkg-varnish.git
+Homepage: https://www.varnish-cache.org/
+Standards-Version: 3.9.7
 Testsuite: autopkgtest
 
 Package: varnish

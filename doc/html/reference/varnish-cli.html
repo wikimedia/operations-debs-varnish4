@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnish-cli &mdash; Varnish version 4.1.1 documentation</title>
+    <title>varnish-cli &mdash; Varnish version 4.1.2 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +16,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.1',
+        VERSION:     '4.1.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.1 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishadm" href="varnishadm.html" />
     <link rel="prev" title="Varnish Processing States" href="states.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -67,7 +67,7 @@
 </table>
 <div class="section" id="description">
 <h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
-<p>Varnish as a command line interface (CLI) which can control and change
+<p>Varnish has a command line interface (CLI) which can control and change
 most of the operational parameters and the configuration of Varnish,
 without interrupting the running service.</p>
 <p>The CLI can be used for the following tasks:</p>
@@ -167,7 +167,20 @@ State is any of auto, healthy or sick values.</dd>
 <dt>ban &lt;field&gt; &lt;operator&gt; &lt;arg&gt; [&amp;&amp; &lt;field&gt; &lt;oper&gt; &lt;arg&gt; ...]</dt>
 <dd>Mark obsolete all objects where all the conditions match.</dd>
 <dt>ban.list</dt>
-<dd>List the active bans.</dd>
+<dd><p class="first">List the active bans. The output format is:</p>
+<ul class="last simple">
+<li>time the ban was issued</li>
+<li>reference count</li>
+<li><tt class="docutils literal"><span class="pre">C</span></tt> for completed bans (replaced by a newer ban) or <tt class="docutils literal"><span class="pre">-</span></tt></li>
+<li>if <tt class="docutils literal"><span class="pre">lurker</span></tt> debugging is enabled<ul>
+<li><tt class="docutils literal"><span class="pre">R</span></tt> for bans on request properties or <tt class="docutils literal"><span class="pre">-</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">O</span></tt> for bans on object properties or <tt class="docutils literal"><span class="pre">-</span></tt></li>
+<li>pointer to the ban object</li>
+</ul>
+</li>
+<li>ban specification</li>
+</ul>
+</dd>
 </dl>
 </div>
 <div class="section" id="backend-expression">
@@ -390,7 +403,7 @@ Kamp.</p>
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.1 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
