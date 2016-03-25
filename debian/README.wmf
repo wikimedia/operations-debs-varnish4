@@ -1,0 +1,15 @@
+The WMF varnish4 packaging project on gerrit has 3 branches:
+
+- master
+- upstream
+- debian-wmf
+
+https://gerrit.wikimedia.org/r/#/admin/projects/operations/debs/varnish4,branches
+
+master and upstream follow the respective branches on
+https://anonscm.debian.org/cgit/pkg-varnish/pkg-varnish.git/
+
+master is where debian packaging happens, upstream is the upstream source code.
+
+Finally, debian-wmf is our branch with local WMF modifications (such as this
+file).
