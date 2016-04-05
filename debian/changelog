@@ -1,3 +1,14 @@
+varnish (4.1.2-1wm2) jessie-wikimedia; urgency=medium
+
+  [ Brandon Black ]
+  * Update debian/patches/0003-varnishd-nukelru.patch to fix panic caused by
+    HSH_DerefObjCore setting oc to NULL. Bug: T131830
+
+  [ Emanuele Rocca ]
+  * Add myself to Uploaders.
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Tue, 05 Apr 2016 14:56:31 +0200
+
 varnish (4.1.2-1wm1) jessie-wikimedia; urgency=medium
 
   * Local package (WMF).

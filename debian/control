@@ -7,6 +7,7 @@ Uploaders:
  Lars Bahner <bahner@debian.org>,
  Stig Sandbeck Mathisen <ssm@debian.org>,
  Tollef Fog Heen <tfheen@debian.org>,
+ Emanuele Rocca <ema@wikimedia.org>,
 Build-Depends:
  automake,
  autotools-dev,
