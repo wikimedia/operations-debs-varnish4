@@ -1,3 +1,10 @@
+varnish (4.1.2-1wm4) jessie-wikimedia; urgency=medium
+
+  * Add debian/patches/0006-IMS-duplicate-headers-proper-handling.patch.
+    (Bug:T134989, T135038)
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Thu, 12 May 2016 15:01:42 +0200
+
 varnish (4.1.2-1wm3) jessie-wikimedia; urgency=medium
 
   * Add debian/patches/0005-handle-eof-http1.1.patch. (Bug: T134989, T135038) 
