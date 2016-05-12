@@ -1,0 +1,74 @@
+commit e142a199c53dd9331001cb29678602e726a35690
+From: Federico G. Schwindt <fgsch@lodoss.net>
+Date: Thu May 5 16:44:25 2016 +0100
+
+Correctly handle EOF responses with HTTP/1.1
+
+diff --git a/bin/varnishd/http1/cache_http1_proto.c b/bin/varnishd/http1/cache_http1_proto.c
+index 30b318c..713a8d6 100644
+--- a/bin/varnishd/http1/cache_http1_proto.c
++++ b/bin/varnishd/http1/cache_http1_proto.c
+@@ -271,7 +271,7 @@ http1_splitline(struct http *hp, struct http_conn *htc, const int *hf,
+ /*--------------------------------------------------------------------*/
+ 
+ static enum body_status
+-http1_body_status(const struct http *hp, struct http_conn *htc)
++http1_body_status(const struct http *hp, struct http_conn *htc, int request)
+ {
+ 	ssize_t cl;
+ 	const char *b;
+@@ -301,7 +301,7 @@ http1_body_status(const struct http *hp, struct http_conn *htc)
+ 		return (cl == 0 ? BS_NONE : BS_LENGTH);
+ 	}
+ 
+-	if (hp->protover == 11)
++	if (hp->protover == 11 && (request || !http_HdrIs(hp, H_Connection, "close")))
+ 		return (BS_NONE);
+ 
+ 	if (http_HdrIs(hp, H_Connection, "keep-alive")) {
+@@ -372,7 +372,7 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
+ 		}
+ 	}
+ 
+-	htc->body_status = http1_body_status(hp, htc);
++	htc->body_status = http1_body_status(hp, htc, 1);
+ 	if (htc->body_status == BS_ERROR)
+ 		return (400);
+ 
+@@ -451,7 +451,7 @@ HTTP1_DissectResponse(struct http_conn *htc, struct http *hp,
+ 	    !Tlen(hp->hd[HTTP_HDR_REASON]))
+ 		http_SetH(hp, HTTP_HDR_REASON, http_Status2Reason(hp->status));
+ 
+-	htc->body_status = http1_body_status(hp, htc);
++	htc->body_status = http1_body_status(hp, htc, 0);
+ 
+ 	return (retval);
+ }
+diff --git a/bin/varnishtest/tests/r01918.vtc b/bin/varnishtest/tests/r01918.vtc
+new file mode 100644
+index 0000000..c0593aa
+--- /dev/null
++++ b/bin/varnishtest/tests/r01918.vtc
+@@ -0,0 +1,22 @@
++varnishtest "Check EOF responses work with HTTP/1.1"
++
++server s1 {
++	rxreq
++	txresp -nolen -bodylen 10
++	rxreq
++	txresp -hdr "Connection: close" -nolen -bodylen 10
++} -start
++
++varnish v1 -vcl+backend {
++} -start
++
++client c1 {
++	txreq -url /1
++	rxresp
++	expect resp.status == 200
++	expect resp.bodylen == 0
++	txreq -url /2
++	rxresp
++	expect resp.status == 200
++	expect resp.bodylen == 10
++} -run
