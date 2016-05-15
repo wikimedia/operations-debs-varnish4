@@ -4,3 +4,4 @@
 0004-varnishd-persistent-mmap-exit.patch
 0005-handle-eof-http1.1.patch
 0006-IMS-duplicate-headers-proper-handling.patch
+0007-revert-grace-hits-hit-for-pass-objs.patch

@@ -1,3 +1,10 @@
+varnish (4.1.2-1wm5) jessie-wikimedia; urgency=medium
+
+  * 0007-revert-grace-hits-hit-for-pass-objs.patch: revert
+    8b7cb51b76ad616143040ee955f1f6d9306251b9 (Bug: T134989, T135038).
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Sun, 15 May 2016 13:17:39 +0200
+
 varnish (4.1.2-1wm4) jessie-wikimedia; urgency=medium
 
   * Add debian/patches/0006-IMS-duplicate-headers-proper-handling.patch.
