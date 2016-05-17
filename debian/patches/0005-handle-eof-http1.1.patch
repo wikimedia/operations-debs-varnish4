@@ -22,7 +22,7 @@ index 30b318c..713a8d6 100644
  	}
  
 -	if (hp->protover == 11)
-+	if (hp->protover == 11 && (request || !http_HdrIs(hp, H_Connection, "close")))
++	if (hp->protover == 11 && request)
  		return (BS_NONE);
  
  	if (http_HdrIs(hp, H_Connection, "keep-alive")) {
@@ -55,6 +55,8 @@ index 0000000..c0593aa
 +server s1 {
 +	rxreq
 +	txresp -nolen -bodylen 10
++	close
++	accept
 +	rxreq
 +	txresp -hdr "Connection: close" -nolen -bodylen 10
 +} -start
@@ -66,7 +68,7 @@ index 0000000..c0593aa
 +	txreq -url /1
 +	rxresp
 +	expect resp.status == 200
-+	expect resp.bodylen == 0
++	expect resp.bodylen == 10
 +	txreq -url /2
 +	rxresp
 +	expect resp.status == 200

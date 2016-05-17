@@ -1,3 +1,9 @@
+varnish (4.1.2-1wm6) jessie-wikimedia; urgency=medium
+
+  * Update 0005-handle-eof-http1.1.patch (Bug: T135515).
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Tue, 17 May 2016 19:41:43 +0200
+
 varnish (4.1.2-1wm5) jessie-wikimedia; urgency=medium
 
   * 0007-revert-grace-hits-hit-for-pass-objs.patch: revert
