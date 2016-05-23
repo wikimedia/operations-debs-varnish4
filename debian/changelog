@@ -1,3 +1,12 @@
+varnish (4.1.2-4) unstable; urgency=medium
+
+  * Declare compliance with Debian policy 3.9.8
+  * Use automatically built debug symbol packages
+  * Update debian/copyright
+  * Add Documentation= for varnishncsa.service
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 23 May 2016 22:20:11 +0200
+
 varnish (4.1.2-3) unstable; urgency=medium
 
   * Use serverspec for autopkgtest
