@@ -1,4 +1,0 @@
-#!/bin/sh
-
-# Test that varnishd understands the default vcl in the package
-/usr/sbin/varnishd -C -f /etc/varnish/default.vcl
