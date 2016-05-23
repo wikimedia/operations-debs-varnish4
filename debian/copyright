@@ -1,45 +1,261 @@
-This package was debianized by Lars Bahner <bahner@debian.org> on
-Fri,  6 Oct 2006 16:26:57 +0200.
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
-It was pulled from the Subversion repository at
-http://varnish-cache.org/svn/trunk
+Files: *
+Copyright: 2006-2016, Varnish Software AS
+  2006, 2008, Verdens Gang AS
+  2006-2016, Varnish Software AS
+License: BSD-2-clause
 
-Debianizations are an integral part of the main source for varnish,
-so the change for Debian are made before publication of releases, 
-and are as such checked.
+Files: debian/*
+Copyright: 2006-2007, Dag Erling Smørgrav
+  2006-2007, Lars Bahner
+  2007-2016, Stig Sandbeck Mathisen
+  2011-2012, 2015 Tollef Fog Heen
+License: GPL-2+
+  
+Files: bin/varnishd/mgt/mgt_jail_solaris.c
+Copyright: 2011-2015, UPLEX - Nils Goroll Systemoptimierung
+  2006-2011, Varnish Software AS
+License: BSD-2-clause
 
-Files are downloadable from the following URL
-http://sourceforge.net/project/showfiles.php?group_id=155816
+Files: bin/varnishd/waiter/cache_waiter_ports.c
+Copyright: 2010-2015, UPLEX, Nils Goroll
+  2007, Theo Schlossnagle
+  2007, OmniTI Computer Consulting, Inc
+  2006, Verdens Gang AS
+  2006, Varnish Software AS
+License: BSD-2-clause
 
-Copyright: 	2006 Verdens Gang AS
-		2006 Linpro AS
-All rights reserved.
+Files: bin/varnishncsa/base64.c
+Copyright: 2006 Poul-Henning Kamp <phk@freebsd.org>
+License: public-domain
 
-License:
+Files: build-aux/*
+Copyright: 1996-2012, Free Software Foundation, Inc.
+License: GPL-2+
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the distribution.
+Files: build-aux/install-sh
+Copyright: 1994, X Consortium
+License: Expat
 
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-SUCH DAMAGE.
+Files: configure
+Copyright: 2006-2016, Varnish Software AS
+  2006, Verdens Gang AS
+  1992-1996, 1998-2010, Free Software
+License: unlimited
+ This configure script is free software; the Free Software Foundation gives
+ unlimited permission to copy, distribute and modify it.
 
-The Debian packaging is copyright
- © 2006, Lars Bahner <bahner@debian.org>
- © 2006-2009 Stig Sandbeck Mathisen <ssm@debian.org>
-and is licensed under the GPL version 2. The full text of which can be found in
-the file /usr/share/common-licenses/GPL-2 on this system.
+Files: doc/html/_static/jquery.js
+Copyright: 2011, The Dojo Foundation
+  2011, John Resig
+License: Expat or GPL-2+
+
+Files: doc/html/_static/underscore.js
+Copyright: 2011, Jeremy Ashkenas, DocumentCloud Inc
+License: Expat
+
+Files: include/compat/*
+Copyright: 2003, Maxim Sobolev <sobomax@FreeBSD.org>
+License: BSD-2-clause
+
+Files: include/flopen.h
+Copyright: 2007, Dag-Erling Coïdan Smørgrav
+License: BSD-2-clause
+
+Files: include/miniobj.h
+Copyright: 2006 Poul-Henning Kamp <phk@freebsd.org>
+License: public-domain
+
+Files: include/vdef.h
+Copyright: 2012, Fastly Inc
+  2006-2015, Varnish Software AS
+  2006, Verdens Gang AS
+License: BSD-2-clause
+
+Files: include/vend.h
+  include/vlu.h
+Copyright: 2003, 2005-2008, 2010, Poul-Henning Kamp <phk@freebsd.org>
+License: BSD-2-clause
+
+Files: include/vpf.h
+Copyright: 2005, Pawel Jakub Dawidek <pjd@FreeBSD.org>
+License: BSD-2-clause
+
+Files: include/vqueue.h
+Copyright: 1990, 1991, 1993, The Regents of the University of California.
+License: BSD-3-clause
+
+Files: include/vsb.h
+Copyright: 2000-2011, Poul-Henning Kamp
+  2000-2008, Dag-Erling Coïdan Smørgrav
+License: BSD-2-clause
+
+Files: include/vsha256.h
+Copyright: 2005, Colin Percival
+License: BSD-2-clause
+
+Files: include/vtree.h
+Copyright: 2002, Niels Provos <provos@citi.umich.edu>
+License: BSD-2-clause
+
+Files: lib/libvarnish/flopen.c
+Copyright: 2007, Dag-Erling Coïdan Smørgrav
+License: BSD-2-clause
+
+Files: lib/libvarnish/vlu.c
+Copyright: 2003, 2005-2008, 2010, Poul-Henning Kamp <phk@freebsd.org>
+License: BSD-2-clause
+
+Files: lib/libvarnish/vpf.c
+Copyright: 2005, Pawel Jakub Dawidek <pjd@FreeBSD.org>
+License: BSD-2-clause
+
+Files: lib/libvarnish/vsb.c
+Copyright: 2000-2011, Poul-Henning Kamp
+  2000-2008, Dag-Erling Coïdan Smørgrav
+License: BSD-2-clause
+
+Files: lib/libvarnish/vsha256.c
+Copyright: 2005, Colin Percival
+License: BSD-2-clause
+
+Files: lib/libvarnishcompat/*
+Copyright: 2003, Maxim Sobolev <sobomax@FreeBSD.org>
+License: BSD-2-clause
+
+Files: lib/libvarnishcompat/daemon.c
+Copyright: 1990, 1991, 1993, The Regents of the University of California.
+License: BSD-3-clause
+
+Files: lib/libvgz/*
+Copyright: 1995-2013, Mark Adler
+License: Zlib
+
+Files: lib/libvgz/compress.c
+  lib/libvgz/deflate.h
+  lib/libvgz/trees.c
+  lib/libvgz/uncompr.c
+  lib/libvgz/zconf.h
+  lib/libvgz/zutil.c
+  lib/libvgz/zutil.h
+Copyright: 1995-2013, Jean-loup Gailly
+License: Zlib
+
+Files: lib/libvgz/deflate.c
+  lib/libvgz/vgz.h
+Copyright: 1995-2013, Jean-loup Gailly and Mark Adler
+License: Zlib
+
+License: BSD-2-clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in
+    the documentation and/or other materials provided with the
+    distribution.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR
+ CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+License: BSD-3-clause
+ The BSD License
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ .
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+ .
+   * Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+ .
+   * Neither the name of foo nor the names of its contributors may be
+     used to endorse or promote products derived from this software
+     without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+ WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ POSSIBILITY OF SUCH DAMAGE.
+
+License: Expat
+ The MIT License
+ .
+ Permission is hereby granted, free of charge, to any person obtaining
+ a copy of this software and associated documentation files (the
+ "Software"), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to
+ permit persons to whom the Software is furnished to do so, subject to
+ the following conditions:
+ .
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2 dated June, 1991, or (at your
+ option) any later version.
+ .
+ On Debian systems, the complete text of version 2 of the GNU General
+ Public License can be found in '/usr/share/common-licenses/GPL-2'.
+
+License: Zlib
+ The zlib License
+ .
+ This software is provided 'as-is', without any express or implied
+ warranty. In no event will the authors be held liable for any damages
+ arising from the use of this software.
+ .
+ Permission is granted to anyone to use this software for any purpose,
+ including commercial applications, and to alter it and redistribute
+ it freely, subject to the following restrictions:
+ .
+   1. The origin of this software must not be misrepresented; you must
+      not claim that you wrote the original software. If you use this
+      software in a product, an acknowledgment in the product
+      documentation would be appreciated but is not required.
+ .
+   2. Altered source versions must be plainly marked as such, and must
+      not be misrepresented as being the original software.
+ .
+   3. This notice may not be removed or altered from any source
+      distribution.
+
+License: public-domain
+ This file is in the public domain.
