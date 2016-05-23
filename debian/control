@@ -1,42 +1,42 @@
 Source: varnish
-Section: web
-Priority: optional
 Maintainer: Varnish Package Maintainers <pkg-varnish-devel@lists.alioth.debian.org>
-Uploaders:
- Jan Wagner <waja@cyconet.org>,
- Lars Bahner <bahner@debian.org>,
- Stig Sandbeck Mathisen <ssm@debian.org>,
- Tollef Fog Heen <tfheen@debian.org>,
-Build-Depends:
- automake,
- autotools-dev,
- debhelper (>= 9),
- dh-autoreconf,
- dh-systemd,
- graphviz,
- libedit-dev,
- libjemalloc-dev,
- libncurses-dev,
- libpcre3-dev,
- libtool,
- pkg-config,
- python-docutils,
- xsltproc,
+Uploaders: Jan Wagner <waja@cyconet.org>,
+           Lars Bahner <bahner@debian.org>,
+           Stig Sandbeck Mathisen <ssm@debian.org>,
+           Tollef Fog Heen <tfheen@debian.org>
+Section: web
+Testsuite: autopkgtest
+Priority: optional
+Build-Depends: automake,
+               autotools-dev,
+               debhelper (>= 9),
+               dh-autoreconf,
+               dh-systemd,
+               graphviz,
+               libedit-dev,
+               libjemalloc-dev,
+               libncurses-dev,
+               libpcre3-dev,
+               libtool,
+               pkg-config,
+               python-docutils,
+               xsltproc
 Standards-Version: 3.9.8
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-varnish/pkg-varnish.git
 Vcs-Git: https://anonscm.debian.org/git/pkg-varnish/pkg-varnish.git
 Homepage: https://www.varnish-cache.org/
-Testsuite: autopkgtest
 
 Package: varnish
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends},
- adduser,
- gcc,
- libc6-dev | libc6.1-dev | libc-dev,
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         adduser,
+         gcc,
+         libc6-dev | libc6.1-dev | libc-dev
 Suggests: varnish-doc
+Provides: ${Varnish:ABI},
+          ${Varnish:strictABI}
 Replaces: libvarnishapi1 (<< 3.0.0-5)
-Provides: ${Varnish:ABI}, ${Varnish:strictABI}
 Description: state of the art, high-performance web accelerator
  Varnish Cache is a state of the art web accelerator written with
  performance and flexibility in mind.
@@ -57,25 +57,31 @@ Description: state of the art, high-performance web accelerator
 Package: varnish-doc
 Architecture: all
 Section: doc
-Depends: ${misc:Depends}, libjs-jquery, libjs-underscore
+Depends: ${misc:Depends},
+         libjs-jquery,
+         libjs-underscore
 Description: documentation for Varnish Cache
  This package contains HTML documentation for Varnish Cache.
 
 Package: libvarnishapi1
-Section: libs
 Architecture: any
-Provides: libvarnish1
-Conflicts: libvarnish1
+Section: libs
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: libvarnish1
+Provides: libvarnish1
 Description: shared libraries for Varnish
  Shared libraries for the Varnish HTTP accelerator.
 
 Package: libvarnishapi-dev
-Section: libdevel
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libvarnishapi1 (= ${binary:Version}), python
-Provides: libvarnish-dev
+Section: libdevel
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         libvarnishapi1 (= ${binary:Version}),
+         python
 Conflicts: libvarnish-dev
+Provides: libvarnish-dev
 Description: development files for Varnish
  Development files for the Varnish HTTP accelerator.
