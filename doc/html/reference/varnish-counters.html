@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnish-counters &mdash; Varnish version 4.1.2 documentation</title>
+    <title>varnish-counters &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="VSL" href="vsl.html" />
     <link rel="prev" title="Writing a Director" href="directors.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="directors.html" title="Writing a Director"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -79,381 +77,340 @@
 <div class="section" id="main-counters-main">
 <h3>MAIN COUNTERS (MAIN.*)<a class="headerlink" href="#main-counters-main" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
-<dt>uptime – How long the child process has been running. (INFO)</dt>
-<dd>Child process uptime</dd>
-<dt>sess_conn – Count of sessions successfully accepted (INFO)</dt>
-<dd>Sessions accepted</dd>
-<dt>sess_drop – Count of sessions silently dropped due to lack of worker thread. (INFO)</dt>
-<dd>Sessions dropped</dd>
-<dt>sess_fail – Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like file descriptors. (INFO)</dt>
-<dd>Session accept failures</dd>
-<dt>client_req_400 – 400 means we couldn't make sense of the request, it was malformed in some drastic way. (INFO)</dt>
-<dd>Client requests received, subject to 400 errors</dd>
-<dt>client_req_417 – 417 means that something went wrong with an Expect: header. (INFO)</dt>
-<dd>Client requests received, subject to 417 errors</dd>
-<dt>client_req – The count of parseable client requests seen. (INFO)</dt>
-<dd>Good client requests received</dd>
-<dt>cache_hit – Count of cache hits.   A cache hit indicates that an object has been delivered to a  client without fetching it from a backend server. (INFO)</dt>
-<dd>Cache hits</dd>
-<dt>cache_hitpass – Count of hits for pass  A cache hit for pass indicates that Varnish is going to  pass the request to the backend and this decision has been   cached in it self. This counts how many times the cached   decision is being used. (INFO)</dt>
-<dd>Cache hits for pass</dd>
-<dt>cache_miss – Count of misses  A cache miss indicates the object was fetched from the  backend before delivering it to the backend. (INFO)</dt>
-<dd>Cache misses</dd>
-<dt>backend_conn – How many backend connections have successfully been established. (INFO)</dt>
-<dd>Backend conn. success</dd>
-<dt>backend_unhealthy –  (INFO)</dt>
-<dd>Backend conn. not attempted</dd>
-<dt>backend_busy –  (INFO)</dt>
-<dd>Backend conn. too many</dd>
-<dt>backend_fail –  (INFO)</dt>
-<dd>Backend conn. failures</dd>
-<dt>backend_reuse – Count of backend connection reuses  This counter is increased whenever we reuse a recycled connection. (INFO)</dt>
-<dd>Backend conn. reuses</dd>
-<dt>backend_recycle – Count of backend connection recycles  This counter is increased whenever we have a keep-alive  connection that is put back into the pool of connections.  It has not yet been used, but it might be, unless the backend  closes it. (INFO)</dt>
-<dd>Backend conn. recycles</dd>
-<dt>backend_retry –  (INFO)</dt>
-<dd>Backend conn. retry</dd>
-<dt>fetch_head – beresp with no body because the request is HEAD. (INFO)</dt>
-<dd>Fetch no body (HEAD)</dd>
-<dt>fetch_length – beresp.body with Content-Length. (INFO)</dt>
-<dd>Fetch with Length</dd>
-<dt>fetch_chunked – beresp.body with Chunked. (INFO)</dt>
-<dd>Fetch chunked</dd>
-<dt>fetch_eof – beresp.body with EOF. (INFO)</dt>
-<dd>Fetch EOF</dd>
-<dt>fetch_bad – beresp.body length/fetch could not be determined. (INFO)</dt>
-<dd>Fetch bad T-E</dd>
-<dt>fetch_none – beresp.body empty (INFO)</dt>
-<dd>Fetch no body</dd>
-<dt>fetch_1xx – beresp with no body because of 1XX response. (INFO)</dt>
-<dd>Fetch no body (1xx)</dd>
-<dt>fetch_204 – beresp with no body because of 204 response. (INFO)</dt>
-<dd>Fetch no body (204)</dd>
-<dt>fetch_304 – beresp with no body because of 304 response. (INFO)</dt>
-<dd>Fetch no body (304)</dd>
-<dt>fetch_failed – beresp fetch failed. (INFO)</dt>
-<dd>Fetch failed (all causes)</dd>
-<dt>fetch_no_thread – beresp fetch failed, no thread available. (INFO)</dt>
-<dd>Fetch failed (no thread)</dd>
-<dt>pools – Number of thread pools.  See also parameter thread_pools.  NB: Presently pools cannot be removed once created. (INFO)</dt>
-<dd>Number of thread pools</dd>
-<dt>threads – Number of threads in all pools.  See also parameters thread_pools, thread_pool_min and thread_pool_max. (INFO)</dt>
-<dd>Total number of threads</dd>
-<dt>threads_limited – Number of times more threads were needed, but limit was reached in a thread pool.  See also parameter thread_pool_max. (INFO)</dt>
-<dd>Threads hit max</dd>
-<dt>threads_created – Total number of threads created in all pools. (INFO)</dt>
-<dd>Threads created</dd>
-<dt>threads_destroyed – Total number of threads destroyed in all pools. (INFO)</dt>
-<dd>Threads destroyed</dd>
-<dt>threads_failed – Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also parameter thread_fail_delay. (INFO)</dt>
-<dd>Thread creation failed</dd>
-<dt>thread_queue_len – Length of session queue waiting for threads.  NB: Only updates once per second.  See also parameter queue_max. (INFO)</dt>
-<dd>Length of session queue</dd>
-<dt>busy_sleep – Number of requests sent to sleep without a worker thread because they found a busy object. (INFO)</dt>
-<dd>Number of requests sent to sleep on busy objhdr</dd>
-<dt>busy_wakeup – Number of requests taken of the busy object sleep list and and rescheduled. (INFO)</dt>
-<dd>Number of requests woken after sleep on busy objhdr</dd>
-<dt>busy_killed – Number of requests killed from the busy object sleep list due to lack of resources. (INFO)</dt>
-<dd>Number of requests killed after sleep on busy objhdr</dd>
-<dt>sess_queued – Number of times session was queued waiting for a thread.  See also parameter queue_max. (INFO)</dt>
-<dd>Sessions queued for thread</dd>
-<dt>sess_dropped – Number of times session was dropped because the queue were too long already. See also parameter queue_max. (INFO)</dt>
-<dd>Sessions dropped for thread</dd>
-<dt>n_object – Number of object structs made (INFO)</dt>
-<dd>object structs made</dd>
-<dt>n_vampireobject – Number of unresurrected objects (DIAG)</dt>
-<dd>unresurrected objects</dd>
-<dt>n_objectcore – Number of objectcore structs made (INFO)</dt>
-<dd>objectcore structs made</dd>
-<dt>n_objecthead – Number of objecthead structs made (INFO)</dt>
-<dd>objecthead structs made</dd>
-<dt>n_waitinglist – Number of waitinglist structs made (DEBUG)</dt>
-<dd>waitinglist structs made</dd>
-<dt>n_backend – Number of backends known to us. (INFO)</dt>
-<dd>Number of backends</dd>
-<dt>n_expired – Number of objects that expired from cache because of old age. (INFO)</dt>
-<dd>Number of expired objects</dd>
-<dt>n_lru_nuked – How many objects have been forcefully evicted from storage to make room for a new object. (INFO)</dt>
-<dd>Number of LRU nuked objects</dd>
-<dt>n_lru_moved – Number of move operations done on the LRU list. (DIAG)</dt>
-<dd>Number of LRU moved objects</dd>
-<dt>losthdr –  (INFO)</dt>
-<dd>HTTP header overflows</dd>
-<dt>s_sess –  (INFO)</dt>
-<dd>Total sessions seen</dd>
-<dt>s_req –  (INFO)</dt>
-<dd>Total requests seen</dd>
-<dt>s_pipe –  (INFO)</dt>
-<dd>Total pipe sessions seen</dd>
-<dt>s_pass –  (INFO)</dt>
-<dd>Total pass-ed requests seen</dd>
-<dt>s_fetch –  (INFO)</dt>
-<dd>Total backend fetches initiated</dd>
-<dt>s_synth –  (INFO)</dt>
-<dd>Total synthethic responses made</dd>
-<dt>s_req_hdrbytes – Total request header bytes received (INFO)</dt>
-<dd>Request header bytes</dd>
-<dt>s_req_bodybytes – Total request body bytes received (INFO)</dt>
-<dd>Request body bytes</dd>
-<dt>s_resp_hdrbytes – Total response header bytes transmitted (INFO)</dt>
-<dd>Response header bytes</dd>
-<dt>s_resp_bodybytes – Total response body bytes transmitted (INFO)</dt>
-<dd>Response body bytes</dd>
-<dt>s_pipe_hdrbytes – Total request bytes received for piped sessions (INFO)</dt>
-<dd>Pipe request header bytes</dd>
-<dt>s_pipe_in – Total number of bytes forwarded from clients in pipe sessions (INFO)</dt>
-<dd>Piped bytes from client</dd>
-<dt>s_pipe_out – Total number of bytes forwarded to clients in pipe sessions (INFO)</dt>
-<dd>Piped bytes to client</dd>
-<dt>sess_closed –  (INFO)</dt>
-<dd>Session Closed</dd>
-<dt>sess_closed_err – Total number of sessions closed with errors. See sc_* diag counters for detailed breakdown (INFO)</dt>
-<dd>Session Closed with error</dd>
-<dt>sess_readahead –  (INFO)</dt>
-<dd>Session Read Ahead</dd>
-<dt>sess_herd –  (DIAG)</dt>
-<dd>Session herd</dd>
-<dt>sc_rem_close – Number of session closes with REM_CLOSE (Client Closed) (DIAG)</dt>
-<dd>Session OK  REM_CLOSE</dd>
-<dt>sc_req_close – Number of session closes with REQ_CLOSE (Client requested close) (DIAG)</dt>
-<dd>Session OK  REQ_CLOSE</dd>
-<dt>sc_req_http10 – Number of session closes with Error REQ_HTTP10 (Proto &lt; HTTP/1.1) (DIAG)</dt>
-<dd>Session Err REQ_HTTP10</dd>
-<dt>sc_rx_bad – Number of session closes with Error RX_BAD (Received bad req/resp) (DIAG)</dt>
-<dd>Session Err RX_BAD</dd>
-<dt>sc_rx_body – Number of session closes with Error RX_BODY (Failure receiving req.body) (DIAG)</dt>
-<dd>Session Err RX_BODY</dd>
-<dt>sc_rx_junk – Number of session closes with Error RX_JUNK (Received junk data) (DIAG)</dt>
-<dd>Session Err RX_JUNK</dd>
-<dt>sc_rx_overflow – Number of session closes with Error RX_OVERFLOW (Received buffer overflow) (DIAG)</dt>
-<dd>Session Err RX_OVERFLOW</dd>
-<dt>sc_rx_timeout – Number of session closes with Error RX_TIMEOUT (Receive timeout) (DIAG)</dt>
-<dd>Session Err RX_TIMEOUT</dd>
-<dt>sc_tx_pipe – Number of session closes with TX_PIPE (Piped transaction) (DIAG)</dt>
-<dd>Session OK  TX_PIPE</dd>
-<dt>sc_tx_error – Number of session closes with Error TX_ERROR (Error transaction) (DIAG)</dt>
-<dd>Session Err TX_ERROR</dd>
-<dt>sc_tx_eof – Number of session closes with TX_EOF (EOF transmission) (DIAG)</dt>
-<dd>Session OK  TX_EOF</dd>
-<dt>sc_resp_close – Number of session closes with RESP_CLOSE (Backend/VCL requested close) (DIAG)</dt>
-<dd>Session OK  RESP_CLOSE</dd>
-<dt>sc_overload – Number of session closes with Error OVERLOAD (Out of some resource) (DIAG)</dt>
-<dd>Session Err OVERLOAD</dd>
-<dt>sc_pipe_overflow – Number of session closes with Error PIPE_OVERFLOW (Session pipe overflow) (DIAG)</dt>
-<dd>Session Err PIPE_OVERFLOW</dd>
-<dt>sc_range_short – Number of session closes with Error RANGE_SHORT (Insufficient data for range) (DIAG)</dt>
-<dd>Session Err RANGE_SHORT</dd>
-<dt>shm_records –  (DIAG)</dt>
-<dd>SHM records</dd>
-<dt>shm_writes –  (DIAG)</dt>
-<dd>SHM writes</dd>
-<dt>shm_flushes –  (DIAG)</dt>
-<dd>SHM flushes due to overflow</dd>
-<dt>shm_cont –  (DIAG)</dt>
-<dd>SHM MTX contention</dd>
-<dt>shm_cycles –  (DIAG)</dt>
-<dd>SHM cycles through buffer</dd>
-<dt>backend_req –  (INFO)</dt>
-<dd>Backend requests made</dd>
-<dt>n_vcl –  (INFO)</dt>
-<dd>Number of loaded VCLs in total</dd>
-<dt>n_vcl_avail –  (DIAG)</dt>
-<dd>Number of VCLs available</dd>
-<dt>n_vcl_discard –  (DIAG)</dt>
-<dd>Number of discarded VCLs</dd>
-<dt>bans – Number of all bans in system, including bans superseded by newer bans and bans already checked by the ban-lurker. (INFO)</dt>
-<dd>Count of bans</dd>
-<dt>bans_completed – Number of bans which are no longer active, either because they got checked by the ban-lurker or superseded by newer identical bans. (DIAG)</dt>
-<dd>Number of bans marked 'completed'</dd>
-<dt>bans_obj – Number of bans which use obj.* variables.  These bans can possibly be washed by the ban-lurker. (DIAG)</dt>
-<dd>Number of bans using obj.*</dd>
-<dt>bans_req – Number of bans which use req.* variables.  These bans can not be washed by the ban-lurker. (DIAG)</dt>
-<dd>Number of bans using req.*</dd>
-<dt>bans_added – Counter of bans added to ban list. (DIAG)</dt>
-<dd>Bans added</dd>
-<dt>bans_deleted – Counter of bans deleted from ban list. (DIAG)</dt>
-<dd>Bans deleted</dd>
-<dt>bans_tested – Count of how many bans and objects have been tested against each other during hash lookup. (DIAG)</dt>
-<dd>Bans tested against objects (lookup)</dd>
-<dt>bans_obj_killed – Number of objects killed by bans during object lookup. (DIAG)</dt>
-<dd>Objects killed by bans (lookup)</dd>
-<dt>bans_lurker_tested – Count of how many bans and objects have been tested against each other by the ban-lurker. (DIAG)</dt>
-<dd>Bans tested against objects (lurker)</dd>
-<dt>bans_tests_tested – Count of how many tests and objects have been tested against each other during lookup.  'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested' (DIAG)</dt>
-<dd>Ban tests tested against objects (lookup)</dd>
-<dt>bans_lurker_tests_tested – Count of how many tests and objects have been tested against each other by the ban-lurker.  'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested' (DIAG)</dt>
-<dd>Ban tests tested against objects (lurker)</dd>
-<dt>bans_lurker_obj_killed – Number of objects killed by ban-lurker. (DIAG)</dt>
-<dd>Objects killed by bans (lurker)</dd>
-<dt>bans_dups – Count of bans replaced by later identical bans. (DIAG)</dt>
-<dd>Bans superseded by other bans</dd>
-<dt>bans_lurker_contention – Number of times the ban-lurker had to wait for lookups. (DIAG)</dt>
-<dd>Lurker gave way for lookup</dd>
-<dt>bans_persisted_bytes – Number of bytes used by the persisted ban lists. (DIAG)</dt>
-<dd>Bytes used by the persisted ban lists</dd>
-<dt>bans_persisted_fragmentation – Number of extra bytes accumulated through dropped and completed bans in the persistent ban lists. (DIAG)</dt>
-<dd>Extra bytes in persisted ban lists due to fragmentation</dd>
-<dt>n_purges –  (INFO)</dt>
-<dd>Number of purge operations executed</dd>
-<dt>n_obj_purged –  (INFO)</dt>
-<dd>Number of purged objects</dd>
-<dt>exp_mailed – Number of objects mailed to expiry thread for handling. (DIAG)</dt>
-<dd>Number of objects mailed to expiry thread</dd>
-<dt>exp_received – Number of objects received by expiry thread for handling. (DIAG)</dt>
-<dd>Number of objects received by expiry thread</dd>
-<dt>hcb_nolock –  (DEBUG)</dt>
-<dd>HCB Lookups without lock</dd>
-<dt>hcb_lock –  (DEBUG)</dt>
-<dd>HCB Lookups with lock</dd>
-<dt>hcb_insert –  (DEBUG)</dt>
-<dd>HCB Inserts</dd>
-<dt>esi_errors –  (DIAG)</dt>
-<dd>ESI parse errors (unlock)</dd>
-<dt>esi_warnings –  (DIAG)</dt>
-<dd>ESI parse warnings (unlock)</dd>
-<dt>vmods –  (INFO)</dt>
-<dd>Loaded VMODs</dd>
-<dt>n_gzip –  (INFO)</dt>
-<dd>Gzip operations</dd>
-<dt>n_gunzip –  (INFO)</dt>
-<dd>Gunzip operations</dd>
-<dt>vsm_free – Number of bytes free in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)</dt>
-<dd>Free VSM space</dd>
-<dt>vsm_used – Number of bytes used in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)</dt>
-<dd>Used VSM space</dd>
-<dt>vsm_cooling – Number of bytes which will soon (max 1 minute) be freed in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DEBUG)</dt>
-<dd>Cooling VSM space</dd>
-<dt>vsm_overflow – Number of bytes which does not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)</dt>
-<dd>Overflow VSM space</dd>
-<dt>vsm_overflowed – Total number of bytes which did not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. (DIAG)</dt>
-<dd>Overflowed VSM space</dd>
+<dt>uptime – Child process uptime (INFO)</dt>
+<dd>How long the child process has been running.</dd>
+<dt>sess_conn – Sessions accepted (INFO)</dt>
+<dd>Count of sessions successfully accepted</dd>
+<dt>sess_drop – Sessions dropped (INFO)</dt>
+<dd>Count of sessions silently dropped due to lack of worker thread.</dd>
+<dt>sess_fail – Session accept failures (INFO)</dt>
+<dd>Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like file descriptors.</dd>
+<dt>client_req_400 – Client requests received, subject to 400 errors (INFO)</dt>
+<dd>400 means we couldn't make sense of the request, it was malformed in some drastic way.</dd>
+<dt>client_req_417 – Client requests received, subject to 417 errors (INFO)</dt>
+<dd>417 means that something went wrong with an Expect: header.</dd>
+<dt>client_req – Good client requests received (INFO)</dt>
+<dd>The count of parseable client requests seen.</dd>
+<dt>cache_hit – Cache hits (INFO)</dt>
+<dd>Count of cache hits.   A cache hit indicates that an object has been delivered to a  client without fetching it from a backend server.</dd>
+<dt>cache_hitpass – Cache hits for pass (INFO)</dt>
+<dd>Count of hits for pass  A cache hit for pass indicates that Varnish is going to  pass the request to the backend and this decision has been   cached in it self. This counts how many times the cached   decision is being used.</dd>
+<dt>cache_miss – Cache misses (INFO)</dt>
+<dd>Count of misses  A cache miss indicates the object was fetched from the  backend before delivering it to the client.</dd>
+<dt>backend_conn – Backend conn. success (INFO)</dt>
+<dd>How many backend connections have successfully been established.</dd>
+</dl>
+<p>backend_unhealthy – Backend conn. not attempted (INFO)</p>
+<p>backend_busy – Backend conn. too many (INFO)</p>
+<p>backend_fail – Backend conn. failures (INFO)</p>
+<dl class="docutils">
+<dt>backend_reuse – Backend conn. reuses (INFO)</dt>
+<dd>Count of backend connection reuses  This counter is increased whenever we reuse a recycled connection.</dd>
+<dt>backend_recycle – Backend conn. recycles (INFO)</dt>
+<dd>Count of backend connection recycles  This counter is increased whenever we have a keep-alive  connection that is put back into the pool of connections.  It has not yet been used, but it might be, unless the backend  closes it.</dd>
+</dl>
+<p>backend_retry – Backend conn. retry (INFO)</p>
+<dl class="docutils">
+<dt>fetch_head – Fetch no body (HEAD) (INFO)</dt>
+<dd>beresp with no body because the request is HEAD.</dd>
+<dt>fetch_length – Fetch with Length (INFO)</dt>
+<dd>beresp.body with Content-Length.</dd>
+<dt>fetch_chunked – Fetch chunked (INFO)</dt>
+<dd>beresp.body with Chunked.</dd>
+<dt>fetch_eof – Fetch EOF (INFO)</dt>
+<dd>beresp.body with EOF.</dd>
+<dt>fetch_bad – Fetch bad T-E (INFO)</dt>
+<dd>beresp.body length/fetch could not be determined.</dd>
+<dt>fetch_none – Fetch no body (INFO)</dt>
+<dd>beresp.body empty</dd>
+<dt>fetch_1xx – Fetch no body (1xx) (INFO)</dt>
+<dd>beresp with no body because of 1XX response.</dd>
+<dt>fetch_204 – Fetch no body (204) (INFO)</dt>
+<dd>beresp with no body because of 204 response.</dd>
+<dt>fetch_304 – Fetch no body (304) (INFO)</dt>
+<dd>beresp with no body because of 304 response.</dd>
+<dt>fetch_failed – Fetch failed (all causes) (INFO)</dt>
+<dd>beresp fetch failed.</dd>
+<dt>fetch_no_thread – Fetch failed (no thread) (INFO)</dt>
+<dd>beresp fetch failed, no thread available.</dd>
+<dt>pools – Number of thread pools (INFO)</dt>
+<dd>Number of thread pools.  See also parameter thread_pools.  NB: Presently pools cannot be removed once created.</dd>
+<dt>threads – Total number of threads (INFO)</dt>
+<dd>Number of threads in all pools.  See also parameters thread_pools, thread_pool_min and thread_pool_max.</dd>
+<dt>threads_limited – Threads hit max (INFO)</dt>
+<dd>Number of times more threads were needed, but limit was reached in a thread pool.  See also parameter thread_pool_max.</dd>
+<dt>threads_created – Threads created (INFO)</dt>
+<dd>Total number of threads created in all pools.</dd>
+<dt>threads_destroyed – Threads destroyed (INFO)</dt>
+<dd>Total number of threads destroyed in all pools.</dd>
+<dt>threads_failed – Thread creation failed (INFO)</dt>
+<dd>Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also parameter thread_fail_delay.</dd>
+<dt>thread_queue_len – Length of session queue (INFO)</dt>
+<dd>Length of session queue waiting for threads.  NB: Only updates once per second.  See also parameter thread_queue_limit.</dd>
+<dt>busy_sleep – Number of requests sent to sleep on busy objhdr (INFO)</dt>
+<dd>Number of requests sent to sleep without a worker thread because they found a busy object.</dd>
+<dt>busy_wakeup – Number of requests woken after sleep on busy objhdr (INFO)</dt>
+<dd>Number of requests taken of the busy object sleep list and and rescheduled.</dd>
+<dt>busy_killed – Number of requests killed after sleep on busy objhdr (INFO)</dt>
+<dd>Number of requests killed from the busy object sleep list due to lack of resources.</dd>
+<dt>sess_queued – Sessions queued for thread (INFO)</dt>
+<dd>Number of times session was queued waiting for a thread.  See also parameter thread_queue_limit.</dd>
+<dt>sess_dropped – Sessions dropped for thread (INFO)</dt>
+<dd>Number of times session was dropped because the queue were too long already. See also parameter thread_queue_limit.</dd>
+<dt>n_object – object structs made (INFO)</dt>
+<dd>Number of object structs made</dd>
+<dt>n_vampireobject – unresurrected objects (DIAG)</dt>
+<dd>Number of unresurrected objects</dd>
+<dt>n_objectcore – objectcore structs made (INFO)</dt>
+<dd>Number of objectcore structs made</dd>
+<dt>n_objecthead – objecthead structs made (INFO)</dt>
+<dd>Number of objecthead structs made</dd>
+<dt>n_waitinglist – waitinglist structs made (DEBUG)</dt>
+<dd>Number of waitinglist structs made</dd>
+<dt>n_backend – Number of backends (INFO)</dt>
+<dd>Number of backends known to us.</dd>
+<dt>n_expired – Number of expired objects (INFO)</dt>
+<dd>Number of objects that expired from cache because of old age.</dd>
+<dt>n_lru_nuked – Number of LRU nuked objects (INFO)</dt>
+<dd>How many objects have been forcefully evicted from storage to make room for a new object.</dd>
+<dt>n_lru_moved – Number of LRU moved objects (DIAG)</dt>
+<dd>Number of move operations done on the LRU list.</dd>
+</dl>
+<p>losthdr – HTTP header overflows (INFO)</p>
+<p>s_sess – Total sessions seen (INFO)</p>
+<p>s_req – Total requests seen (INFO)</p>
+<p>s_pipe – Total pipe sessions seen (INFO)</p>
+<p>s_pass – Total pass-ed requests seen (INFO)</p>
+<p>s_fetch – Total backend fetches initiated (INFO)</p>
+<p>s_synth – Total synthethic responses made (INFO)</p>
+<dl class="docutils">
+<dt>s_req_hdrbytes – Request header bytes (INFO)</dt>
+<dd>Total request header bytes received</dd>
+<dt>s_req_bodybytes – Request body bytes (INFO)</dt>
+<dd>Total request body bytes received</dd>
+<dt>s_resp_hdrbytes – Response header bytes (INFO)</dt>
+<dd>Total response header bytes transmitted</dd>
+<dt>s_resp_bodybytes – Response body bytes (INFO)</dt>
+<dd>Total response body bytes transmitted</dd>
+<dt>s_pipe_hdrbytes – Pipe request header bytes (INFO)</dt>
+<dd>Total request bytes received for piped sessions</dd>
+<dt>s_pipe_in – Piped bytes from client (INFO)</dt>
+<dd>Total number of bytes forwarded from clients in pipe sessions</dd>
+<dt>s_pipe_out – Piped bytes to client (INFO)</dt>
+<dd>Total number of bytes forwarded to clients in pipe sessions</dd>
+</dl>
+<p>sess_closed – Session Closed (INFO)</p>
+<dl class="docutils">
+<dt>sess_closed_err – Session Closed with error (INFO)</dt>
+<dd>Total number of sessions closed with errors. See sc_* diag counters for detailed breakdown</dd>
+</dl>
+<p>sess_readahead – Session Read Ahead (INFO)</p>
+<p>sess_herd – Session herd (DIAG)</p>
+<dl class="docutils">
+<dt>sc_rem_close – Session OK  REM_CLOSE (DIAG)</dt>
+<dd>Number of session closes with REM_CLOSE (Client Closed)</dd>
+<dt>sc_req_close – Session OK  REQ_CLOSE (DIAG)</dt>
+<dd>Number of session closes with REQ_CLOSE (Client requested close)</dd>
+<dt>sc_req_http10 – Session Err REQ_HTTP10 (DIAG)</dt>
+<dd>Number of session closes with Error REQ_HTTP10 (Proto &lt; HTTP/1.1)</dd>
+<dt>sc_rx_bad – Session Err RX_BAD (DIAG)</dt>
+<dd>Number of session closes with Error RX_BAD (Received bad req/resp)</dd>
+<dt>sc_rx_body – Session Err RX_BODY (DIAG)</dt>
+<dd>Number of session closes with Error RX_BODY (Failure receiving req.body)</dd>
+<dt>sc_rx_junk – Session Err RX_JUNK (DIAG)</dt>
+<dd>Number of session closes with Error RX_JUNK (Received junk data)</dd>
+<dt>sc_rx_overflow – Session Err RX_OVERFLOW (DIAG)</dt>
+<dd>Number of session closes with Error RX_OVERFLOW (Received buffer overflow)</dd>
+<dt>sc_rx_timeout – Session Err RX_TIMEOUT (DIAG)</dt>
+<dd>Number of session closes with Error RX_TIMEOUT (Receive timeout)</dd>
+<dt>sc_tx_pipe – Session OK  TX_PIPE (DIAG)</dt>
+<dd>Number of session closes with TX_PIPE (Piped transaction)</dd>
+<dt>sc_tx_error – Session Err TX_ERROR (DIAG)</dt>
+<dd>Number of session closes with Error TX_ERROR (Error transaction)</dd>
+<dt>sc_tx_eof – Session OK  TX_EOF (DIAG)</dt>
+<dd>Number of session closes with TX_EOF (EOF transmission)</dd>
+<dt>sc_resp_close – Session OK  RESP_CLOSE (DIAG)</dt>
+<dd>Number of session closes with RESP_CLOSE (Backend/VCL requested close)</dd>
+<dt>sc_overload – Session Err OVERLOAD (DIAG)</dt>
+<dd>Number of session closes with Error OVERLOAD (Out of some resource)</dd>
+<dt>sc_pipe_overflow – Session Err PIPE_OVERFLOW (DIAG)</dt>
+<dd>Number of session closes with Error PIPE_OVERFLOW (Session pipe overflow)</dd>
+<dt>sc_range_short – Session Err RANGE_SHORT (DIAG)</dt>
+<dd>Number of session closes with Error RANGE_SHORT (Insufficient data for range)</dd>
+</dl>
+<p>shm_records – SHM records (DIAG)</p>
+<p>shm_writes – SHM writes (DIAG)</p>
+<p>shm_flushes – SHM flushes due to overflow (DIAG)</p>
+<p>shm_cont – SHM MTX contention (DIAG)</p>
+<p>shm_cycles – SHM cycles through buffer (DIAG)</p>
+<p>backend_req – Backend requests made (INFO)</p>
+<p>n_vcl – Number of loaded VCLs in total (INFO)</p>
+<p>n_vcl_avail – Number of VCLs available (DIAG)</p>
+<p>n_vcl_discard – Number of discarded VCLs (DIAG)</p>
+<dl class="docutils">
+<dt>bans – Count of bans (INFO)</dt>
+<dd>Number of all bans in system, including bans superseded by newer bans and bans already checked by the ban-lurker.</dd>
+<dt>bans_completed – Number of bans marked 'completed' (DIAG)</dt>
+<dd>Number of bans which are no longer active, either because they got checked by the ban-lurker or superseded by newer identical bans.</dd>
+<dt>bans_obj – Number of bans using obj.* (DIAG)</dt>
+<dd>Number of bans which use obj.* variables.  These bans can possibly be washed by the ban-lurker.</dd>
+<dt>bans_req – Number of bans using req.* (DIAG)</dt>
+<dd>Number of bans which use req.* variables.  These bans can not be washed by the ban-lurker.</dd>
+<dt>bans_added – Bans added (DIAG)</dt>
+<dd>Counter of bans added to ban list.</dd>
+<dt>bans_deleted – Bans deleted (DIAG)</dt>
+<dd>Counter of bans deleted from ban list.</dd>
+<dt>bans_tested – Bans tested against objects (lookup) (DIAG)</dt>
+<dd>Count of how many bans and objects have been tested against each other during hash lookup.</dd>
+<dt>bans_obj_killed – Objects killed by bans (lookup) (DIAG)</dt>
+<dd>Number of objects killed by bans during object lookup.</dd>
+<dt>bans_lurker_tested – Bans tested against objects (lurker) (DIAG)</dt>
+<dd>Count of how many bans and objects have been tested against each other by the ban-lurker.</dd>
+<dt>bans_tests_tested – Ban tests tested against objects (lookup) (DIAG)</dt>
+<dd>Count of how many tests and objects have been tested against each other during lookup.  'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
+<dt>bans_lurker_tests_tested – Ban tests tested against objects (lurker) (DIAG)</dt>
+<dd>Count of how many tests and objects have been tested against each other by the ban-lurker.  'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
+<dt>bans_lurker_obj_killed – Objects killed by bans (lurker) (DIAG)</dt>
+<dd>Number of objects killed by ban-lurker.</dd>
+<dt>bans_dups – Bans superseded by other bans (DIAG)</dt>
+<dd>Count of bans replaced by later identical bans.</dd>
+<dt>bans_lurker_contention – Lurker gave way for lookup (DIAG)</dt>
+<dd>Number of times the ban-lurker had to wait for lookups.</dd>
+<dt>bans_persisted_bytes – Bytes used by the persisted ban lists (DIAG)</dt>
+<dd>Number of bytes used by the persisted ban lists.</dd>
+<dt>bans_persisted_fragmentation – Extra bytes in persisted ban lists due to fragmentation (DIAG)</dt>
+<dd>Number of extra bytes accumulated through dropped and completed bans in the persistent ban lists.</dd>
+</dl>
+<p>n_purges – Number of purge operations executed (INFO)</p>
+<p>n_obj_purged – Number of purged objects (INFO)</p>
+<dl class="docutils">
+<dt>exp_mailed – Number of objects mailed to expiry thread (DIAG)</dt>
+<dd>Number of objects mailed to expiry thread for handling.</dd>
+<dt>exp_received – Number of objects received by expiry thread (DIAG)</dt>
+<dd>Number of objects received by expiry thread for handling.</dd>
+</dl>
+<p>hcb_nolock – HCB Lookups without lock (DEBUG)</p>
+<p>hcb_lock – HCB Lookups with lock (DEBUG)</p>
+<p>hcb_insert – HCB Inserts (DEBUG)</p>
+<p>esi_errors – ESI parse errors (unlock) (DIAG)</p>
+<p>esi_warnings – ESI parse warnings (unlock) (DIAG)</p>
+<p>vmods – Loaded VMODs (INFO)</p>
+<p>n_gzip – Gzip operations (INFO)</p>
+<p>n_gunzip – Gunzip operations (INFO)</p>
+<dl class="docutils">
+<dt>vsm_free – Free VSM space (DIAG)</dt>
+<dd>Number of bytes free in the shared memory used to communicate with tools like varnishstat, varnishlog etc.</dd>
+<dt>vsm_used – Used VSM space (DIAG)</dt>
+<dd>Number of bytes used in the shared memory used to communicate with tools like varnishstat, varnishlog etc.</dd>
+<dt>vsm_cooling – Cooling VSM space (DEBUG)</dt>
+<dd>Number of bytes which will soon (max 1 minute) be freed in the shared memory used to communicate with tools like varnishstat, varnishlog etc.</dd>
+<dt>vsm_overflow – Overflow VSM space (DIAG)</dt>
+<dd>Number of bytes which does not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. If this counter is not zero, consider increasing the runtime variable vsm_space.</dd>
+<dt>vsm_overflowed – Overflowed VSM space (DIAG)</dt>
+<dd>Total number of bytes which did not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. If this counter is not zero, consider increasing the runtime variable vsm_space.</dd>
 </dl>
 </div>
 <div class="section" id="management-process-counters-mgt">
 <h3>MANAGEMENT PROCESS COUNTERS (MGT.*)<a class="headerlink" href="#management-process-counters-mgt" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
-<dt>uptime – Uptime in seconds of the management process (INFO)</dt>
-<dd>Management process uptime</dd>
-<dt>child_start – Number of times the child process has been started (DIAG)</dt>
-<dd>Child process started</dd>
-<dt>child_exit – Number of times the child process has been cleanly stopped (DIAG)</dt>
-<dd>Child process normal exit</dd>
-<dt>child_stop – Number of times the child process has exited with an unexpected return code (DIAG)</dt>
-<dd>Child process unexpected exit</dd>
-<dt>child_died – Number of times the child process has died due to signals (DIAG)</dt>
-<dd>Child process died (signal)</dd>
-<dt>child_dump – Number of times the child process has produced core dumps (DIAG)</dt>
-<dd>Child process core dumped</dd>
-<dt>child_panic – Number of times the management process has caught a child panic (DIAG)</dt>
-<dd>Child process panic</dd>
+<dt>uptime – Management process uptime (INFO)</dt>
+<dd>Uptime in seconds of the management process</dd>
+<dt>child_start – Child process started (DIAG)</dt>
+<dd>Number of times the child process has been started</dd>
+<dt>child_exit – Child process normal exit (DIAG)</dt>
+<dd>Number of times the child process has been cleanly stopped</dd>
+<dt>child_stop – Child process unexpected exit (DIAG)</dt>
+<dd>Number of times the child process has exited with an unexpected return code</dd>
+<dt>child_died – Child process died (signal) (DIAG)</dt>
+<dd>Number of times the child process has died due to signals</dd>
+<dt>child_dump – Child process core dumped (DIAG)</dt>
+<dd>Number of times the child process has produced core dumps</dd>
+<dt>child_panic – Child process panic (DIAG)</dt>
+<dd>Number of times the management process has caught a child panic</dd>
 </dl>
 </div>
 <div class="section" id="per-memory-pool-counters-mempool">
 <h3>PER MEMORY POOL COUNTERS (MEMPOOL.*)<a class="headerlink" href="#per-memory-pool-counters-mempool" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>live –  (DEBUG)</dt>
-<dd>In use</dd>
-<dt>pool –  (DEBUG)</dt>
-<dd>In Pool</dd>
-<dt>sz_wanted –  (DEBUG)</dt>
-<dd>Size requested</dd>
-<dt>sz_actual –  (DEBUG)</dt>
-<dd>Size allocated</dd>
-<dt>allocs –  (DEBUG)</dt>
-<dd>Allocations</dd>
-<dt>frees –  (DEBUG)</dt>
-<dd>Frees</dd>
-<dt>recycle –  (DEBUG)</dt>
-<dd>Recycled from pool</dd>
-<dt>timeout –  (DEBUG)</dt>
-<dd>Timed out from pool</dd>
-<dt>toosmall –  (DEBUG)</dt>
-<dd>Too small to recycle</dd>
-<dt>surplus –  (DEBUG)</dt>
-<dd>Too many for pool</dd>
-<dt>randry –  (DEBUG)</dt>
-<dd>Pool ran dry</dd>
-</dl>
+<p>live – In use (DEBUG)</p>
+<p>pool – In Pool (DEBUG)</p>
+<p>sz_wanted – Size requested (DEBUG)</p>
+<p>sz_actual – Size allocated (DEBUG)</p>
+<p>allocs – Allocations (DEBUG)</p>
+<p>frees – Frees (DEBUG)</p>
+<p>recycle – Recycled from pool (DEBUG)</p>
+<p>timeout – Timed out from pool (DEBUG)</p>
+<p>toosmall – Too small to recycle (DEBUG)</p>
+<p>surplus – Too many for pool (DEBUG)</p>
+<p>randry – Pool ran dry (DEBUG)</p>
 </div>
 <div class="section" id="per-malloc-storage-counters-sma">
 <h3>PER MALLOC STORAGE COUNTERS (SMA.*)<a class="headerlink" href="#per-malloc-storage-counters-sma" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
-<dt>c_req – Number of times the storage has been asked to provide a storage segment. (INFO)</dt>
-<dd>Allocator requests</dd>
-<dt>c_fail – Number of times the storage has failed to provide a storage segment. (INFO)</dt>
-<dd>Allocator failures</dd>
-<dt>c_bytes – Number of total bytes allocated by this storage. (INFO)</dt>
-<dd>Bytes allocated</dd>
-<dt>c_freed – Number of total bytes returned to this storage. (INFO)</dt>
-<dd>Bytes freed</dd>
-<dt>g_alloc – Number of storage allocations outstanding. (INFO)</dt>
-<dd>Allocations outstanding</dd>
-<dt>g_bytes – Number of bytes allocated from the storage. (INFO)</dt>
-<dd>Bytes outstanding</dd>
-<dt>g_space – Number of bytes left in the storage. (INFO)</dt>
-<dd>Bytes available</dd>
+<dt>c_req – Allocator requests (INFO)</dt>
+<dd>Number of times the storage has been asked to provide a storage segment.</dd>
+<dt>c_fail – Allocator failures (INFO)</dt>
+<dd>Number of times the storage has failed to provide a storage segment.</dd>
+<dt>c_bytes – Bytes allocated (INFO)</dt>
+<dd>Number of total bytes allocated by this storage.</dd>
+<dt>c_freed – Bytes freed (INFO)</dt>
+<dd>Number of total bytes returned to this storage.</dd>
+<dt>g_alloc – Allocations outstanding (INFO)</dt>
+<dd>Number of storage allocations outstanding.</dd>
+<dt>g_bytes – Bytes outstanding (INFO)</dt>
+<dd>Number of bytes allocated from the storage.</dd>
+<dt>g_space – Bytes available (INFO)</dt>
+<dd>Number of bytes left in the storage.</dd>
 </dl>
 </div>
 <div class="section" id="per-file-storage-counters-smf">
 <h3>PER FILE STORAGE COUNTERS (SMF.*)<a class="headerlink" href="#per-file-storage-counters-smf" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
-<dt>c_req – Number of times the storage has been asked to provide a storage segment. (INFO)</dt>
-<dd>Allocator requests</dd>
-<dt>c_fail – Number of times the storage has failed to provide a storage segment. (INFO)</dt>
-<dd>Allocator failures</dd>
-<dt>c_bytes – Number of total bytes allocated by this storage. (INFO)</dt>
-<dd>Bytes allocated</dd>
-<dt>c_freed – Number of total bytes returned to this storage. (INFO)</dt>
-<dd>Bytes freed</dd>
-<dt>g_alloc – Number of storage allocations outstanding. (INFO)</dt>
-<dd>Allocations outstanding</dd>
-<dt>g_bytes – Number of bytes allocated from the storage. (INFO)</dt>
-<dd>Bytes outstanding</dd>
-<dt>g_space – Number of bytes left in the storage. (INFO)</dt>
-<dd>Bytes available</dd>
-<dt>g_smf –  (INFO)</dt>
-<dd>N struct smf</dd>
-<dt>g_smf_frag –  (INFO)</dt>
-<dd>N small free smf</dd>
-<dt>g_smf_large –  (INFO)</dt>
-<dd>N large free smf</dd>
+<dt>c_req – Allocator requests (INFO)</dt>
+<dd>Number of times the storage has been asked to provide a storage segment.</dd>
+<dt>c_fail – Allocator failures (INFO)</dt>
+<dd>Number of times the storage has failed to provide a storage segment.</dd>
+<dt>c_bytes – Bytes allocated (INFO)</dt>
+<dd>Number of total bytes allocated by this storage.</dd>
+<dt>c_freed – Bytes freed (INFO)</dt>
+<dd>Number of total bytes returned to this storage.</dd>
+<dt>g_alloc – Allocations outstanding (INFO)</dt>
+<dd>Number of storage allocations outstanding.</dd>
+<dt>g_bytes – Bytes outstanding (INFO)</dt>
+<dd>Number of bytes allocated from the storage.</dd>
+<dt>g_space – Bytes available (INFO)</dt>
+<dd>Number of bytes left in the storage.</dd>
 </dl>
+<p>g_smf – N struct smf (INFO)</p>
+<p>g_smf_frag – N small free smf (INFO)</p>
+<p>g_smf_large – N large free smf (INFO)</p>
 </div>
 <div class="section" id="per-backend-counters-vbe">
 <h3>PER BACKEND COUNTERS (VBE.*)<a class="headerlink" href="#per-backend-counters-vbe" title="Permalink to this headline">¶</a></h3>
+<p>happy – Happy health probes (INFO)</p>
 <dl class="docutils">
-<dt>happy –  (INFO)</dt>
-<dd>Happy health probes</dd>
-<dt>bereq_hdrbytes – Total backend request header bytes sent (INFO)</dt>
-<dd>Request header bytes</dd>
-<dt>bereq_bodybytes – Total backend request body bytes sent (INFO)</dt>
-<dd>Request body bytes</dd>
-<dt>beresp_hdrbytes – Total backend response header bytes received (INFO)</dt>
-<dd>Response header bytes</dd>
-<dt>beresp_bodybytes – Total backend response body bytes received (INFO)</dt>
-<dd>Response body bytes</dd>
-<dt>pipe_hdrbytes – Total request bytes sent for piped sessions (INFO)</dt>
-<dd>Pipe request header bytes</dd>
-<dt>pipe_out – Total number of bytes forwarded to backend in pipe sessions (INFO)</dt>
-<dd>Piped bytes to backend</dd>
-<dt>pipe_in – Total number of bytes forwarded from backend in pipe sessions (INFO)</dt>
-<dd>Piped bytes from backend</dd>
-<dt>conn –  (INFO)</dt>
-<dd>Concurrent connections to backend</dd>
-<dt>req –  (INFO)</dt>
-<dd>Backend requests sent</dd>
+<dt>bereq_hdrbytes – Request header bytes (INFO)</dt>
+<dd>Total backend request header bytes sent</dd>
+<dt>bereq_bodybytes – Request body bytes (INFO)</dt>
+<dd>Total backend request body bytes sent</dd>
+<dt>beresp_hdrbytes – Response header bytes (INFO)</dt>
+<dd>Total backend response header bytes received</dd>
+<dt>beresp_bodybytes – Response body bytes (INFO)</dt>
+<dd>Total backend response body bytes received</dd>
+<dt>pipe_hdrbytes – Pipe request header bytes (INFO)</dt>
+<dd>Total request bytes sent for piped sessions</dd>
+<dt>pipe_out – Piped bytes to backend (INFO)</dt>
+<dd>Total number of bytes forwarded to backend in pipe sessions</dd>
+<dt>pipe_in – Piped bytes from backend (INFO)</dt>
+<dd>Total number of bytes forwarded from backend in pipe sessions</dd>
 </dl>
+<p>conn – Concurrent connections to backend (INFO)</p>
+<p>req – Backend requests sent (INFO)</p>
 </div>
 <div class="section" id="lock-counters-lck">
 <h3>LOCK COUNTERS (LCK.*)<a class="headerlink" href="#lock-counters-lck" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>creat –  (DEBUG)</dt>
-<dd>Created locks</dd>
-<dt>destroy –  (DEBUG)</dt>
-<dd>Destroyed locks</dd>
-<dt>locks –  (DEBUG)</dt>
-<dd>Lock Operations</dd>
-</dl>
+<p>creat – Created locks (DEBUG)</p>
+<p>destroy – Destroyed locks (DEBUG)</p>
+<p>locks – Lock Operations (DEBUG)</p>
 </div>
 <div class="section" id="authors">
 <h3>AUTHORS<a class="headerlink" href="#authors" title="Permalink to this headline">¶</a></h3>
@@ -528,13 +485,13 @@ written by Tollef Fog Heen.</p>
         <li class="right" >
           <a href="directors.html" title="Writing a Director"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

@@ -851,6 +851,8 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 				vep_mark_skip(vep, p);
 				vep->in_esi_tag = 0;
 				vep->state = VEP_NEXTTAG;
+				if (vep->attr_vsb)
+					VSB_destroy(&vep->attr_vsb);
 			}
 
 		/******************************************************
@@ -885,6 +887,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 				vep->state = VEP_TAGERROR;
 			}
 		} else if (vep->state == VEP_ATTRGETVAL) {
+			AZ(vep->attr_vsb);
 			vep->attr_vsb = VSB_new_auto();
 			vep->state = VEP_ATTRDELIM;
 		} else if (vep->state == VEP_ATTRDELIM) {
@@ -1080,8 +1083,19 @@ VEP_Finish(struct vep_state *vep)
 
 	CHECK_OBJ_NOTNULL(vep, VEP_MAGIC);
 
-	AZ(vep->include_src);
-	AZ(vep->attr_vsb);
+	if (vep->include_src)
+		VSB_destroy(&vep->include_src);
+	if (vep->attr_vsb)
+		VSB_destroy(&vep->attr_vsb);
+
+	if (vep->state != VEP_START &&
+	    vep->state != VEP_BOM &&
+	    vep->state != VEP_TESTXML &&
+	    vep->state != VEP_NOTXML &&
+	    vep->state != VEP_NEXTTAG) {
+		vep_error(vep, "VEP ended inside a tag");
+	}
+
 	if (vep->o_pending)
 		vep_mark_common(vep, vep->ver_p, vep->last_mark);
 	if (vep->o_wait > 0) {

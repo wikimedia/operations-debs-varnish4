@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Installing Varnish &mdash; Varnish version 4.1.2 documentation</title>
+    <title>Installing Varnish &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="Varnish Installation" href="index.html" />
     <link rel="next" title="Getting help" href="help.html" />
     <link rel="prev" title="Prerequisites" href="prerequisites.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="prerequisites.html" title="Prerequisites"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">Varnish Installation</a> &raquo;</li> 
       </ul>
     </div>  
@@ -141,21 +139,36 @@ packages installed:</p>
 <li><cite>graphviz</cite></li>
 </ul>
 </div>
+<div class="section" id="build-dependencies-on-a-smartos-zone">
+<h2>Build dependencies on a SmartOS Zone<a class="headerlink" href="#build-dependencies-on-a-smartos-zone" title="Permalink to this headline">¶</a></h2>
+<p>As of SmartOS pkgsrc 2015Q4, install the following packages:</p>
+<div class="highlight-python"><div class="highlight"><pre>pkgin in autoconf automake libedit libtool ncurses \
+         pcre graphviz py27-sphinx python27 gmake gcc49 \
+         pkg-config
+</pre></div>
+</div>
+<p>Optionally, to pull from a repository:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">pkgin</span> <span class="ow">in</span> <span class="n">git</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="compiling-varnish">
 <h2>Compiling Varnish<a class="headerlink" href="#compiling-varnish" title="Permalink to this headline">¶</a></h2>
 <p>The configuration will need the dependencies above satisfied. Once that is
 taken care of:</p>
-<div class="highlight-python"><pre>cd varnish-cache
+<div class="highlight-python"><div class="highlight"><pre>cd varnish-cache
 sh autogen.sh
 sh configure
-make</pre>
+make
+</pre></div>
 </div>
 <p>The <cite>configure</cite> script takes some arguments, but more likely than not you can
 forget about that for now, almost everything in Varnish can be tweaked with run
 time parameters.</p>
 <p>Before you install, you may want to run the test suite, make a cup of
 tea while it runs, it usually takes a couple of minutes:</p>
-<div class="highlight-python"><pre>make check</pre>
+<div class="highlight-python"><div class="highlight"><pre>make check
+</pre></div>
 </div>
 <p>Don't worry if one or two tests fail, some of the tests are a
 bit too timing sensitive (Please tell us which so we can fix them.) but
@@ -177,7 +190,8 @@ of the most recent shared libraries are found, run <tt class="docutils literal">
 <p>This tutorial is written for installations from binary packages.
 In practice, it means that some configurations are not in place for installations from source code.
 For example, instead of calling <tt class="docutils literal"><span class="pre">service</span> <span class="pre">varnish</span> <span class="pre">start</span></tt>, you start the varnish daemon manually by typing:</p>
-<div class="highlight-python"><pre>varnishd -a :6081 -T localhost:6082 -b localhost:8080</pre>
+<div class="highlight-python"><div class="highlight"><pre>varnishd -a :6081 -T localhost:6082 -b localhost:8080
+</pre></div>
 </div>
 </div>
 
@@ -199,6 +213,7 @@ For example, instead of calling <tt class="docutils literal"><span class="pre">s
 <li><a class="reference internal" href="#compiling-varnish-from-source">Compiling Varnish from source</a><ul>
 <li><a class="reference internal" href="#build-dependencies-on-debian-ubuntu">Build dependencies on Debian / Ubuntu</a></li>
 <li><a class="reference internal" href="#build-dependencies-on-red-hat-centos">Build dependencies on Red Hat / CentOS</a></li>
+<li><a class="reference internal" href="#build-dependencies-on-a-smartos-zone">Build dependencies on a SmartOS Zone</a></li>
 <li><a class="reference internal" href="#compiling-varnish">Compiling Varnish</a></li>
 <li><a class="reference internal" href="#installing">Installing</a></li>
 </ul>
@@ -246,13 +261,13 @@ For example, instead of calling <tt class="docutils literal"><span class="pre">s
         <li class="right" >
           <a href="prerequisites.html" title="Prerequisites"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >Varnish Installation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>
