@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Changes in Varnish 4.1 &mdash; Varnish version 4.1.2 documentation</title>
+    <title>Changes in Varnish 4.1 &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="What&#39;s new in Varnish 4.1" href="index.html" />
     <link rel="next" title="Upgrading to Varnish 4.1" href="upgrading.html" />
     <link rel="prev" title="What&#39;s new in Varnish 4.1" href="index.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="index.html" title="What&#39;s new in Varnish 4.1"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &raquo;</li> 
       </ul>
     </div>  
@@ -79,25 +77,28 @@ warm or cold. Runtime state (incl. backend counters) and health checks
 are not present for cold VCLs.</p>
 <p>A warm VCL will automatically be set to cold after <cite>vcl_cooldown</cite> seconds.</p>
 <p>Output from <cite>vcl.list</cite>:</p>
-<div class="highlight-python"><pre>varnish&gt; vcl.list
+<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.list
 200
 available  auto/warm       0 boot
-available  auto/warm       0 62f5275f-a937-4df9-9fbb-c12336bdfdb8</pre>
+available  auto/warm       0 62f5275f-a937-4df9-9fbb-c12336bdfdb8
+</pre></div>
 </div>
 <p>A single VCL's state can be changed with the <cite>vcl.state</cite> call in
 <tt class="docutils literal"><span class="pre">varnishadm</span></tt>:</p>
-<div class="highlight-python"><pre>vcl.state &lt;configname&gt; &lt;state&gt;
+<div class="highlight-python"><div class="highlight"><pre>vcl.state &lt;configname&gt; &lt;state&gt;
     Force the state of the specified configuration.
-    State is any of auto, warm or cold values.</pre>
+    State is any of auto, warm or cold values.
+</pre></div>
 </div>
 <p>Example:</p>
-<div class="highlight-python"><pre>varnish&gt; vcl.state 62f5275f-a937-4df9-9fbb-c12336bdfdb8 cold
+<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.state 62f5275f-a937-4df9-9fbb-c12336bdfdb8 cold
 200
 
 varnish&gt; vcl.list
 200
 available  auto/warm       0 boot
-available  auto/cold       0 62f5275f-a937-4df9-9fbb-c12336bdfdb8</pre>
+available  auto/cold       0 62f5275f-a937-4df9-9fbb-c12336bdfdb8
+</pre></div>
 </div>
 <p>VMOD writers should read up on the new vcl_event system to
 release unnecessary state when a VCL is transitioned to cold (see
@@ -109,7 +110,8 @@ release unnecessary state when a VCL is transitioned to cold (see
 defines a short preamble on the TCP connection where (usually) a SSL/TLS
 terminating proxy can signal the real client address.</p>
 <p>The <tt class="docutils literal"><span class="pre">-a</span></tt> startup argument syntax has been expanded to allow for this:</p>
-<div class="highlight-python"><pre>$ varnishd -f /etc/varnish/default.vcl -a :6081 -a 127.0.0.1:6086,PROXY</pre>
+<div class="highlight-python"><div class="highlight"><pre>$ varnishd -f /etc/varnish/default.vcl -a :6081 -a 127.0.0.1:6086,PROXY
+</pre></div>
 </div>
 <p>Both PROXY1 and PROXY2 protocols are supported on the resulting listening
 socket.</p>
@@ -238,13 +240,13 @@ from the backend was a positive result of a conditional fetch (<tt class="docuti
         <li class="right" >
           <a href="index.html" title="What&#39;s new in Varnish 4.1"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >What's new in Varnish 4.1</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

@@ -969,6 +969,20 @@ PARAM(
 	/* func */	NULL
 )
 
+PARAM(
+	/* name */	tcp_fastopen,
+	/* typ */	bool,
+	/* min */	NULL,
+	/* max */	NULL,
+	/* default */	"off",
+	/* units */	"bool",
+	/* flags */	MUST_RESTART,
+	/* s-text */
+	"Enable TCP Fast Open extension (if available in the kernel).",
+	/* l-text */	NULL,
+	/* func */	NULL
+)
+
 #if 0
 PARAM(
 	/* name */	tcp_keepalive_intvl,
@@ -1297,6 +1311,21 @@ PARAM(
 	/* s-text */
 	"How long a VCL is kept warm after being replaced as the "
 	"active VCL (granularity approximately 30 seconds).",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+PARAM(
+	/* name */	vsm_free_cooldown,
+	/* typ */	timeout,
+	/* min */	"10.000",
+	/* max */	"600.000",
+	/* default */	"60.000",
+	/* units */	"seconds",
+	/* flags */	0,
+	/* s-text */
+	"How long VSM memory is kept warm after a deallocation "
+	"(granularity approximately 2 seconds).",
 	/* l-text */	"",
 	/* func */	NULL
 )

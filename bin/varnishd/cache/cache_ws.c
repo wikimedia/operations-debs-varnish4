@@ -39,7 +39,7 @@ WS_Assert(const struct ws *ws)
 {
 
 	CHECK_OBJ_NOTNULL(ws, WS_MAGIC);
-	DSL(DBG_WORKSPACE, 0, "WS(%p = (%s, %p %u %u %u)",
+	DSL(DBG_WORKSPACE, 0, "WS(%p) = (%s, %p %u %u %u)",
 	    ws, ws->id, ws->s, pdiff(ws->s, ws->f),
 	    ws->r == NULL ? 0 : pdiff(ws->f, ws->r),
 	    pdiff(ws->s, ws->e));
@@ -134,8 +134,7 @@ WS_Alloc(struct ws *ws, unsigned bytes)
 	assert(ws->r == NULL);
 	if (ws->f + bytes > ws->e) {
 		WS_MarkOverflow(ws);
-		WS_Assert(ws);
-		return(NULL);
+		return (NULL);
 	}
 	r = ws->f;
 	ws->f += bytes;
@@ -160,8 +159,7 @@ WS_Copy(struct ws *ws, const void *str, int len)
 	bytes = PRNDUP((unsigned)len);
 	if (ws->f + bytes > ws->e) {
 		WS_MarkOverflow(ws);
-		WS_Assert(ws);
-		return(NULL);
+		return (NULL);
 	}
 	r = ws->f;
 	ws->f += bytes;

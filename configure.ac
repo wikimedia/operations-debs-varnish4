@@ -1,8 +1,8 @@
 AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2006 Verdens Gang AS
-Copyright (c) 2006-2016 Varnish Software AS])
+Copyright (c) 2006-2016 Varnish Software])
 AC_REVISION([$Id$])
-AC_INIT([Varnish], [4.1.2], [varnish-dev@varnish-cache.org])
+AC_INIT([Varnish], [4.1.3], [varnish-dev@varnish-cache.org])
 AC_CONFIG_SRCDIR(include/miniobj.h)
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -161,17 +161,29 @@ if test "$enable_pcre_jit" = yes; then
   AC_MSG_CHECKING(for PCRE JIT usability)
   save_CFLAGS="${CFLAGS}"
   CFLAGS="${PCRE_CFLAGS}"
-  AC_COMPILE_IFELSE(
-    [AC_LANG_PROGRAM([[#include "pcre.h"
-                       #if PCRE_MAJOR != 8 || PCRE_MINOR < 32
-                       #error no jit
-                       #endif]])],
+  save_LIBS="${CFLAGS}"
+  LIBS="${PCRE_LIBS}"
+  AC_RUN_IFELSE(
+    [AC_LANG_PROGRAM([[
+#include <pcre.h>
+#if PCRE_MAJOR != 8 || PCRE_MINOR < 32
+#error no jit
+#endif
+    ]],[[
+const char *error;
+pcre *re;
+int erroroffset;
+re = pcre_compile(".", 0, &error, &erroroffset, NULL);
+if (!pcre_study(re, PCRE_STUDY_JIT_COMPILE, &error))
+  return (1);
+    ]])],
     [AC_MSG_RESULT(yes)
      AC_DEFINE([USE_PCRE_JIT], [1], [Use the PCRE JIT compiler])
     ],
     [AC_MSG_RESULT(no)]
   )
   CFLAGS="${save_CFLAGS}"
+  LIBS="${save_LIBS}"
 fi
 
 
@@ -239,13 +251,11 @@ AC_CHECK_FUNCS([strerror])
 AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([dladdr])
 AC_CHECK_FUNCS([socket])
-AC_CHECK_FUNCS([strptime])
-AC_CHECK_FUNCS([fmtcheck])
-AC_CHECK_FUNCS([getdtablesize])
 AC_CHECK_FUNCS([nanosleep])
 AC_CHECK_FUNCS([setppriv])
 AC_CHECK_FUNCS([fallocate])
 AC_CHECK_FUNCS([closefrom])
+AC_CHECK_FUNCS([vsyslog])
 
 save_LIBS="${LIBS}"
 LIBS="${PTHREAD_LIBS}"
@@ -493,6 +503,34 @@ return (0);
   ])
 if test "$ac_cv_have_tcp_keep" = yes; then
    AC_DEFINE([HAVE_TCP_KEEP], [1], [Define if OS supports TCP_KEEP* socket options])
+fi
+LIBS="${save_LIBS}"
+
+# Check if the OS supports TCP_FASTOPEN socket option
+save_LIBS="${LIBS}"
+LIBS="${LIBS} ${NET_LIBS}"
+AC_CACHE_CHECK([for TCP_FASTOPEN socket option],
+  [ac_cv_have_tcp_fastopen],
+  [AC_RUN_IFELSE(
+    [AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+    ]],[[
+int s = socket(AF_INET, SOCK_STREAM, 0);
+int i;
+i = 5;
+if (setsockopt(s, SOL_TCP, TCP_FASTOPEN, &i, sizeof i))
+  return (1);
+return (0);
+    ]])],
+    [ac_cv_have_tcp_fastopen=yes],
+    [ac_cv_have_tcp_fastopen=no])
+  ])
+if test "$ac_cv_have_tcp_fastopen" = yes; then
+   AC_DEFINE([HAVE_TCP_FASTOPEN], [1], [Define if OS supports TCP_FASTOPEN socket option])
 fi
 LIBS="${save_LIBS}"
 

@@ -52,6 +52,18 @@ BackendReuse - Backend connection put up for reuse
 	
 
 
+BackendStart - Backend request start
+	Start of backend processing. Logs the backend IP address and port number.
+	
+	The format is::
+	
+		%s %s
+		|  |
+		|  +- Backend Port number
+		+---- Backend IP4/6 address
+	
+
+
 Backend_health - Backend health check
 	The result of a backend health probe.
 	

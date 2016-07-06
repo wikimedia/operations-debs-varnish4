@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,6 +39,7 @@
 #include "vrt.h"
 #include "vsa.h"
 #include "vsb.h"
+#include "vtcp.h"
 #include "vtim.h"
 #include "vcc_if.h"
 
@@ -189,7 +191,7 @@ vmod_argtest(VRT_CTX, VCL_STRING one, VCL_REAL two, VCL_STRING three,
 	char buf[100];
 
 	bprintf(buf, "%s %g %s %s", one, two, three, comma);
-	return WS_Copy(ctx->ws, buf, -1);
+	return (WS_Copy(ctx->ws, buf, -1));
 }
 
 VCL_INT
@@ -348,10 +350,10 @@ event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
 
 	switch (e) {
-		case VCL_EVENT_LOAD: return event_load(ctx, priv);
-		case VCL_EVENT_WARM: return event_warm(ctx, priv);
-		case VCL_EVENT_COLD: return event_cold(ctx, priv);
-		default: return (0);
+	case VCL_EVENT_LOAD: return (event_load(ctx, priv));
+	case VCL_EVENT_WARM: return (event_warm(ctx, priv));
+	case VCL_EVENT_COLD: return (event_cold(ctx, priv));
+	default: return (0);
 	}
 }
 
@@ -363,16 +365,18 @@ vmod_sleep(VRT_CTX, VCL_DURATION t)
 	VTIM_sleep(t);
 }
 
-static struct ws *wsfind(VRT_CTX, VCL_ENUM which) {
-	if (!strcmp(which, "client")) {
-		return ctx->ws;
-	} else if (!strcmp(which, "backend")) {
-		return ctx->bo->ws;
-	} else if (!strcmp(which, "session")) {
-		return ctx->req->sp->ws;
-	} else if (!strcmp(which, "thread")) {
-		return ctx->req->wrk->aws;
-	} else
+static struct ws *
+wsfind(VRT_CTX, VCL_ENUM which)
+{
+	if (!strcmp(which, "client"))
+		return (ctx->ws);
+	else if (!strcmp(which, "backend"))
+		return (ctx->bo->ws);
+	else if (!strcmp(which, "session"))
+		return (ctx->req->sp->ws);
+	else if (!strcmp(which, "thread"))
+		return (ctx->req->wrk->aws);
+	else
 		WRONG("No such workspace.");
 }
 
@@ -405,7 +409,7 @@ vmod_workspace_free(VRT_CTX, VCL_ENUM which)
 	WS_Assert(ws);
 	AZ(ws->r);
 
-	return pdiff(ws->f, ws->e);
+	return (pdiff(ws->f, ws->e));
 }
 
 VCL_BOOL
@@ -421,6 +425,7 @@ vmod_workspace_overflowed(VRT_CTX, VCL_ENUM which)
 }
 
 static char *debug_ws_snap;
+
 void
 vmod_workspace_snap(VRT_CTX, VCL_ENUM which)
 {
@@ -475,4 +480,36 @@ vmod_match_acl(VRT_CTX, VCL_ACL acl, VCL_IP ip)
 	assert(VSA_Sane(ip));
 
 	return (VRT_acl_match(ctx, acl, ip));
+}
+
+VCL_BOOL
+vmod_barrier_sync(VRT_CTX, VCL_STRING addr)
+{
+	const char *err;
+	char buf[32];
+	int sock, i;
+	ssize_t sz;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(addr);
+	AN(*addr);
+
+	VSLb(ctx->vsl, SLT_Debug, "barrier_sync(\"%s\")", addr);
+	sock = VTCP_open(addr, NULL, 0., &err);
+	if (sock < 0) {
+		VSLb(ctx->vsl, SLT_Error, "Barrier connection failed: %s", err);
+		return (0);
+	}
+
+	sz = read(sock, buf, sizeof buf);
+	i = errno;
+	AZ(close(sock));
+	if (sz == 0)
+		return (1);
+	if (sz < 0)
+		VSLb(ctx->vsl, SLT_Error,
+		    "Barrier read failed: %s (errno=%d)", strerror(i), i);
+	if (sz > 0)
+		VSLb(ctx->vsl, SLT_Error, "Barrier unexpected data (%zdB)", sz);
+	return (0);
 }

@@ -55,8 +55,16 @@
 #define CAST_OBJ_NOTNULL(to, from, type_magic)				\
 	do {								\
 		(to) = (from);						\
-		assert((to) != NULL);					\
+		AN((to));						\
 		CHECK_OBJ((to), (type_magic));				\
+	} while (0)
+
+#define TAKE_OBJ_NOTNULL(to, pfrom, type_magic)				\
+	do {								\
+		AN((pfrom));						\
+		(to) = *(pfrom);					\
+		*(pfrom) = NULL;					\
+		CHECK_OBJ_NOTNULL((to), (type_magic));			\
 	} while (0)
 
 #define REPLACE(ptr, val)						\

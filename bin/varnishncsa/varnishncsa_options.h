@@ -62,8 +62,20 @@
 	    " reopened allowing the old one to be rotated away. This"	\
 	    " option is required when running in daemon mode."		\
 	)
+#define NCSA_OPT_b							\
+	VOPT("b", "[-b]", "Backend mode",				\
+	    "Log backend requests. If -c is not specified, then only"	\
+	    " backend requests will trigger log lines."			\
+	)
+#define NCSA_OPT_c							\
+	VOPT("c", "[-c]", "Cient mode",					\
+	    "Log client requests. This is the default. If -b is"	\
+	    " specified, then -c is needed to also log client requests"	\
+	)
 
 NCSA_OPT_a
+NCSA_OPT_b
+NCSA_OPT_c
 VSL_OPT_C
 VUT_OPT_d
 VUT_OPT_D
@@ -71,6 +83,7 @@ NCSA_OPT_F
 NCSA_OPT_f
 NCSA_OPT_g
 VUT_OPT_h
+VSL_OPT_L
 VUT_OPT_n
 VUT_OPT_N
 VUT_OPT_P

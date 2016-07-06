@@ -20,7 +20,7 @@
 
 -d
 
-	Start processing log records at the head of the log instead of the tail.
+	Process log records at the head of the log and exit.
 
 -D
 
