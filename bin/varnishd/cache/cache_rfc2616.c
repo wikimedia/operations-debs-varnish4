@@ -274,6 +274,12 @@ RFC2616_Do_Cond(const struct req *req)
 		ims = VTIM_parse(p);
 		if (!ims || ims > req->t_req)	/* [RFC7232 3.3 p16] */
 			return (0);
+		if (http_GetHdr(req->resp, H_Last_Modified, &p)) {
+			lm = VTIM_parse(p);
+			if (!lm || lm > ims)
+				return (0);
+			return (1);
+		}
 		AZ(ObjGetDouble(req->wrk, req->objcore, OA_LASTMODIFIED, &lm));
 		if (lm > ims)
 			return (0);

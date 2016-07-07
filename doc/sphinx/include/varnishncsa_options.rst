@@ -2,13 +2,21 @@
 
 	When writing output to a file, append to it rather than overwrite it.
 
+-b
+
+	Log backend requests. If -c is not specified, then only backend requests will trigger log lines.
+
+-c
+
+	Log client requests. This is the default. If -b is specified, then -c is needed to also log client requests
+
 -C
 
 	Do all regular expression and string matching caseless.
 
 -d
 
-	Start processing log records at the head of the log instead of the tail.
+	Process log records at the head of the log and exit.
 
 -D
 
@@ -29,6 +37,10 @@
 -h
 
 	Print program usage and exit
+
+-L limit
+
+	Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 
 -n name
 

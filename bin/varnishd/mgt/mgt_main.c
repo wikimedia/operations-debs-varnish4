@@ -248,11 +248,11 @@ usage(void)
 #if defined(HAVE_KQUEUE)
 	fprintf(stderr, FMT, "", "  -W kqueue");
 #endif
-#if defined(HAVE_EPOLL_CTL)
-	fprintf(stderr, FMT, "", "  -W epoll");
-#endif
 #if defined(HAVE_PORT_CREATE)
 	fprintf(stderr, FMT, "", "  -W ports");
+#endif
+#if defined(HAVE_EPOLL_CTL)
+	fprintf(stderr, FMT, "", "  -W epoll");
 #endif
 	fprintf(stderr, FMT, "", "  -W poll");
 
@@ -739,7 +739,9 @@ main(int argc, char * const *argv)
 
 	identify(i_arg);
 
-	VJ_make_workdir(dirname);
+	if (VJ_make_workdir(dirname))
+		ARGV_ERR("Cannot create working directory (%s): %s\n",
+		    dirname, strerror(errno));
 
 	/* XXX: should this be relative to the -n arg ? */
 	VJ_master(JAIL_MASTER_FILE);
