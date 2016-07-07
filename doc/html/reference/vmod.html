@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VMOD - Varnish Modules &mdash; Varnish version 4.1.2 documentation</title>
+    <title>VMOD - Varnish Modules &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_std" href="vmod_std.generated.html" />
     <link rel="prev" title="VSM: Shared Memory Logging and Statistics" href="vsm.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -63,11 +61,12 @@ problems.</p>
 <p>This is where VMODs come into the picture:   A VMOD is a shared
 library with some C functions which can be called from VCL code.</p>
 <p>For instance:</p>
-<div class="highlight-python"><pre>import std;
+<div class="highlight-python"><div class="highlight"><pre>import std;
 
 sub vcl_deliver {
         set resp.http.foo = std.toupper(req.url);
-}</pre>
+}
+</pre></div>
 </div>
 <p>The &quot;std&quot; vmod is one you get with Varnish, it will always be there
 and we will put &quot;boutique&quot; functions in it, such as the &quot;toupper&quot;
@@ -92,11 +91,12 @@ VCL runtime (&quot;VRT&quot;) is defined in the vmod.vcc file which a python
 script called &quot;vmodtool.py&quot; turns into thaumaturgically challenged C
 data structures that does all the hard work.</p>
 <p>The std VMODs vmod.vcc file looks somewhat like this:</p>
-<div class="highlight-python"><pre>$Module std 3
+<div class="highlight-python"><div class="highlight"><pre>$Module std 3
 $Event event_function
 $Function STRING toupper(STRING_LIST)
 $Function STRING tolower(STRING_LIST)
-$Function VOID set_ip_tos(INT)</pre>
+$Function VOID set_ip_tos(INT)
+</pre></div>
 </div>
 <p>The first line gives the name of the module and the manual section where
 the documentation will reside.</p>
@@ -112,9 +112,10 @@ a moment.</p>
 in VCL lingo, meaning that it cannot be used in expressions, right side
 of assignments and such.  Instead it can be used as a primary action,
 something functions which return a value can not:</p>
-<div class="highlight-python"><pre>sub vcl_recv {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
         std.set_ip_tos(32);
-}</pre>
+}
+</pre></div>
 </div>
 <p>Running vmodtool.py on the vmod.vcc file, produces a &quot;vcc_if.c&quot; and
 &quot;vcc_if.h&quot; files, which you must use to build your shared library
@@ -125,13 +126,14 @@ modify it, that voids your warranty instantly.</p>
 <p>But vcc_if.h is important for you, it contains the prototypes for
 the functions you want to export to VCL.</p>
 <p>For the std VMOD, the compiled vcc_if.h file looks like this:</p>
-<div class="highlight-python"><pre>struct vmod_priv;
+<div class="highlight-python"><div class="highlight"><pre>struct vmod_priv;
 
 VCL_STRING vmod_toupper(VRT_CTX, const char *, ...);
 VCL_STRING vmod_tolower(VRT_CTX, const char *, ...);
 VCL_VOID vmod_set_ip_tos(VRT_CTX, VCL_INT);
 
-vmod_event_f event_function;</pre>
+vmod_event_f event_function;
+</pre></div>
 </div>
 <p>Those are your C prototypes.  Notice the <tt class="docutils literal"><span class="pre">vmod_</span></tt> prefix on the
 function names.</p>
@@ -237,7 +239,8 @@ doing text-processing in Varnish, and this is one way we
 to avoid that, by not editing separate pieces of a string
 together to one string, unless we have to.</p>
 <p>Consider this contrived example:</p>
-<div class="highlight-python"><pre>set req.http.foo = std.toupper(req.http.foo + req.http.bar);</pre>
+<div class="highlight-python"><div class="highlight"><pre>set req.http.foo = std.toupper(req.http.foo + req.http.bar);
+</pre></div>
 </div>
 <p>The usual way to do this, would be be to allocate memory for
 the concatenated string, then pass that to <tt class="docutils literal"><span class="pre">toupper()</span></tt> which in
@@ -302,12 +305,13 @@ to the VMOD's event function.</li>
 passed to the functions where one of the <tt class="docutils literal"><span class="pre">PRIV_*</span></tt> argument types is
 specified.</p>
 <p>This structure contains three members:</p>
-<div class="highlight-python"><pre>typedef void vmod_priv_free_f(void *);
+<div class="highlight-python"><div class="highlight"><pre>typedef void vmod_priv_free_f(void *);
 struct vmod_priv {
         void                    *priv;
         int                     len;
         vmod_priv_free_f        *free;
-};</pre>
+};
+</pre></div>
 </div>
 <p>The &quot;priv&quot; element can be used for whatever the vmod code wants to
 use it for, it defaults to a NULL pointer.</p>
@@ -321,7 +325,7 @@ they are, the &quot;free&quot; function will be called with the &quot;priv&quot;
 as the only argument.</p>
 <p>In the common case where a private data structure is allocated with
 malloc would look like this:</p>
-<div class="highlight-python"><pre>if (priv-&gt;priv == NULL) {
+<div class="highlight-python"><div class="highlight"><pre>if (priv-&gt;priv == NULL) {
         priv-&gt;priv = calloc(sizeof(struct myfoo), 1);
         AN(priv-&gt;priv);
         priv-&gt;free = free;      /* free(3) */
@@ -333,7 +337,8 @@ malloc would look like this:</p>
 }
 if (foo &gt; 25) {
         ...
-}</pre>
+}
+</pre></div>
 </div>
 <p>The per-call vmod_privs are freed before the per-vcl vmod_priv.</p>
 </div>
@@ -373,15 +378,16 @@ reference by calling <tt class="docutils literal"><span class="pre">VRT_ref_vcl<
 later calling <tt class="docutils literal"><span class="pre">VRT_rel_vcl</span></tt> once the background job is over. Receiving a
 <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> is your cue to terminate any background job bound to a VCL.</p>
 <p>You can find an example of VCL references in vmod-debug:</p>
-<div class="highlight-python"><pre>priv_vcl-&gt;vclref = VRT_ref_vcl(ctx, "vmod-debug");
+<div class="highlight-python"><div class="highlight"><pre>priv_vcl-&gt;vclref = VRT_ref_vcl(ctx, &quot;vmod-debug&quot;);
 ...
-VRT_rel_vcl(&amp;ctx, &amp;priv_vcl-&gt;vclref);</pre>
+VRT_rel_vcl(&amp;ctx, &amp;priv_vcl-&gt;vclref);
+</pre></div>
 </div>
 <p>In this simplified version, you can see that you need at least a VCL-bound data
 structure like a <tt class="docutils literal"><span class="pre">PRIV_VCL</span></tt> or a VMOD object to keep track of the reference
 and later release it. You also have to provide a description, it will be printed
 to the user if they try to warm up a cooling VCL:</p>
-<div class="highlight-python"><pre>$ varnishadm vcl.list
+<div class="highlight-python"><div class="highlight"><pre>$ varnishadm vcl.list
 available  auto/cooling       0 vcl1
 active     auto/warm          0 vcl2
 
@@ -390,7 +396,8 @@ Command failed with error code 300
 Failed &lt;vcl.state vcl1 auto&gt;
 Message:
         VCL vcl1 is waiting for:
-        - vmod-debug</pre>
+        - vmod-debug
+</pre></div>
 </div>
 <p>In the case where properly releasing resources may take some time, you can
 opt for an asynchronous worker, either by spawning a thread and tracking it, or
@@ -498,13 +505,13 @@ and use <tt class="docutils literal"><span class="pre">import</span> <span class
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

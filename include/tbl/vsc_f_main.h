@@ -102,7 +102,7 @@ VSC_F(cache_miss,		uint64_t, 1, 'c', 'i', info,
     "Cache misses",
 	"Count of misses"
 	"  A cache miss indicates the object was fetched from the"
-	"  backend before delivering it to the backend."
+	"  backend before delivering it to the client."
 )
 
 /*---------------------------------------------------------------------*/
@@ -239,7 +239,7 @@ VSC_F(thread_queue_len,		uint64_t, 0, 'g', 'i', info,
     "Length of session queue",
 	"Length of session queue waiting for threads."
 	"  NB: Only updates once per second."
-	"  See also parameter queue_max."
+	"  See also parameter thread_queue_limit."
 )
 
 VSC_F(busy_sleep,		uint64_t, 1, 'c', 'i', info,
@@ -263,13 +263,13 @@ VSC_F(busy_killed,		uint64_t, 1, 'c', 'i', info,
 VSC_F(sess_queued,		uint64_t, 0, 'c', 'i', info,
     "Sessions queued for thread",
 	"Number of times session was queued waiting for a thread."
-	"  See also parameter queue_max."
+	"  See also parameter thread_queue_limit."
 )
 
 VSC_F(sess_dropped,		uint64_t, 0, 'c', 'i', info,
     "Sessions dropped for thread",
 	"Number of times session was dropped because the queue were too"
-	" long already. See also parameter queue_max."
+	" long already. See also parameter thread_queue_limit."
 )
 
 /*---------------------------------------------------------------------*/
@@ -629,6 +629,8 @@ VSC_F(vsm_overflow,		uint64_t, 0, 'g', 'B', diag,
 	"Number of bytes which does not fit"
 	" in the shared memory used to communicate"
 	" with tools like varnishstat, varnishlog etc."
+	" If this counter is not zero, consider"
+	" increasing the runtime variable vsm_space."
 )
 
 VSC_F(vsm_overflowed,		uint64_t, 0, 'c', 'B', diag,
@@ -636,4 +638,6 @@ VSC_F(vsm_overflowed,		uint64_t, 0, 'c', 'B', diag,
 	"Total number of bytes which did not fit"
 	" in the shared memory used to communicate"
 	" with tools like varnishstat, varnishlog etc."
+	" If this counter is not zero, consider"
+	" increasing the runtime variable vsm_space."
 )

@@ -189,6 +189,18 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc)
 			    (int)(q - p > 20 ? 20 : q - p), p);
 			return (400);
 		}
+
+		for (; p < q; p++) {
+			if (vct_islws(*p)) {
+				VSLb(hp->vsl, SLT_BogoHeader,
+				    "Space in header '%.*s'",
+				    (int)Tlen(hp->hd[hp->nhd - 1]),
+				    hp->hd[hp->nhd - 1].b);
+				return (400);
+			}
+			if (*p == ':')
+				break;
+		}
 	}
 	if (p < htc->rxbuf_e)
 		p += vct_skipcrlf(p);
@@ -277,7 +289,7 @@ http1_splitline(struct http *hp, struct http_conn *htc, const int *hf)
 /*--------------------------------------------------------------------*/
 
 static enum body_status
-http1_body_status(const struct http *hp, struct http_conn *htc)
+http1_body_status(const struct http *hp, struct http_conn *htc, int request)
 {
 	ssize_t cl;
 	const char *b;
@@ -307,7 +319,7 @@ http1_body_status(const struct http *hp, struct http_conn *htc)
 		return (cl == 0 ? BS_NONE : BS_LENGTH);
 	}
 
-	if (hp->protover == 11)
+	if (hp->protover == 11 && request)
 		return (BS_NONE);
 
 	if (http_HdrIs(hp, H_Connection, "keep-alive")) {
@@ -378,7 +390,7 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 		}
 	}
 
-	htc->body_status = http1_body_status(hp, htc);
+	htc->body_status = http1_body_status(hp, htc, 1);
 	if (htc->body_status == BS_ERROR)
 		return (400);
 
@@ -456,7 +468,7 @@ HTTP1_DissectResponse(struct http_conn *htc, struct http *hp,
 	    !Tlen(hp->hd[HTTP_HDR_REASON]))
 		http_SetH(hp, HTTP_HDR_REASON, http_Status2Reason(hp->status));
 
-	htc->body_status = http1_body_status(hp, htc);
+	htc->body_status = http1_body_status(hp, htc, 0);
 
 	return (retval);
 }

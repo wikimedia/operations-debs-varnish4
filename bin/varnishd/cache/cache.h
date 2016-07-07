@@ -957,6 +957,7 @@ void *VSM_Alloc(unsigned size, const char *class, const char *type,
     const char *ident);
 void VSM_Free(void *ptr);
 #ifdef VSL_ENDMARKER
+void VSLv(enum VSL_tag_e tag, uint32_t vxid, const char *fmt, va_list va);
 void VSL(enum VSL_tag_e tag, uint32_t vxid, const char *fmt, ...)
     __v_printflike(3, 4);
 void VSLbv(struct vsl_log *, enum VSL_tag_e tag, const char *fmt, va_list va);
@@ -1051,7 +1052,8 @@ void RFC2616_Vary_AE(struct http *hp);
 /* stevedore.c */
 int STV_NewObject(struct objcore *, struct worker *,
     const char *hint, unsigned len);
-struct storage *STV_alloc(const struct stevedore *, size_t size);
+struct storage *STV_alloc(const struct stevedore *, size_t size, int flags);
+#define LESS_MEM_ALLOCED_IS_OK	1
 void STV_trim(const struct stevedore *, struct storage *, size_t size,
     int move_ok);
 void STV_free(const struct stevedore *, struct storage *st);
@@ -1120,6 +1122,14 @@ DO_DEBUG(enum debug_bits x)
 		if (DO_DEBUG(debug_bit))			\
 			VSL(SLT_Debug, (id), __VA_ARGS__);	\
 	} while (0)
+
+#define PAN_CheckMagic(vsb, ptr, exp)					\
+	do {								\
+		if ((ptr)->magic != (exp))				\
+			VSB_printf((vsb),				\
+			    "MAGIC 0x%08x (Should:%s/0x%08x)\n",	\
+			    (ptr)->magic, #exp, exp);			\
+	} while(0)
 
 #ifdef VARNISHD_IS_NOT_A_VMOD
 #  include "cache/cache_priv.h"

@@ -88,7 +88,7 @@ cnt_vdp(struct req *req, struct busyobj *bo)
 		VDP_push(req, VDP_gunzip, NULL, 1);
 
 	if (cache_param->http_range_support && http_IsStatus(req->resp, 200)) {
-		http_SetHeader(req->resp, "Accept-Ranges: bytes");
+		http_ForceHeader(req->resp, H_Accept_Ranges, "bytes");
 		if (sendbody && http_GetHdr(req->http, H_Range, &r))
 			VRG_dorange(req, r);
 	}
@@ -182,7 +182,7 @@ cnt_deliver(struct worker *wrk, struct req *req)
 			req->req_step = R_STP_SYNTH;
 			break;
 		default:
-			INCOMPL();
+			WRONG("Illegal return from vcl_deliver{}");
 		}
 
 		return (REQ_FSM_MORE);
@@ -406,8 +406,9 @@ cnt_lookup(struct worker *wrk, struct req *req)
 
 	if ((oc->flags & OC_F_PASS) && boc != NULL) {
 		/* Treat a graced Hit-For-Pass as a miss */
+		(void)HSH_DerefObjCore(wrk, &req->objcore);
+		AZ(req->objcore);
 		req->objcore = boc;
-		req->stale_oc = oc;
 		req->req_step = R_STP_MISS;
 		return (REQ_FSM_MORE);
 	} else if (oc->flags & OC_F_PASS) {
@@ -471,7 +472,7 @@ cnt_lookup(struct worker *wrk, struct req *req)
 		req->req_step = R_STP_PASS;
 		break;
 	default:
-		INCOMPL();
+		WRONG("Illegal return from vcl_hit{}");
 	}
 
 	/* Drop our object, we won't need it */
