@@ -3,7 +3,8 @@ Maintainer: Varnish Package Maintainers <pkg-varnish-devel@lists.alioth.debian.o
 Uploaders: Jan Wagner <waja@cyconet.org>,
            Lars Bahner <bahner@debian.org>,
            Stig Sandbeck Mathisen <ssm@debian.org>,
-           Tollef Fog Heen <tfheen@debian.org>
+           Tollef Fog Heen <tfheen@debian.org>,
+           Emanuele Rocca <ema@debian.org>
 Section: web
 Testsuite: autopkgtest
 Priority: optional
