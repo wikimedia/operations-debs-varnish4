@@ -41,9 +41,10 @@ import re
 import optparse
 import unittest
 import random
-from os import unlink
+from os import fdopen, rename, unlink
 from os.path import dirname, exists, join, realpath
 from pprint import pprint, pformat
+from tempfile import mkstemp
 
 ctypes = {
 	'ACL':		"VCL_ACL",
@@ -151,7 +152,7 @@ class Token(object):
 class Vmod(object):
 	def __init__(self, nam, dnam, sec):
 		if not is_c_name(nam):
-			raise ParseError("Module name '%s' is illegal", nam)
+			raise ParseError("Module name '%s' is illegal" % nam)
 		self.nam = nam
 		self.dnam = dnam
 		self.sec = sec
@@ -163,10 +164,10 @@ class Vmod(object):
 
 	def set_event(self, nam):
 		if self.event != None:
-			raise ParseError("Module %s already has $Event",
+			raise ParseError("Module %s already has $Event" %
 			    self.nam)
 		if not is_c_name(nam):
-			raise ParseError("$Event name '%s' is illegal", nam)
+			raise ParseError("$Event name '%s' is illegal" % nam)
 		self.event = nam
 
 	def add_func(self, fn):
@@ -220,7 +221,7 @@ class Vmod(object):
 		vfn = 'Vmod_%s_Func' % self.nam
 
 		fo.write("/*lint -esym(754, %s::*) */\n" % vfn)
-		fo.write("\nstatic const struct %s Vmod_Func =" % vfn)
+		fo.write("\nstatic const struct %s Vmod_Func = " % vfn)
 		fo.write(self.c_initializer())
 		fo.write("\n")
 
@@ -685,12 +686,18 @@ def parse_func(tl, rt_type=None, pobj=None):
 	fname = t.str
 	if pobj != None and fname[0] == "." and is_c_name(fname[1:]):
 		fname = pobj + fname
+	elif pobj != None and fname[0] != ".":
+		raise ParseError("Method name '%s' must start with ." % fname)
+	elif pobj != None and not is_c_name(fname[1:]):
+		raise ParseError("Method name '%s' is illegal" % fname[1:])
 	elif not is_c_name(fname):
-		raise ParseError("Function name '%s' is illegal", fname)
+		raise ParseError("Function name '%s' is illegal" % fname)
+	elif pobj != None and fname[0] != ".":
+		raise ParseError("Method name '%s' must start with ." % fname)
 
 	t = tl.get_token()
 	if t.str != "(":
-		raise ParseError("Expected \"(\" got \"%s\"", t.str)
+		raise ParseError("Expected \"(\" got \"%s\"" % t.str)
 
 	while True:
 		t = parse_arg(tl, al)
@@ -912,34 +919,37 @@ def runmain(inputvcc, rstdir, outputprefix):
 	#######################################################################
 	# Parsing done, now process
 	#
+	fd_cfile, fn_cfile = mkstemp(dir='.')
+	cfile = fdopen(fd_cfile, "w")
 
-	fc = open("%s.c" % outputprefix, "w")
-	fh = open("%s.h" % outputprefix, "w")
+	fd_headerfile, fn_headerfile = mkstemp(dir='.')
+	headerfile = fdopen(fd_headerfile, "w")
 
-	write_c_file_warning(fc)
-	write_c_file_warning(fh)
+	write_c_file_warning(cfile)
+	write_c_file_warning(headerfile)
 
-	fh.write('struct vmod_priv;\n\n')
+	headerfile.write('struct vmod_priv;\n\n')
 
-	fh.write('extern const struct vmod_data Vmod_%s_Data;\n\n' % vx[0].nam)
+	headerfile.write('extern const struct vmod_data Vmod_%s_Data;\n\n' % vx[0].nam)
 
-	vx[0].c_proto(fh)
+	vx[0].c_proto(headerfile)
 
-	fc.write('#include "config.h"\n')
-	fc.write('#include "vcl.h"\n')
-	fc.write('#include "vrt.h"\n')
-	fc.write('#include "%s.h"\n' % outputprefix)
-	fc.write('#include "vmod_abi.h"\n')
-	fc.write('\n')
+	cfile.write('#include "config.h"\n')
+	cfile.write('#include "vcl.h"\n')
+	cfile.write('#include "vrt.h"\n')
+	cfile.write('#include "%s.h"\n' % outputprefix)
+	cfile.write('#include "vmod_abi.h"\n')
+	cfile.write('\n')
 
-	vx[0].c_typedefs(fc)
-	vx[0].c_vmod(fc)
+	vx[0].c_typedefs(cfile)
+	vx[0].c_vmod(cfile)
 
-	fc.close()
-	fh.close()
+	cfile.close()
+	headerfile.close()
 
 	for suf in ("", ".man"):
-		fp = open(join(rstdir, "vmod_%s%s.rst" % (vx[0].nam, suf)), "w")
+		fd, fn_fp = mkstemp(dir='.')
+		fp = fdopen(fd, "w")
 		write_rst_file_warning(fp)
 
 		vx[0].doc_dump(fp, suf)
@@ -952,6 +962,12 @@ def runmain(inputvcc, rstdir, outputprefix):
 			for i in copy_right:
 				fp.write("  %s\n" % i)
 			fp.write("\n")
+		fp.close()
+		rename(fn_fp, join(rstdir, "vmod_%s%s.rst" % (vx[0].nam, suf)))
+
+	# Our makefile targets the .c file so make sure to put that in place last.
+	rename(fn_headerfile, outputprefix + ".h")
+	rename(fn_cfile, outputprefix + ".c")
 
 
 if __name__ == "__main__":

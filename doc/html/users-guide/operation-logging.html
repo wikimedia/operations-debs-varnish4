@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Logging in Varnish &mdash; Varnish version 4.1.2 documentation</title>
+    <title>Logging in Varnish &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="Reporting and statistics" href="report.html" />
     <link rel="next" title="Statistics" href="operation-statistics.html" />
     <link rel="prev" title="Reporting and statistics" href="report.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="report.html" title="Reporting and statistics"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="report.html" accesskey="U">Reporting and statistics</a> &raquo;</li> 
       </ul>
@@ -72,20 +70,22 @@ these later.</p>
 <p>In the terminal window you started Varnish now type <tt class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-g</span> <span class="pre">raw</span></tt>
 and press enter.</p>
 <p>You'll see lines like these scrolling slowly by.:</p>
-<div class="highlight-python"><pre>0 CLI            - Rd ping
-0 CLI            - Wr 200 19 PONG 1273698726 1.0</pre>
+<div class="highlight-python"><div class="highlight"><pre>0 CLI            - Rd ping
+0 CLI            - Wr 200 19 PONG 1273698726 1.0
+</pre></div>
 </div>
 <p>These is the Varnish master process checking up on the caching process
 to see that everything is OK.</p>
 <p>Now go to the browser and reload the page displaying your web app.</p>
 <p>You'll see lines like these.:</p>
-<div class="highlight-python"><pre>11 SessOpen       c 127.0.0.1 58912 :8080 0.0.0.0 8080 1273698726.933590 14
+<div class="highlight-python"><div class="highlight"><pre>11 SessOpen       c 127.0.0.1 58912 :8080 0.0.0.0 8080 1273698726.933590 14
 11 ReqStart       c 127.0.0.1 58912
 11 ReqMethod      c GET
 11 ReqURL         c /
 11 ReqProtocol    c HTTP/1.1
 11 ReqHeader      c Host: localhost:8080
-11 ReqHeader      c Connection: keep-alive</pre>
+11 ReqHeader      c Connection: keep-alive
+</pre></div>
 </div>
 <p>The first column is an arbitrary number, it identifies the
 transaction. Lines with the same number are coming from the same
@@ -157,14 +157,14 @@ servers. This will be useful when we want to optimize cache hit rates.</dd>
         <li class="right" >
           <a href="report.html" title="Reporting and statistics"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="report.html" >Reporting and statistics</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

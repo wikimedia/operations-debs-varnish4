@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishadm &mdash; Varnish version 4.1.2 documentation</title>
+    <title>varnishadm &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishd" href="varnishd.html" />
     <link rel="prev" title="varnish-cli" href="varnish-cli.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="varnish-cli.html" title="varnish-cli"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -67,7 +65,7 @@
 </table>
 <div class="section" id="synopsis">
 <h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
-<p>varnishadm [-n ident] [-t timeout] [-S secretfile] [-T [address]:port] [command [...]]</p>
+<p>varnishadm [-h] [-n ident] [-t timeout] [-S secretfile] [-T [address]:port] [command [...]]</p>
 </div>
 <div class="section" id="description">
 <h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
@@ -87,6 +85,9 @@ replies between the CLI socket and stdin/stdout.</p>
 <col class="option" />
 <col class="description" />
 <tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-h</span></kbd></td>
+<td>Print program usage and exit.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-n <var>ident</var></span></kbd></td>
 <td>Connect to the instance of <cite>varnishd</cite> with this name.</td></tr>
@@ -119,9 +120,10 @@ zero if the command succeeded, and non-zero otherwise.</p>
 <div class="section" id="examples">
 <h3>EXAMPLES<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h3>
 <p>Some ways you can use varnishadm:</p>
-<div class="highlight-python"><pre>varnishadm -T localhost:999 -S /var/db/secret vcl.use foo
+<div class="highlight-python"><div class="highlight"><pre>varnishadm -T localhost:999 -S /var/db/secret vcl.use foo
 echo vcl.use foo | varnishadm -T localhost:999 -S /var/db/secret
-echo vcl.use foo | ssh vhost varnishadm -T localhost:999 -S /var/db/secret</pre>
+echo vcl.use foo | ssh vhost varnishadm -T localhost:999 -S /var/db/secret
+</pre></div>
 </div>
 </div>
 <div class="section" id="see-also">
@@ -203,13 +205,13 @@ Schwindt and Lasse Karstensen.</p>
         <li class="right" >
           <a href="varnish-cli.html" title="varnish-cli"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

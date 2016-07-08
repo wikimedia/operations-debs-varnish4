@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2015 Varnish Software AS
+ * Copyright (c) 2006-2016 Varnish Software AS
  * All rights reserved.
  *
  * Author: Anders Berg <andersb@vgnett.no>
@@ -49,7 +49,8 @@
 #include <string.h>
 #include <errno.h>
 #include <stdarg.h>
-#include <stdint.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <ctype.h>
 #include <time.h>
 #include <math.h>
@@ -81,7 +82,7 @@ enum e_frag {
 	F_h,			/* %h Host name / IP Address */
 	F_m,			/* %m Method */
 	F_s,			/* %s Status */
-	F_I,			/* %I Bytes recieved */
+	F_I,			/* %I Bytes received */
 	F_O,			/* %O Bytes sent */
 	F_tstart,		/* Time start */
 	F_tend,			/* Time end */
@@ -109,6 +110,7 @@ struct format {
 	char			*string;
 	const char *const	*strptr;
 	char			*time_fmt;
+	int32_t			*int32;
 };
 
 struct watch {
@@ -122,9 +124,22 @@ struct watch {
 };
 VTAILQ_HEAD(watch_head, watch);
 
+struct vsl_watch {
+	unsigned		magic;
+#define VSL_WATCH_MAGIC		0xE3E27D23
+
+	VTAILQ_ENTRY(vsl_watch)	list;
+	enum VSL_tag_e		tag;
+	int			idx;
+	struct fragment		frag;
+};
+VTAILQ_HEAD(vsl_watch_head, vsl_watch);
+
 struct ctx {
 	/* Options */
 	int			a_opt;
+	int			b_opt;
+	int			c_opt;
 	char			*w_arg;
 
 	FILE			*fo;
@@ -134,11 +149,14 @@ struct ctx {
 
 	/* State */
 	struct watch_head	watch_vcl_log;
-	struct watch_head	watch_reqhdr;
-	struct watch_head	watch_resphdr;
+	struct watch_head	watch_reqhdr; /* also bereqhdr */
+	struct watch_head	watch_resphdr; /* also beresphdr */
+	struct vsl_watch_head	watch_vsl;
 	struct fragment		frag[F__MAX];
 	const char		*hitmiss;
 	const char		*handling;
+	const char		*side;
+	int32_t			vxid;
 } CTX;
 
 static void
@@ -261,6 +279,15 @@ format_strptr(const struct format *format)
 	AN(format->strptr);
 	AN(*format->strptr);
 	AZ(VSB_cat(CTX.vsb, *format->strptr));
+	return (1);
+}
+
+static int __match_proto__(format_f)
+format_int32(const struct format *format)
+{
+
+	CHECK_OBJ_NOTNULL(format, FORMAT_MAGIC);
+	VSB_printf(CTX.vsb, "%" PRIi32, *format->int32);
 	return (1);
 }
 
@@ -444,6 +471,19 @@ addf_fragment(struct fragment *frag, const char *str)
 }
 
 static void
+addf_int32(int32_t *i)
+{
+	struct format *f;
+
+	AN(i);
+	ALLOC_OBJ(f, FORMAT_MAGIC);
+	AN(f);
+	f->func = &format_int32;
+	f->int32 = i;
+	VTAILQ_INSERT_TAIL(&CTX.format, f, list);
+}
+
+static void
 addf_time(char type, const char *fmt, const char *str)
 {
 	struct format *f;
@@ -526,6 +566,21 @@ addf_hdr(struct watch_head *head, const char *key, const char *str)
 }
 
 static void
+addf_vsl(enum VSL_tag_e tag, long i)
+{
+	struct vsl_watch *w;
+
+	ALLOC_OBJ(w, VSL_WATCH_MAGIC);
+	AN(w);
+	w->tag = tag;
+	assert(i <= INT_MAX);
+	w->idx = i;
+	VTAILQ_INSERT_TAIL(&CTX.watch_vsl, w, list);
+
+	addf_fragment(&w->frag, "-");
+}
+
+static void
 addf_auth(const char *str)
 {
 	struct format *f;
@@ -538,6 +593,81 @@ addf_auth(const char *str)
 		AN(f->string);
 	}
 	VTAILQ_INSERT_TAIL(&CTX.format, f, list);
+}
+
+static void
+parse_x_format(char *buf)
+{
+	char *e, *r, *s;
+	int slt;
+	long i;
+
+	if (!strcmp(buf, "Varnish:time_firstbyte")) {
+		addf_fragment(&CTX.frag[F_ttfb], "");
+		return;
+	}
+	if (!strcmp(buf, "Varnish:hitmiss")) {
+		addf_strptr(&CTX.hitmiss);
+		return;
+	}
+	if (!strcmp(buf, "Varnish:handling")) {
+		addf_strptr(&CTX.handling);
+		return;
+	}
+	if (!strcmp(buf, "Varnish:side")) {
+		addf_strptr(&CTX.side);
+		return;
+	}
+	if (!strcmp(buf, "Varnish:vxid")) {
+		addf_int32(&CTX.vxid);
+		return;
+	}
+	if (!strncmp(buf, "VCL_Log:", 8)) {
+		addf_vcl_log(buf + 8, "");
+		return;
+	}
+	if (!strncmp(buf, "VSL:", 4)) {
+		buf += 4;
+		e = buf;
+		while (*e != '\0')
+			e++;
+		if (e == buf)
+			VUT_Error(1, "Missing tag in VSL:");
+		if (e[-1] == ']') {
+			r = e - 1;
+			while (r > buf && *r != '[')
+				r--;
+			if (r == buf || r[1] == ']')
+				VUT_Error(1, "Syntax error: VSL:%s", buf);
+			e[-1] = '\0';
+			i = strtol(r + 1, &s, 10);
+			if (s != e - 1)
+				VUT_Error(1, "Syntax error: VSL:%s]", buf);
+			if (i <= 0)
+				VUT_Error(1,
+				    "Syntax error. Field specifier must be"
+				    " positive: %s]",
+				    buf);
+			if (i > INT_MAX) {
+				VUT_Error(1,
+				    "Field specifier %ld for the tag VSL:%s]"
+				    " is probably too high",
+				    i, buf);
+			}
+			*r = '\0';
+		} else
+			i = 0;
+		slt = VSL_Name2Tag(buf, -1);
+		if (slt == -2)
+			VUT_Error(1, "Tag not unique: %s", buf);
+		if (slt == -1)
+			VUT_Error(1, "Unknown log tag: %s", buf);
+		assert(slt >= 0);
+
+		addf_vsl(slt, i);
+		return;
+	}
+	VUT_Error(1, "Unknown formatting extension: %s", buf);
 }
 
 static void
@@ -589,7 +719,7 @@ parse_format(const char *format)
 		case 'H':	/* Protocol */
 			addf_fragment(&CTX.frag[F_H], "HTTP/1.0");
 			break;
-		case 'I':	/* Bytes recieved */
+		case 'I':	/* Bytes received */
 			addf_fragment(&CTX.frag[F_I], "-");
 			break;
 		case 'l':	/* Client user ID (identd) always '-' */
@@ -646,23 +776,8 @@ parse_format(const char *format)
 				addf_time(*q, buf, NULL);
 				break;
 			case 'x':
-				if (!strcmp(buf, "Varnish:time_firstbyte")) {
-					addf_fragment(&CTX.frag[F_ttfb], "");
-					break;
-				}
-				if (!strcmp(buf, "Varnish:hitmiss")) {
-					addf_strptr(&CTX.hitmiss);
-					break;
-				}
-				if (!strcmp(buf, "Varnish:handling")) {
-					addf_strptr(&CTX.handling);
-					break;
-				}
-				if (!strncmp(buf, "VCL_Log:", 8)) {
-					addf_vcl_log(buf + 8, "");
-					break;
-				}
-				/* FALLTHROUGH */
+				parse_x_format(buf);
+				break;
 			default:
 				VUT_Error(1, "Unknown format specifier at: %s",
 				    p - 2);
@@ -717,7 +832,8 @@ frag_fields(int force, const char *b, const char *e, ...)
 	field = va_arg(ap, int);
 	frag = va_arg(ap, struct fragment *);
 	for (n = 1, q = b; q < e; n++) {
-		assert(field > 0);
+		/* caller must sort the fields, or this loop will not work: */
+		assert(field >= n);
 		AN(frag);
 
 		p = q;
@@ -786,20 +902,33 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	unsigned tag;
 	const char *b, *e, *p;
 	struct watch *w;
-	int i, skip;
+	struct vsl_watch *vslw;
+	int i, skip, be_mark;
 	(void)vsl;
 	(void)priv;
 
+#define BACKEND_MARKER (INT_MAX / 2 + 1)
+	assert(BACKEND_MARKER >= VSL_t__MAX);
+
 	for (t = pt[0]; t != NULL; t = *++pt) {
 		CTX.gen++;
-		if (t->type != VSL_t_req)
-			/* Only look at client requests */
+
+		/* Consider client requests only if in client mode.
+		   Consider backend requests only if in backend mode. */
+		if (t->type == VSL_t_req && CTX.c_opt) {
+			CTX.side = "c";
+			be_mark = 0;
+		} else if (t->type == VSL_t_bereq && CTX.b_opt) {
+			CTX.side = "b";
+			be_mark = BACKEND_MARKER;
+		} else
 			continue;
 		if (t->reason == VSL_r_esi)
 			/* Skip ESI requests */
 			continue;
 		CTX.hitmiss = "-";
 		CTX.handling = "-";
+		CTX.vxid = t->vxid;
 		skip = 0;
 		while (skip == 0 && 1 == VSL_Next(t->c)) {
 			tag = VSL_TAG(t->c->rec.ptr);
@@ -808,7 +937,8 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 			while (e > b && e[-1] == '\0')
 				e--;
 
-			switch (tag) {
+			switch (tag + be_mark) {
+			case SLT_HttpGarbage + BACKEND_MARKER:
 			case SLT_HttpGarbage:
 				skip = 1;
 				break;
@@ -818,14 +948,21 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				    4, &CTX.frag[F_O],
 				    0, NULL);
 				break;
+			case (SLT_BackendStart + BACKEND_MARKER):
+				frag_fields(1, b, e,
+				    1, &CTX.frag[F_h],
+				    0, NULL);
+				break;
 			case SLT_ReqStart:
 				frag_fields(0, b, e,
 				    1, &CTX.frag[F_h],
 				    0, NULL);
 				break;
+			case (SLT_BereqMethod + BACKEND_MARKER):
 			case SLT_ReqMethod:
 				frag_line(0, b, e, &CTX.frag[F_m]);
 				break;
+			case (SLT_BereqURL + BACKEND_MARKER):
 			case SLT_ReqURL:
 				p = memchr(b, '?', e - b);
 				if (p == NULL)
@@ -833,12 +970,15 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				frag_line(0, b, p, &CTX.frag[F_U]);
 				frag_line(0, p, e, &CTX.frag[F_q]);
 				break;
+			case (SLT_BereqProtocol + BACKEND_MARKER):
 			case SLT_ReqProtocol:
 				frag_line(0, b, e, &CTX.frag[F_H]);
 				break;
+			case (SLT_BerespStatus + BACKEND_MARKER):
 			case SLT_RespStatus:
 				frag_line(1, b, e, &CTX.frag[F_s]);
 				break;
+			case (SLT_BereqAcct + BACKEND_MARKER):
 			case SLT_ReqAcct:
 				frag_fields(0, b, e,
 				    3, &CTX.frag[F_I],
@@ -846,28 +986,34 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				    6, &CTX.frag[F_O],
 				    0, NULL);
 				break;
+			case (SLT_Timestamp + BACKEND_MARKER):
 			case SLT_Timestamp:
 				if (isprefix(b, "Start:", e, &p)) {
 					frag_fields(0, p, e, 1,
 					    &CTX.frag[F_tstart], 0, NULL);
 
 				} else if (isprefix(b, "Resp:", e, &p) ||
-					isprefix(b, "PipeSess:", e, &p)) {
+					isprefix(b, "PipeSess:", e, &p) ||
+					isprefix(b, "BerespBody:", e, &p)) {
 					frag_fields(0, p, e, 1,
 					    &CTX.frag[F_tend], 0, NULL);
 
 				} else if (isprefix(b, "Process:", e, &p) ||
-					isprefix(b, "Pipe:", e, &p)) {
+					isprefix(b, "Pipe:", e, &p) ||
+					isprefix(b, "Beresp:", e, &p)) {
 					frag_fields(0, p, e, 2,
 					    &CTX.frag[F_ttfb], 0, NULL);
 				}
 				break;
+			case (SLT_BereqHeader + BACKEND_MARKER):
 			case SLT_ReqHeader:
 				if (isprefix(b, "Host:", e, &p))
 					frag_line(0, p, e, &CTX.frag[F_host]);
 				else if (isprefix(b, "Authorization:", e, &p) &&
 				    isprefix(p, "basic", e, &p))
 					frag_line(0, p, e, &CTX.frag[F_auth]);
+				break;
+			case (SLT_VCL_call + BACKEND_MARKER):
 				break;
 			case SLT_VCL_call:
 				if (!strcasecmp(b, "recv")) {
@@ -889,6 +1035,8 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 					CTX.hitmiss = "miss";
 					CTX.handling = "synth";
 				}
+				break;
+			case (SLT_VCL_return + BACKEND_MARKER):
 				break;
 			case SLT_VCL_return:
 				if (!strcasecmp(b, "restart")) {
@@ -915,10 +1063,24 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 					frag_line(0, p, e, &w->frag);
 				}
 			}
-			if (tag == SLT_ReqHeader)
+			if ((tag == SLT_ReqHeader && CTX.c_opt)
+			    || (tag == SLT_BereqHeader && CTX.b_opt))
 				process_hdr(&CTX.watch_reqhdr, b, e);
-			if (tag == SLT_RespHeader)
+			if ((tag == SLT_RespHeader && CTX.c_opt)
+			    || (tag == SLT_BerespHeader && CTX.b_opt))
 				process_hdr(&CTX.watch_resphdr, b, e);
+
+			VTAILQ_FOREACH(vslw, &CTX.watch_vsl, list) {
+				CHECK_OBJ_NOTNULL(vslw, VSL_WATCH_MAGIC);
+				if (tag == vslw->tag) {
+					if (vslw->idx == 0)
+						frag_line(0, b, e, &vslw->frag);
+					else
+						frag_fields(0, b, e,
+						    vslw->idx, &vslw->frag,
+						    0, NULL);
+				}
+			}
 		}
 		if (skip)
 			continue;
@@ -941,12 +1103,14 @@ read_format(const char *formatfile)
 {
 	FILE *fmtfile;
 	size_t len = 0;
+	int fmtlen;
 	char *fmt = NULL;
 
 	fmtfile = fopen(formatfile, "r");
 	if (fmtfile == NULL)
 		VUT_Error(1, "Can't open format file (%s)", strerror(errno));
-	if (getline(&fmt, &len, fmtfile) == -1) {
+	fmtlen = getline(&fmt, &len, fmtfile);
+	if (fmtlen == -1) {
 		free(fmt);
 		if (feof(fmtfile))
 			VUT_Error(1, "Empty format file");
@@ -955,6 +1119,8 @@ read_format(const char *formatfile)
 			    strerror(errno));
 	}
 	fclose(fmtfile);
+	if (fmt[fmtlen - 1] == '\n')
+		fmt[fmtlen - 1] = '\0';
 	return (fmt);
 }
 
@@ -969,6 +1135,7 @@ main(int argc, char * const *argv)
 	VTAILQ_INIT(&CTX.watch_vcl_log);
 	VTAILQ_INIT(&CTX.watch_reqhdr);
 	VTAILQ_INIT(&CTX.watch_resphdr);
+	VTAILQ_INIT(&CTX.watch_vsl);
 	CTX.vsb = VSB_new_auto();
 	AN(CTX.vsb);
 	VB64_init();
@@ -979,6 +1146,14 @@ main(int argc, char * const *argv)
 		case 'a':
 			/* Append to file */
 			CTX.a_opt = 1;
+			break;
+		case 'b':
+			/* backend mode */
+			CTX.b_opt = 1;
+			break;
+		case 'c':
+			/* client mode */
+			CTX.c_opt = 1;
 			break;
 		case 'F':
 			/* Format string */
@@ -1006,6 +1181,9 @@ main(int argc, char * const *argv)
 				usage(1);
 		}
 	}
+	/* default is client mode: */
+	if (!CTX.b_opt)
+		CTX.c_opt = 1;
 
 	if (optind != argc)
 		usage(1);

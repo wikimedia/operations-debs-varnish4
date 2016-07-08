@@ -730,6 +730,16 @@ syslog_cli_traffic
 
 Log all CLI traffic to syslog(LOG_INFO).
 
+.. _ref_param_tcp_fastopen:
+
+tcp_fastopen
+~~~~~~~~~~~~
+	* Units: bool
+	* Default: off
+	* Flags: must_restart
+
+Enable TCP Fast Open extension (if available in the kernel).
+
 .. _ref_param_tcp_keepalive_intvl:
 
 tcp_keepalive_intvl
@@ -1033,6 +1043,17 @@ vsl_space
 	* Flags: must_restart
 
 The amount of space to allocate for the VSL fifo buffer in the VSM memory segment.  If you make this too small, varnish{ncsa|log} etc will not be able to keep up.  Making it too large just costs memory resources.
+
+.. _ref_param_vsm_free_cooldown:
+
+vsm_free_cooldown
+~~~~~~~~~~~~~~~~~
+	* Units: seconds
+	* Default: 60.000
+	* Minimum: 10.000
+	* Maximum: 600.000
+
+How long VSM memory is kept warm after a deallocation (granularity approximately 2 seconds).
 
 .. _ref_param_vsm_space:
 

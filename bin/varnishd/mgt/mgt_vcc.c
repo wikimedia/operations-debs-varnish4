@@ -47,6 +47,7 @@
 #include "vcli_priv.h"
 #include "vfil.h"
 #include "vsub.h"
+#include "vtim.h"
 
 struct vcc_priv {
 	unsigned	magic;
@@ -267,11 +268,50 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 	vp.vclsrc = vclsrc;
 	vp.vclsrcfile = vclsrcfile;
 
-	VSB_printf(sb, "vcl_%s", vclname);
+	/*
+	 * The subdirectory must have a unique name to 100% certain evade
+	 * the refcounting semantics of dlopen(3).
+	 *
+	 * Bad implementations of dlopen(3) think the shlib you are opening
+	 * is the same, if the filename is the same as one already opened.
+	 *
+	 * Sensible implementations do a stat(2) and requires st_ino and
+	 * st_dev to also match.
+	 *
+	 * A correct implementation would run on filesystems which tickle
+	 * st_gen, and also insist that be the identical, before declaring
+	 * a match.
+	 *
+	 * Since no correct implementations are known to exist, we are subject
+	 * to really interesting races if you do something like:
+	 *
+	 *	(running on 'boot' vcl)
+	 *	vcl.load foo /foo.vcl
+	 *	vcl.use foo
+	 *	few/slow requests
+	 *	vcl.use boot
+	 *	vcl.discard foo
+	 *	vcl.load foo /foo.vcl	// dlopen(3) says "same-same"
+	 *	vcl.use foo
+	 *
+	 * Because discard of the first 'foo' lingers on non-zero reference
+	 * count, and when it finally runs, it trashes the second 'foo' because
+	 * dlopen(3) decided they were really the same thing.
+	 *
+	 * The Best way to reproduce ths is to have regexps in the VCL.
+	 */
+	VSB_printf(sb, "vcl_%s.%.9f", vclname, VTIM_real());
 	AZ(VSB_finish(sb));
 	vp.dir = strdup(VSB_data(sb));
 	AN(vp.dir);
-	VJ_make_vcldir(vp.dir);
+
+	if (VJ_make_vcldir(vp.dir)) {
+		free(vp.dir);
+		VSB_destroy(&sb);
+		VCLI_Out(cli, "VCL compilation failed");
+		VCLI_SetResult(cli, CLIS_PARAM);
+		return (NULL);
+	}
 
 	VSB_clear(sb);
 	VSB_printf(sb, "%s/%s", vp.dir, VGC_SRC);
@@ -296,17 +336,19 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 	(void)unlink(vp.csrcfile);
 	free(vp.csrcfile);
 
-	free(vp.dir);
-
 	if (status || C_flag) {
 		(void)unlink(vp.libfile);
 		free(vp.libfile);
+		(void)rmdir(vp.dir);
+		free(vp.dir);
 		if (status) {
 			VCLI_Out(cli, "VCL compilation failed");
 			VCLI_SetResult(cli, CLIS_PARAM);
 		}
-		return(NULL);
+		return (NULL);
 	}
+
+	free(vp.dir);
 
 	VCLI_Out(cli, "VCL compiled.\n");
 

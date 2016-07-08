@@ -119,7 +119,7 @@ vbf_beresp2obj(struct busyobj *bo)
 	}
 
 	l2 = http_EstimateWS(bo->beresp,
-	    bo->uncacheable ? HTTPH_R_PASS : HTTPH_A_INS);
+	    bo->uncacheable ? HTTPH_A_PASS : HTTPH_A_INS);
 	l += l2;
 
 	if (bo->uncacheable)
@@ -143,7 +143,7 @@ vbf_beresp2obj(struct busyobj *bo)
 	bp = ObjSetattr(bo->wrk, bo->fetch_objcore, OA_HEADERS, l2, NULL);
 	AN(bp);
 	HTTP_Encode(bo->beresp, bp, l2,
-	    bo->uncacheable ? HTTPH_R_PASS : HTTPH_A_INS);
+	    bo->uncacheable ? HTTPH_A_PASS : HTTPH_A_INS);
 
 	if (http_GetHdr(bo->beresp, H_Last_Modified, &b))
 		AZ(ObjSetDouble(bo->wrk, bo->fetch_objcore, OA_LASTMODIFIED,
@@ -651,8 +651,14 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	      http_GetHdr(bo->beresp, H_ETag, &p)))
 		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_IMSCAND, 1);
 
-	if (bo->htc->body_status != BS_NONE)
-		AZ(VDI_GetBody(bo->wrk, bo));
+	if (bo->htc->body_status != BS_NONE &&
+	    VDI_GetBody(bo->wrk, bo) != 0) {
+		(void)VFP_Error(bo->vfc,
+		    "GetBody failed - backend_workspace overflow?");
+		bo->htc->doclose = SC_OVERLOAD;
+		VDI_Finish(bo->wrk, bo);
+		return (F_STP_ERROR);
+	}
 
 	assert(bo->refcount >= 1);
 
@@ -852,6 +858,7 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	bo->vfc->esi_req = bo->bereq;
 
 	if (vbf_beresp2obj(bo)) {
+		(void)VFP_Error(bo->vfc, "Could not get storage");
 		VSB_delete(synth_body);
 		return (F_STP_FAIL);
 	}

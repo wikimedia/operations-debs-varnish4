@@ -247,8 +247,7 @@ vbe_dir_getbody(const struct director *d, struct worker *wrk,
 	CHECK_OBJ_NOTNULL(bo->vfc, VFP_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(bo->htc, HTTP_CONN_MAGIC);
 
-	V1F_Setup_Fetch(bo->vfc, bo->htc);
-	return (0);
+	return (V1F_Setup_Fetch(bo->vfc, bo->htc));
 }
 
 static const struct suckaddr * __match_proto__(vdi_getip_f)
@@ -297,8 +296,6 @@ vbe_dir_http1pipe(const struct director *d, struct req *req, struct busyobj *bo)
 	} else {
 		i = V1F_SendReq(req->wrk, bo, &v1a.bereq, 1);
 		VSLb_ts_req(req, "Pipe", W_TIM_real(req->wrk));
-		if (vbc->state == VBC_STATE_STOLEN)
-			VBT_Wait(req->wrk, vbc);
 		if (i == 0)
 			V1P_Process(req, vbc->fd, &v1a);
 		VSLb_ts_req(req, "PipeSess", W_TIM_real(req->wrk));

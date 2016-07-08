@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.1.2 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -343,7 +341,6 @@ parameter takes effect.</p>
 relative to the values listed below, in order to conserve VM space:</p>
 <ul class="simple">
 <li>workspace_client: 16k</li>
-<li>thread_pool_workspace: 16k</li>
 <li>http_resp_size: 8k</li>
 <li>http_req_size: 12k</li>
 <li>gzip_stack_buffer: 4k</li>
@@ -1129,6 +1126,17 @@ This is mostly an anti-DoS measure, and setting it plenty high should not hurt, 
 </div></blockquote>
 <p>Log all CLI traffic to syslog(LOG_INFO).</p>
 </div>
+<div class="section" id="tcp-fastopen">
+<span id="ref-param-tcp-fastopen"></span><h5>tcp_fastopen<a class="headerlink" href="#tcp-fastopen" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bool</li>
+<li>Default: off</li>
+<li>Flags: must_restart</li>
+</ul>
+</div></blockquote>
+<p>Enable TCP Fast Open extension (if available in the kernel).</p>
+</div>
 <div class="section" id="tcp-keepalive-intvl">
 <span id="ref-param-tcp-keepalive-intvl"></span><h5>tcp_keepalive_intvl<a class="headerlink" href="#tcp-keepalive-intvl" title="Permalink to this headline">¶</a></h5>
 <blockquote>
@@ -1444,6 +1452,18 @@ Setting this too high costs memory, setting it too low will cause more VSL flush
 </div></blockquote>
 <p>The amount of space to allocate for the VSL fifo buffer in the VSM memory segment.  If you make this too small, varnish{ncsa|log} etc will not be able to keep up.  Making it too large just costs memory resources.</p>
 </div>
+<div class="section" id="vsm-free-cooldown">
+<span id="ref-param-vsm-free-cooldown"></span><h5>vsm_free_cooldown<a class="headerlink" href="#vsm-free-cooldown" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 60.000</li>
+<li>Minimum: 10.000</li>
+<li>Maximum: 600.000</li>
+</ul>
+</div></blockquote>
+<p>How long VSM memory is kept warm after a deallocation (granularity approximately 2 seconds).</p>
+</div>
 <div class="section" id="vsm-space">
 <span id="ref-param-vsm-space"></span><h5>vsm_space<a class="headerlink" href="#vsm-space" title="Permalink to this headline">¶</a></h5>
 <blockquote>
@@ -1638,6 +1658,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#shortlived">shortlived</a></li>
 <li><a class="reference internal" href="#sigsegv-handler">sigsegv_handler</a></li>
 <li><a class="reference internal" href="#syslog-cli-traffic">syslog_cli_traffic</a></li>
+<li><a class="reference internal" href="#tcp-fastopen">tcp_fastopen</a></li>
 <li><a class="reference internal" href="#tcp-keepalive-intvl">tcp_keepalive_intvl</a></li>
 <li><a class="reference internal" href="#tcp-keepalive-probes">tcp_keepalive_probes</a></li>
 <li><a class="reference internal" href="#tcp-keepalive-time">tcp_keepalive_time</a></li>
@@ -1663,6 +1684,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#vsl-mask">vsl_mask</a></li>
 <li><a class="reference internal" href="#vsl-reclen">vsl_reclen</a></li>
 <li><a class="reference internal" href="#vsl-space">vsl_space</a></li>
+<li><a class="reference internal" href="#vsm-free-cooldown">vsm_free_cooldown</a></li>
 <li><a class="reference internal" href="#vsm-space">vsm_space</a></li>
 <li><a class="reference internal" href="#workspace-backend">workspace_backend</a></li>
 <li><a class="reference internal" href="#workspace-client">workspace_client</a></li>
@@ -1722,13 +1744,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

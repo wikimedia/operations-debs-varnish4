@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Compression &mdash; Varnish version 4.1.2 documentation</title>
+    <title>Compression &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="Varnish and Website Performance" href="performance.html" />
     <link rel="next" title="Content composition with Edge Side Includes" href="esi.html" />
     <link rel="prev" title="Purging and banning" href="purging.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="purging.html" title="Purging and banning"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &raquo;</li> 
       </ul>
@@ -88,11 +86,12 @@ gets removed and any <cite>Etag</cite> gets weakened (by prepending &quot;W/&quo
 <h2>Compressing content if backends don't<a class="headerlink" href="#compressing-content-if-backends-don-t" title="Permalink to this headline">¶</a></h2>
 <p>You can tell Varnish to compress content before storing it in cache in
 <cite>vcl_backend_response</cite> by setting <cite>beresp.do_gzip</cite> to &quot;true&quot;, like this:</p>
-<div class="highlight-python"><pre>sub vcl_backend_response {
-    if (beresp.http.content-type ~ "text") {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
+    if (beresp.http.content-type ~ &quot;text&quot;) {
         set beresp.do_gzip = true;
     }
-}</pre>
+}
+</pre></div>
 </div>
 <p>With <cite>beresp.do_gzip</cite> set to &quot;true&quot;, Varnish will make the following
 changes to the headers of the resulting object before inserting it in
@@ -203,14 +202,14 @@ about how the implementation works.</p>
         <li class="right" >
           <a href="purging.html" title="Purging and banning"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="performance.html" >Varnish and Website Performance</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

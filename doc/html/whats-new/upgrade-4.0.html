@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -8,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Upgrading to Varnish 4.0 &mdash; Varnish version 4.1.2 documentation</title>
+    <title>Upgrading to Varnish 4.0 &mdash; Varnish version 4.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -16,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.2',
+        VERSION:     '4.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.2 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
     <link rel="up" title="What&#39;s new in Varnish 4.1" href="index.html" />
     <link rel="next" title="Poul-Hennings random outbursts" href="../phk/index.html" />
     <link rel="prev" title="Upgrading to Varnish 4.1" href="upgrading.html" /> 
@@ -43,7 +41,7 @@
         <li class="right" >
           <a href="upgrading.html" title="Upgrading to Varnish 4.1"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &raquo;</li> 
       </ul>
     </div>  
@@ -64,7 +62,8 @@ compile a list of changes needed to upgrade here.</p>
 <p>To make sure that people have upgraded their VCL to the current
 version, Varnish now requires the first line of VCL to indicate the
 VCL version number:</p>
-<div class="highlight-python"><pre>vcl 4.0;</pre>
+<div class="highlight-python"><div class="highlight"><pre>vcl 4.0;
+</pre></div>
 </div>
 </div>
 <div class="section" id="req-request-is-now-req-method">
@@ -80,7 +79,7 @@ VCL version number:</p>
 <p>To make directors (backend selection logic) easier to extend, the
 directors are now defined in loadable VMODs.</p>
 <p>Setting a backend for future fetches in <cite>vcl_recv</cite> is now done as follows:</p>
-<div class="highlight-python"><pre>sub vcl_init {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_init {
     new cluster1 = directors.round_robin();
     cluster1.add_backend(b1, 1.0);
     cluster1.add_backend(b2, 1.0);
@@ -88,7 +87,8 @@ directors are now defined in loadable VMODs.</p>
 
 sub vcl_recv {
     set req.backend_hint = cluster1.backend();
-}</pre>
+}
+</pre></div>
 </div>
 <p>Note the extra <cite>.backend()</cite> needed after the director name.</p>
 </div>
@@ -96,7 +96,7 @@ sub vcl_recv {
 <h3>Use the hash director as a client director<a class="headerlink" href="#use-the-hash-director-as-a-client-director" title="Permalink to this headline">¶</a></h3>
 <p>Since the client director was already a special case of the hash director, it
 has been removed, and you should use the hash director directly:</p>
-<div class="highlight-python"><pre>sub vcl_init {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_init {
     new h = directors.hash();
     h.add_backend(b1, 1);
     h.add_backend(b2, 1);
@@ -104,7 +104,8 @@ has been removed, and you should use the hash director directly:</p>
 
 sub vcl_recv {
     set req.backend_hint = h.backend(client.identity);
-}</pre>
+}
+</pre></div>
 </div>
 </div>
 <div class="section" id="vcl-error-is-now-vcl-backend-error">
@@ -125,12 +126,13 @@ varnish encounters an error when trying to fetch an object.</p>
 <p>Setting headers on synthetic response bodies made in vcl_synth are now done on
 resp.http instead of obj.http.</p>
 <p>The synthetic keyword is now a function:</p>
-<div class="highlight-python"><pre>if (resp.status == 799) {
+<div class="highlight-python"><div class="highlight"><pre>if (resp.status == 799) {
     set resp.status = 200;
-    set resp.http.Content-Type = "text/plain; charset=utf-8";
-    synthetic("You are " + client.ip);
+    set resp.http.Content-Type = &quot;text/plain; charset=utf-8&quot;;
+    synthetic(&quot;You are &quot; + client.ip);
     return (deliver);
-}</pre>
+}
+</pre></div>
 </div>
 </div>
 <div class="section" id="obj-in-vcl-error-replaced-by-beresp-in-vcl-backend-error">
@@ -142,13 +144,14 @@ use <cite>obj.*</cite> in <cite>vcl_error</cite>.</p>
 <div class="section" id="hit-for-pass-objects-are-created-using-beresp-uncacheable">
 <h3>hit_for_pass objects are created using beresp.uncacheable<a class="headerlink" href="#hit-for-pass-objects-are-created-using-beresp-uncacheable" title="Permalink to this headline">¶</a></h3>
 <p>Example:</p>
-<div class="highlight-python"><pre>sub vcl_backend_response {
+<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
     if (beresp.http.X-No-Cache) {
         set beresp.uncacheable = true;
         set beresp.ttl = 120s;
         return (deliver);
     }
-}</pre>
+}
+</pre></div>
 </div>
 </div>
 <div class="section" id="req-not-available-in-vcl-backend-response">
@@ -361,13 +364,13 @@ the -m switch has been replaced with a new -q switch.  See
         <li class="right" >
           <a href="upgrading.html" title="Upgrading to Varnish 4.1"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.2 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
           <li><a href="index.html" >What's new in Varnish 4.1</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>
