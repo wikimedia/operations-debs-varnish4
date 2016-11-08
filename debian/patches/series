@@ -1,3 +1,4 @@
 0001-varnishd-persistent-addrarg.patch
 0002-varnishd-persistent-fallocate.patch
 0004-varnishd-persistent-mmap-exit.patch
+0005-remove_bad_extrachance_code.patch

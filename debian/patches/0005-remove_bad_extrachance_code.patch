@@ -1,0 +1,46 @@
+From: Brandon Black <bblack@wikimedia.org>
+Date: Tue Nov  8 11:59:43 UTC 2016
+Subject: remove_bad_extrachance_code
+
+Bug: T150247
+diff --git a/bin/varnishd/cache/cache_backend.c b/bin/varnishd/cache/cache_backend.c
+index 039d3b2..f88bf8e 100644
+--- a/bin/varnishd/cache/cache_backend.c
++++ b/bin/varnishd/cache/cache_backend.c
+@@ -177,7 +177,7 @@ static int __match_proto__(vdi_gethdrs_f)
+ vbe_dir_gethdrs(const struct director *d, struct worker *wrk,
+     struct busyobj *bo)
+ {
+-	int i, extrachance = 1;
++	int i; /*, extrachance = 1;*/
+ 	struct backend *bp;
+ 	struct vbc *vbc;
+ 
+@@ -201,8 +201,10 @@ vbe_dir_gethdrs(const struct director *d, struct worker *wrk,
+ 			return (-1);
+ 		}
+ 		AN(bo->htc);
++		/*
+ 		if (vbc->state != VBC_STATE_STOLEN)
+ 			extrachance = 0;
++			*/
+ 
+ 		i = V1F_SendReq(wrk, bo, &bo->acct.bereq_hdrbytes, 0);
+ 
+@@ -225,6 +227,7 @@ vbe_dir_gethdrs(const struct director *d, struct worker *wrk,
+ 		 */
+ 		vbe_dir_finish(d, wrk, bo);
+ 		AZ(bo->htc);
++		/*
+ 		if (i < 0)
+ 			break;
+ 		if (bo->req != NULL &&
+@@ -232,7 +235,8 @@ vbe_dir_gethdrs(const struct director *d, struct worker *wrk,
+ 		    bo->req->req_body_status != REQ_BODY_CACHED)
+ 			break;
+ 		VSC_C_main->backend_retry++;
+-	} while (extrachance);
++	} while (extrachance);*/
++	} while (0);
+ 	return (-1);
+ }
