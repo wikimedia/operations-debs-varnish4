@@ -32,28 +32,41 @@
 #include "vut_options.h"
 
 #define HIS_OPT_g							\
-	VOPT("g:", "[-g <request|vxid>]", "Grouping mode (default: vxid)",		\
+	VOPT("g:", "[-g <request|vxid>]",				\
+	    "Grouping mode (default: vxid)",				\
 	    "The grouping of the log records. The default is to group"	\
 	    " by vxid."							\
 	)
 
 #define HIS_OPT_p							\
-	VOPT("p:", "[-p period]", "Refresh period",			\
+	VOPT("p:", "[-p <period>]", "Refresh period",			\
 	    "Specified the number of seconds between screen refreshes."	\
 	    " Default is 1 second, and can be changed at runtime by"	\
-	    " pressing the [1-9] keys."					\
+	    " pressing the [0-9] keys (powers of 2 in seconds"		\
+	    " or + and - (double/halve the speed)."			\
 	)
 
 #define HIS_OPT_P							\
-	VOPT("P:", "[-P <size|responsetime|tag:field_num:min:max>]",	\
-	    "Profile definition",					\
-	    "Either specify \"size\" or \"responsetime\" profile or"	\
-	    " create a new one. Define the tag we'll look for, and the"	\
-	    " field number of the value we are interested in. min and"	\
-	    " max are the boundaries of the graph (these are power of"	\
-	    " tens)."							\
+	VOPT("P:", "[-P <[cb:]tag:field_num:min:max>]",			\
+	    "Custom profile definition",				\
+	    "Graph the given custom definition defined as: an optional" \
+	    " (c)lient or (b)ackend filter (defaults to client), the"	\
+	    " tag we'll look for, and the field number of the value we" \
+	    " are interested in. min and max are the boundaries of the" \
+	    " graph (these are power of ten)."				\
 	)
 
+#define HIS_OPT_B							\
+	VOPT("B:", "[-B <factor>]",					\
+	    "Time bending",						\
+	    "Factor to bend time by. Particularly useful when"		\
+	    " [-r]eading from a vsl file. =1 process in near real"	\
+	    " time, <1 slow-motion, >1 time-lapse (useless unless"	\
+	    " reading from a file). At runtime, < halves and"		\
+	    " > doubles."						\
+	    )
+
+HIS_OPT_B
 VSL_OPT_C
 VUT_OPT_d
 HIS_OPT_g
@@ -62,6 +75,20 @@ VSL_OPT_L
 VUT_OPT_n
 VUT_OPT_N
 HIS_OPT_p
+#define HIS_CLIENT	"client"
+#define HIS_BACKEND	"backend"
+#define HIS_NO_PREFIX	""
+#define HIS_PROF(name,cb,tag,prefix,field,hist_low,high_high,doc)	\
+	VOPT("P:", "[-P " name "]",					\
+	     "Predefined " cb " profile",				\
+	     "Predefined " cb " profile: " doc				\
+	     " (field " #field " of " #tag " " prefix " VSL tag)."	\
+	    )
+#include "varnishhist_profiles.h"
+#undef HIS_NO_PREFIX
+#undef HIS_BACKEND
+#undef HIS_CLIENT
+#undef HIS_PROF
 HIS_OPT_P
 VUT_OPT_q
 VUT_OPT_r

@@ -479,7 +479,7 @@ RespStatus - Client response status
 
 
 SessClose - Client connection closed
-	SessionClose is the last record for any client connection.
+	SessClose is the last record for any client connection.
 	
 	The format is::
 	

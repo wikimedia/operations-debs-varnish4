@@ -1,1 +1,1 @@
-.. |synopsis| replace::  [-1] [-b] [-c] [-C] [-d] [-f] [-g <session|request|vxid|raw>] [-h] [-i taglist] [-I <[taglist:]regex>] [-L limit] [-n name] [-N filename] [-p period] [-q query] [-r filename] [-t <seconds|off>] [-T seconds] [-x taglist] [-X <[taglist:]regex>] [-V]
+.. |synopsis| replace::  [-1] [-b] [-c] [-C] [-d] [-f] [-g <session|request|vxid|raw>] [-h] [-i <taglist>] [-I <[taglist:]regex>] [-L <limit>] [-n <name>] [-N <filename>] [-p <period>] [-q <query>] [-r <filename>] [-t <seconds|off>] [-T <seconds>] [-x <taglist>] [-X <[taglist:]regex>] [-V]

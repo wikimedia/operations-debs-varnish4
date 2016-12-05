@@ -1,0 +1,940 @@
+barrier
+-------
+
+NOTE: this can be used from the top-level as well as from client and server
+specifications.
+
+Barriers allows you to synchronize different threads to make sure events
+occur in the right order. It's even possible to use them in VCL.
+
+First, it's necessary to declare the barrier::
+
+        barrier bNAME TYPE NUMBER [-cyclic]
+
+With the arguments being:
+
+bNAME
+        this is the name of the barrier, used to identify it when you'll
+        create sync points. It must start with 'b'.
+
+TYPE
+        it can be "cond" (mutex) or "sock" (socket) and sets internal
+        behavior. If you don't need VCL synchronization, use cond.
+
+NUMBER
+        number of sync point needed to go through the barrier.
+
+\-cyclic
+        if present, the barrier will reset itself and be ready for another
+        round once gotten through.
+
+Then, to add a sync point::
+
+        barrier bNAME sync
+
+This will block the parent thread until the number of sync points for bNAME
+reaches the NUMBER given in the barrier declaration.
+
+If you wish to synchronize the VCL, you need to declare a "sock" barrier.
+This will emit a macro definition named "bNAME_sock" that you can use in
+VCL (after importing the debug vmod)::
+
+        debug.barrier_sync("${bNAME_sock}");
+
+This function returns 0 if everything went well and is the equivalent of
+``barrier bNAME sync`` at the VTC top-level.
+
+
+
+client/server
+-------------
+
+Client and server threads are fake HTTP entities used to test your Varnish
+and VCL. They take any number of arguments, and the one that are not
+recognized, assuming they don't start with '-', are treated as
+specifications, laying out the actions to undertake::
+
+        client cNAME [...]
+        server sNAME [...]
+
+Clients and server are identified by a string that's the first argument,
+clients' names start with 'c' and servers' names start with 's'.
+
+As the client and server commands share a good deal of arguments and
+specification actions, they are grouped in this single section, specific
+items will be explicitly marked as such.
+
+
+Arguments
+~~~~~~~~~
+
+\-start
+       Start the thread in background, processing the last given
+       specification.
+
+\-wait
+       Block until the thread finishes.
+
+\-run (client only)
+       Equivalent to "-start -wait".
+
+\-repeat NUMBER
+       Instead of processing the specification only once, do it NUMBER times.
+
+\-break (server only)
+       Stop the server.
+
+\-listen STRING (server only)
+       Dictate the listening socket for the server. STRING is of the form
+       "IP PORT".
+
+\-connect STRING (client only)
+       Indicate the server to connect to. STRING is also of the form
+       "IP PORT".
+
+\-dispatch (server only, s0 only)
+       Normally, to keep things simple, server threads only handle one
+       connection at a time, but the -dispatch switch allows to accept
+       any number of connection and handle them following the given spec.
+
+       However, -dispatch is only allowed for the server name "s0".
+
+\-proxy1 STRING (client only)
+       Use the PROXY protocol version 1 for this connection. STRING
+       is of the form "CLIENTIP:PORT SERVERIP:PORT".
+
+\-proxy2 STRING (client only)
+       Use the PROXY protocol version 2 for this connection. STRING
+       is of the form "CLIENTIP:PORT SERVERIP:PORT".
+
+
+Macros and automatic behaviour
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To make things easier in the general case, clients will connect by default
+to the first Varnish server declared and the -vcl+backend switch of the
+``varnish`` command will add all the declared servers as backends.
+
+Be careful though, servers will by default listen to the 127.0.0.1 IP and
+will pick a random port, and publish 3 macros: sNAME_addr, sNAME_port and
+sNAME_sock, but only once they are started. For varnishtest to
+create the vcl with the correct values, the server must be started when you
+use -vcl+backend.
+
+
+Specification
+~~~~~~~~~~~~~
+
+It's a string, either double-quoted "like this", but most of the time
+enclosed in curly brackets, allowing multilining. Write a command per line in
+it, empty line are ignored, and long line can be wrapped by using a
+backslash. For example::
+
+    client c1 {
+        txreq -url /foo \
+              -hdr "bar: baz"
+
+        rxresp
+    } -run
+
+
+accept (server only)
+	Close the current connection, if any, and accept a new one. Note
+	that this new connection is HTTP/1.x.
+
+
+barrier
+	Same as for the top-level barrier
+
+
+chunked STRING
+        Send STRING as chunked encoding.
+
+
+chunkedlen NUMBER
+        Do as ``chunked`` except that varnishtest will generate the string
+        for you, with a length of NUMBER characters.
+
+
+close (server only)
+	Close the connection. Note that if operating in HTTP/2 mode no
+	extra (GOAWAY) frame is sent, it's simply a TCP close.
+
+
+delay
+	Same as for the top-level delay.
+
+
+
+expect STRING1 OP STRING2
+        Test if "STRING1 OP STRING2" is true, and if not, fails the test.
+        OP can be ==, <, <=, >, >= when STRING1 and STRING2 represent numbers
+        in which case it's an order operator. If STRING1 and STRING2 are
+        meant as strings OP is a matching operator, either == (exact match)
+        or ~ (regex match).
+
+        varnishtet will first try to resolve STRING1 and STRING2 by looking
+        if they have special meanings, in which case, the resolved value is
+        use for the test. Note that this value can be a string representing a
+        number, allowing for tests such as::
+
+                expect req.http.x-num > 2
+
+        Here's the list of recognized strings, most should be obvious as they
+        either match VCL logic, or the txreq/txresp options:
+
+        - remote.ip
+        - remote.port
+        - req.method
+        - req.url
+        - req.proto
+        - resp.proto
+        - resp.status
+        - resp.reason
+        - resp.chunklen
+        - req.bodylen
+        - req.body
+        - resp.bodylen
+        - resp.body
+        - req.http.NAME
+        - resp.http.NAME
+
+
+expect_close
+	Reads from the connection, expecting nothing to read but an EOF.
+
+
+fatal|non-fatal
+        Control whether a failure of this entity should stop the test.
+
+
+loop NUMBER STRING
+        Process STRING as a specification, NUMBER times.
+
+
+recv NUMBER
+        Read NUMBER bytes from the connection.
+
+
+rxchunk
+        Receive an HTTP chunk.
+
+
+rxpri (server only)
+	Receive a preface. If valid set the server to HTTP/2, abort
+	otherwise.
+
+
+rxreq (server only)
+        Receive and parse a request's headers and body.
+
+
+rxreqbody (server only)
+        Receive a request's body.
+
+
+rxreqhdrs
+        Receive and parse a request's headers (but not the body).
+
+
+rxresp [-no_obj] (client only)
+        Receive and parse a response's headers and body. If -no_obj is present, only get
+        the headers.
+
+
+rxrespbody (client only)
+        Receive a response's body.
+
+
+rxresphdrs (client only)
+        Receive and parse a response's headers.
+
+
+send STRING
+        Push STRING on the connection.
+
+
+send_n NUMBER STRING
+        Write STRING on the socket NUMBER times.
+
+
+send_urgent STRING
+        Send string as TCP OOB urgent data. You will never need this.
+
+
+sendhex STRING
+        Send bytes as described by STRING. STRING should consist of hex pairs
+        possibly separated by whitespace or newlines. For example:
+        "0F EE a5    3df2".
+
+
+settings -dectbl INT
+	Force internal HTTP/2 settings to certain values. Currently only
+	support setting the decoding table size.
+
+
+stream
+	HTTP/2 introduces the concept of streams, and these come with
+	their own specification, and as it's quite big, have been moved
+	to their own chapter.
+
+
+
+timeout NUMBER
+        Set the TCP timeout for this entity.
+
+
+txpri (client only)
+	Send an HTTP/2 preface ("PRI * HTTP/2.0\\r\\n\\r\\nSM\\r\\n\\r\\n")
+	and set client to HTTP/2.
+
+
+txreq|txresp [...]
+        Send a minimal request or response, but overload it if necessary.
+
+        txreq is client-specific and txresp is server-specific.
+
+        The only thing different between a request and a response, apart
+        from who can send them is that the first line (request line vs
+        status line), so all the options are prety much the same.
+
+        \-req STRING (txreq only)
+                What method to use (default: "GET").
+
+        \-url STRING (txreq only)
+                What location to use (default "/").
+
+        \-proto STRING
+                What protocol use in the status line.
+                (default: "HTTP/1.1").
+
+        \-status NUMBER (txresp only)
+                What status code to return (default 200).
+
+        \-reason STRING (txresp only)
+                What message to put in the status line (default: "OK").
+
+        These three switches can appear in any order but must come before the
+        following ones.
+
+        \-nolen
+                Don't include a Content-Length header in the response.
+
+        \-hdr STRING
+                Add STRING as a header, it must follow this format:
+                "name: value". It can be called multiple times.
+
+        You can then use the arguments related to the body:
+
+        \-body STRING
+                Input STRING as body.
+
+        \-bodylen NUMBER
+                Generate and input a body that is NUMBER bytes-long.
+
+        \-gziplevel NUMBER
+		   Set the gzip level (call it before any of the other gzip
+		   switches).
+
+        \-gzipresidual NUMBER
+                Add extra gzip bits. You should never need it.
+
+        \-gzipbody STRING
+                Zip STRING and send it as body.
+
+        \-gziplen NUMBER
+                Combine -body and -gzipbody: create a body of length NUMBER,
+                zip it and send as body.
+
+delay
+-----
+
+Take a float as argument and sleep for that number of seconds.
+
+err_shell
+---------
+
+This is very similar to the the ``shell`` command, except it takes a first
+string as argument before the command::
+
+        err_shell "foo" "echo foo"
+
+err_shell expect the shell command to fail AND stdout to match the string,
+failing the test case otherwise.
+
+feature
+-------
+
+Test that the required feature(s) for a test are available, and skip the test
+otherwise. feature takes any number of arguments from this list:
+
+SO_RCVTIMEO_WORKS
+       The SO_RCVTIMEO socket option is working
+64bit
+       The environment is 64 bits
+!OSX
+       The environment is not OSX
+dns
+       DNS lookups are working
+topbuild
+       varnishtest has been started with '-i'
+root
+       varnishtest has been invoked by the root user
+user_varnish
+       The varnish user is present
+user_vcache
+       The vcache user is present
+group_varnish
+       The varnish group is present
+cmd <command-line>
+       A command line that should execute with a zero exit status
+
+logexpect
+---------
+
+Reads the VSL and looks for records matching a given specification. It will
+process records trying to match the first pattern, and when done, will
+continue processing, trying to match the following pattern. If a pattern
+isn't matched, the test will fail.
+
+logexpect threads are declared this way::
+
+        logexpect lNAME -v <id> [-g <grouping>] [-d 0|1] [-q query] \
+                [vsl arguments] {
+                        expect <skip> <vxid> <tag> <regex>
+                        expect <skip> <vxid> <tag> <regex>
+                        ...
+                } [-start|-wait]
+
+And once declared, you can start them, or wait on them::
+
+        logexpect lNAME <-start|-wait>
+
+With:
+
+lNAME
+        Name the logexpect thread, it must start with 'l'.
+
+\-v id
+        Specify the varnish instance to use (most of the time, id=v1).
+
+\-g <session|request|vxid|raw
+        Decide how records are grouped, see -g in ``man varnishlog`` for more
+        information.
+
+\-d <0|1>
+        Start processing log records at the head of the log instead of the
+        tail.
+
+\-q query
+        Filter records using a query expression, see ``man vsl-query`` for
+        more information.
+
+\-start
+        Start the logexpect thread in the background.
+
+\-wait
+        Wait for the logexpect thread to finish
+
+VSL arguments (similar to the varnishlog options):
+
+\-b|-c
+        Process only backend/client records.
+
+\-C
+        Use caseless regex
+
+\-i <taglist>
+        Include tags
+
+\-I <[taglist:]regex>
+        Include by regex
+
+\-T <seconds>
+        Transaction end timeout
+
+And the arguments of the specifications lines are:
+
+skip: [uint|*]
+        Max number of record to skip
+
+vxid: [uint|*|=]
+        vxid to match
+
+tag:  [tagname|*|=]
+        Tag to match against
+
+regex:
+        regular expression to match against (optional) ('*' is anything, '='
+        is the value of the last matched record)
+
+shell
+-----
+
+Pass the string given as argument to a shell. If you have multiple commands
+to run, you can use curly barces to describe a multi-lines script, eg::
+
+        shell {
+                echo begin
+                cat /etc/fstab
+                echo end
+        }
+
+The vtc will fail if the return code of the shell is not 0.
+
+stream
+------
+
+(note: this section is at the top-level for easier navigation, but
+it's part of the client/server specification)
+
+Streams map roughly to a request in HTTP/2, a request is sent on
+stream N, the response too, then the stream is discarded. The main
+exception is the first stream, 0, that serves as coordinator.
+
+Stream syntax follow the client/server one::
+
+	stream ID [SPEC] [ACTION]
+
+ID is the HTTP/2 stream number, while SPEC describes what will be
+done in that stream.
+
+Note that, when parsing a stream action, if the entity isn't operating
+in HTTP/2 mode, these spec is ran before::
+
+	txpri/rxpri # client/server
+	stream 0 {
+	    txsettings
+	    rxsettings
+	    txsettings -ack
+	    rxsettings
+	    expect settings.ack == true
+	} -run
+
+And HTTP/2 mode is then activated before parsing the specification.
+
+
+Actions
+~~~~~~~
+
+\-start
+	Run the specification in a thread, giving back control immediately.
+
+\-wait
+	Wait for the started thread to finish running the spec.
+
+\-run
+	equivalent to calling ``-start`` then ``-wait``.
+
+Specification
+~~~~~~~~~~~~~
+
+The specification of a stream follows the exact same rules as one for a
+client or a server.
+
+txreq, txresp, txcont, txpush
+.............................
+
+These four commands are about sending headers. txreq and txresp
+will send HEADER frames; txcont will send CONTINUATION frames; txpush
+PUSH frames.
+The only difference between txreq and txresp are the default headers
+set by each of them.
+
+\-noadd
+	Do not add default headers. Useful to avoid duplicates when sending
+	default headers using ``-hdr``, ``-idxHdr`` and ``-litIdxHdr``.
+
+\-status INT (txresp)
+	Set the :status pseudo-header.
+
+\-url STRING (txreq, txpush)
+	Set the :path pseudo-header.
+
+\-req STRING (txreq, txpush)
+	Set the :method pseudo-header.
+
+\-scheme STRING (txreq, txpush)
+	Set the :scheme pseudo-header.
+
+\-hdr STRING1 STRING2
+	Insert a header, STRING1 being the name, and STRING2 the value.
+
+\-idxHdr INT
+	Insert an indexed header, using INT as index.
+
+\-litIdxHdr inc|not|never INT huf|plain STRING
+	Insert an literal, indexed header. The first argument specify if the
+	header should be added to the table, shouldn't, or mustn't be
+	compressed if/when retransmitted.
+
+	INT is the idex of the header name to use.
+
+	The third argument informs about the Huffman encoding: yes (huf) or
+	no (plain).
+
+	The last term is the literal value of the header.
+
+\-litHdr inc|not|never huf|plain STRING1 huf|plain STRING2
+	Insert a literal header, with the same first argument as
+	``-litIdxHdr``.
+
+	The second and third terms tell what the name of the header is and if
+	it should be Huffman-encoded, while the last two do the same
+	regarding the value.
+
+\-body STRING (txreq, txresp)
+	Specify a body, effectively putting STRING into a DATA frame after
+	the HEADER frame is sent.
+
+\-bodylen INT (txreq, txresp)
+	Do the same thing as ``-body`` but generate an string of INT length
+	for you.
+
+\-nostrend (txreq, txresp)
+	Don't set the END_STREAM flag automatically, making the peer expect
+	a body after the headers.
+
+\-nohdrend
+	Don't set the END_HEADERS flag automatically, making the peer expect
+	more HEADER frames.
+
+\-dep INT (txreq, txresp)
+	Tell the peer that this content depends on the stream with the INT
+	id.
+
+\-ex (txreq, txresp)
+	Make the dependency exclusive (``-dep`` is still needed).
+
+\-weight (txreq, txresp)
+	Set the weight for the dependency.
+
+\-promised INT (txpush)
+	The id of the promised stream.
+
+\-pad STRING / -padlen INT (txreq, txresp, txpush)
+	Add string as padding to the frame, either the one you provided with
+	\-pad, or one that is generated for you, of length INT is -padlen
+	case.
+
+txdata
+......
+
+By default, data frames are empty. The receiving end will know the whole body
+has been delivered thanks to the END_STREAM flag set in the last DATA frame,
+and txdata automatically set it.
+
+\-data STRING
+	Data to be embedded into the frame.
+
+\-datalen INT
+	Generate and INT-bytes long string to be sent in the frame.
+
+\-pad STRING / -padlen INT
+	Add string as padding to the frame, either the one you provided with
+	\-pad, or one that is generated for you, of length INT is -padlen
+	case.
+
+\-nostrend
+	Don't set the END_STREAM flag, allowing to send more data on this
+	stream.
+
+rxreq, rxresp
+.............
+
+These are two convenience functions to receive headers and body of an
+incoming request or response. The only difference is that rxreq can only be
+by a server, and rxresp by a client.
+
+
+rxhdrs
+......
+
+``rxhdrs`` will expect one HEADER frame, then, depending on the arguments,
+zero or more CONTINUATION frame.
+
+\-all
+	Keep waiting for CONTINUATION frames until END_HEADERS flag is seen.
+
+\-some INT
+	Retrieve INT - 1 CONTINUATION frames after the HEADER frame.
+
+
+rxpush
+......
+
+This works like ``rxhdrs``, expecting a PUSH frame and then zero or more
+CONTINUATION frames.
+
+\-all
+	Keep waiting for CONTINUATION frames until END_HEADERS flag is seen.
+
+\-some INT
+	Retrieve INT - 1 CONTINUATION frames after the PUSH frame.
+
+
+rxdata
+......
+
+Receiving data is done using the ``rxdata`` keywords and will retrieve one
+DATA frame, if you wish to receive more, you can use these two convenience
+arguments:
+
+\-all
+	keep waiting for DATA frame until one sets the END_STREAM flag
+
+\-some INT
+	retrieve INT DATA frames.
+
+
+delay
+.....
+
+Same as for the top-level delay.
+
+
+Receive a frame, any frame.
+
+sendhex
+.......
+
+Push bytes directly on the wire. sendhex takes exactly one argument: a string
+describing the bytes, in hex notation, will possible whitespaces between
+them. Here's an example::
+
+	sendhex "00 00 08 00 0900	8d"
+
+rxgoaway
+........
+
+Receive a GOAWAY frame.
+
+rxgoaway
+........
+
+Possible options include:
+
+\-err STRING|INT
+	set the error code to eplain the termination. The second argument
+	can be a integer or the string version of the error code as found
+	in rfc7540#7.
+
+\-laststream INT
+	the id of the "highest-numbered stream identifier for which the
+	sender of the GOAWAY frame might have taken some action on or might
+	yet take action on".
+
+\-debug
+	specify the debug data, if any to append to the frame.
+
+rxping
+......
+
+Receive a PING frame.
+
+txping
+......
+
+Send PING frame.
+
+\-data STRING
+	specify the payload of the frame, with STRING being an 8-char string.
+
+\-ack
+	set the ACK flag.
+
+rxprio
+......
+
+Receive a PRIORITY frame.
+
+txprio
+......
+
+Send a PRIORITY frame
+
+\-stream INT
+	indicate the id of the stream the sender stream depends on.
+
+\-ex
+	the dependency should be made exclusive (only this streams depends on
+	the parent stream).
+
+\-weight INT
+	an 8-bits integer is used to balance priority between streams
+	depending on the same streams.
+
+rxrst
+.....
+
+Receive a RST_STREAM frame.
+
+txrst
+.....
+
+Send a RST_STREAM frame. By default, txrst will send a 0 error code
+(NO_ERROR).
+
+\-err STRING|INT
+	Sets the error code to be sent. The argument can be an integer or a
+	string describing the error, such as NO_ERROR, or CANCEL (see
+	rfc7540#11.4 for more strings).
+
+rxsettings
+..........
+
+Receive a SETTINGS frame.
+
+txsettings
+..........
+
+SETTINGS frames must be acknowledge, arguments are as follow (most of them
+are from  rfc7540#6.5.2):
+
+\-hdrtbl INT
+	headers table size
+
+\-push BOOL
+	whether push frames are accepted or not
+
+\-maxstreams INT
+	maximum concurrent streams allowed
+
+\-winsize INT
+	sender's initial window size
+
+\-framesize INT
+	largest frame size authorized
+
+\-hdrsize INT
+	maximum size of the header list authorized
+
+\-ack
+	set the ack bit
+
+rxwinup
+.......
+
+Receive a WINDOW_UPDATE frame.
+
+txwinup
+.......
+
+Transmit a WINDOW_UPDATE frame, increasing the amount of credit of the
+connection (from stream 0) or of the stream (any other stream).
+
+\-size INT
+	give INT credits to the peer.
+
+expect
+......
+
+expect in stream works as it does in client or server, except that the
+elements compared will be different.
+
+Most of these elements will be frame specific, meaning that the last frame
+received on that stream must of the correct type.
+
+Here the list of keywords you can look at.
+
+varnish
+-------
+
+Define and interact with varnish instances.
+
+To define a Varnish server, you'll use this syntax::
+
+	varnish vNAME [-arg STRING] [-vcl STRING] [-vcl+backend STRING]
+		[-errvcl STRING STRING] [-jail STRING] [-proto PROXY]
+
+The first ``varnish vNAME`` invocation will start the varnishd master
+process in the background, waiting for the ``-start`` switch to actually
+start the child.
+
+With:
+
+vNAME
+        Identify the Varnish server with a string, it must starts with 'v'.
+
+\-arg STRING
+        Pass an argument to varnishd, for example "-h simple_list".
+
+\-vcl STRING
+        Specify the VCL to load on this Varnish instance. You'll probably
+        want to use multi-lines strings for this ({...}).
+
+\-vcl+backend STRING
+        Do the exact same thing as -vcl, but adds the definition block of
+        known backends (ie. already defined).
+
+\-errvcl STRING1 STRING2
+        Load STRING2 as VCL, expecting it to fail, and Varnish to send an
+        error string matching STRING2
+
+\-jail STRING
+        Look at ``man varnishd`` (-j) for more information.
+
+\-proto PROXY
+        Have Varnish use the proxy protocol. Note that PROXY here is the
+        actual string.
+
+You can decide to start the Varnish instance and/or wait for several events::
+
+        varnish vNAME [-start] [-wait] [-wait-running] [-wait-stopped]
+
+\-start
+        Start the child process.
+
+\-stop
+        Stop the child process.
+
+\-syntax
+        Set the VCL syntax level (default: 4.0)
+
+\-wait
+        Wait for that instance to terminate.
+
+\-wait-running
+        Wait for the Varnish child process to be started.
+
+\-wait-stopped
+        Wait for the Varnish child process to stop.
+
+\-cleanup
+        Once Varnish is stopped, clean everything after it. This is only used
+        in one test and you should never need it.
+
+Once Varnish is started, you can talk to it (as you would through
+``varnishadm``) with these additional switches::
+
+        varnish vNAME [-cli STRING] [-cliok STRING] [-clierr STRING]
+                      [-expect STRING OP NUMBER]
+
+\-cli STRING|-cliok STRING|-clierr STATUS STRING
+        All three of these will send STRING to the CLI, the only difference
+        is what they expect the return code to be. -cli doesn't expect
+        anything, -cliok expects 200 and -clierr expects STATUS
+
+\-expect STRING OP NUMBER
+        Look into the VSM and make sure the counter identified by STRING has
+        a correct value. OP can be ==, >, >=, <, <=. For example::
+
+                varnish v1 -expect SMA.s1.g_space > 1000000
+
+\-vsc PATTERN
+        Dump VSC counters matching PATTERN.  The PATTERN is a 'glob'
+        style pattern (ie: fnmatch(3)) as used in shell filename expansion.
+        To see all counters use pattern "*", to see all counters about
+        requests use "*req*".
+
+varnishtest
+-----------
+
+This should be the first command in your vtc as it will identify the test
+case with a short yet descriptive sentence. It takes exactly one argument, a
+string, eg::
+
+        varnishtest "Check that varnishtest is actually a valid command"
+
+It will also print that string in the log.
+

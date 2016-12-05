@@ -213,7 +213,7 @@ sess_readahead – Session Read Ahead (INFO)
 	
 
 sess_herd – Session herd (DIAG)
-	
+	Number of times the timeout_linger triggered
 
 sc_rem_close – Session OK  REM_CLOSE (DIAG)
 	Number of session closes with REM_CLOSE (Client Closed)

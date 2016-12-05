@@ -249,9 +249,10 @@ beresp.do_stream
 	Writable from: vcl_backend_response, vcl_backend_error
 
 	
-	Deliver the object to the client directly without
-	fetching the whole object into varnish. If this
-	request is pass'ed it will not be stored in memory.
+	Deliver the object to the client while fetching the whole
+	object into varnish. For uncacheable objects, storage for
+	parts of the body which have been sent to the client may
+	get freed early, depending on the storage engine used.
 	
 
 beresp.grace

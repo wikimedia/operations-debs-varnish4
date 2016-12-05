@@ -34,6 +34,7 @@
 #include "config.h"
 
 #include <dlfcn.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -53,6 +54,10 @@ static const char * const VCL_TEMP_WARM = "warm";
 static const char * const VCL_TEMP_BUSY = "busy";
 static const char * const VCL_TEMP_COOLING = "cooling";
 
+/* NB: The COOLING temperature is neither COLD nor WARM. */
+#define VCL_WARM(v) ((v)->temp == VCL_TEMP_WARM || (v)->temp == VCL_TEMP_BUSY)
+#define VCL_COLD(v) ((v)->temp == VCL_TEMP_INIT || (v)->temp == VCL_TEMP_COLD)
+
 struct vcl {
 	unsigned		magic;
 #define VCL_MAGIC		0x214188f2
@@ -64,6 +69,7 @@ struct vcl {
 	unsigned		busy;
 	unsigned		discard;
 	const char		*temp;
+	pthread_rwlock_t	temp_rwl;
 	VTAILQ_HEAD(,backend)	backend_list;
 	VTAILQ_HEAD(,vclref)	ref_list;
 };
@@ -102,7 +108,7 @@ VCL_Panic(struct vsb *vsb, const struct vcl *vcl)
 	VSB_printf(vsb, "busy = %u\n", vcl->busy);
 	VSB_printf(vsb, "discard = %u,\n", vcl->discard);
 	VSB_printf(vsb, "state = %s,\n", vcl->state);
-	VSB_printf(vsb, "temp = %s,\n", vcl->temp);
+	VSB_printf(vsb, "temp = %s,\n", (const volatile char *)vcl->temp);
 	VSB_printf(vsb, "conf = {\n");
 	VSB_indent(vsb, 2);
 	if (vcl->conf == NULL) {
@@ -159,7 +165,9 @@ VCL_Get(struct vcl **vcc)
 		(void)usleep(100000);
 
 	CHECK_OBJ_NOTNULL(vcl_active, VCL_MAGIC);
-	assert(vcl_active->temp == VCL_TEMP_WARM);
+	AZ(pthread_rwlock_rdlock(&vcl_active->temp_rwl));
+	assert(VCL_WARM(vcl_active));
+	AZ(pthread_rwlock_unlock(&vcl_active->temp_rwl));
 	Lck_Lock(&vcl_mtx);
 	AN(vcl_active);
 	*vcc = vcl_active;
@@ -173,7 +181,6 @@ void
 VCL_Refresh(struct vcl **vcc)
 {
 	CHECK_OBJ_NOTNULL(vcl_active, VCL_MAGIC);
-	assert(vcl_active->temp == VCL_TEMP_WARM);
 	if (*vcc == vcl_active)
 		return;
 	if (*vcc != NULL)
@@ -186,7 +193,9 @@ VCL_Ref(struct vcl *vcl)
 {
 
 	CHECK_OBJ_NOTNULL(vcl, VCL_MAGIC);
-	assert(vcl->temp != VCL_TEMP_INIT && vcl->temp != VCL_TEMP_COLD);
+	AZ(pthread_rwlock_rdlock(&vcl->temp_rwl));
+	assert(!VCL_COLD(vcl));
+	AZ(pthread_rwlock_unlock(&vcl->temp_rwl));
 	Lck_Lock(&vcl_mtx);
 	assert(vcl->busy > 0);
 	vcl->busy++;
@@ -222,18 +231,22 @@ VCL_AddBackend(struct vcl *vcl, struct backend *be)
 	CHECK_OBJ_NOTNULL(vcl, VCL_MAGIC);
 	CHECK_OBJ_NOTNULL(be, BACKEND_MAGIC);
 
-	if (vcl->temp == VCL_TEMP_COOLING)
+	AZ(pthread_rwlock_rdlock(&vcl->temp_rwl));
+	if (vcl->temp == VCL_TEMP_COOLING) {
+		AZ(pthread_rwlock_unlock(&vcl->temp_rwl));
 		return (1);
+	}
 
 	Lck_Lock(&vcl_mtx);
 	VTAILQ_INSERT_TAIL(&vcl->backend_list, be, vcl_list);
 	Lck_Unlock(&vcl_mtx);
 
-	if (vcl->temp == VCL_TEMP_WARM || vcl->temp == VCL_TEMP_BUSY)
+	if (VCL_WARM(vcl))
 		/* Only when adding backend to already warm VCL */
 		VBE_Event(be, VCL_EVENT_WARM);
 	else if (vcl->temp != VCL_TEMP_INIT)
 		WRONG("Dynamic Backends can only be added to warm VCLs");
+	AZ(pthread_rwlock_unlock(&vcl->temp_rwl));
 
 	return (0);
 }
@@ -249,8 +262,11 @@ VCL_DelBackend(struct backend *be)
 	Lck_Lock(&vcl_mtx);
 	VTAILQ_REMOVE(&vcl->backend_list, be, vcl_list);
 	Lck_Unlock(&vcl_mtx);
-	if (vcl->temp == VCL_TEMP_WARM)
+
+	AZ(pthread_rwlock_rdlock(&vcl->temp_rwl));
+	if (VCL_WARM(vcl))
 		VBE_Event(be, VCL_EVENT_COLD);
+	AZ(pthread_rwlock_unlock(&vcl->temp_rwl));
 }
 
 static void
@@ -319,6 +335,7 @@ VCL_Open(const char *fn, struct vsb *msg)
 	}
 	ALLOC_OBJ(vcl, VCL_MAGIC);
 	AN(vcl);
+	AZ(pthread_rwlock_init(&vcl->temp_rwl, NULL));
 	vcl->dlh = dlh;
 	vcl->conf = cnf;
 	return (vcl);
@@ -333,6 +350,7 @@ VCL_Close(struct vcl **vclp)
 	vcl = *vclp;
 	*vclp = NULL;
 	AZ(dlclose(vcl->dlh));
+	AZ(pthread_rwlock_destroy(&vcl->temp_rwl));
 	FREE_OBJ(vcl);
 }
 
@@ -417,7 +435,7 @@ VRT_ref_vcl(VRT_CTX, const char *desc)
 
 	vcl = ctx->vcl;
 	CHECK_OBJ_NOTNULL(vcl, VCL_MAGIC);
-	xxxassert(vcl->temp == VCL_TEMP_WARM);
+	assert(VCL_WARM(vcl));
 
 	ALLOC_OBJ(ref, VCLREF_MAGIC);
 	AN(ref);
@@ -447,8 +465,12 @@ VRT_rel_vcl(VRT_CTX, struct vclref **refp)
 	vcl = ctx->vcl;
 	CHECK_OBJ_NOTNULL(vcl, VCL_MAGIC);
 	assert(vcl == ref->vcl);
-	assert(vcl->temp == VCL_TEMP_WARM || vcl->temp == VCL_TEMP_BUSY ||
-	    vcl->temp == VCL_TEMP_COOLING);
+
+	/* NB: A VCL may be released by a VMOD at any time, but it must happen
+	 * after a warmup and before the end of a cooldown. The release may or
+	 * may not happen while the same thread holds the temperature lock, so
+	 * instead we check that all references are gone in VCL_Nuke.
+	 */
 
 	Lck_Lock(&vcl_mtx);
 	assert(!VTAILQ_EMPTY(&vcl->ref_list));
@@ -480,6 +502,7 @@ static int
 vcl_setup_event(VRT_CTX, enum vcl_event_e ev)
 {
 
+	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->vcl, VCL_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->vcl->conf, VCL_CONF_MAGIC);
@@ -495,6 +518,7 @@ static void
 vcl_failsafe_event(VRT_CTX, enum vcl_event_e ev)
 {
 
+	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->vcl, VCL_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->vcl->conf, VCL_CONF_MAGIC);
@@ -540,13 +564,13 @@ vcl_set_state(VRT_CTX, const char *state)
 	assert(ctx->msg != NULL || *state == '0');
 
 	vcl = ctx->vcl;
+	AZ(pthread_rwlock_wrlock(&vcl->temp_rwl));
 	AN(vcl->temp);
 
 	switch(state[0]) {
 	case '0':
 		assert(vcl->temp != VCL_TEMP_COLD);
-		if (vcl->busy == 0 && (vcl->temp == VCL_TEMP_WARM ||
-		    vcl->temp == VCL_TEMP_BUSY)) {
+		if (vcl->busy == 0 && VCL_WARM(vcl)) {
 
 			vcl->temp = VTAILQ_EMPTY(&vcl->ref_list) ?
 			    VCL_TEMP_COLD : VCL_TEMP_COOLING;
@@ -582,6 +606,8 @@ vcl_set_state(VRT_CTX, const char *state)
 	default:
 		WRONG("Wrong enum state");
 	}
+	AZ(pthread_rwlock_unlock(&vcl->temp_rwl));
+
 	return (i);
 }
 

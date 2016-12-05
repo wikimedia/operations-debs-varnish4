@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -252,6 +253,8 @@ child_listener(const struct vev *e, int what)
 static int __match_proto__(vev_cb_f)
 child_poker(const struct vev *e, int what)
 {
+	char *r = NULL;
+	unsigned status;
 
 	(void)e;
 	(void)what;
@@ -259,9 +262,14 @@ child_poker(const struct vev *e, int what)
 		return (1);
 	if (child_pid < 0)
 		return (0);
-	if (!mgt_cli_askchild(NULL, NULL, "ping\n"))
-		return (0);
-	return (0);
+	if (mgt_cli_askchild(&status, &r, "ping\n") || strncmp("PONG ", r, 5)) {
+		MGT_complain(C_ERR, "Unexpected reply from ping: %u %s",
+		    status, r);
+		if (status != CLIS_COMMS)
+			MGT_Child_Cli_Fail();
+	}
+	free(r);
+	return 0;
 }
 
 /*=====================================================================
@@ -449,6 +457,21 @@ mgt_launch_child(struct cli *cli)
  * Cleanup when child dies.
  */
 
+static int
+kill_child(void) {
+	int i, error;
+
+	VJ_master(JAIL_MASTER_KILL);
+	if (MGT_FEATURE(FEATURE_NO_COREDUMP))
+		i = kill(child_pid, SIGKILL);
+	else
+		i = kill(child_pid, SIGQUIT);
+	error = errno;
+	VJ_master(JAIL_MASTER_LOW);
+	errno = error;
+	return (i);
+}
+
 static void
 mgt_reap_child(void)
 {
@@ -498,10 +521,7 @@ mgt_reap_child(void)
 		VSB_printf(vsb, "Child (%jd) not dying, killing", (intmax_t)r);
 
 		/* Kick it Jim... */
-		if (MGT_FEATURE(FEATURE_NO_COREDUMP))
-			(void)kill(child_pid, SIGKILL);
-		else
-			(void)kill(child_pid, SIGQUIT);
+		(void)kill_child();
 		r = waitpid(child_pid, &status, 0);
 	}
 	if (r != child_pid)
@@ -585,12 +605,12 @@ MGT_Child_Cli_Fail(void)
 		return;
 	if (child_pid < 0)
 		return;
-	MGT_complain(C_ERR, "Child (%jd) not responding to CLI, killing it.",
-	    (intmax_t)child_pid);
-	if (MGT_FEATURE(FEATURE_NO_COREDUMP))
-		(void)kill(child_pid, SIGKILL);
+	if (kill_child() == 0)
+		MGT_complain(C_ERR, "Child (%jd) not responding to CLI,"
+		    " killed it.", (intmax_t)child_pid);
 	else
-		(void)kill(child_pid, SIGQUIT);
+		MGT_complain(C_ERR, "Failed to kill child with PID %jd: %s",
+		    (intmax_t)child_pid, strerror(errno));
 }
 
 /*=====================================================================
@@ -735,7 +755,11 @@ MGT_Run(void)
 		}
 	}
 
-	mgt_SHM_Commit();
+	i = mgt_SHM_Commit();
+	if (i != 0) {
+		MGT_complain(C_ERR, "Could not commit SHM file");
+		return;
+	}
 
 	i = vev_schedule(mgt_evb);
 	if (i != 0)

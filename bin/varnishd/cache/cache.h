@@ -314,8 +314,14 @@ struct pool_task {
 	void				*priv;
 };
 
-enum task_how {
+/*
+ * tasks are taken off the queues in this order
+ *
+ * prios up to TASK_QUEUE_RESERVE are run from the reserve
+ */
+enum task_prio {
 	TASK_QUEUE_BO,
+#define TASK_QUEUE_RESERVE	TASK_QUEUE_BO
 	TASK_QUEUE_REQ,
 	TASK_QUEUE_VCA,
 	TASK_QUEUE_END
@@ -587,7 +593,7 @@ struct req {
 	/* Deliver pipeline */
 	struct vdp_entry_s	vdp;
 	struct vdp_entry	*vdp_nxt;
-	unsigned		vdp_errval;
+	int			vdp_retval;
 
 	/* Delivery mode */
 	unsigned		res_mode;
@@ -887,13 +893,13 @@ const char *body_status_2str(enum body_status e);
 const char *sess_close_2str(enum sess_close sc, int want_desc);
 
 /* cache_pool.c */
-int Pool_Task(struct pool *pp, struct pool_task *task, enum task_how how);
-int Pool_Task_Arg(struct worker *, task_func_t *,
+int Pool_Task(struct pool *pp, struct pool_task *task, enum task_prio how);
+int Pool_Task_Arg(struct worker *, enum task_prio, task_func_t *,
     const void *arg, size_t arg_len);
 void Pool_Sumstat(struct worker *w);
 int Pool_TrySumstat(struct worker *wrk);
 void Pool_PurgeStat(unsigned nobj);
-int Pool_Task_Any(struct pool_task *task, enum task_how how);
+int Pool_Task_Any(struct pool_task *task, enum task_prio how);
 
 /* cache_range.c [VRG] */
 void VRG_dorange(struct req *req, const char *r);
@@ -1076,14 +1082,11 @@ pdiff(const void *b, const void *e)
 	    ((unsigned)((const unsigned char *)e - (const unsigned char *)b));
 }
 
-static inline void
-Tcheck(const txt t)
-{
-
-	AN(t.b);
-	AN(t.e);
-	assert(t.b <= t.e);
-}
+#define Tcheck(t) do {						\
+		AN((t).b);					\
+		AN((t).e);					\
+		assert((t).b <= (t).e); 			\
+	} while(0)
 
 /*
  * unsigned length of a txt

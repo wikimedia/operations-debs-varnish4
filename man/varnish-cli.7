@@ -66,9 +66,48 @@ varnishd will connect back to a listening service \fIpushing\fP the CLI to
 that service. Please see \fIvarnishd(1)\fP for details.
 .SS Syntax
 .sp
-Commands are usually terminated with a newline. Long command can be
-entered using sh style \fIhere documents\fP\&. The format of here\-documents
-is:
+The Varnish CLI is similar to another command line interface, the Bourne
+Shell. Commands are usually terminated with a newline, and they may take
+arguments. The command and its arguments are \fItokenized\fP before parsing,
+and as such arguments containing must must be enclosed in double quotes.
+.sp
+It means that command parsing of
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+help banner
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+is equivalent to
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+"help" banner
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+because the double quotes only indicate the boundaries of the \fBhelp\fP
+token.
+.sp
+Within double quotes you can escape characters with \e (backslash). The \en,
+\er, and \et get translated to newlines, carriage returns, an tabs.  Double
+quotes and backslashes themselves can be escaped with \e" and \e\e
+respectively.
+.sp
+To enter characters in octals use the \ennn syntax. Hexadecimals can
+be entered with the \exnn syntax.
+.sp
+Commands may not end with a newline when a shell\-style \fIhere document\fP
+(here\-document or heredoc) is used. The format of a here document is:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -82,21 +121,139 @@ word
 .UNINDENT
 .UNINDENT
 .sp
-\fIword\fP can be any continuous string chosen to make sure it doesn\(aqt
-appear naturally in the following \fIhere document\fP\&.
+\fIword\fP can be any continuous string chosen to make sure it doesn\(aqt appear
+naturally in the following \fIhere document\fP\&. Traditionally EOF or END is
+used.
 .sp
 When using the here document style of input there are no restrictions
 on length. When using newline\-terminated commands maximum length is
 limited by the varnishd parameter \fIcli_buffer\fP\&.
+.SS Quoting pitfalls
 .sp
-When commands are newline terminated they get \fItokenized\fP before
-parsing so if you have significant spaces enclose your strings in
-double quotes. Within the quotes you can escape characters with
-\e. The n, r and t get translated to newlines, carriage returns and
-tabs. Double quotes themselves can be escaped with a backslash.
+Integrating with the Varnish CLI can be sometimes surprising when quoting
+is involved. For instance in Bourne Shell the delimiter used with here
+documents may or may not be separated by spaces from the \fB<<\fP token:
+.INDENT 0.0
+.INDENT 3.5
 .sp
-To enter characters in octals use the \ennn syntax. Hexadecimals can
-be entered with the \exnn syntax.
+.nf
+.ft C
+cat <<EOF
+hello
+world
+EOF
+hello
+world
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+With the Varnish CLI, the \fB<<\fP and \fBEOF\fP tokens must be separated by
+at least one blank:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+vcl.inline boot <<EOF
+106 258
+Message from VCC\-compiler:
+VCL version declaration missing
+Update your VCL to Version 4 syntax, and add
+        vcl 4.0;
+on the first line of the VCL files.
+(\(aq<vcl.inline>\(aq Line 1 Pos 1)
+<<EOF
+##\-\-\-
+
+Running VCC\-compiler failed, exited with 2
+VCL compilation failed
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+With the missing space, the here document can be added and the actual VCL
+can be loaded:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+vcl.inline test << EOF
+vcl 4.0;
+
+backend be {
+        .host = "localhost";
+}
+EOF
+200 14
+VCL compiled.
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+When using a front\-end to the Varnish\-CLI like \fBvarnishadm\fP, one must
+take into account the double expansion happening.  First in the shell
+launching the \fBvarnishadm\fP command and then in the Varnish CLI itself.
+When a command\(aqs parameter require spaces, you need to ensure that the
+Varnish CLI will see the double quotes:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+varnishadm param.set cc_command \(aq"my alternate cc command"\(aq
+
+Change will take effect when VCL script is reloaded
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Otherwise if you don\(aqt quote the quotes, you may get a seemingly unrelated
+error message:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+varnishadm param.set cc_command "my alternate cc command"
+Unknown request.
+Type \(aqhelp\(aq for more info.
+Too many parameters
+
+Command failed with error code 105
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+If you are quoting with a here document, you must wrap it inside a shell
+multi\-line argument:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+varnishadm vcl.inline test \(aq<< EOF
+vcl 4.0;
+
+backend be {
+        .host = "localhost";
+}
+EOF\(aq
+VCL compiled.
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Other pitfalls include variable expansion of the shell invoking \fBvarnishadm\fP
+but this is not directly related to the Varnish CLI. If you get the quoting
+right you should be fine even with complex commands.
 .SS Commands
 .INDENT 0.0
 .TP

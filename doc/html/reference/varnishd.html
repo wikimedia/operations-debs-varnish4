@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.1.3 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.1.4 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.3',
+        VERSION:     '4.1.4',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.4 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -41,7 +41,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -166,10 +166,10 @@ making parameters such as <em>cc_command</em>, <em>vcc_allow_inline_c</em> and
 <em>vmod_dir</em> read only as these can potentially be used to escalate
 privileges from the CLI.</td></tr>
 <tr><td class="option-group">
-<kbd><span class="option">-S <var>file</var></span></kbd></td>
+<kbd><span class="option">-S <var>secret-file</var></span></kbd></td>
 <td>Path to a file containing a secret used for authorizing access to
 the management port. If not provided a new secret will be drawn
-from the system PRNG.</td></tr>
+from the system PRNG.  To disable authentication use <tt class="docutils literal"><span class="pre">none</span></tt>.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-s <var>&lt;[name=]type[,options]&gt;</var></span></kbd></td>
 </tr>
@@ -486,7 +486,7 @@ This parameter does not apply to pipe'ed requests.</p>
 <span id="ref-param-cc-command"></span><h5>cc_command<a class="headerlink" href="#cc-command" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: &quot;exec gcc -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result  t-Werror t-Wall t-Wno-format-y2k t-W t-Wstrict-prototypes t-Wmissing-prototypes t-Wpointer-arith t-Wreturn-type t-Wcast-qual t-Wwrite-strings t-Wswitch t-Wshadow t-Wunused-parameter t-Wcast-align t-Wchar-subscripts t-Wnested-externs t-Wextra t-Wno-sign-compare  -fstack-protector -Wno-pointer-sign -Wno-address -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s&quot;</li>
+<li>Default: &quot;exec gcc -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result -pthread -fpic -shared -Wl,-x -o %o %s&quot;</li>
 <li>Flags: must_reload</li>
 </ul>
 </div></blockquote>
@@ -538,6 +538,17 @@ NB: Must be specified with -p to have effect.</p>
 </ul>
 </div></blockquote>
 <p>How much clockskew we are willing to accept between the backend and our own clock.</p>
+</div>
+<div class="section" id="clock-step">
+<span id="ref-param-clock-step"></span><h5>clock_step<a class="headerlink" href="#clock-step" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 1.000</li>
+<li>Minimum: 0.000</li>
+</ul>
+</div></blockquote>
+<p>How much observed clock step we are willing to accept before we panic.</p>
 </div>
 <div class="section" id="connect-timeout">
 <span id="ref-param-connect-timeout"></span><h5>connect_timeout<a class="headerlink" href="#connect-timeout" title="Permalink to this headline">¶</a></h5>
@@ -1246,6 +1257,22 @@ Set this to a few milliseconds if you see the 'threads_failed' counter grow too 
 <p>Increasing this may help ramp up faster from low load situations or when threads have expired.</p>
 <p>Minimum is 10 threads.</p>
 </div>
+<div class="section" id="thread-pool-reserve">
+<span id="ref-param-thread-pool-reserve"></span><h5>thread_pool_reserve<a class="headerlink" href="#thread-pool-reserve" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: threads</li>
+<li>Default: 0</li>
+<li>Maximum: 95</li>
+<li>Flags: delayed</li>
+</ul>
+</div></blockquote>
+<p>The number of worker threads reserved for vital tasks in each pool.</p>
+<p>Tasks may require other tasks to complete (for example, client requests may require backend requests). This reserve is to ensure that such tasks still get to run even under high load.</p>
+<p>Increasing the reserve may help setups with a high number of backend requests at the expense of client performance. Setting it too high will waste resources by keeping threads unused.</p>
+<p>Default is 0 to auto-tune (currently 5% of thread_pool_min).
+Minimum is 1 otherwise, maximum is 95% of thread_pool_min.</p>
+</div>
 <div class="section" id="thread-pool-stack">
 <span id="ref-param-thread-pool-stack"></span><h5>thread_pool_stack<a class="headerlink" href="#thread-pool-stack" title="Permalink to this headline">¶</a></h5>
 <blockquote>
@@ -1253,11 +1280,16 @@ Set this to a few milliseconds if you see the 'threads_failed' counter grow too 
 <li>Units: bytes</li>
 <li>Default: 48k</li>
 <li>Minimum: 16k</li>
-<li>Flags: experimental</li>
+<li>Flags: delayed</li>
 </ul>
 </div></blockquote>
 <p>Worker thread stack size.
 This will likely be rounded up to a multiple of 4k (or whatever the page_size might be) by the kernel.</p>
+<p>The required stack size is primarily driven by the depth of the call-tree. The most common relevant determining factors in varnish core code are GZIP (un)compression, ESI processing and regular expression matches. VMODs may also require significant amounts of additional stack. The nesting depth of VCL subs is another factor, although typically not predominant.</p>
+<p>The stack size is per thread, so the maximum total memory required for worker thread stacks is in the order of size = thread_pools x thread_pool_max x thread_pool_stack.</p>
+<p>Thus, in particular for setups with many threads, keeping the stack size at a minimum helps reduce the amount of memory required by Varnish.</p>
+<p>On the other hand, thread_pool_stack must be large enough under all circumstances, otherwise varnish will crash due to a stack overflow. Usually, a stack overflow manifests itself as a segmentation fault (aka segfault / SIGSEGV) with the faulting address being near the stack pointer (sp).</p>
+<p>Unless stack usage can be reduced, thread_pool_stack must be increased when a stack overflow occurs. Setting it in 150%-200% increments is recommended until stack overflows cease to occur.</p>
 </div>
 <div class="section" id="thread-pool-timeout">
 <span id="ref-param-thread-pool-timeout"></span><h5>thread_pool_timeout<a class="headerlink" href="#thread-pool-timeout" title="Permalink to this headline">¶</a></h5>
@@ -1283,8 +1315,8 @@ This will likely be rounded up to a multiple of 4k (or whatever the page_size mi
 </ul>
 </div></blockquote>
 <p>Number of worker thread pools.</p>
-<p>Increasing number of worker pools decreases lock contention.</p>
-<p>Too many pools waste CPU and RAM resources, and more than one pool for each CPU is probably detrimal to performance.</p>
+<p>Increasing the number of worker pools decreases lock contention. Each worker pool also has a thread accepting new connections, so for very high rates of incoming new connections on systems with many cores, increasing the worker pools may be required.</p>
+<p>Too many pools waste CPU and RAM resources, and more than one pool for each CPU is most likely detrimental to performance.</p>
 <p>Can be increased on the fly, but decreases require a restart to take effect.</p>
 </div>
 <div class="section" id="thread-queue-limit">
@@ -1296,7 +1328,7 @@ This will likely be rounded up to a multiple of 4k (or whatever the page_size mi
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>Permitted queue length per thread-pool.</p>
+<p>Permitted request queue length per thread-pool.</p>
 <p>This sets the number of requests we will queue, waiting for an available thread.  Above this limit sessions will be dropped instead of queued.</p>
 </div>
 <div class="section" id="thread-stats-rate">
@@ -1384,7 +1416,7 @@ Allow 'import ... from ...'.</p>
 <span id="ref-param-vcl-dir"></span><h5>vcl_dir<a class="headerlink" href="#vcl-dir" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: /opt/varnish/etc/varnish</li>
+<li>Default: /usr/local/etc/varnish</li>
 </ul>
 </div></blockquote>
 <p>Directory (or colon separated list of directories) from which relative VCL filenames (vcl.load and include) are to be found.</p>
@@ -1393,7 +1425,7 @@ Allow 'import ... from ...'.</p>
 <span id="ref-param-vmod-dir"></span><h5>vmod_dir<a class="headerlink" href="#vmod-dir" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: /opt/varnish/lib/varnish/vmods</li>
+<li>Default: /usr/local/lib/varnish/vmods</li>
 </ul>
 </div></blockquote>
 <p>Directory (or colon separated list of directories) where VMODs are to be found.</p>
@@ -1616,6 +1648,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#cli-limit">cli_limit</a></li>
 <li><a class="reference internal" href="#cli-timeout">cli_timeout</a></li>
 <li><a class="reference internal" href="#clock-skew">clock_skew</a></li>
+<li><a class="reference internal" href="#clock-step">clock_step</a></li>
 <li><a class="reference internal" href="#connect-timeout">connect_timeout</a></li>
 <li><a class="reference internal" href="#critbit-cooloff">critbit_cooloff</a></li>
 <li><a class="reference internal" href="#debug">debug</a></li>
@@ -1667,6 +1700,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#thread-pool-fail-delay">thread_pool_fail_delay</a></li>
 <li><a class="reference internal" href="#thread-pool-max">thread_pool_max</a></li>
 <li><a class="reference internal" href="#thread-pool-min">thread_pool_min</a></li>
+<li><a class="reference internal" href="#thread-pool-reserve">thread_pool_reserve</a></li>
 <li><a class="reference internal" href="#thread-pool-stack">thread_pool_stack</a></li>
 <li><a class="reference internal" href="#thread-pool-timeout">thread_pool_timeout</a></li>
 <li><a class="reference internal" href="#thread-pools">thread_pools</a></li>
@@ -1744,7 +1778,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

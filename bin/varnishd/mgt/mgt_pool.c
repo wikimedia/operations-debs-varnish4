@@ -55,6 +55,7 @@
 
 static char min_val[20];
 static char max_val[20];
+static char reserve_max_val[20];
 
 static int
 tweak_thread_pool_min(struct vsb *vsb, const struct parspec *par,
@@ -64,10 +65,18 @@ tweak_thread_pool_min(struct vsb *vsb, const struct parspec *par,
 
 	if (tweak_generic_uint(vsb, par->priv, arg, par->min, par->max))
 		return (-1);
+
 	AN(VSB_new(&v2, min_val, sizeof min_val, 0));
 	AZ(tweak_generic_uint(&v2, &mgt_param.wthread_min, NULL, NULL, NULL));
 	AZ(VSB_finish(&v2));
 	MCF_SetMinimum("thread_pool_max", min_val);
+
+	unsigned t = mgt_param.wthread_min * 19 / 20;
+	AN(VSB_new(&v2, reserve_max_val, sizeof reserve_max_val, 0));
+	AZ(tweak_generic_uint(&v2, &t, NULL, NULL, NULL));
+	AZ(VSB_finish(&v2));
+	MCF_SetMaximum("thread_pool_reserve", reserve_max_val);
+
 	return (0);
 }
 
@@ -93,11 +102,14 @@ struct parspec WRK_parspec[] = {
 		"1", NULL,
 		"Number of worker thread pools.\n"
 		"\n"
-		"Increasing number of worker pools decreases lock "
-		"contention.\n"
+		"Increasing the number of worker pools decreases lock "
+		"contention. Each worker pool also has a thread accepting "
+		"new connections, so for very high rates of incoming new "
+		"connections on systems with many cores, increasing the "
+		"worker pools may be required.\n"
 		"\n"
-		"Too many pools waste CPU and RAM resources, and more than "
-		"one pool for each CPU is probably detrimal to performance.\n"
+		"Too many pools waste CPU and RAM resources, and more than one "
+		"pool for each CPU is most likely detrimental to performance.\n"
 		"\n"
 		"Can be increased on the fly, but decreases require a "
 		"restart to take effect.",
@@ -122,6 +134,25 @@ struct parspec WRK_parspec[] = {
 		"Minimum is 10 threads.",
 		DELAYED_EFFECT,
 		"100", "threads" },
+	{ "thread_pool_reserve", tweak_uint, &mgt_param.wthread_reserve,
+		0, NULL,
+		"The number of worker threads reserved for vital tasks "
+		"in each pool.\n"
+		"\n"
+		"Tasks may require other tasks to complete (for example, "
+		"client requests may require backend requests). This reserve "
+		"is to ensure that such tasks still get to run even under high "
+		"load.\n"
+		"\n"
+		"Increasing the reserve may help setups with a high number of "
+		"backend requests at the expense of client performance. "
+		"Setting it too high will waste resources by keeping threads "
+		"unused.\n"
+		"\n"
+		"Default is 0 to auto-tune (currently 5% of thread_pool_min).\n"
+		"Minimum is 1 otherwise, maximum is 95% of thread_pool_min.",
+		DELAYED_EFFECT,
+		"0", "threads" },
 	{ "thread_pool_timeout",
 		tweak_timeout, &mgt_param.wthread_timeout,
 		"10", NULL,
@@ -184,7 +215,7 @@ struct parspec WRK_parspec[] = {
 		"10", "requests" },
 	{ "thread_queue_limit", tweak_uint, &mgt_param.wthread_queue_limit,
 		"0", NULL,
-		"Permitted queue length per thread-pool.\n"
+		"Permitted request queue length per thread-pool.\n"
 		"\n"
 		"This sets the number of requests we will queue, waiting "
 		"for an available thread.  Above this limit sessions will "
@@ -196,8 +227,39 @@ struct parspec WRK_parspec[] = {
 		NULL, NULL,
 		"Worker thread stack size.\n"
 		"This will likely be rounded up to a multiple of 4k"
-		" (or whatever the page_size might be) by the kernel.",
-		EXPERIMENTAL,
+		" (or whatever the page_size might be) by the kernel.\n"
+		"\n"
+		"The required stack size is primarily driven by the"
+		" depth of the call-tree. The most common relevant"
+		" determining factors in varnish core code are GZIP"
+		" (un)compression, ESI processing and regular"
+		" expression matches. VMODs may also require"
+		" significant amounts of additional stack. The"
+		" nesting depth of VCL subs is another factor,"
+		" although typically not predominant.\n"
+		"\n"
+		"The stack size is per thread, so the maximum total"
+		" memory required for worker thread stacks is in the"
+		" order of size = thread_pools x thread_pool_max x"
+		" thread_pool_stack.\n"
+		"\n"
+		"Thus, in particular for setups with many threads,"
+		" keeping the stack size at a minimum helps reduce"
+		" the amount of memory required by Varnish.\n"
+		"\n"
+		"On the other hand, thread_pool_stack must be large"
+		" enough under all circumstances, otherwise varnish"
+		" will crash due to a stack overflow. Usually, a"
+		" stack overflow manifests itself as a segmentation"
+		" fault (aka segfault / SIGSEGV) with the faulting"
+		" address being near the stack pointer (sp).\n"
+		"\n"
+		"Unless stack usage can be reduced,"
+		" thread_pool_stack must be increased when a stack"
+		" overflow occurs. Setting it in 150%-200%"
+		" increments is recommended until stack overflows"
+		" cease to occur.",
+		DELAYED_EFFECT,
 		NULL, "bytes" },	// default set in mgt_main.c
 	{ NULL, NULL, NULL }
 };

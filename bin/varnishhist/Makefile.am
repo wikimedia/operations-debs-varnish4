@@ -8,6 +8,7 @@ bin_PROGRAMS = varnishhist
 
 varnishhist_SOURCES = varnishhist.c \
 	varnishhist_options.h \
+	varnishhist_profiles.h \
 	varnishhist_options.c \
 	$(top_srcdir)/lib/libvarnish/vas.c \
 	$(top_srcdir)/lib/libvarnish/version.c \
@@ -19,6 +20,7 @@ varnishhist_SOURCES = varnishhist.c \
 varnishhist_LDADD = \
 	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
+	$(top_builddir)/lib/libvarnish/libvarnish.la \
 	-lm \
 	@CURSES_LIB@ ${RT_LIBS} ${PTHREAD_LIBS}
 

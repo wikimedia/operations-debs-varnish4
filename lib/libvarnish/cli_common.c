@@ -155,6 +155,10 @@ read_tmo(int fd, char *ptr, unsigned len, double tmo)
 	pfd.events = POLLIN;
 	for (j = 0; len > 0; ) {
 		i = poll(&pfd, 1, to);
+		if (i < 0) {
+			errno = EINTR;
+			return (-1);
+		}
 		if (i == 0) {
 			errno = ETIMEDOUT;
 			return (-1);
@@ -204,6 +208,7 @@ VCLI_ReadResult(int fd, unsigned *status, char **ptr, double tmo)
 
 		*status = u;
 		p = malloc(v + 1L);
+		AN(p);
 		if (p == NULL)
 			break;
 

@@ -1,4 +1,86 @@
 ================================
+Varnish Cache 4.1.4 (2016-12-01)
+================================
+
+Changes since 4.1.4-beta3:
+
+Bugs fixed
+----------
+
+* 2035_ - varnishd stalls with two consecutive Range requests using
+  HTTP persistent connections
+
+.. _2035: https://github.com/varnishcache/varnish-cache/issues/2035
+
+======================================
+Varnish Cache 4.1.4-beta3 (2016-11-24)
+======================================
+
+Changes since 4.1.4-beta2:
+
+* Include the current time of the panic in the panic output
+* Keep a reserve of idle threads for vital tasks
+
+Bugs fixed
+----------
+
+* 1874_ - clock-step related crash
+* 1889_ - (docfix) What does -p flag for backend.list command means
+* 2115_ - VSM temporary files are not always deleted
+* 2129_ - (docfix) stack overflow with >4 level esi
+
+.. _1874: https://github.com/varnishcache/varnish-cache/issues/1874
+.. _1889: https://github.com/varnishcache/varnish-cache/issues/1889
+.. _2115: https://github.com/varnishcache/varnish-cache/issues/2115
+.. _2129: https://github.com/varnishcache/varnish-cache/issues/2129
+
+======================================
+Varnish Cache 4.1.4-beta2 (2016-10-13)
+======================================
+
+Bugs fixed
+----------
+
+* 1830_ - VSL API: "duplicate link" errors in request grouping when
+  vsl_buffer is increased
+* 2010_ - varnishadm CLI behaving weirdly
+* 2017_ - varnishncsa docfix: "%r" field is wrong
+* 2107_ - (docfix) HEAD requestes changed to GET
+
+.. _1830: https://github.com/varnishcache/varnish-cache/issues/1830
+.. _2010: https://github.com/varnishcache/varnish-cache/issues/2010
+.. _2017: https://github.com/varnishcache/varnish-cache/issues/2017
+.. _2107: https://github.com/varnishcache/varnish-cache/issues/2107
+
+======================================
+Varnish Cache 4.1.4-beta1 (2016-09-14)
+======================================
+
+Changes since 4.1.3:
+
+* [varnishhist] Various improvements
+* [varnishtest] A `cmd` feature for custom shell-based checks
+* Documentation improvements (do_stream, sess_herd, timeout_linger, thread_pools)
+* [varnishtop] Documented behavior when both -p and -1 are specified
+
+Bugs fixed
+----------
+
+* 2027_ - Racy backend selection
+* 2024_ - panic vmod_rr_resolve() round_robin.c line 75 (be) != NULL
+* 2011_ - VBE.*.conn (concurrent connections to backend) not working as expected
+* 2008_ - Assert error in VBE_Delete()
+* 2007_ - Update documentation part about CLI/management port authentication paramater
+* 1881_ - std.cache_req_body() w/ return(pipe) is broken
+
+.. _2027: https://github.com/varnishcache/varnish-cache/issues/2027
+.. _2024: https://github.com/varnishcache/varnish-cache/issues/2024
+.. _2011: https://github.com/varnishcache/varnish-cache/issues/2011
+.. _2008: https://github.com/varnishcache/varnish-cache/issues/2008
+.. _2007: https://github.com/varnishcache/varnish-cache/issues/2007
+.. _1881: https://github.com/varnishcache/varnish-cache/issues/1881
+
+================================
 Varnish Cache 4.1.3 (2016-07-06)
 ================================
 

@@ -50,29 +50,128 @@ that service. Please see :ref:`varnishd(1)` for details.
 Syntax
 ------
 
-Commands are usually terminated with a newline. Long command can be
-entered using sh style *here documents*. The format of here-documents
-is::
+The Varnish CLI is similar to another command line interface, the Bourne
+Shell. Commands are usually terminated with a newline, and they may take
+arguments. The command and its arguments are *tokenized* before parsing,
+and as such arguments containing must must be enclosed in double quotes.
+
+It means that command parsing of
+
+::
+
+   help banner
+
+is equivalent to
+
+::
+
+   "help" banner
+
+because the double quotes only indicate the boundaries of the ``help``
+token.
+
+Within double quotes you can escape characters with \\ (backslash). The \\n,
+\\r, and \\t get translated to newlines, carriage returns, an tabs.  Double
+quotes and backslashes themselves can be escaped with \\" and \\\\
+respectively.
+
+To enter characters in octals use the \\nnn syntax. Hexadecimals can
+be entered with the \\xnn syntax.
+
+Commands may not end with a newline when a shell-style *here document*
+(here-document or heredoc) is used. The format of a here document is::
 
    << word
 	here document
    word
 
-*word* can be any continuous string chosen to make sure it doesn't
-appear naturally in the following *here document*.
+*word* can be any continuous string chosen to make sure it doesn't appear
+naturally in the following *here document*. Traditionally EOF or END is
+used.
 
 When using the here document style of input there are no restrictions
 on length. When using newline-terminated commands maximum length is
 limited by the varnishd parameter *cli_buffer*.
 
-When commands are newline terminated they get *tokenized* before
-parsing so if you have significant spaces enclose your strings in
-double quotes. Within the quotes you can escape characters with
-\\. The \n, \r and \t get translated to newlines, carriage returns and
-tabs. Double quotes themselves can be escaped with a backslash.
+Quoting pitfalls
+----------------
 
-To enter characters in octals use the \\nnn syntax. Hexadecimals can
-be entered with the \\xnn syntax.
+Integrating with the Varnish CLI can be sometimes surprising when quoting
+is involved. For instance in Bourne Shell the delimiter used with here
+documents may or may not be separated by spaces from the ``<<`` token::
+
+   cat <<EOF
+   hello
+   world
+   EOF
+   hello
+   world
+
+With the Varnish CLI, the ``<<`` and ``EOF`` tokens must be separated by
+at least one blank::
+
+   vcl.inline boot <<EOF
+   106 258
+   Message from VCC-compiler:
+   VCL version declaration missing
+   Update your VCL to Version 4 syntax, and add
+           vcl 4.0;
+   on the first line of the VCL files.
+   ('<vcl.inline>' Line 1 Pos 1)
+   <<EOF
+   ##---
+
+   Running VCC-compiler failed, exited with 2
+   VCL compilation failed
+
+With the missing space, the here document can be added and the actual VCL
+can be loaded::
+
+   vcl.inline test << EOF
+   vcl 4.0;
+
+   backend be {
+           .host = "localhost";
+   }
+   EOF
+   200 14
+   VCL compiled.
+
+When using a front-end to the Varnish-CLI like ``varnishadm``, one must
+take into account the double expansion happening.  First in the shell
+launching the ``varnishadm`` command and then in the Varnish CLI itself.
+When a command's parameter require spaces, you need to ensure that the
+Varnish CLI will see the double quotes::
+
+   varnishadm param.set cc_command '"my alternate cc command"'
+
+   Change will take effect when VCL script is reloaded
+
+Otherwise if you don't quote the quotes, you may get a seemingly unrelated
+error message::
+
+   varnishadm param.set cc_command "my alternate cc command"
+   Unknown request.
+   Type 'help' for more info.
+   Too many parameters
+
+   Command failed with error code 105
+
+If you are quoting with a here document, you must wrap it inside a shell
+multi-line argument::
+
+   varnishadm vcl.inline test '<< EOF
+   vcl 4.0;
+
+   backend be {
+           .host = "localhost";
+   }
+   EOF'
+   VCL compiled.
+
+Other pitfalls include variable expansion of the shell invoking ``varnishadm``
+but this is not directly related to the Varnish CLI. If you get the quoting
+right you should be fine even with complex commands.
 
 Commands
 --------
