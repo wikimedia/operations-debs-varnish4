@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishhist [\-C] [\-d] [\-g <request|vxid>] [\-h] [\-L limit] [\-n name] [\-N filename] [\-p period] [\-P <size|responsetime|tag:field_num:min:max>] [\-q query] [\-r filename] [\-t <seconds|off>] [\-T seconds] [\-V]
+varnishhist [\-B <factor>] [\-C] [\-d] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <name>] [\-N <filename>] [\-p <period>] [\-P responsetime] [\-P size] [\-P Bereqtime] [\-P Beresptime] [\-P BerespBodytime] [\-P Besize] [\-P <[cb:]tag:field_num:min:max>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-V]
 .SH DESCRIPTION
 .sp
 The varnishhist utility reads varnishd(1) shared memory logs and
@@ -44,6 +44,9 @@ and misses are marked with a hash character ("#").
 .sp
 The following options are available:
 .INDENT 0.0
+.TP
+.BI \-B \ <factor>
+Factor to bend time by. Particularly useful when [\-r]eading from a vsl file. =1 process in near real time, <1 slow\-motion, >1 time\-lapse (useless unless reading from a file). At runtime, < halves and > doubles.
 .TP
 .B \-C
 Do all regular expression and string matching caseless.
@@ -57,31 +60,49 @@ The grouping of the log records. The default is to group by vxid.
 .B \-h
 Print program usage and exit
 .TP
-.BI \-L \ limit
+.BI \-L \ <limit>
 Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 .TP
-.BI \-n \ name
+.BI \-n \ <name>
 Specify the name of the varnishd instance to get logs from. If \-n is not specified, the host name is used.
 .TP
-.BI \-N \ filename
+.BI \-N \ <filename>
 Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
 .TP
-.BI \-p \ period
-Specified the number of seconds between screen refreshes. Default is 1 second, and can be changed at runtime by pressing the [1\-9] keys.
+.BI \-p \ <period>
+Specified the number of seconds between screen refreshes. Default is 1 second, and can be changed at runtime by pressing the [0\-9] keys (powers of 2 in seconds or + and \- (double/halve the speed).
 .TP
-.BI \-P \ <size|responsetime|tag:field_num:min:max>
-Either specify "size" or "responsetime" profile or create a new one. Define the tag we\(aqll look for, and the field number of the value we are interested in. min and max are the boundaries of the graph (these are power of tens).
+.BI \-P \ responsetime
+Predefined client profile: graph the total time from start of request processing (first byte received) until ready to deliver the client response (field 3 of SLT_Timestamp Process: VSL tag).
 .TP
-.BI \-q \ query
+.BI \-P \ size
+Predefined client profile: graph the size of responses (field 5 of SLT_ReqAcct  VSL tag).
+.TP
+.BI \-P \ Bereqtime
+Predefined backend profile: graph the time from beginning of backend processing until a backend request is sent completely (field 3 of SLT_Timestamp Bereq: VSL tag).
+.TP
+.BI \-P \ Beresptime
+Predefined backend profile: graph the time from beginning of backend processing until the response headers are being received completely (field 3 of SLT_Timestamp Beresp: VSL tag).
+.TP
+.BI \-P \ BerespBodytime
+Predefined backend profile: graph the time from beginning of backend processing until the response body has been received (field 3 of SLT_Timestamp BerespBody: VSL tag).
+.TP
+.BI \-P \ Besize
+Predefined backend profile: graph the backend response body size (field 5 of SLT_BereqAcct  VSL tag).
+.TP
+.BI \-P \ <[cb:]tag:field_num:min:max>
+Graph the given custom definition defined as: an optional (c)lient or (b)ackend filter (defaults to client), the tag we\(aqll look for, and the field number of the value we are interested in. min and max are the boundaries of the graph (these are power of ten).
+.TP
+.BI \-q \ <query>
 Specifies the VSL query to use.
 .TP
-.BI \-r \ filename
+.BI \-r \ <filename>
 Read log in binary file format from this file. The file can be created with \fBvarnishlog \-w filename\fP\&.
 .TP
 .BI \-t \ <seconds|off>
 Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to "off", the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.
 .TP
-.BI \-T \ seconds
+.BI \-T \ <seconds>
 Sets the transaction timeout in seconds. This defines the maximum number of seconds elapsed between a Begin tag and the End tag. If the timeout expires, a warning record is synthesized and the transaction is force completed. Defaults to 120 seconds.
 .TP
 .B \-V
@@ -99,6 +120,8 @@ Print version information and exit.
 \fIvarnishstat(1)\fP
 .IP \(bu 2
 \fIvarnishtop(1)\fP
+.IP \(bu 2
+\fIvsl(7)\fP
 .UNINDENT
 .SH HISTORY
 .sp

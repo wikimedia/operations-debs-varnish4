@@ -82,6 +82,7 @@ enum jail_master_e {
 	JAIL_MASTER_FILE,
 	JAIL_MASTER_STORAGE,
 	JAIL_MASTER_PRIVPORT,
+	JAIL_MASTER_KILL,
 };
 
 typedef int jail_init_f(char **);
@@ -150,7 +151,7 @@ void mgt_SHM_Init(void);
 void mgt_SHM_static_alloc(const void *, ssize_t size,
     const char *class, const char *type, const char *ident);
 void mgt_SHM_Create(void);
-void mgt_SHM_Commit(void);
+int mgt_SHM_Commit(void);
 void mgt_SHM_Destroy(int keep);
 void mgt_SHM_Size_Adjust(void);
 

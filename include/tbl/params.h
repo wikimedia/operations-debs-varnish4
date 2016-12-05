@@ -290,6 +290,21 @@ PARAM(
 )
 
 PARAM(
+	/* name */	clock_step,
+	/* typ */	timeout,
+	/* min */	"0.000",
+	/* max */	NULL,
+	/* default */	"1.000",
+	/* units */	"seconds",
+	/* flags */	0,
+	/* s-text */
+	"How much observed clock step we are willing to accept before "
+	"we panic.",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+PARAM(
 	/* name */	connect_timeout,
 	/* typ */	timeout,
 	/* min */	"0.000",
@@ -322,6 +337,8 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_bits.c*/
+/* see tbl/debug_bits.h */
 PARAM(
 	/* name */	debug,
 	/* typ */	debug,
@@ -400,6 +417,8 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_bits.c*/
+/* See tbl/feature_bits.h */
 PARAM(
 	/* name */	feature,
 	/* typ */	feature,
@@ -736,6 +755,7 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	pcre_match_limit,
 	/* typ */	uint,
@@ -751,6 +771,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	pcre_match_limit_recursion,
 	/* typ */	uint,
@@ -799,6 +820,7 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	pool_req,
 	/* typ */	poolparam,
@@ -814,6 +836,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	pool_sess,
 	/* typ */	poolparam,
@@ -829,6 +852,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	pool_vbo,
 	/* typ */	poolparam,
@@ -984,6 +1008,7 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_tcp.c */
 PARAM(
 	/* name */	tcp_keepalive_intvl,
 	/* typ */	timeout,
@@ -998,6 +1023,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tcp.c */
 PARAM(
 	/* name */	tcp_keepalive_probes,
 	/* typ */	uint,
@@ -1014,6 +1040,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tcp.c */
 PARAM(
 	/* name */	tcp_keepalive_time,
 	/* typ */	timeout,
@@ -1029,6 +1056,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_add_delay,
 	/* typ */	timeout,
@@ -1049,6 +1077,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_destroy_delay,
 	/* typ */	timeout,
@@ -1064,6 +1093,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_fail_delay,
 	/* typ */	timeout,
@@ -1090,6 +1120,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_max,
 	/* typ */	thread_pool_max,
@@ -1108,6 +1139,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_min,
 	/* typ */	thread_pool_min,
@@ -1125,7 +1157,36 @@ PARAM(
 	/* l-text */	"",
 	/* func */	NULL
 )
+/* actual location mgt_pool.c */
+PARAM(
+	/* name */	thread_pool_reserve,
+	/* typ */	thread_pool_reserve,
+	/* min */	NULL,
+	/* max */	NULL,
+	/* default */	"0",
+	/* units */	"threads",
+	/* flags */	DELAYED_EFFECT| EXPERIMENTAL,
+	/* s-text */
+	"The number of worker threads reserved for vital tasks "
+	"in each pool.\n"
+	"\n"
+	"Tasks may require other tasks to complete (for example, "
+	"client requests may require backend requests). This reserve "
+	"is to ensure that such tasks still get to run even under high "
+	"load.\n"
+	"\n"
+	"Increasing the reserve may help setups with a high number of "
+	"backend requests at the expense of client performance. "
+	"Setting it too high will waste resources by keeping threads "
+	"unused.\n"
+	"\n"
+	"Default is 0 to auto-tune (currently 5% of thread_pool_min).\n"
+	"Minimum is 1 otherwise, maximum is 95% of thread_pool_min.",
+	/* l-text */	"",
+	/* func */	NULL
+)
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_stack,
 	/* typ */	bytes,
@@ -1142,6 +1203,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_timeout,
 	/* typ */	timeout,
@@ -1159,6 +1221,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pools,
 	/* typ */	uint,
@@ -1170,10 +1233,14 @@ PARAM(
 	/* s-text */
 	"Number of worker thread pools.\n"
 	"\n"
-	"Increasing number of worker pools decreases lock contention.\n"
+	"Increasing the number of worker pools decreases lock "
+	"contention. Each worker pool also has a thread accepting "
+	"new connections, so for very high rates of incoming new "
+	"connections on systems with many cores, increasing the "
+	"worker pools may be required.\n"
 	"\n"
 	"Too many pools waste CPU and RAM resources, and more than one "
-	"pool for each CPU is probably detrimal to performance.\n"
+	"pool for each CPU is most likely detrimental to performance.\n"
 	"\n"
 	"Can be increased on the fly, but decreases require a restart to "
 	"take effect.",
@@ -1181,6 +1248,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_queue_limit,
 	/* typ */	uint,
@@ -1190,7 +1258,7 @@ PARAM(
 	/* units */	NULL,
 	/* flags */	EXPERIMENTAL,
 	/* s-text */
-	"Permitted queue length per thread-pool.\n"
+	"Permitted request queue length per thread-pool.\n"
 	"\n"
 	"This sets the number of requests we will queue, waiting for an "
 	"available thread.  Above this limit sessions will be dropped "
@@ -1199,6 +1267,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_stats_rate,
 	/* typ */	uint,
@@ -1256,6 +1325,7 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	vcc_allow_inline_c,
 	/* typ */	bool,
@@ -1270,6 +1340,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	vcc_err_unref,
 	/* typ */	bool,
@@ -1284,6 +1355,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	vcc_unsafe_path,
 	/* typ */	bool,
@@ -1331,6 +1403,7 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	vcl_dir,
 	/* typ */	string,
@@ -1346,6 +1419,7 @@ PARAM(
 	/* func */	NULL
 )
 
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	vmod_dir,
 	/* typ */	string,
@@ -1381,6 +1455,7 @@ PARAM(
 )
 
 #if 0
+/* actual location mgt_param_bits.c*/
 PARAM(
 	/* name */	vsl_mask,
 	/* typ */	vsl_mask,
@@ -1449,6 +1524,7 @@ PARAM(
 )
 
 #if 0
+/* see mgt_waiter.c */
 PARAM(
 	/* name */	waiter,
 	/* typ */	waiter,

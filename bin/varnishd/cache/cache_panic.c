@@ -39,6 +39,8 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#include "vtim.h"
+
 #include "cache.h"
 
 #include "cache_filter.h"
@@ -116,7 +118,7 @@ pan_ws(struct vsb *vsb, const struct ws *ws)
 	VSB_printf(vsb, "ws = %p {\n", ws);
 	VSB_indent(vsb, 2);
 	PAN_CheckMagic(vsb, ws, WS_MAGIC);
-	if (!(ws->id[0] & 0x20))
+	if (ws->id[0] != '\0' && (!(ws->id[0] & 0x20)))
 		VSB_printf(vsb, "OVERFLOWED ");
 	VSB_printf(vsb, "id = \"%s\",\n",  ws->id);
 	VSB_printf(vsb, "{s,f,r,e} = {%p",  ws->s);
@@ -526,6 +528,8 @@ pan_ic(const char *func, const char *file, int line, const char *cond,
 	VSB_printf(pan_vsb, "version = %s\n", VCS_version);
 	VSB_printf(pan_vsb, "ident = %s,%s\n",
 	    VSB_data(vident) + 1, Waiter_GetName());
+	VSB_printf(pan_vsb, "now = %f (mono), %f (real)\n",
+	    VTIM_mono(), VTIM_real());
 
 	pan_backtrace(pan_vsb);
 

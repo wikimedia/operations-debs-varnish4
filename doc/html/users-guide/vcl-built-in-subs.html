@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Built in subroutines &mdash; Varnish version 4.1.3 documentation</title>
+    <title>Built in subroutines &mdash; Varnish version 4.1.4 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.3',
+        VERSION:     '4.1.4',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.4 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="Request and response VCL objects" href="vcl-variables.html" />
     <link rel="prev" title="VCL Syntax" href="vcl-syntax.html" /> 
@@ -41,7 +41,7 @@
         <li class="right" >
           <a href="vcl-syntax.html" title="VCL Syntax"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>
@@ -280,6 +280,29 @@ background fetch, control is passed to <a class="reference internal" href="#vcl-
 client side with <tt class="docutils literal"><span class="pre">resp.status</span></tt> preset to 503.</dd>
 </dl>
 </div></blockquote>
+<p>Before calling <cite>vcl_backend_fetch</cite>, varnish core prepares the <cite>bereq</cite>
+backend request as follows:</p>
+<ul class="simple">
+<li>Unless the request is a <cite>pass</cite>,<ul>
+<li>set <tt class="docutils literal"><span class="pre">bereq.method</span></tt> to <tt class="docutils literal"><span class="pre">GET</span></tt> and <tt class="docutils literal"><span class="pre">bereq.proto</span></tt> to
+<tt class="docutils literal"><span class="pre">HTTP/1.1</span></tt> and</li>
+<li>set <tt class="docutils literal"><span class="pre">bereq.http.Accept_Encoding</span></tt> to <tt class="docutils literal"><span class="pre">gzip</span></tt> if
+<a class="reference internal" href="../reference/varnishd.html#ref-param-http-gzip-support"><em>http_gzip_support</em></a> is enabled.</li>
+</ul>
+</li>
+<li>If there is an existing cache object to be revalidated, set
+<tt class="docutils literal"><span class="pre">bereq.http.If-Modified-Since</span></tt> from its <tt class="docutils literal"><span class="pre">Last-Modified</span></tt> header
+and/or set <tt class="docutils literal"><span class="pre">bereq.http.If-None-Match</span></tt> from its <tt class="docutils literal"><span class="pre">Etag</span></tt> header</li>
+<li>Set <tt class="docutils literal"><span class="pre">bereq.http.X-Varnish</span></tt> to the current transaction id (<cite>vxid</cite>)</li>
+</ul>
+<p>These changes can be undone or modified in <cite>vcl_backend_fetch</cite> before
+the backend request is issued.</p>
+<p>In particular, to cache non-GET requests, <tt class="docutils literal"><span class="pre">req.method</span></tt> needs to be
+saved to a header or variable in <a class="reference internal" href="#vcl-recv"><em>vcl_recv</em></a> and restored to
+<tt class="docutils literal"><span class="pre">bereq.method</span></tt>. Notice that caching non-GET requests typically also
+requires changing the cache key in <a class="reference internal" href="#vcl-hash"><em>vcl_hash</em></a> e.g. by also
+hashing the request method and/or request body.</p>
+<p>HEAD request can be satisfied from cached GET responses.</p>
 </div>
 <div class="section" id="vcl-backend-response">
 <span id="id11"></span><h3>vcl_backend_response<a class="headerlink" href="#vcl-backend-response" title="Permalink to this headline">¶</a></h3>
@@ -452,7 +475,7 @@ with one of the following keywords:</p>
         <li class="right" >
           <a href="vcl-syntax.html" title="VCL Syntax"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
           <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
       </ul>

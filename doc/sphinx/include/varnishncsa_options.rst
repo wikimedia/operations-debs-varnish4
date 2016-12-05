@@ -22,11 +22,11 @@
 
 	Daemonize.
 
--F format
+-F <format>
 
 	Set the output log format string.
 
--f formatfile
+-f <formatfile>
 
 	Read output format from a file. Will read a single line from the specified file, and use that line as the format.
 
@@ -38,27 +38,27 @@
 
 	Print program usage and exit
 
--L limit
+-L <limit>
 
 	Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 
--n name
+-n <name>
 
 	Specify the name of the varnishd instance to get logs from. If -n is not specified, the host name is used.
 
--N filename
+-N <filename>
 
 	Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
 
--P file
+-P <file>
 
 	Write the process' PID to the specified file.
 
--q query
+-q <query>
 
 	Specifies the VSL query to use.
 
--r filename
+-r <filename>
 
 	Read log in binary file format from this file. The file can be created with ``varnishlog -w filename``.
 
@@ -70,7 +70,7 @@
 
 	Print version information and exit.
 
--w filename
+-w <filename>
 
 	Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP in daemon mode the file will be reopened allowing the old one to be rotated away. This option is required when running in daemon mode.
 

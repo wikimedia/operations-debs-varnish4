@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnish-cli &mdash; Varnish version 4.1.3 documentation</title>
+    <title>varnish-cli &mdash; Varnish version 4.1.4 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.3',
+        VERSION:     '4.1.4',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.3 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.4 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishadm" href="varnishadm.html" />
     <link rel="prev" title="Varnish Processing States" href="states.html" /> 
@@ -41,7 +41,7 @@
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -93,26 +93,118 @@ varnishd will connect back to a listening service <em>pushing</em> the CLI to
 that service. Please see <a class="reference internal" href="varnishd.html#varnishd-1"><em>varnishd</em></a> for details.</p>
 <div class="section" id="syntax">
 <h4>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h4>
-<p>Commands are usually terminated with a newline. Long command can be
-entered using sh style <em>here documents</em>. The format of here-documents
-is:</p>
+<p>The Varnish CLI is similar to another command line interface, the Bourne
+Shell. Commands are usually terminated with a newline, and they may take
+arguments. The command and its arguments are <em>tokenized</em> before parsing,
+and as such arguments containing must must be enclosed in double quotes.</p>
+<p>It means that command parsing of</p>
+<div class="highlight-python"><div class="highlight"><pre>help banner
+</pre></div>
+</div>
+<p>is equivalent to</p>
+<div class="highlight-python"><div class="highlight"><pre>&quot;help&quot; banner
+</pre></div>
+</div>
+<p>because the double quotes only indicate the boundaries of the <tt class="docutils literal"><span class="pre">help</span></tt>
+token.</p>
+<p>Within double quotes you can escape characters with \ (backslash). The \n,
+\r, and \t get translated to newlines, carriage returns, an tabs.  Double
+quotes and backslashes themselves can be escaped with \&quot; and \\
+respectively.</p>
+<p>To enter characters in octals use the \nnn syntax. Hexadecimals can
+be entered with the \xnn syntax.</p>
+<p>Commands may not end with a newline when a shell-style <em>here document</em>
+(here-document or heredoc) is used. The format of a here document is:</p>
 <div class="highlight-python"><div class="highlight"><pre>&lt;&lt; word
      here document
 word
 </pre></div>
 </div>
-<p><em>word</em> can be any continuous string chosen to make sure it doesn't
-appear naturally in the following <em>here document</em>.</p>
+<p><em>word</em> can be any continuous string chosen to make sure it doesn't appear
+naturally in the following <em>here document</em>. Traditionally EOF or END is
+used.</p>
 <p>When using the here document style of input there are no restrictions
 on length. When using newline-terminated commands maximum length is
 limited by the varnishd parameter <em>cli_buffer</em>.</p>
-<p>When commands are newline terminated they get <em>tokenized</em> before
-parsing so if you have significant spaces enclose your strings in
-double quotes. Within the quotes you can escape characters with
-\. The n, r and t get translated to newlines, carriage returns and
-tabs. Double quotes themselves can be escaped with a backslash.</p>
-<p>To enter characters in octals use the \nnn syntax. Hexadecimals can
-be entered with the \xnn syntax.</p>
+</div>
+<div class="section" id="quoting-pitfalls">
+<h4>Quoting pitfalls<a class="headerlink" href="#quoting-pitfalls" title="Permalink to this headline">¶</a></h4>
+<p>Integrating with the Varnish CLI can be sometimes surprising when quoting
+is involved. For instance in Bourne Shell the delimiter used with here
+documents may or may not be separated by spaces from the <tt class="docutils literal"><span class="pre">&lt;&lt;</span></tt> token:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">cat</span> <span class="o">&lt;&lt;</span><span class="n">EOF</span>
+<span class="n">hello</span>
+<span class="n">world</span>
+<span class="n">EOF</span>
+<span class="n">hello</span>
+<span class="n">world</span>
+</pre></div>
+</div>
+<p>With the Varnish CLI, the <tt class="docutils literal"><span class="pre">&lt;&lt;</span></tt> and <tt class="docutils literal"><span class="pre">EOF</span></tt> tokens must be separated by
+at least one blank:</p>
+<div class="highlight-python"><div class="highlight"><pre>vcl.inline boot &lt;&lt;EOF
+106 258
+Message from VCC-compiler:
+VCL version declaration missing
+Update your VCL to Version 4 syntax, and add
+        vcl 4.0;
+on the first line of the VCL files.
+(&#39;&lt;vcl.inline&gt;&#39; Line 1 Pos 1)
+&lt;&lt;EOF
+##---
+
+Running VCC-compiler failed, exited with 2
+VCL compilation failed
+</pre></div>
+</div>
+<p>With the missing space, the here document can be added and the actual VCL
+can be loaded:</p>
+<div class="highlight-python"><div class="highlight"><pre>vcl.inline test &lt;&lt; EOF
+vcl 4.0;
+
+backend be {
+        .host = &quot;localhost&quot;;
+}
+EOF
+200 14
+VCL compiled.
+</pre></div>
+</div>
+<p>When using a front-end to the Varnish-CLI like <tt class="docutils literal"><span class="pre">varnishadm</span></tt>, one must
+take into account the double expansion happening.  First in the shell
+launching the <tt class="docutils literal"><span class="pre">varnishadm</span></tt> command and then in the Varnish CLI itself.
+When a command's parameter require spaces, you need to ensure that the
+Varnish CLI will see the double quotes:</p>
+<div class="highlight-python"><div class="highlight"><pre>varnishadm param.set cc_command &#39;&quot;my alternate cc command&quot;&#39;
+
+Change will take effect when VCL script is reloaded
+</pre></div>
+</div>
+<p>Otherwise if you don't quote the quotes, you may get a seemingly unrelated
+error message:</p>
+<div class="highlight-python"><div class="highlight"><pre>varnishadm param.set cc_command &quot;my alternate cc command&quot;
+Unknown request.
+Type &#39;help&#39; for more info.
+Too many parameters
+
+Command failed with error code 105
+</pre></div>
+</div>
+<p>If you are quoting with a here document, you must wrap it inside a shell
+multi-line argument:</p>
+<div class="highlight-python"><div class="highlight"><pre>varnishadm vcl.inline test &#39;&lt;&lt; EOF
+vcl 4.0;
+
+backend be {
+        .host = &quot;localhost&quot;;
+}
+EOF&#39;
+VCL compiled.
+</pre></div>
+</div>
+<p>Other pitfalls include variable expansion of the shell invoking <tt class="docutils literal"><span class="pre">varnishadm</span></tt>
+but this is not directly related to the Varnish CLI. If you get the quoting
+right you should be fine even with complex commands.</p>
 </div>
 <div class="section" id="commands">
 <h4>Commands<a class="headerlink" href="#commands" title="Permalink to this headline">¶</a></h4>
@@ -349,6 +441,7 @@ Kamp.</p>
 <li><a class="reference internal" href="#varnish-command-line-interface">Varnish Command Line Interface</a><ul>
 <li><a class="reference internal" href="#description">DESCRIPTION</a><ul>
 <li><a class="reference internal" href="#syntax">Syntax</a></li>
+<li><a class="reference internal" href="#quoting-pitfalls">Quoting pitfalls</a></li>
 <li><a class="reference internal" href="#commands">Commands</a></li>
 <li><a class="reference internal" href="#backend-expression">Backend Expression</a></li>
 <li><a class="reference internal" href="#ban-expressions">Ban Expressions</a></li>
@@ -406,7 +499,7 @@ Kamp.</p>
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.3 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

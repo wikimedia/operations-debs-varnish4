@@ -238,9 +238,10 @@ Total number of sessions closed with errors. See sc_* diag counters for detailed
 .UNINDENT
 .sp
 sess_readahead – Session Read Ahead (INFO)
-.sp
-sess_herd – Session herd (DIAG)
 .INDENT 0.0
+.TP
+.B sess_herd – Session herd (DIAG)
+Number of times the timeout_linger triggered
 .TP
 .B sc_rem_close – Session OK  REM_CLOSE (DIAG)
 Number of session closes with REM_CLOSE (Client Closed)

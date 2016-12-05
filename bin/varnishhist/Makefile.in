@@ -112,6 +112,7 @@ am__DEPENDENCIES_1 =
 varnishhist_DEPENDENCIES =  \
 	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
+	$(top_builddir)/lib/libvarnish/libvarnish.la \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -336,6 +337,7 @@ AM_CPPFLAGS = \
 
 varnishhist_SOURCES = varnishhist.c \
 	varnishhist_options.h \
+	varnishhist_profiles.h \
 	varnishhist_options.c \
 	$(top_srcdir)/lib/libvarnish/vas.c \
 	$(top_srcdir)/lib/libvarnish/version.c \
@@ -347,6 +349,7 @@ varnishhist_SOURCES = varnishhist.c \
 varnishhist_LDADD = \
 	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
+	$(top_builddir)/lib/libvarnish/libvarnish.la \
 	-lm \
 	@CURSES_LIB@ ${RT_LIBS} ${PTHREAD_LIBS}
 

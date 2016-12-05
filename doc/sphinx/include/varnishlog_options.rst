@@ -34,7 +34,7 @@
 
 	Print program usage and exit
 
--i taglist
+-i <taglist>
 
 	Include log records of these tags in output. Taglist is a comma-separated list of tag globs. Multiple -i options may be given.
 	
@@ -46,31 +46,31 @@
 	
 	If a tag include option is the first of any tag selection options, all tags are first marked excluded.
 
--k num
+-k <num>
 
 	Process this number of matching log transactions before exiting.
 
--L limit
+-L <limit>
 
 	Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 
--n name
+-n <name>
 
 	Specify the name of the varnishd instance to get logs from. If -n is not specified, the host name is used.
 
--N filename
+-N <filename>
 
 	Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
 
--P file
+-P <file>
 
 	Write the process' PID to the specified file.
 
--q query
+-q <query>
 
 	Specifies the VSL query to use.
 
--r filename
+-r <filename>
 
 	Read log in binary file format from this file. The file can be created with ``varnishlog -w filename``.
 
@@ -78,7 +78,7 @@
 
 	Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to "off", the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.
 
--T seconds
+-T <seconds>
 
 	Sets the transaction timeout in seconds. This defines the maximum number of seconds elapsed between a Begin tag and the End tag. If the timeout expires, a warning record is synthesized and the transaction is force completed. Defaults to 120 seconds.
 
@@ -90,11 +90,11 @@
 
 	Print version information and exit.
 
--w filename
+-w <filename>
 
 	Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP in daemon mode the file will be  reopened allowing the old one to be rotated away. The file can then be read by varnishlog and other tools with the -r option, unless the -A option was specified. This option is required when running in daemon mode.
 
--x taglist
+-x <taglist>
 
 	Exclude log records of these tags in output. Taglist is a comma-separated list of tag globs. Multiple -x options may be given.
 

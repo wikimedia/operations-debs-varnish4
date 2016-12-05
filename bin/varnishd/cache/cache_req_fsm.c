@@ -591,6 +591,9 @@ cnt_pipe(struct worker *wrk, struct req *req)
 	if (wrk->handling == VCL_RET_SYNTH)
 		INCOMPL();
 	assert(wrk->handling == VCL_RET_PIPE);
+	AZ(bo->req);
+	bo->req = req;
+	bo->wrk = wrk;
 
 	if (VDI_Http1Pipe(req, bo) < 0)
 		VSLb(bo->vsl, SLT_VCL_Error, "Backend does not support pipe");
@@ -679,6 +682,7 @@ cnt_recv(struct worker *wrk, struct req *req)
 	req->director_hint = VCL_DefaultDirector(req->vcl);
 	AN(req->director_hint);
 
+	req->vdp_retval = 0;
 	req->d_ttl = -1;
 	req->disable_esi = 0;
 	req->hash_always_miss = 0;

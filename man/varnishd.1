@@ -120,10 +120,10 @@ making parameters such as \fIcc_command\fP, \fIvcc_allow_inline_c\fP and
 \fIvmod_dir\fP read only as these can potentially be used to escalate
 privileges from the CLI.
 .TP
-.BI \-S \ file
+.BI \-S \ secret\-file
 Path to a file containing a secret used for authorizing access to
 the management port. If not provided a new secret will be drawn
-from the system PRNG.
+from the system PRNG.  To disable authentication use \fBnone\fP\&.
 .TP
 .BI \-s \ <[name=]type[,options]>
 Use the specified storage backend, see \fI\%Storage Backend Options\fP\&.
@@ -478,7 +478,7 @@ This parameter does not apply to pipe\(aqed requests.
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: "exec gcc \-std=gnu99 \-g \-O2 \-Wall \-Werror \-Wno\-error=unused\-result  t\-Werror t\-Wall t\-Wno\-format\-y2k t\-W t\-Wstrict\-prototypes t\-Wmissing\-prototypes t\-Wpointer\-arith t\-Wreturn\-type t\-Wcast\-qual t\-Wwrite\-strings t\-Wswitch t\-Wshadow t\-Wunused\-parameter t\-Wcast\-align t\-Wchar\-subscripts t\-Wnested\-externs t\-Wextra t\-Wno\-sign\-compare  \-fstack\-protector \-Wno\-pointer\-sign \-Wno\-address \-Wno\-missing\-field\-initializers \-pthread \-fpic \-shared \-Wl,\-x \-o %o %s"
+Default: "exec gcc \-std=gnu99 \-g \-O2 \-Wall \-Werror \-Wno\-error=unused\-result \-pthread \-fpic \-shared \-Wl,\-x \-o %o %s"
 .IP \(bu 2
 Flags: must_reload
 .UNINDENT
@@ -550,6 +550,21 @@ Minimum: 0
 .UNINDENT
 .sp
 How much clockskew we are willing to accept between the backend and our own clock.
+.SS clock_step
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Units: seconds
+.IP \(bu 2
+Default: 1.000
+.IP \(bu 2
+Minimum: 0.000
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+How much observed clock step we are willing to accept before we panic.
 .SS connect_timeout
 .INDENT 0.0
 .INDENT 3.5
@@ -1538,6 +1553,30 @@ The minimum number of worker threads in each pool.
 Increasing this may help ramp up faster from low load situations or when threads have expired.
 .sp
 Minimum is 10 threads.
+.SS thread_pool_reserve
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Units: threads
+.IP \(bu 2
+Default: 0
+.IP \(bu 2
+Maximum: 95
+.IP \(bu 2
+Flags: delayed
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+The number of worker threads reserved for vital tasks in each pool.
+.sp
+Tasks may require other tasks to complete (for example, client requests may require backend requests). This reserve is to ensure that such tasks still get to run even under high load.
+.sp
+Increasing the reserve may help setups with a high number of backend requests at the expense of client performance. Setting it too high will waste resources by keeping threads unused.
+.sp
+Default is 0 to auto\-tune (currently 5% of thread_pool_min).
+Minimum is 1 otherwise, maximum is 95% of thread_pool_min.
 .SS thread_pool_stack
 .INDENT 0.0
 .INDENT 3.5
@@ -1549,13 +1588,23 @@ Default: 48k
 .IP \(bu 2
 Minimum: 16k
 .IP \(bu 2
-Flags: experimental
+Flags: delayed
 .UNINDENT
 .UNINDENT
 .UNINDENT
 .sp
 Worker thread stack size.
 This will likely be rounded up to a multiple of 4k (or whatever the page_size might be) by the kernel.
+.sp
+The required stack size is primarily driven by the depth of the call\-tree. The most common relevant determining factors in varnish core code are GZIP (un)compression, ESI processing and regular expression matches. VMODs may also require significant amounts of additional stack. The nesting depth of VCL subs is another factor, although typically not predominant.
+.sp
+The stack size is per thread, so the maximum total memory required for worker thread stacks is in the order of size = thread_pools x thread_pool_max x thread_pool_stack.
+.sp
+Thus, in particular for setups with many threads, keeping the stack size at a minimum helps reduce the amount of memory required by Varnish.
+.sp
+On the other hand, thread_pool_stack must be large enough under all circumstances, otherwise varnish will crash due to a stack overflow. Usually, a stack overflow manifests itself as a segmentation fault (aka segfault / SIGSEGV) with the faulting address being near the stack pointer (sp).
+.sp
+Unless stack usage can be reduced, thread_pool_stack must be increased when a stack overflow occurs. Setting it in 150%\-200% increments is recommended until stack overflows cease to occur.
 .SS thread_pool_timeout
 .INDENT 0.0
 .INDENT 3.5
@@ -1593,9 +1642,9 @@ Flags: delayed, experimental
 .sp
 Number of worker thread pools.
 .sp
-Increasing number of worker pools decreases lock contention.
+Increasing the number of worker pools decreases lock contention. Each worker pool also has a thread accepting new connections, so for very high rates of incoming new connections on systems with many cores, increasing the worker pools may be required.
 .sp
-Too many pools waste CPU and RAM resources, and more than one pool for each CPU is probably detrimal to performance.
+Too many pools waste CPU and RAM resources, and more than one pool for each CPU is most likely detrimental to performance.
 .sp
 Can be increased on the fly, but decreases require a restart to take effect.
 .SS thread_queue_limit
@@ -1612,7 +1661,7 @@ Flags: experimental
 .UNINDENT
 .UNINDENT
 .sp
-Permitted queue length per thread\-pool.
+Permitted request queue length per thread\-pool.
 .sp
 This sets the number of requests we will queue, waiting for an available thread.  Above this limit sessions will be dropped instead of queued.
 .SS thread_stats_rate
@@ -1728,7 +1777,7 @@ How long a VCL is kept warm after being replaced as the active VCL (granularity 
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: /opt/varnish/etc/varnish
+Default: /usr/local/etc/varnish
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -1739,7 +1788,7 @@ Directory (or colon separated list of directories) from which relative VCL filen
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: /opt/varnish/lib/varnish/vmods
+Default: /usr/local/lib/varnish/vmods
 .UNINDENT
 .UNINDENT
 .UNINDENT

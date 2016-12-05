@@ -125,7 +125,7 @@ This parameter does not apply to pipe'ed requests.
 
 cc_command
 ~~~~~~~~~~
-	* Default: "exec gcc -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result  \t-Werror \t-Wall \t-Wno-format-y2k \t-W \t-Wstrict-prototypes \t-Wmissing-prototypes \t-Wpointer-arith \t-Wreturn-type \t-Wcast-qual \t-Wwrite-strings \t-Wswitch \t-Wshadow \t-Wunused-parameter \t-Wcast-align \t-Wchar-subscripts \t-Wnested-externs \t-Wextra \t-Wno-sign-compare  -fstack-protector -Wno-pointer-sign -Wno-address -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s"
+	* Default: "exec gcc -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result -pthread -fpic -shared -Wl,-x -o %o %s"
 	* Flags: must_reload
 
 Command used for compiling the C source code to a dlopen(3) loadable object.  Any occurrence of %s in the string will be replaced with the source file name, and %o will be replaced with the output file name.
@@ -172,6 +172,16 @@ clock_skew
 	* Minimum: 0
 
 How much clockskew we are willing to accept between the backend and our own clock.
+
+.. _ref_param_clock_step:
+
+clock_step
+~~~~~~~~~~
+	* Units: seconds
+	* Default: 1.000
+	* Minimum: 0.000
+
+How much observed clock step we are willing to accept before we panic.
 
 .. _ref_param_connect_timeout:
 
@@ -850,6 +860,24 @@ Increasing this may help ramp up faster from low load situations or when threads
 
 Minimum is 10 threads.
 
+.. _ref_param_thread_pool_reserve:
+
+thread_pool_reserve
+~~~~~~~~~~~~~~~~~~~
+	* Units: threads
+	* Default: 0
+	* Maximum: 95
+	* Flags: delayed
+
+The number of worker threads reserved for vital tasks in each pool.
+
+Tasks may require other tasks to complete (for example, client requests may require backend requests). This reserve is to ensure that such tasks still get to run even under high load.
+
+Increasing the reserve may help setups with a high number of backend requests at the expense of client performance. Setting it too high will waste resources by keeping threads unused.
+
+Default is 0 to auto-tune (currently 5% of thread_pool_min).
+Minimum is 1 otherwise, maximum is 95% of thread_pool_min.
+
 .. _ref_param_thread_pool_stack:
 
 thread_pool_stack
@@ -857,10 +885,20 @@ thread_pool_stack
 	* Units: bytes
 	* Default: 48k
 	* Minimum: 16k
-	* Flags: experimental
+	* Flags: delayed
 
 Worker thread stack size.
 This will likely be rounded up to a multiple of 4k (or whatever the page_size might be) by the kernel.
+
+The required stack size is primarily driven by the depth of the call-tree. The most common relevant determining factors in varnish core code are GZIP (un)compression, ESI processing and regular expression matches. VMODs may also require significant amounts of additional stack. The nesting depth of VCL subs is another factor, although typically not predominant.
+
+The stack size is per thread, so the maximum total memory required for worker thread stacks is in the order of size = thread_pools x thread_pool_max x thread_pool_stack.
+
+Thus, in particular for setups with many threads, keeping the stack size at a minimum helps reduce the amount of memory required by Varnish.
+
+On the other hand, thread_pool_stack must be large enough under all circumstances, otherwise varnish will crash due to a stack overflow. Usually, a stack overflow manifests itself as a segmentation fault (aka segfault / SIGSEGV) with the faulting address being near the stack pointer (sp).
+
+Unless stack usage can be reduced, thread_pool_stack must be increased when a stack overflow occurs. Setting it in 150%-200% increments is recommended until stack overflows cease to occur.
 
 .. _ref_param_thread_pool_timeout:
 
@@ -886,9 +924,9 @@ thread_pools
 
 Number of worker thread pools.
 
-Increasing number of worker pools decreases lock contention.
+Increasing the number of worker pools decreases lock contention. Each worker pool also has a thread accepting new connections, so for very high rates of incoming new connections on systems with many cores, increasing the worker pools may be required.
 
-Too many pools waste CPU and RAM resources, and more than one pool for each CPU is probably detrimal to performance.
+Too many pools waste CPU and RAM resources, and more than one pool for each CPU is most likely detrimental to performance.
 
 Can be increased on the fly, but decreases require a restart to take effect.
 
@@ -900,7 +938,7 @@ thread_queue_limit
 	* Minimum: 0
 	* Flags: experimental
 
-Permitted queue length per thread-pool.
+Permitted request queue length per thread-pool.
 
 This sets the number of requests we will queue, waiting for an available thread.  Above this limit sessions will be dropped instead of queued.
 
@@ -982,7 +1020,7 @@ How long a VCL is kept warm after being replaced as the active VCL (granularity 
 
 vcl_dir
 ~~~~~~~
-	* Default: /opt/varnish/etc/varnish
+	* Default: /usr/local/etc/varnish
 
 Directory (or colon separated list of directories) from which relative VCL filenames (vcl.load and include) are to be found.
 
@@ -990,7 +1028,7 @@ Directory (or colon separated list of directories) from which relative VCL filen
 
 vmod_dir
 ~~~~~~~~
-	* Default: /opt/varnish/lib/varnish/vmods
+	* Default: /usr/local/lib/varnish/vmods
 
 Directory (or colon separated list of directories) where VMODs are to be found.
 
