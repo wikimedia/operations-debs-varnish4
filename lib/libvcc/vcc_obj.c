@@ -123,7 +123,7 @@ const struct var vcc_vars[] = {
 	},
 	{ "beresp.backend.ip", IP, 17,
 	    "VRT_r_beresp_backend_ip(ctx)",
-		VCL_MET_BACKEND_ERROR | VCL_MET_BACKEND_RESPONSE,
+		VCL_MET_BACKEND_RESPONSE,
 	    NULL,	/* No writes allowed */
 		0,
 	},

@@ -910,10 +910,11 @@ Once Varnish is started, you can talk to it (as you would through
         varnish vNAME [-cli STRING] [-cliok STRING] [-clierr STRING]
                       [-expect STRING OP NUMBER]
 
-\-cli STRING|-cliok STRING|-clierr STATUS STRING
-        All three of these will send STRING to the CLI, the only difference
-        is what they expect the return code to be. -cli doesn't expect
-        anything, -cliok expects 200 and -clierr expects STATUS
+\-cli STRING|-cliok STRING|-clierr STATUS STRING|-cliexpect REGEXP STRING
+        All four of these will send STRING to the CLI, the only difference
+        is what they expect the result to be. -cli doesn't expect
+        anything, -cliok expects 200, -clierr expects STATUS, and
+        -cliexpect expects the REGEXP to match the returned response.
 
 \-expect STRING OP NUMBER
         Look into the VSM and make sure the counter identified by STRING has

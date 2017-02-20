@@ -181,7 +181,7 @@ beresp.backend.ip
 
 	Type: IP
 
-	Readable from: vcl_backend_response, vcl_backend_error
+	Readable from: vcl_backend_response
 
 	
 	IP of the backend this response was fetched from.
