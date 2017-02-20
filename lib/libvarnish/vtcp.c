@@ -38,9 +38,7 @@
 #endif
 
 #include <netinet/in.h>
-#ifdef __linux
-#  include <netinet/tcp.h>
-#endif
+#include <netinet/tcp.h>
 
 #include <errno.h>
 #include <math.h>
@@ -279,6 +277,7 @@ VTCP_connect(const struct suckaddr *name, int msec)
 	struct pollfd fds[1];
 	const struct sockaddr *sa;
 	socklen_t sl;
+	int val;
 
 	if (name == NULL)
 		return (-1);
@@ -295,6 +294,9 @@ VTCP_connect(const struct suckaddr *name, int msec)
 	/* Set the socket non-blocking */
 	if (msec != 0)
 		(void)VTCP_nonblocking(s);
+
+	val = 1;
+	AZ(setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &val, sizeof val));
 
 	i = connect(s, sa, sl);
 	if (i == 0)

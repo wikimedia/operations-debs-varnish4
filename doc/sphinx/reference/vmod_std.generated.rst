@@ -181,6 +181,7 @@ Prototype
 
 Description
 	Collapses multiple *hdr* headers into one long header.
+	The header values are joined with a comma (",").
 
 	Care should be taken when collapsing headers. In particular
 	collapsing Set-Cookie will lead to unexpected results on the

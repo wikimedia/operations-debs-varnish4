@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishncsa &mdash; Varnish version 4.1.4 documentation</title>
+    <title>varnishncsa &mdash; Varnish version 4.1.5 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.4',
+        VERSION:     '4.1.5',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.4 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.5 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishstat" href="varnishstat.html" />
     <link rel="prev" title="varnishlog" href="varnishlog.html" /> 
@@ -41,7 +41,7 @@
         <li class="right" >
           <a href="varnishlog.html" title="varnishlog"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.5 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -195,13 +195,15 @@ the IP of the backend server.</dd>
 <dd>In client mode, total bytes received from client.  In backend mode,
 total bytes sent to the backend.</dd>
 <dt>%{X}i</dt>
-<dd>The contents of request header X.</dd>
+<dd>The contents of request header X. If the header appears multiple times
+in a single transaction, the last occurrence is used.</dd>
 <dt>%l</dt>
 <dd>Remote logname. Always '-'.</dd>
 <dt>%m</dt>
 <dd>Request method. Defaults to '-' if not known.</dd>
 <dt>%{X}o</dt>
-<dd>The contents of response header X.</dd>
+<dd>The contents of response header X. If the header appears multiple
+times in a single transaction, the last occurrence is used.</dd>
 <dt>%O</dt>
 <dd>In client mode, total bytes sent to client.  In backend mode, total
 bytes received from the backend.</dd>
@@ -250,11 +252,13 @@ this field will be constant.</dd>
 <dd>The VXID of the varnish transaction.</dd>
 <dt>VCL_Log:key</dt>
 <dd>Output value set by std.log(&quot;key:value&quot;) in VCL.</dd>
-<dt>VSL:tag or VSL:tag[field]</dt>
-<dd>The value of the VSL entry for the given tag.  If field is specified,
-only the selected part is shown.  Defaults to '-' when the tag is not
-seen, or when the field is out of bounds.  If a tag appears several
-times in a single transaction, only the first occurrence is used.</dd>
+<dt>VSL:tag[field]</dt>
+<dd>The value of the VSL entry for the given tag. The field will,
+if present, treat the log record as a white space separated list
+of fields, and only the nth part of the record will be matched
+against. Fields start counting at 1. Defaults to '-' when the tag
+is not seen, or when the field is out of bounds. If a tag appears
+multiple times in a single transaction, the first occurrence is used.</dd>
 </dl>
 </dd>
 </dl>
@@ -271,7 +275,9 @@ times in a single transaction, only the first occurrence is used.</dd>
 <div class="section" id="notes">
 <h3>NOTES<a class="headerlink" href="#notes" title="Permalink to this headline">¶</a></h3>
 <p>The %r formatter is equivalent to &quot;%m <a class="reference external" href="http:/">http:/</a>/%{Host}i%U%q %H&quot;. This
-differs from apache's %r behavior. For the latter use &quot;%m %U%q %H&quot;.</p>
+differs from apache's %r behavior, equivalent to &quot;%m %U%q %H&quot;.
+Furthermore, when using the %r formatter, if the Host header appears
+multiple times in a single transaction, the first occurrence is used.</p>
 </div>
 <div class="section" id="example">
 <h3>EXAMPLE<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h3>
@@ -373,7 +379,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishlog.html" title="varnishlog"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.5 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

@@ -904,7 +904,7 @@ vcc_expr4(struct vcc *tl, struct expr **e, enum var_type fmt)
 		e1->constant = EXPR_CONST;
 		vcc_NextToken(tl);
 		*e = e1;
-		break;
+		return;
 	case CNUM:
 		/*
 		 * XXX: %g may not have enough decimals by default
@@ -935,14 +935,31 @@ vcc_expr4(struct vcc *tl, struct expr **e, enum var_type fmt)
 		}
 		e1->constant = EXPR_CONST;
 		*e = e1;
+		return;
+	case '-':
+		if (fmt == INT || fmt == REAL) {
+			vcc_NextToken(tl);
+			ExpectErr(tl, CNUM);
+			if (fmt == INT) {
+				e1 = vcc_mk_expr(INT, "-%.*s", PF(tl->t));
+				vcc_NextToken(tl);
+			} else {
+				e1 = vcc_mk_expr(REAL, "-%f",
+				    vcc_DoubleVal(tl));
+			}
+			ERRCHK(tl);
+			e1->constant = EXPR_CONST;
+			*e = e1;
+			return;
+		}
 		break;
 	default:
-		VSB_printf(tl->sb, "Unknown token ");
-		vcc_ErrToken(tl, tl->t);
-		VSB_printf(tl->sb, " when looking for %s\n\n", vcc_Type(fmt));
-		vcc_ErrWhere(tl, tl->t);
 		break;
 	}
+	VSB_printf(tl->sb, "Unknown token ");
+	vcc_ErrToken(tl, tl->t);
+	VSB_printf(tl->sb, " when looking for %s\n\n", vcc_Type(fmt));
+	vcc_ErrWhere(tl, tl->t);
 }
 
 /*--------------------------------------------------------------------
@@ -984,9 +1001,9 @@ vcc_expr_mul(struct vcc *tl, struct expr **e, enum var_type fmt)
 		ERRCHK(tl);
 		assert(e2->fmt == f2);
 		if (tk->tok == '*')
-			*e = vcc_expr_edit(f3, "(\v1*\v2)", *e, e2);
+			*e = vcc_expr_edit(f3, "(\v1 * \v2)", *e, e2);
 		else
-			*e = vcc_expr_edit(f3, "(\v1/\v2)", *e, e2);
+			*e = vcc_expr_edit(f3, "(\v1 / \v2)", *e, e2);
 	}
 }
 
@@ -1096,11 +1113,11 @@ vcc_expr_add(struct vcc *tl, struct expr **e, enum var_type fmt)
 			return;
 		}
 		if (tk->tok == '+')
-			*e = vcc_expr_edit(f2, "(\v1+\v2)", *e, e2);
+			*e = vcc_expr_edit(f2, "(\v1 + \v2)", *e, e2);
 		else if (f2 == TIME && e2->fmt == TIME)
-			*e = vcc_expr_edit(DURATION, "(\v1-\v2)", *e, e2);
+			*e = vcc_expr_edit(DURATION, "(\v1 - \v2)", *e, e2);
 		else
-			*e = vcc_expr_edit(f2, "(\v1-\v2)", *e, e2);
+			*e = vcc_expr_edit(f2, "(\v1 - \v2)", *e, e2);
 	}
 }
 
@@ -1237,7 +1254,16 @@ vcc_expr_cmp(struct vcc *tl, struct expr **e, enum var_type fmt)
 		if (sym == NULL) {
 			VSB_printf(tl->sb, "Backend not found: ");
 			vcc_ErrToken(tl, tl->t);
-			VSB_printf(tl->sb, "\n");
+			VSB_printf(tl->sb,
+			    " (expected a backend identifier)\n");
+			vcc_ErrWhere(tl, tl->t);
+			return;
+		} else if (sym->kind != SYM_BACKEND) {
+			VSB_printf(tl->sb, "Not a backend: ");
+			vcc_ErrToken(tl, tl->t);
+			VSB_printf(tl->sb,
+			    " (right hand side must be a backend - saw a %s)\n",
+			    VCC_SymKind(tl, sym));
 			vcc_ErrWhere(tl, tl->t);
 			return;
 		}

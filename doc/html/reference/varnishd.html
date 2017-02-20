@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.1.4 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.1.5 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.4',
+        VERSION:     '4.1.5',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.4 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.5 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -41,7 +41,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.5 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -119,8 +119,8 @@ start the worker process but process cli commands.</p>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-h <var>&lt;type[,options]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Specifies the hash algorithm. See <a class="reference internal" href="#hash-algorithm-options">Hash Algorithm Options</a> for a
-list of supported algorithms.</td></tr>
+<tr><td>&nbsp;</td><td>Specifies the hash algorithm. See <a class="reference internal" href="#hash-algorithm">Hash Algorithm</a> section for a list
+of supported algorithms.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-i <var>identity</var></span></kbd></td>
 <td>Specify the identity of the Varnish server. This can be accessed
@@ -128,7 +128,7 @@ using <tt class="docutils literal"><span class="pre">server.identity</span></tt>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-j <var>&lt;jail[,jailoptions]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Specify the jailing technology to use.</td></tr>
+<tr><td>&nbsp;</td><td>Specify the jailing mechanism to use. See <a class="reference internal" href="#jail">Jail</a> section.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-l <var>&lt;vsl[,vsm]&gt;</var></span></kbd></td>
 <td>Specifies size of shmlog file. vsl is the space for the VSL records
@@ -173,7 +173,7 @@ from the system PRNG.  To disable authentication use <tt class="docutils literal
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-s <var>&lt;[name=]type[,options]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td><p class="first">Use the specified storage backend, see <a class="reference internal" href="#storage-backend-options">Storage Backend Options</a>.</p>
+<tr><td>&nbsp;</td><td><p class="first">Use the specified storage backend. See <a class="reference internal" href="#storage-backend">Storage Backend</a> section.</p>
 <p class="last">This option can be used multiple times to specify multiple storage
 files. Names are referenced in logs, VCL, statistics, etc.</p>
 </td></tr>
@@ -194,8 +194,8 @@ a shortcut for specifying the <em>default_ttl</em> run-time parameter.</td></tr>
 <td>Specifies the waiter type to use.</td></tr>
 </tbody>
 </table>
-<div class="section" id="hash-algorithm-options">
-<span id="opt-h"></span><h4>Hash Algorithm Options<a class="headerlink" href="#hash-algorithm-options" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="hash-algorithm">
+<span id="opt-h"></span><h4>Hash Algorithm<a class="headerlink" href="#hash-algorithm" title="Permalink to this headline">¶</a></h4>
 <p>The following hash algorithms are available:</p>
 <table class="docutils option-list" frame="void" rules="none">
 <col class="option" />
@@ -221,8 +221,8 @@ default is 16383.</td></tr>
 </tbody>
 </table>
 </div>
-<div class="section" id="storage-backend-options">
-<span id="ref-varnishd-opt-s"></span><h4>Storage Backend Options<a class="headerlink" href="#storage-backend-options" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="storage-backend">
+<span id="ref-varnishd-opt-s"></span><h4>Storage Backend<a class="headerlink" href="#storage-backend" title="Permalink to this headline">¶</a></h4>
 <p>The following storage types are available:</p>
 <table class="docutils option-list" frame="void" rules="none">
 <col class="option" />
@@ -257,8 +257,8 @@ removed from a future version of Varnish.</td></tr>
 </tbody>
 </table>
 </div>
-<div class="section" id="jail-options">
-<span id="ref-varnishd-opt-j"></span><h4>Jail Options<a class="headerlink" href="#jail-options" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="jail">
+<span id="ref-varnishd-opt-j"></span><h4>Jail<a class="headerlink" href="#jail" title="Permalink to this headline">¶</a></h4>
 <p>Varnish jails are a generalization over various platform specific
 methods to reduce the privileges of varnish processes. They may have
 specific options. Available jails are:</p>
@@ -272,21 +272,23 @@ specific options. Available jails are:</p>
 required set. Only available on platforms which have the setppriv(2)
 call.</td></tr>
 <tr><td class="option-group" colspan="2">
-<kbd><span class="option">-j <var>&lt;unix[,user=`user`][,ccgroup=`group`]&gt;</var></span></kbd></td>
+<kbd><span class="option">-j <var>&lt;unix[,user=`user`][,ccgroup=`group`][,workuser=`user`]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td><p class="first">Default on all other platforms if <cite>varnishd</cite> is either started with
+<tr><td>&nbsp;</td><td><p class="first">Default on all other platforms when <cite>varnishd</cite> is either started with
 an effective uid of 0 (&quot;as root&quot;) or as user <tt class="docutils literal"><span class="pre">varnish</span></tt>.</p>
-<p>With the <tt class="docutils literal"><span class="pre">unix</span></tt> jail technology activated, varnish will switch to
+<p>With the <tt class="docutils literal"><span class="pre">unix</span></tt> jail mechanism activated, varnish will switch to
 an alternative user for subprocesses and change the effective uid of
 the master process whenever possible.</p>
 <p>The optional <cite>user</cite> argument specifies which alternative user to
-use. It defaults to <tt class="docutils literal"><span class="pre">varnish</span></tt></p>
-<p class="last">The optional <cite>ccgroup</cite> argument specifies a group to add to varnish
+use. It defaults to <tt class="docutils literal"><span class="pre">varnish</span></tt>.</p>
+<p>The optional <cite>ccgroup</cite> argument specifies a group to add to varnish
 subprocesses requiring access to a c-compiler. There is no default.</p>
+<p class="last">The optional <cite>workuser</cite> argument specifies an alternative user to use
+for the worker process. It defaults to <tt class="docutils literal"><span class="pre">vcache</span></tt>.</p>
 </td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-j <var>none</var></span></kbd></td>
-<td>last resort jail choice: With jail technology <tt class="docutils literal"><span class="pre">none</span></tt>, varnish will
+<td>last resort jail choice: With jail mechanism <tt class="docutils literal"><span class="pre">none</span></tt>, varnish will
 run all processes with the privileges it was started with.</td></tr>
 </tbody>
 </table>
@@ -1622,9 +1624,9 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#synopsis">SYNOPSIS</a></li>
 <li><a class="reference internal" href="#description">DESCRIPTION</a></li>
 <li><a class="reference internal" href="#options">OPTIONS</a><ul>
-<li><a class="reference internal" href="#hash-algorithm-options">Hash Algorithm Options</a></li>
-<li><a class="reference internal" href="#storage-backend-options">Storage Backend Options</a></li>
-<li><a class="reference internal" href="#jail-options">Jail Options</a></li>
+<li><a class="reference internal" href="#hash-algorithm">Hash Algorithm</a></li>
+<li><a class="reference internal" href="#storage-backend">Storage Backend</a></li>
+<li><a class="reference internal" href="#jail">Jail</a></li>
 <li><a class="reference internal" href="#management-interface">Management Interface</a></li>
 </ul>
 </li>
@@ -1778,7 +1780,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.4 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.5 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

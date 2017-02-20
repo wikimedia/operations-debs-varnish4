@@ -154,7 +154,6 @@ SES_RxInit(struct http_conn *htc, struct ws *ws, unsigned maxbytes,
 	(void)WS_Reserve(htc->ws, htc->maxbytes);
 	htc->rxbuf_b = ws->f;
 	htc->rxbuf_e = ws->f;
-	*htc->rxbuf_e = '\0';
 	htc->pipeline_b = NULL;
 	htc->pipeline_e = NULL;
 }
@@ -177,12 +176,12 @@ SES_RxReInit(struct http_conn *htc)
 	if (htc->pipeline_b != NULL) {
 		l = htc->pipeline_e - htc->pipeline_b;
 		assert(l > 0);
+		assert(l <= htc->ws->r - htc->rxbuf_b);
 		memmove(htc->rxbuf_b, htc->pipeline_b, l);
 		htc->rxbuf_e += l;
 		htc->pipeline_b = NULL;
 		htc->pipeline_e = NULL;
 	}
-	*htc->rxbuf_e = '\0';
 }
 
 /*----------------------------------------------------------------------
@@ -205,13 +204,24 @@ SES_RxStuff(struct http_conn *htc, htc_complete_f *func,
 	int i;
 
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
+	AN(htc->ws->r);
+	AN(htc->rxbuf_b);
+	assert(htc->rxbuf_b <= htc->rxbuf_e);
 
 	AZ(isnan(tn));
 	if (t1 != NULL)
 		assert(isnan(*t1));
 
+	if (htc->rxbuf_e == htc->ws->r) {
+		/* Can't work with a zero size buffer */
+		WS_ReleaseP(htc->ws, htc->rxbuf_b);
+		return (HTC_S_OVERFLOW);
+	}
+
 	while (1) {
 		now = VTIM_real();
+		assert(htc->rxbuf_e < htc->ws->r);
+		*htc->rxbuf_e = '\0';
 		hs = func(htc);
 		if (hs == HTC_S_OVERFLOW || hs == HTC_S_JUNK) {
 			WS_ReleaseP(htc->ws, htc->rxbuf_b);
@@ -247,10 +257,9 @@ SES_RxStuff(struct http_conn *htc, htc_complete_f *func,
 		if (i == 0 || i == -1) {
 			WS_ReleaseP(htc->ws, htc->rxbuf_b);
 			return (HTC_S_EOF);
-		} else if (i > 0) {
+		} else if (i > 0)
 			htc->rxbuf_e += i;
-			*htc->rxbuf_e = '\0';
-		} else if (i == -2) {
+		else if (i == -2) {
 			if (hs == HTC_S_EMPTY && ti <= now) {
 				WS_ReleaseP(htc->ws, htc->rxbuf_b);
 				return (HTC_S_IDLE);

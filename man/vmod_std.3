@@ -225,6 +225,7 @@ VOID collect(HEADER hdr)
 .TP
 .B Description
 Collapses multiple \fIhdr\fP headers into one long header.
+The header values are joined with a comma (",").
 .sp
 Care should be taken when collapsing headers. In particular
 collapsing Set\-Cookie will lead to unexpected results on the

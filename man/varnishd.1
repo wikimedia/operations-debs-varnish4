@@ -77,15 +77,15 @@ When neither a \-f nor a \-b argument are given, \fIvarnishd\fP will not
 start the worker process but process cli commands.
 .TP
 .BI \-h \ <type[,options]>
-Specifies the hash algorithm. See \fI\%Hash Algorithm Options\fP for a
-list of supported algorithms.
+Specifies the hash algorithm. See \fI\%Hash Algorithm\fP section for a list
+of supported algorithms.
 .TP
 .BI \-i \ identity
 Specify the identity of the Varnish server. This can be accessed
 using \fBserver.identity\fP from VCL.
 .TP
 .BI \-j \ <jail[,jailoptions]>
-Specify the jailing technology to use.
+Specify the jailing mechanism to use. See \fI\%Jail\fP section.
 .TP
 .BI \-l \ <vsl[,vsm]>
 Specifies size of shmlog file. vsl is the space for the VSL records
@@ -126,7 +126,7 @@ the management port. If not provided a new secret will be drawn
 from the system PRNG.  To disable authentication use \fBnone\fP\&.
 .TP
 .BI \-s \ <[name=]type[,options]>
-Use the specified storage backend, see \fI\%Storage Backend Options\fP\&.
+Use the specified storage backend. See \fI\%Storage Backend\fP section.
 .sp
 This option can be used multiple times to specify multiple storage
 files. Names are referenced in logs, VCL, statistics, etc.
@@ -145,7 +145,7 @@ Display the version number and exit.
 .BI \-W \ waiter
 Specifies the waiter type to use.
 .UNINDENT
-.SS Hash Algorithm Options
+.SS Hash Algorithm
 .sp
 The following hash algorithms are available:
 .INDENT 0.0
@@ -166,7 +166,7 @@ list of elements which share the same hash key. The buckets
 parameter specifies the number of entries in the hash table.  The
 default is 16383.
 .UNINDENT
-.SS Storage Backend Options
+.SS Storage Backend
 .sp
 The following storage types are available:
 .INDENT 0.0
@@ -196,7 +196,7 @@ of a planned or unplanned shutdown of Varnish. The persistent
 storage backend has multiple issues with it and will likely be
 removed from a future version of Varnish.
 .UNINDENT
-.SS Jail Options
+.SS Jail
 .sp
 Varnish jails are a generalization over various platform specific
 methods to reduce the privileges of varnish processes. They may have
@@ -208,22 +208,25 @@ Reduce privileges(5) for \fIvarnishd\fP and sub\-process to the minimally
 required set. Only available on platforms which have the setppriv(2)
 call.
 .TP
-.BI \-j \ <unix[,user=\(gauser\(ga][,ccgroup=\(gagroup\(ga]>
-Default on all other platforms if \fIvarnishd\fP is either started with
+.BI \-j \ <unix[,user=\(gauser\(ga][,ccgroup=\(gagroup\(ga][,workuser=\(gauser\(ga]>
+Default on all other platforms when \fIvarnishd\fP is either started with
 an effective uid of 0 ("as root") or as user \fBvarnish\fP\&.
 .sp
-With the \fBunix\fP jail technology activated, varnish will switch to
+With the \fBunix\fP jail mechanism activated, varnish will switch to
 an alternative user for subprocesses and change the effective uid of
 the master process whenever possible.
 .sp
 The optional \fIuser\fP argument specifies which alternative user to
-use. It defaults to \fBvarnish\fP
+use. It defaults to \fBvarnish\fP\&.
 .sp
 The optional \fIccgroup\fP argument specifies a group to add to varnish
 subprocesses requiring access to a c\-compiler. There is no default.
+.sp
+The optional \fIworkuser\fP argument specifies an alternative user to use
+for the worker process. It defaults to \fBvcache\fP\&.
 .TP
 .BI \-j \ none
-last resort jail choice: With jail technology \fBnone\fP, varnish will
+last resort jail choice: With jail mechanism \fBnone\fP, varnish will
 run all processes with the privileges it was started with.
 .UNINDENT
 .SS Management Interface
