@@ -16,3 +16,4 @@
 #define	T_SNEQ 138
 #define	T_TRUE 139
 #define	VAL 140
+#define	VXID 141

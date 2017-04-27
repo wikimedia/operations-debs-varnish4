@@ -481,7 +481,7 @@ This parameter does not apply to pipe\(aqed requests.
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: "exec gcc \-std=gnu99 \-g \-O2 \-Wall \-Werror \-Wno\-error=unused\-result \-pthread \-fpic \-shared \-Wl,\-x \-o %o %s"
+Default: "exec clang \-std=gnu99 \-g \-O2 \-Wall \-Werror \-Wno\-error=unused\-result  t\-Werror t\-Wall t\-Wno\-format\-y2k t\-W t\-Wstrict\-prototypes t\-Wmissing\-prototypes t\-Wpointer\-arith t\-Wreturn\-type t\-Wcast\-qual t\-Wwrite\-strings t\-Wswitch t\-Wshadow t\-Wunused\-parameter t\-Wcast\-align t\-Wchar\-subscripts t\-Wnested\-externs t\-Wextra t\-Wno\-sign\-compare  \-fstack\-protector \-Wno\-pointer\-sign \-Wno\-address \-Wno\-missing\-field\-initializers \-pthread \-fpic \-shared \-Wl,\-x \-o %o %s"
 .IP \(bu 2
 Flags: must_reload
 .UNINDENT
@@ -1780,7 +1780,7 @@ How long a VCL is kept warm after being replaced as the active VCL (granularity 
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: /usr/local/etc/varnish
+Default: /opt/varnish/etc/varnish
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -1791,7 +1791,7 @@ Directory (or colon separated list of directories) from which relative VCL filen
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: /usr/local/lib/varnish/vmods
+Default: /opt/varnish/lib/varnish/vmods
 .UNINDENT
 .UNINDENT
 .UNINDENT

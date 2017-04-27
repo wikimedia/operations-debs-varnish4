@@ -44,7 +44,9 @@ CONTENTS
 * :ref:`func_cache_req_body`
 * :ref:`func_collect`
 * :ref:`func_duration`
+* :ref:`func_file_exists`
 * :ref:`func_fileread`
+* :ref:`func_getenv`
 * :ref:`func_healthy`
 * :ref:`func_integer`
 * :ref:`func_ip`
@@ -170,6 +172,22 @@ Description
 	account. Also, files are not re-read.
 Example
 	set beresp.http.served-by = std.fileread("/etc/hostname");
+
+.. _func_file_exists:
+
+BOOL file_exists(STRING)
+------------------------
+
+Prototype
+	BOOL file_exists(STRING path)
+
+Description
+	Returns `true` if path or the file pointed to by path exists,
+	`false` otherwise.
+Example
+	| if (std.file_exists("/etc/return_503")) {
+	| 	return (synth(503, "Varnish is in maintenance"));
+	| }
 
 .. _func_collect:
 
@@ -438,6 +456,20 @@ Example
 	|	...
 	| }
 
+.. _func_getenv:
+
+STRING getenv(STRING)
+---------------------
+
+Prototype
+	STRING getenv(STRING name)
+
+Description
+	Return environment variable *name* or the empty string.
+
+	See getenv(3)
+Example
+	| set req.http.My-Env = getenv("MY_ENV");
 
 SEE ALSO
 ========

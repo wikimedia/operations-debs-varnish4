@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.1.5 documentation</title>
+    <title>varnishd &mdash; Varnish version 4.1.6 documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.5',
+        VERSION:     '4.1.6',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.5 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 4.1.6 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
@@ -41,7 +41,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.5 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.6 documentation</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>  
@@ -488,7 +488,7 @@ This parameter does not apply to pipe'ed requests.</p>
 <span id="ref-param-cc-command"></span><h5>cc_command<a class="headerlink" href="#cc-command" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: &quot;exec gcc -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result -pthread -fpic -shared -Wl,-x -o %o %s&quot;</li>
+<li>Default: &quot;exec clang -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result  t-Werror t-Wall t-Wno-format-y2k t-W t-Wstrict-prototypes t-Wmissing-prototypes t-Wpointer-arith t-Wreturn-type t-Wcast-qual t-Wwrite-strings t-Wswitch t-Wshadow t-Wunused-parameter t-Wcast-align t-Wchar-subscripts t-Wnested-externs t-Wextra t-Wno-sign-compare  -fstack-protector -Wno-pointer-sign -Wno-address -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s&quot;</li>
 <li>Flags: must_reload</li>
 </ul>
 </div></blockquote>
@@ -1418,7 +1418,7 @@ Allow 'import ... from ...'.</p>
 <span id="ref-param-vcl-dir"></span><h5>vcl_dir<a class="headerlink" href="#vcl-dir" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: /usr/local/etc/varnish</li>
+<li>Default: /opt/varnish/etc/varnish</li>
 </ul>
 </div></blockquote>
 <p>Directory (or colon separated list of directories) from which relative VCL filenames (vcl.load and include) are to be found.</p>
@@ -1427,7 +1427,7 @@ Allow 'import ... from ...'.</p>
 <span id="ref-param-vmod-dir"></span><h5>vmod_dir<a class="headerlink" href="#vmod-dir" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: /usr/local/lib/varnish/vmods</li>
+<li>Default: /opt/varnish/lib/varnish/vmods</li>
 </ul>
 </div></blockquote>
 <p>Directory (or colon separated list of directories) where VMODs are to be found.</p>
@@ -1780,7 +1780,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.5 documentation</a> &raquo;</li>
+        <li><a href="../index.html">Varnish version 4.1.6 documentation</a> &raquo;</li>
           <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
       </ul>
     </div>

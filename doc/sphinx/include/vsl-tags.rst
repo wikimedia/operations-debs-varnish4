@@ -313,6 +313,11 @@ Hit - Hit object in cache
 	
 
 
+HitMiss - Hit for miss object in cache.
+	Hit-for-miss object looked up in cache. Shows the VXID of the hit-for-miss object.
+	
+
+
 HitPass - Hit for pass object in cache.
 	Hit-for-pass object looked up in cache. Shows the VXID of the hit-for-pass object.
 	
@@ -545,7 +550,7 @@ TTL - TTL set on object
 		|  |  |  +------------------ Keep
 		|  |  +--------------------- Grace
 		|  +------------------------ TTL
-		+--------------------------- "RFC" or "VCL"
+		+--------------------------- "RFC", "VCL" or "HFP"
 	
 	The last four fields are only present in "RFC" headers.
 	
@@ -553,6 +558,7 @@ TTL - TTL set on object
 	
 		RFC 60 10 -1 1312966109 1312966109 1312966109 0 60
 		VCL 120 10 0 1312966111
+		HFP 2 0 0 1312966113
 	
 
 
