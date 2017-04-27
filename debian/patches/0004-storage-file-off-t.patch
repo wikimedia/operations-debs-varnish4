@@ -1,0 +1,21 @@
+diff --git a/bin/varnishd/storage/storage_file.c b/bin/varnishd/storage/storage_file.c
+index 395e6081d..03bb4ed0f 100644
+--- a/bin/varnishd/storage/storage_file.c
++++ b/bin/varnishd/storage/storage_file.c
+@@ -35,6 +35,7 @@
+ 
+ #include <errno.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <stdlib.h>
+ 
+ #include "cache/cache.h"
+@@ -418,7 +419,7 @@ static void
+ smf_open(const struct stevedore *st)
+ {
+ 	struct smf_sc *sc;
+-	off_t fail = 1 << 30;	/* XXX: where is OFF_T_MAX ? */
++	off_t fail = sizeof(off_t) == sizeof(int32_t) ? INT32_MAX : INT64_MAX;
+ 	off_t sum = 0;
+ 
+ 	ASSERT_CLI();

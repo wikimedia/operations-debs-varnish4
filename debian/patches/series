@@ -1,5 +1,4 @@
-0001-varnishd-persistent-addrarg.patch
-0002-varnishd-persistent-fallocate.patch
-0004-varnishd-persistent-mmap-exit.patch
-0005-gethdr_extrachance.patch
-0006-exp-thread-realtime.patch
+0001-gethdr_extrachance.patch
+0002-exp-thread-realtime.patch
+0003-vsm-perms.patch
+0004-storage-file-off-t.patch

@@ -1,0 +1,13 @@
+diff --git a/bin/varnishd/mgt/mgt_jail_unix.c b/bin/varnishd/mgt/mgt_jail_unix.c
+index 3c9f65806..029c2b068 100644
+--- a/bin/varnishd/mgt/mgt_jail_unix.c
++++ b/bin/varnishd/mgt/mgt_jail_unix.c
+@@ -257,7 +257,7 @@ vju_vsm_file(int fd)
+ {
+ 	/* Called under JAIL_MASTER_FILE */
+ 
+-	AZ(fchmod(fd, 0640));
++	AZ(fchmod(fd, 0644));
+ 	AZ(fchown(fd, 0, vju_gid));
+ }
+ 
