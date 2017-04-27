@@ -125,7 +125,7 @@ This parameter does not apply to pipe'ed requests.
 
 cc_command
 ~~~~~~~~~~
-	* Default: "exec gcc -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result -pthread -fpic -shared -Wl,-x -o %o %s"
+	* Default: "exec clang -std=gnu99 -g -O2 -Wall -Werror -Wno-error=unused-result  \t-Werror \t-Wall \t-Wno-format-y2k \t-W \t-Wstrict-prototypes \t-Wmissing-prototypes \t-Wpointer-arith \t-Wreturn-type \t-Wcast-qual \t-Wwrite-strings \t-Wswitch \t-Wshadow \t-Wunused-parameter \t-Wcast-align \t-Wchar-subscripts \t-Wnested-externs \t-Wextra \t-Wno-sign-compare  -fstack-protector -Wno-pointer-sign -Wno-address -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s"
 	* Flags: must_reload
 
 Command used for compiling the C source code to a dlopen(3) loadable object.  Any occurrence of %s in the string will be replaced with the source file name, and %o will be replaced with the output file name.
@@ -1020,7 +1020,7 @@ How long a VCL is kept warm after being replaced as the active VCL (granularity 
 
 vcl_dir
 ~~~~~~~
-	* Default: /usr/local/etc/varnish
+	* Default: /opt/varnish/etc/varnish
 
 Directory (or colon separated list of directories) from which relative VCL filenames (vcl.load and include) are to be found.
 
@@ -1028,7 +1028,7 @@ Directory (or colon separated list of directories) from which relative VCL filen
 
 vmod_dir
 ~~~~~~~~
-	* Default: /usr/local/lib/varnish/vmods
+	* Default: /opt/varnish/lib/varnish/vmods
 
 Directory (or colon separated list of directories) where VMODs are to be found.
 

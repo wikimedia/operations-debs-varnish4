@@ -72,7 +72,11 @@ VOID collect(HEADER)
 .IP \(bu 2
 DURATION duration(STRING, DURATION)
 .IP \(bu 2
+BOOL file_exists(STRING)
+.IP \(bu 2
 STRING fileread(PRIV_CALL, STRING)
+.IP \(bu 2
+STRING getenv(STRING)
 .IP \(bu 2
 BOOL healthy(BACKEND)
 .IP \(bu 2
@@ -216,6 +220,26 @@ account. Also, files are not re\-read.
 .TP
 .B Example
 set beresp.http.served\-by = std.fileread("/etc/hostname");
+.UNINDENT
+.SS BOOL file_exists(STRING)
+.INDENT 0.0
+.TP
+.B Prototype
+BOOL file_exists(STRING path)
+.TP
+.B Description
+Returns \fItrue\fP if path or the file pointed to by path exists,
+\fIfalse\fP otherwise.
+.TP
+.B Example
+.nf
+if (std.file_exists("/etc/return_503")) {
+.in +2
+return (synth(503, "Varnish is in maintenance"));
+.in -2
+}
+.fi
+.sp
 .UNINDENT
 .SS VOID collect(HEADER)
 .INDENT 0.0
@@ -489,6 +513,23 @@ if (std.time(resp.http.last\-modified, now) < now \- 1w) {
 \&...
 .in -2
 }
+.fi
+.sp
+.UNINDENT
+.SS STRING getenv(STRING)
+.INDENT 0.0
+.TP
+.B Prototype
+STRING getenv(STRING name)
+.TP
+.B Description
+Return environment variable \fIname\fP or the empty string.
+.sp
+See getenv(3)
+.TP
+.B Example
+.nf
+set req.http.My\-Env = getenv("MY_ENV");
 .fi
 .sp
 .UNINDENT

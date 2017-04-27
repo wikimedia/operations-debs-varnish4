@@ -132,6 +132,15 @@ vxp_fixed_token(const char *p, const char **q)
 			return (T_OR);
 		}
 		return (0);
+	case 'v':
+		if (p[1] == 'x' &&
+		    p[2] == 'i' &&
+		    p[3] == 'd' &&
+		    (isword(p[3]) ? !isword(p[4]) : 1)) {
+			*q = p + 4;
+			return (VXID);
+		}
+		return (0);
 	case '{':
 		if ((isword(p[0]) ? !isword(p[1]) : 1)) {
 			*q = p + 1;
@@ -180,4 +189,5 @@ const char * const vxp_tnames[256] = {
 	[T_SNEQ] = "ne",
 	[T_TRUE] = "T_TRUE",
 	[VAL] = "VAL",
+	[VXID] = "vxid",
 };

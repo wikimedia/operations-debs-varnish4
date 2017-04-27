@@ -204,7 +204,7 @@ expect_close
 	Reads from the connection, expecting nothing to read but an EOF.
 
 
-fatal|non-fatal
+fatal|non_fatal
         Control whether a failure of this entity should stop the test.
 
 
@@ -272,6 +272,11 @@ settings -dectbl INT
 	Force internal HTTP/2 settings to certain values. Currently only
 	support setting the decoding table size.
 
+shell
+.....
+
+Same as for the top-level shell.
+
 
 stream
 	HTTP/2 introduces the concept of streams, and these come with
@@ -324,6 +329,9 @@ txreq|txresp [...]
                 Add STRING as a header, it must follow this format:
                 "name: value". It can be called multiple times.
 
+        \-hdrlen STRING NUMBER
+                Add STRING as a header with NUMBER bytes of content.
+
         You can then use the arguments related to the body:
 
         \-body STRING
@@ -346,10 +354,18 @@ txreq|txresp [...]
                 Combine -body and -gzipbody: create a body of length NUMBER,
                 zip it and send as body.
 
+
+write_body STRING
+	Write the body of a request or a response to a file. By using the
+	shell command, higher-level checks on the body can be performed
+	(eg. XML, JSON, ...) provided that such checks can be delegated
+	to an external program.
+
 delay
 -----
 
-Take a float as argument and sleep for that number of seconds.
+Sleep for the number of seconds specified in the argument. The number
+can include a fractional part, e.g. 1.5.
 
 err_shell
 ---------
@@ -465,14 +481,98 @@ tag:  [tagname|*|=]
         Tag to match against
 
 regex:
-        regular expression to match against (optional) ('*' is anything, '='
-        is the value of the last matched record)
+        regular expression to match against (optional)
+
+For skip, vxid and tag, '*' matches anything, '=' expects the value of the
+previous matched record.
+
+process
+-------
+
+Run a process in the background with stdout and stderr redirected to
+${pNAME_out} and ${pNAME_err}, both located in ${pNAME_dir}::
+
+	process pNAME SPEC [-log] [-start] [-wait] [-run] [-kill STRING] \
+		[-stop] [-write STRING] [-writeln STRING] [-close]
+
+pNAME
+	Name of the process. It must start with 'p'.
+
+SPEC
+	The command(s) to run in this process.
+
+\-log
+	Log stdout/stderr with vtc_dump(). Must be before -start/-run.
+
+\-start
+	Start the process.
+
+\-wait
+	Wait for the process to finish.
+
+\-run
+	Shorthand for -start -wait.
+
+	In most cases, if you just want to start a process and wait for it
+	to finish, you can use the varnishtest ``shell`` command instead.
+	The following commands are equivalent::
+
+	    shell "do --something"
+
+	    process p1 "do --something" -run
+
+	However, you may use the the ``process`` variant to conveniently
+	collect the standard input and output without dealing with shell
+	redirections yourself. The ``shell`` command can also expect an
+	expression from either output, consider using it if you only need
+	to match one.
+
+\-kill STRING
+	Send a signal to the process. The argument can be either
+	the string "TERM", "INT", or "KILL" for SIGTERM, SIGINT or SIGKILL
+	signals, respectively, or a hyphen (-) followed by the signal
+	number.
+
+	If you need to use other signal names, you can use the ``kill``\(1)
+	command directly::
+
+	    shell "kill -USR1 ${pNAME_pid}"
+
+	Note that SIGHUP usage is discouraged in test cases.
+
+\-stop
+	Shorthand for -kill TERM.
+
+\-write STRING
+	Write a string to the process' stdin.
+
+\-writeln STRING
+	Same as -write followed by a newline (\\n).
+
+\-close
+	Close the process' stdin.
+
+
+setenv
+------
+
+Set or change an environment variable::
+
+        setenv FOO "bar baz"
+
+The above will set the environment variable $FOO to the value
+provided. There is also an ``-ifunset`` argument which will only
+set the value if the the environment variable does not already
+exist::
+
+       setenv -ifunset FOO quux
 
 shell
 -----
 
-Pass the string given as argument to a shell. If you have multiple commands
-to run, you can use curly barces to describe a multi-lines script, eg::
+Pass the string given as argument to a shell. If you have multiple
+commands to run, you can use curly barces to describe a multi-lines
+script, eg::
 
         shell {
                 echo begin
@@ -480,7 +580,24 @@ to run, you can use curly barces to describe a multi-lines script, eg::
                 echo end
         }
 
-The vtc will fail if the return code of the shell is not 0.
+By default a zero exit code is expected, otherwise the vtc will fail.
+
+Notice that the commandstring is prefixed with "exec 2>&1;" to join
+stderr and stdout back to the varnishtest process.
+
+Optional arguments:
+
+\-err
+	Expect non-zero exit code.
+
+\-exit N
+	Expect exit code N instead of zero.
+
+\-expect STRING
+	Expect string to be found in stdout+err.
+
+\-match REGEXP
+	Expect regexp to match the stdout+err output.
 
 stream
 ------
@@ -826,6 +943,10 @@ connection (from stream 0) or of the stream (any other stream).
 \-size INT
 	give INT credits to the peer.
 
+
+write_body STRING
+	Same as the ``write_body`` command for HTTP/1.
+
 expect
 ......
 
@@ -927,6 +1048,10 @@ Once Varnish is started, you can talk to it (as you would through
         style pattern (ie: fnmatch(3)) as used in shell filename expansion.
         To see all counters use pattern "*", to see all counters about
         requests use "*req*".
+
+\-vsl_catchup
+        Wait until the logging thread has idled to make sure that all
+        the generated log is flushed
 
 varnishtest
 -----------
