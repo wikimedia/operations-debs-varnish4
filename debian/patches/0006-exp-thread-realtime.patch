@@ -21,7 +21,7 @@ index c03570389..da9ba22aa 100644
  #define Lck_Unlock(a) Lck__Unlock(a, __func__, __LINE__)
  #define Lck_Trylock(a) Lck__Trylock(a, __func__, __LINE__)
 diff --git a/bin/varnishd/cache/cache_expire.c b/bin/varnishd/cache/cache_expire.c
-index 5c27d0741..2827ae3c5 100644
+index 5c27d0741..6cd079f6d 100644
 --- a/bin/varnishd/cache/cache_expire.c
 +++ b/bin/varnishd/cache/cache_expire.c
 @@ -33,6 +33,7 @@
@@ -32,7 +32,7 @@ index 5c27d0741..2827ae3c5 100644
  
  #include "cache.h"
  
-@@ -575,12 +576,23 @@ exp_thread(struct worker *wrk, void *priv)
+@@ -575,12 +576,25 @@ exp_thread(struct worker *wrk, void *priv)
  	struct objcore *oc;
  	double t = 0, tnext = 0;
  	struct exp_priv *ep;
@@ -45,29 +45,35 @@ index 5c27d0741..2827ae3c5 100644
  	ep->heap = binheap_new(NULL, object_cmp, object_update);
  	AN(ep->heap);
 +
-+	// Pick a realtime policy scheduling (SCHED_FIFO) and bump prio
-+	param.sched_priority = 1;
-+	s = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-+	if (s != 0) {
-+		perror("pthread_getschedparam");
-+		exit(EXIT_FAILURE);
++	if (cache_param->exp_thread_rt) {
++		// Pick a realtime policy scheduling (SCHED_FIFO) and bump prio
++		param.sched_priority = 1;
++		s = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
++		if (s != 0) {
++			perror("pthread_getschedparam");
++			exit(EXIT_FAILURE);
++		}
 +	}
 +
  	while (1) {
  
  		Lck_Lock(&ep->mtx);
-@@ -617,7 +629,8 @@ EXP_Init(void)
+@@ -617,7 +631,12 @@ EXP_Init(void)
  	ALLOC_OBJ(ep, EXP_PRIV_MAGIC);
  	AN(ep);
  
 -	Lck_New(&ep->mtx, lck_exp);
-+	Lck_New_Inherit(&ep->mtx, lck_exp);
++	if (cache_param->exp_lck_inherit) {
++		Lck_New_Inherit(&ep->mtx, lck_exp);
++	} else {
++		Lck_New(&ep->mtx, lck_exp);
++	}
 +
  	AZ(pthread_cond_init(&ep->condvar, NULL));
  	VTAILQ_INIT(&ep->inbox);
  	AZ(pthread_rwlock_init(&ep->cb_rwl, NULL));
 diff --git a/bin/varnishd/cache/cache_lck.c b/bin/varnishd/cache/cache_lck.c
-index 90190dcea..8078b3194 100644
+index 90190dcea..782d3778f 100644
 --- a/bin/varnishd/cache/cache_lck.c
 +++ b/bin/varnishd/cache/cache_lck.c
 @@ -209,7 +209,7 @@ Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double when)
@@ -90,3 +96,42 @@ index 90190dcea..8078b3194 100644
  	AZ(pthread_mutex_init(&ilck->mtx, &attr));
  	lck->priv = ilck;
  }
+diff --git a/include/tbl/params.h b/include/tbl/params.h
+index ab80349a8..33feb8d87 100644
+--- a/include/tbl/params.h
++++ b/include/tbl/params.h
+@@ -416,6 +416,34 @@ PARAM(
+ 	/* func */	NULL
+ )
+ 
++PARAM(
++	/* name */	exp_thread_rt,
++	/* typ */	bool,
++	/* min */	NULL,
++	/* max */	NULL,
++	/* default */	"off",
++	/* units */	"bool",
++	/* flags */	MUST_RESTART | EXPERIMENTAL,
++	/* s-text */
++	"Use a realtime scheduling policy for expiry thread.",
++	/* l-text */	NULL,
++	/* func */	NULL
++)
++
++PARAM(
++	/* name */	exp_lck_inherit,
++	/* typ */	bool,
++	/* min */	NULL,
++	/* max */	NULL,
++	/* default */	"off",
++	/* units */	"bool",
++	/* flags */	MUST_RESTART | EXPERIMENTAL,
++	/* s-text */
++	"Set expiry thread lock mutex protocol to PTHREAD_PRIO_INHERIT.",
++	/* l-text */	NULL,
++	/* func */	NULL
++)
++
+ #if 0
+ /* actual location mgt_param_bits.c*/
+ /* See tbl/feature_bits.h */
