@@ -87,7 +87,8 @@ libvarnishapi.so.1 libvarnishapi1 #MINVER#
  VSM_ResetError@LIBVARNISHAPI_1.3 4.0.0~
 #MISSING: 4.0.0~# VSM_Seq@LIBVARNISHAPI_1.0 3.0.0
  VSM_StillValid@LIBVARNISHAPI_1.3 4.0.0~
-#MISSING: 4.0.0~# VSM_iter0@LIBVARNISHAPI_1.0 3.0.0
+ VSM__iter0@LIBVARNISHAPI_1.0 3.0.0
+ VSM__itern@LIBVARNISHAPI_1.0 3.0.0
  VSM_n_Arg@LIBVARNISHAPI_1.0 3.0.0
 #MISSING: 3.0.0# base64_decode@Base 2.0~rc1
 #MISSING: 3.0.0# base64_init@Base 2.0~rc1
