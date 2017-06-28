@@ -1,0 +1,94 @@
+diff --git a/bin/varnishd/cache/cache_fetch.c b/bin/varnishd/cache/cache_fetch.c
+index 8cb14fe1b..6f6215311 100644
+--- a/bin/varnishd/cache/cache_fetch.c
++++ b/bin/varnishd/cache/cache_fetch.c
+@@ -55,8 +55,14 @@ vbf_allocobj(struct busyobj *bo, unsigned l)
+ 
+ 	lifetime = oc->exp.ttl + oc->exp.grace + oc->exp.keep;
+ 
+-	if (bo->uncacheable || lifetime < cache_param->shortlived)
++	if (bo->uncacheable) {
++		bo->wrk->stats->cache_uncacheable++;
+ 		storage_hint = TRANSIENT_STORAGE;
++	}
++	else if (lifetime < cache_param->shortlived) {
++		bo->wrk->stats->cache_shortlived++;
++		storage_hint = TRANSIENT_STORAGE;
++	}
+ 	else
+ 		storage_hint = bo->storage_hint;
+ 
+diff --git a/include/tbl/vsc_f_main.h b/include/tbl/vsc_f_main.h
+index ab926d9b7..4ad35f681 100644
+--- a/include/tbl/vsc_f_main.h
++++ b/include/tbl/vsc_f_main.h
+@@ -105,6 +105,19 @@ VSC_F(cache_miss,		uint64_t, 1, 'c', 'i', info,
+ 	"  backend before delivering it to the client."
+ )
+ 
++VSC_F(cache_shortlived,		uint64_t, 1, 'c', 'i', info,
++    "Shortlived objects",
++	"Count of shortlived objects"
++	"  Objects created with (ttl+grace+keep) shorter than the"
++	"  'shortlived' parameter are always put in transient"
++	"  storage."
++)
++
++VSC_F(cache_uncacheable,		uint64_t, 1, 'c', 'i', info,
++    "Uncacheable objects",
++	"Count of uncacheable objects"
++)
++
+ /*---------------------------------------------------------------------*/
+ 
+ VSC_F(backend_conn,		uint64_t, 0, 'c', 'i', info,
+diff --git a/bin/varnishtest/tests/b00051.vtc b/bin/varnishtest/tests/b00051.vtc
+new file mode 100644
+index 000000000..2e9fb65bb
+--- /dev/null
++++ b/bin/varnishtest/tests/b00051.vtc
+@@ -0,0 +1,44 @@
++varnishtest "Test cache_{shortlived,uncacheable} counters"
++
++server s1 {
++       rxreq
++       txresp -hdr "Cache-Control: max-age=2"
++
++       rxreq
++       txresp -hdr "Cache-Control: max-age=5"
++
++       rxreq
++       txresp -hdr "Cache-Control: no-cache"
++
++       rxreq
++       txresp
++} -start
++
++varnish v1 -arg "-pshortlived=30" -vcl+backend {} -start
++
++varnish v1 -expect cache_shortlived == 0
++varnish v1 -expect cache_uncacheable == 0
++varnish v1 -expect cache_miss == 0
++varnish v1 -expect cache_hit == 0
++
++client c1 {
++    txreq -url "/banana"
++    rxresp
++
++    txreq -url "/potato"
++    rxresp
++
++    txreq -url "/gelato"
++    rxresp
++
++    txreq -url "/naaaah"
++    rxresp
++
++    txreq -url "/naaaah"
++    rxresp
++} -run
++
++varnish v1 -expect cache_shortlived == 2
++varnish v1 -expect cache_uncacheable == 1
++varnish v1 -expect cache_miss == 4
++varnish v1 -expect cache_hit == 1

@@ -1,3 +1,32 @@
+varnish (4.1.7-1wm1) jessie-wikimedia; urgency=medium
+
+  * New upstream release
+    - Correctly honor nuke_limit parameter
+      https://github.com/varnishcache/varnish-cache/issues/1764
+    - Prevent storage backends name collisions
+      https://github.com/varnishcache/varnish-cache/issues/2321
+    - varnishstat -1 -f field inclusion glob doesn't allow VBE backend fields
+      https://github.com/varnishcache/varnish-cache/issues/2022
+    - Health probes fail when HTTP response does not contain reason phrase
+      https://github.com/varnishcache/varnish-cache/issues/2069
+    - "varnishstat -f MAIN.sess_conn -1" produces empty output
+      https://github.com/varnishcache/varnish-cache/issues/2118
+    - Remember to reset workspace
+      https://github.com/varnishcache/varnish-cache/issues/2219
+    - Rework and fix varnishstat counter filtering
+      https://github.com/varnishcache/varnish-cache/issues/2320
+    - Docfix: Only root can jail
+      https://github.com/varnishcache/varnish-cache/issues/2329
+    - Don't panic on a null ban
+    - Add extra locking to protect the pools list and refcounts
+    - Add -vsl_catchup to varnishtest
+    - Add record-prefix support to varnishncsa
+
+  * Add varnish-counters: cache_shortlived, cache_uncacheable.
+    Bug: #T164768
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Wed, 28 Jun 2017 12:17:48 +0200
+
 varnish (4.1.6-1wm1) jessie-wikimedia; urgency=medium
 
   * New upstream release
