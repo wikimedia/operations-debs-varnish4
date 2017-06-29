@@ -209,8 +209,8 @@ required set. Only available on platforms which have the setppriv(2)
 call.
 .TP
 .BI \-j \ <unix[,user=\(gauser\(ga][,ccgroup=\(gagroup\(ga][,workuser=\(gauser\(ga]>
-Default on all other platforms when \fIvarnishd\fP is either started with
-an effective uid of 0 ("as root") or as user \fBvarnish\fP\&.
+Default on all other platforms when \fIvarnishd\fP is started with an
+effective uid of 0 ("as root").
 .sp
 With the \fBunix\fP jail mechanism activated, varnish will switch to
 an alternative user for subprocesses and change the effective uid of
