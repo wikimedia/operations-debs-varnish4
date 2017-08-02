@@ -381,8 +381,9 @@ failing the test case otherwise.
 feature
 -------
 
-Test that the required feature(s) for a test are available, and skip the test
-otherwise. feature takes any number of arguments from this list:
+Test that the required feature(s) for a test are available, and skip
+the test otherwise; or change the interpretation of the test, as
+documented below. feature takes any number of arguments from this list:
 
 SO_RCVTIMEO_WORKS
        The SO_RCVTIMEO socket option is working
@@ -404,6 +405,13 @@ group_varnish
        The varnish group is present
 cmd <command-line>
        A command line that should execute with a zero exit status
+ignore_unknown_macro
+       Do not fail the test if a string of the form ${...} is not
+       recognized as a macro.
+
+Be careful with the last feature, because it may cause a test with a
+misspelled macro to fail silently. You should only need it if you must
+run a test with strings of the form "${...}".
 
 logexpect
 ---------
@@ -826,13 +834,13 @@ rxgoaway
 
 Receive a GOAWAY frame.
 
-rxgoaway
+txgoaway
 ........
 
 Possible options include:
 
 \-err STRING|INT
-	set the error code to eplain the termination. The second argument
+	set the error code to explain the termination. The second argument
 	can be a integer or the string version of the error code as found
 	in rfc7540#7.
 
@@ -975,7 +983,7 @@ start the child.
 With:
 
 vNAME
-        Identify the Varnish server with a string, it must starts with 'v'.
+	   Identify the Varnish server with a string, it must starts with 'v'.
 
 \-arg STRING
         Pass an argument to varnishd, for example "-h simple_list".
@@ -1023,7 +1031,7 @@ You can decide to start the Varnish instance and/or wait for several events::
 
 \-cleanup
         Once Varnish is stopped, clean everything after it. This is only used
-        in one test and you should never need it.
+        in very few tests and you should never need it.
 
 Once Varnish is started, you can talk to it (as you would through
 ``varnishadm``) with these additional switches::

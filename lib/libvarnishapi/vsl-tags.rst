@@ -547,7 +547,7 @@ TTL - TTL set on object
 Timestamp - Timing information
 	Contains timing information for the Varnish worker threads.
 	
-	Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.
+	Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See the TIMESTAMPS section below for information about the individual time stamps.
 	
 	The format is::
 	

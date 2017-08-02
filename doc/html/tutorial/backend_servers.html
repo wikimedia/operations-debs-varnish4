@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Backend servers &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Backend servers &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Tutorial" href="index.html" />
     <link rel="next" title="Peculiarities" href="peculiarities.html" />
     <link rel="prev" title="Put Varnish on port 80" href="putting_varnish_on_port_80.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="putting_varnish_on_port_80.html" title="Put Varnish on port 80"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Tutorial</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Tutorial</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="backend-servers">
 <span id="tutorial-backend-servers"></span><h1>Backend servers<a class="headerlink" href="#backend-servers" title="Permalink to this headline">¶</a></h1>
@@ -62,12 +64,12 @@ file. If you installed from source this is
 is probably <cite>/etc/varnish/default.vcl</cite>.</p>
 <p>If you've been following the tutorial there is probably a section of
 the configuration that looks like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>vcl 4.0;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">vcl</span> <span class="mf">4.0</span><span class="p">;</span>
 
-backend default {
-    .host = &quot;www.varnish-cache.org&quot;;
-    .port = &quot;80&quot;;
-}
+<span class="n">backend</span> <span class="n">default</span> <span class="p">{</span>
+    <span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s2">&quot;www.varnish-cache.org&quot;</span><span class="p">;</span>
+    <span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="s2">&quot;80&quot;</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>This means we set up a backend in Varnish that fetches content from
@@ -78,12 +80,12 @@ server. We've already bound Varnish to the public port 80 on the
 server so now we need to tie it to the origin.</p>
 <p>For this example, let's pretend the origin server is running on
 localhost, port 8080.:</p>
-<div class="highlight-python"><div class="highlight"><pre>vcl 4.0;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">vcl</span> <span class="mf">4.0</span><span class="p">;</span>
 
-backend default {
-  .host = &quot;127.0.0.1&quot;;
-  .port = &quot;8080&quot;;
-}
+<span class="n">backend</span> <span class="n">default</span> <span class="p">{</span>
+  <span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s2">&quot;127.0.0.1&quot;</span><span class="p">;</span>
+  <span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="s2">&quot;8080&quot;</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Varnish can have several backends defined and can even join several backends
@@ -96,7 +98,7 @@ pick one backend based on different algorithms.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h4>Previous topic</h4>
   <p class="topless"><a href="putting_varnish_on_port_80.html"
@@ -104,29 +106,28 @@ pick one backend based on different algorithms.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="peculiarities.html"
                         title="next chapter">Peculiarities</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/tutorial/backend_servers.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/tutorial/backend_servers.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -138,13 +139,13 @@ pick one backend based on different algorithms.</p>
         <li class="right" >
           <a href="putting_varnish_on_port_80.html" title="Put Varnish on port 80"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Tutorial</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Tutorial</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

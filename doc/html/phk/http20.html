@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Why HTTP/2.0 does not seem interesting &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Why HTTP/2.0 does not seem interesting &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="Varnish Does Not Hash" href="varnish_does_not_hash.html" />
     <link rel="prev" title="What SPDY did to my summer vacation" href="spdy.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,24 +43,24 @@
         <li class="right" >
           <a href="spdy.html" title="What SPDY did to my summer vacation"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="why-http-2-0-does-not-seem-interesting">
 <span id="phk-http20-lack-of-interest"></span><h1>Why HTTP/2.0 does not seem interesting<a class="headerlink" href="#why-http-2-0-does-not-seem-interesting" title="Permalink to this headline">¶</a></h1>
 <p>This is the email I sent to the IETF HTTP Working Group:</p>
-<div class="highlight-python"><div class="highlight"><pre>From:    Poul-Henning Kamp &lt;phk@phk.freebsd.dk&gt;
-Subject: HTTP/2 Expression of luke-warm interest: Varnish
-To:      HTTP Working Group &lt;ietf-http-wg@w3.org&gt;
-Message-Id: &lt;41677.1342136900@critter.freebsd.dk&gt;
-Date:    Thu, 12 Jul 2012 23:48:20 GMT
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">From</span><span class="p">:</span>    <span class="n">Poul</span><span class="o">-</span><span class="n">Henning</span> <span class="n">Kamp</span> <span class="o">&lt;</span><span class="n">phk</span><span class="nd">@phk</span><span class="o">.</span><span class="n">freebsd</span><span class="o">.</span><span class="n">dk</span><span class="o">&gt;</span>
+<span class="n">Subject</span><span class="p">:</span> <span class="n">HTTP</span><span class="o">/</span><span class="mi">2</span> <span class="n">Expression</span> <span class="n">of</span> <span class="n">luke</span><span class="o">-</span><span class="n">warm</span> <span class="n">interest</span><span class="p">:</span> <span class="n">Varnish</span>
+<span class="n">To</span><span class="p">:</span>      <span class="n">HTTP</span> <span class="n">Working</span> <span class="n">Group</span> <span class="o">&lt;</span><span class="n">ietf</span><span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">wg</span><span class="nd">@w3</span><span class="o">.</span><span class="n">org</span><span class="o">&gt;</span>
+<span class="n">Message</span><span class="o">-</span><span class="n">Id</span><span class="p">:</span> <span class="o">&lt;</span><span class="mf">41677.1342136900</span><span class="nd">@critter</span><span class="o">.</span><span class="n">freebsd</span><span class="o">.</span><span class="n">dk</span><span class="o">&gt;</span>
+<span class="n">Date</span><span class="p">:</span>    <span class="n">Thu</span><span class="p">,</span> <span class="mi">12</span> <span class="n">Jul</span> <span class="mi">2012</span> <span class="mi">23</span><span class="p">:</span><span class="mi">48</span><span class="p">:</span><span class="mi">20</span> <span class="n">GMT</span>
 </pre></div>
 </div>
 <p>This is Varnish' response to the call for expression of interest
@@ -292,7 +294,7 @@ people will start to use, the Varnish project will be interested.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -316,29 +318,28 @@ people will start to use, the Varnish project will be interested.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="varnish_does_not_hash.html"
                         title="next chapter">Varnish Does Not Hash</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/phk/http20.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/phk/http20.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -350,13 +351,13 @@ people will start to use, the Varnish project will be interested.</p>
         <li class="right" >
           <a href="spdy.html" title="What SPDY did to my summer vacation"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

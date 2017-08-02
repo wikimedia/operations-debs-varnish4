@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Content composition with Edge Side Includes &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Content composition with Edge Side Includes &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Users Guide" href="index.html" />
     <link rel="next" title="Troubleshooting Varnish" href="troubleshooting.html" />
     <link rel="prev" title="Compression" href="compression.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="compression.html" title="Compression"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Users Guide</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Users Guide</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="content-composition-with-edge-side-includes">
 <span id="users-guide-esi"></span><h1>Content composition with Edge Side Includes<a class="headerlink" href="#content-composition-with-edge-side-includes" title="Permalink to this headline">¶</a></h1>
@@ -62,7 +64,7 @@ in all the other pages.</p>
 your hit rate and reduce the load on your servers.</p>
 <p>In Varnish we've only so far implemented a small subset of ESI. As of version 2.1 we
 have three ESI statements:</p>
-<div class="highlight-python"><div class="highlight"><pre>esi:include
+<div class="highlight-default"><div class="highlight"><pre><span></span>esi:include
 esi:remove
 &lt;!--esi ...--&gt;
 </pre></div>
@@ -75,32 +77,32 @@ certain angle. During a full moon.</p>
 <h2>Example: esi:include<a class="headerlink" href="#example-esi-include" title="Permalink to this headline">¶</a></h2>
 <p>Lets see an example how this could be used. This simple cgi script
 outputs the date:</p>
-<div class="highlight-python"><div class="highlight"><pre>#!/bin/sh
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="ch">#!/bin/sh</span>
 
-echo &#39;Content-type: text/html&#39;
-echo &#39;&#39;
-date &quot;+%Y-%m-%d %H:%M&quot;
+<span class="n">echo</span> <span class="s1">&#39;Content-type: text/html&#39;</span>
+<span class="n">echo</span> <span class="s1">&#39;&#39;</span>
+<span class="n">date</span> <span class="s2">&quot;+%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M&quot;</span>
 </pre></div>
 </div>
 <p>Now, lets have an HTML file that has an ESI include statement:</p>
-<div class="highlight-python"><div class="highlight"><pre>&lt;HTML&gt;
-&lt;BODY&gt;
-The time is: &lt;esi:include src=&quot;/cgi-bin/date.cgi&quot;/&gt;
-at this very moment.
-&lt;/BODY&gt;
-&lt;/HTML&gt;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">HTML</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">BODY</span><span class="o">&gt;</span>
+<span class="n">The</span> <span class="n">time</span> <span class="ow">is</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">esi</span><span class="p">:</span><span class="n">include</span> <span class="n">src</span><span class="o">=</span><span class="s2">&quot;/cgi-bin/date.cgi&quot;</span><span class="o">/&gt;</span>
+<span class="n">at</span> <span class="n">this</span> <span class="n">very</span> <span class="n">moment</span><span class="o">.</span>
+<span class="o">&lt;/</span><span class="n">BODY</span><span class="o">&gt;</span>
+<span class="o">&lt;/</span><span class="n">HTML</span><span class="o">&gt;</span>
 </pre></div>
 </div>
 <p>For ESI to work you need to activate ESI processing in VCL, like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
-    if (bereq.url == &quot;/test.html&quot;) {
-       set beresp.do_esi = true; // Do ESI processing
-       set beresp.ttl = 24 h;    // Sets the TTL on the HTML above
-    } elseif (bereq.url == &quot;/cgi-bin/date.cgi&quot;) {
-       set beresp.ttl = 1m;      // Sets a one minute TTL on
-                                 // the included object
-    }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">bereq</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;/test.html&quot;</span><span class="p">)</span> <span class="p">{</span>
+       <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_esi</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span> <span class="o">//</span> <span class="n">Do</span> <span class="n">ESI</span> <span class="n">processing</span>
+       <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">ttl</span> <span class="o">=</span> <span class="mi">24</span> <span class="n">h</span><span class="p">;</span>    <span class="o">//</span> <span class="n">Sets</span> <span class="n">the</span> <span class="n">TTL</span> <span class="n">on</span> <span class="n">the</span> <span class="n">HTML</span> <span class="n">above</span>
+    <span class="p">}</span> <span class="n">elseif</span> <span class="p">(</span><span class="n">bereq</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;/cgi-bin/date.cgi&quot;</span><span class="p">)</span> <span class="p">{</span>
+       <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">ttl</span> <span class="o">=</span> <span class="mi">1</span><span class="n">m</span><span class="p">;</span>      <span class="o">//</span> <span class="n">Sets</span> <span class="n">a</span> <span class="n">one</span> <span class="n">minute</span> <span class="n">TTL</span> <span class="n">on</span>
+                                 <span class="o">//</span> <span class="n">the</span> <span class="n">included</span> <span class="nb">object</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -116,7 +118,7 @@ ESI processors will remove <cite>&lt;esi:remove&gt;</cite> tags and all content 
 in them, allowing you to only render the content when the page is not
 being ESI-processed.
 For example:</p>
-<div class="highlight-python"><div class="highlight"><pre>&lt;esi:remove&gt;
+<div class="highlight-default"><div class="highlight"><pre><span></span>&lt;esi:remove&gt;
   &lt;a href=&quot;http://www.example.com/LICENSE&quot;&gt;The license&lt;/a&gt;
 &lt;/esi:remove&gt;
 &lt;!--esi
@@ -139,7 +141,7 @@ the 'esi_syntax' parameter (see ref:<cite>ref-varnishd</cite>).</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -157,29 +159,28 @@ the 'esi_syntax' parameter (see ref:<cite>ref-varnishd</cite>).</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="troubleshooting.html"
                         title="next chapter">Troubleshooting Varnish</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/users-guide/esi.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/users-guide/esi.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -191,13 +192,13 @@ the 'esi_syntax' parameter (see ref:<cite>ref-varnishd</cite>).</p>
         <li class="right" >
           <a href="compression.html" title="Compression"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

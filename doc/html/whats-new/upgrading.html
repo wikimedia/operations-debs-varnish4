@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Upgrading to Varnish 4.1 &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Upgrading to Varnish 4.1 &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="What&#39;s new in Varnish 4.1" href="index.html" />
     <link rel="next" title="Upgrading to Varnish 4.0" href="upgrade-4.0.html" />
     <link rel="prev" title="Changes in Varnish 4.1" href="changes.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="changes.html" title="Changes in Varnish 4.1"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="upgrading-to-varnish-4-1">
 <span id="whatsnew-upgrade41"></span><h1>Upgrading to Varnish 4.1<a class="headerlink" href="#upgrading-to-varnish-4-1" title="Permalink to this headline">¶</a></h1>
@@ -65,7 +67,7 @@ argument <em>fallback</em>, which is returned if the conversion does not succeed
 <p>The VCL syntax has not chanced significantly, and as such the Varnish 4.0
 version marker is kept for Varnish 4.1.</p>
 <p>One of the initial lines in a Varnish 4.1 VCL should read:</p>
-<div class="highlight-python"><div class="highlight"><pre>vcl 4.0;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">vcl</span> <span class="mf">4.0</span><span class="p">;</span>
 </pre></div>
 </div>
 </div>
@@ -79,16 +81,16 @@ preamble. On normal HTTP listeners the behaviour is unchanged.</p>
 </div>
 <div class="section" id="management-interface">
 <h2>Management interface<a class="headerlink" href="#management-interface" title="Permalink to this headline">¶</a></h2>
-<p>The management interface enabled with <tt class="docutils literal"><span class="pre">-M</span></tt> previously supported the telnet
+<p>The management interface enabled with <code class="docutils literal"><span class="pre">-M</span></code> previously supported the telnet
 protocol.</p>
 <p>Support for telnet control sequences have been retired. Replacement clients
-like netcat or (preferred) <tt class="docutils literal"><span class="pre">varnishadm</span></tt> should be used instead.</p>
+like netcat or (preferred) <code class="docutils literal"><span class="pre">varnishadm</span></code> should be used instead.</p>
 </div>
 <div class="section" id="runtime-users-and-groups">
 <h2>Runtime users and groups<a class="headerlink" href="#runtime-users-and-groups" title="Permalink to this headline">¶</a></h2>
 <p>With the new jail support, an additional runtime user (<cite>vcache</cite>) should be used
 for the Varnish worker child process.</p>
-<p>Additionally, the <tt class="docutils literal"><span class="pre">varnishlog</span></tt>, <tt class="docutils literal"><span class="pre">varnishncsa</span></tt> and other Varnish shared log
+<p>Additionally, the <code class="docutils literal"><span class="pre">varnishlog</span></code>, <code class="docutils literal"><span class="pre">varnishncsa</span></code> and other Varnish shared log
 utilities must now be run in a context with <cite>varnish</cite> group membership.</p>
 </div>
 <div class="section" id="changes-to-parameters">
@@ -112,7 +114,7 @@ replaced as the active VCL.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -136,29 +138,28 @@ replaced as the active VCL.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="upgrade-4.0.html"
                         title="next chapter">Upgrading to Varnish 4.0</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/whats-new/upgrading.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/whats-new/upgrading.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -170,13 +171,13 @@ replaced as the active VCL.</p>
         <li class="right" >
           <a href="changes.html" title="Changes in Varnish 4.1"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >What's new in Varnish 4.1</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >What's new in Varnish 4.1</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

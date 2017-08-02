@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Achieving a high hitrate &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Achieving a high hitrate &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Varnish and Website Performance" href="performance.html" />
     <link rel="next" title="Purging and banning" href="purging.html" />
     <link rel="prev" title="Varnish and Website Performance" href="performance.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,16 +43,16 @@
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="performance.html" accesskey="U">Varnish and Website Performance</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="achieving-a-high-hitrate">
 <span id="users-guide-increasing-your-hitrate"></span><h1>Achieving a high hitrate<a class="headerlink" href="#achieving-a-high-hitrate" title="Permalink to this headline">¶</a></h1>
@@ -66,24 +68,24 @@ you should find useful to understand what is happening in your
 Varnish setup.</p>
 <p>Note that you need a tool to see the HTTP headers that fly between
 Varnish and the backend. On the Varnish server, the easiest way to do
-this is to use <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><em>varnishlog</em></a> and <a class="reference internal" href="../reference/varnishtop.html#varnishtop-1"><em>varnishtop</em></a> but
+this is to use <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a> and <a class="reference internal" href="../reference/varnishtop.html#varnishtop-1"><span class="std std-ref">varnishtop</span></a> but
 sometimes a client-side tool makes sense. Here are the ones we
 commonly use.</p>
 <div class="section" id="tool-varnishtop">
 <h2>Tool: varnishtop<a class="headerlink" href="#tool-varnishtop" title="Permalink to this headline">¶</a></h2>
 <p>You can use varnishtop to identify what URLs are hitting the backend
-the most. <tt class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">BereqURL</span></tt> is an essential command, showing
+the most. <code class="docutils literal"><span class="pre">varnishtop</span> <span class="pre">-i</span> <span class="pre">BereqURL</span></code> is an essential command, showing
 you the top requests Varnish is sending to the backend. You can see some
-other examples of <a class="reference internal" href="../reference/varnishtop.html#varnishtop-1"><em>varnishtop</em></a> usage in <a class="reference internal" href="operation-statistics.html#users-guide-statistics"><em>Statistics</em></a>.</p>
+other examples of <a class="reference internal" href="../reference/varnishtop.html#varnishtop-1"><span class="std std-ref">varnishtop</span></a> usage in <a class="reference internal" href="operation-statistics.html#users-guide-statistics"><span class="std std-ref">Statistics</span></a>.</p>
 </div>
 <div class="section" id="tool-varnishlog">
 <h2>Tool: varnishlog<a class="headerlink" href="#tool-varnishlog" title="Permalink to this headline">¶</a></h2>
 <p>When you have identified an URL which is frequently sent to the
-backend you can use <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><em>varnishlog</em></a> to have a look at the
-request.  <tt class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-q</span> <span class="pre">'ReqURL</span> <span class="pre">~</span> <span class="pre">&quot;^/foo/bar&quot;'</span></tt> will show you the
+backend you can use <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a> to have a look at the
+request.  <code class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-q</span> <span class="pre">'ReqURL</span> <span class="pre">~</span> <span class="pre">&quot;^/foo/bar&quot;'</span></code> will show you the
 requests coming from the client matching <cite>/foo/bar</cite>.</p>
-<p>For more information on how <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><em>varnishlog</em></a> works please see
-<a class="reference internal" href="operation-logging.html#users-guide-logging"><em>Logging in Varnish</em></a> or then man page.</p>
+<p>For more information on how <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a> works please see
+<a class="reference internal" href="operation-logging.html#users-guide-logging"><span class="std std-ref">Logging in Varnish</span></a> or then man page.</p>
 <p>For extended diagnostics headers, see
 <a class="reference external" href="https://www.varnish-cache.org/trac/wiki/VCLExampleHitMissHeader">https://www.varnish-cache.org/trac/wiki/VCLExampleHitMissHeader</a></p>
 </div>
@@ -92,11 +94,11 @@ requests coming from the client matching <cite>/foo/bar</cite>.</p>
 <p><cite>lwp-request</cite> is tool that is a part of The World-Wide Web library
 for Perl. It's a couple of really basic programs that can execute
 an HTTP request and show you the result. We mostly use the two
-programs, <tt class="docutils literal"><span class="pre">GET</span></tt> and <tt class="docutils literal"><span class="pre">HEAD</span></tt>.</p>
+programs, <code class="docutils literal"><span class="pre">GET</span></code> and <code class="docutils literal"><span class="pre">HEAD</span></code>.</p>
 <p>vg.no was the first site to use Varnish and the people running Varnish
 there are quite clueful. So it's interesting to look at their HTTP
 Headers. Let's send a GET request for their home page:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ GET -H &#39;Host: www.vg.no&#39; -Used http://vg.no/
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ GET -H &#39;Host: www.vg.no&#39; -Used http://vg.no/
 GET http://vg.no/
 Host: www.vg.no
 User-Agent: lwp-request/5.834 libwww-perl/5.834
@@ -114,7 +116,7 @@ X-VG-WebCache: joanie
 X-VG-WebServer: leon
 </pre></div>
 </div>
-<p>OK. Lets look at what <tt class="docutils literal"><span class="pre">GET</span></tt> does. <tt class="docutils literal"><span class="pre">GET</span></tt> usually sends off HTTP 0.9
+<p>OK. Lets look at what <code class="docutils literal"><span class="pre">GET</span></code> does. <code class="docutils literal"><span class="pre">GET</span></code> usually sends off HTTP 0.9
 requests, which lack the 'Host' header. So we add a 'Host' header with the
 '-H' option. '-U' print request headers, '-s' prints response status, '-e'
 prints response headers and '-d' discards the actual content. We don't
@@ -124,7 +126,7 @@ headers. Some of the headers, like the 'X-Rick-Would-Never' are specific
 to vg.no and their somewhat odd sense of humour. Others, like the
 'X-VG-Webcache' are for debugging purposes.</p>
 <p>So, to check whether a site sets cookies for a specific URL, just do:</p>
-<div class="highlight-python"><div class="highlight"><pre>GET -Used http://example.com/ |grep ^Set-Cookie
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">GET</span> <span class="o">-</span><span class="n">Used</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="o">.</span><span class="n">com</span><span class="o">/</span> <span class="o">|</span><span class="n">grep</span> <span class="o">^</span><span class="n">Set</span><span class="o">-</span><span class="n">Cookie</span>
 </pre></div>
 </div>
 </div>
@@ -167,7 +169,7 @@ interest to the server.</p>
 cookies unless you are accessing a special part of the web site. This
 VCL snippet in <cite>vcl_recv</cite> will disregard cookies unless you are
 accessing <cite>/admin/</cite>:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (!(req.url ~ &quot;^/admin/&quot;)) {
+<div class="highlight-default"><div class="highlight"><pre><span></span>if (!(req.url ~ &quot;^/admin/&quot;)) {
     unset req.http.Cookie;
 }
 </pre></div>
@@ -190,43 +192,43 @@ the client sends cookies Varnish will discard these unnecessary
 cookies in VCL.</p>
 <p>In the following VCL we discard all cookies that start with an
 underscore:</p>
-<div class="highlight-python"><div class="highlight"><pre># Remove has_js and Google Analytics __* cookies.
-set req.http.Cookie = regsuball(req.http.Cookie, &quot;(^|;\s*)(_[_a-z]+|has_js)=[^;]*&quot;, &quot;&quot;);
-# Remove a &quot;;&quot; prefix, if present.
-set req.http.Cookie = regsub(req.http.Cookie, &quot;^;\s*&quot;, &quot;&quot;);
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># Remove has_js and Google Analytics __* cookies.</span>
+<span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="n">regsuball</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">,</span> <span class="s2">&quot;(^|;\s*)(_[_a-z]+|has_js)=[^;]*&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">);</span>
+<span class="c1"># Remove a &quot;;&quot; prefix, if present.</span>
+<span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="n">regsub</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">,</span> <span class="s2">&quot;^;\s*&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">);</span>
 </pre></div>
 </div>
 <p>Lets look at an example where we remove everything except the
 cookies named &quot;COOKIE1&quot; and &quot;COOKIE2&quot; and you can marvel at the &quot;beauty&quot; of it:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    if (req.http.Cookie) {
-        set req.http.Cookie = &quot;;&quot; + req.http.Cookie;
-        set req.http.Cookie = regsuball(req.http.Cookie, &quot;; +&quot;, &quot;;&quot;);
-        set req.http.Cookie = regsuball(req.http.Cookie, &quot;;(COOKIE1|COOKIE2)=&quot;, &quot;; \1=&quot;);
-        set req.http.Cookie = regsuball(req.http.Cookie, &quot;;[^ ][^;]*&quot;, &quot;&quot;);
-        set req.http.Cookie = regsuball(req.http.Cookie, &quot;^[; ]+|[; ]+$&quot;, &quot;&quot;);
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="s2">&quot;;&quot;</span> <span class="o">+</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">;</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="n">regsuball</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">,</span> <span class="s2">&quot;; +&quot;</span><span class="p">,</span> <span class="s2">&quot;;&quot;</span><span class="p">);</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="n">regsuball</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">,</span> <span class="s2">&quot;;(COOKIE1|COOKIE2)=&quot;</span><span class="p">,</span> <span class="s2">&quot;; </span><span class="se">\1</span><span class="s2">=&quot;</span><span class="p">);</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="n">regsuball</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">,</span> <span class="s2">&quot;;[^ ][^;]*&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">);</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="n">regsuball</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">,</span> <span class="s2">&quot;^[; ]+|[; ]+$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">);</span>
 
-        if (req.http.Cookie == &quot;&quot;) {
-            unset req.http.Cookie;
-        }
-    }
-}
+        <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">unset</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>A somewhat simpler example that can accomplish almost the same functionality can be
 found below. Instead of filtering out &quot;other&quot; cookies it instead picks out
 &quot;the one&quot; cookie that is needed, copies it to another header and then
 copies it back to the request, deleting the original cookie header.</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    # save the original cookie header so we can mangle it
-    set req.http.X-Varnish-PHP_SID = req.http.Cookie;
-    # using a capturing sub pattern, extract the continuous string of
-    # alphanumerics that immediately follows &quot;PHPSESSID=&quot;
-    set req.http.X-Varnish-PHP_SID =
-       regsuball(req.http.X-Varnish-PHP_SID, &quot;;? ?PHPSESSID=([a-zA-Z0-9]+)( |;| ;).*&quot;,&quot;\1&quot;);
-    set req.http.Cookie = req.X-Varnish-PHP_SID;
-    unset req.X-Varnish-PHP_SID;
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="c1"># save the original cookie header so we can mangle it</span>
+    <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">Varnish</span><span class="o">-</span><span class="n">PHP_SID</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span><span class="p">;</span>
+    <span class="c1"># using a capturing sub pattern, extract the continuous string of</span>
+    <span class="c1"># alphanumerics that immediately follows &quot;PHPSESSID=&quot;</span>
+    <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">Varnish</span><span class="o">-</span><span class="n">PHP_SID</span> <span class="o">=</span>
+       <span class="n">regsuball</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">Varnish</span><span class="o">-</span><span class="n">PHP_SID</span><span class="p">,</span> <span class="s2">&quot;;? ?PHPSESSID=([a-zA-Z0-9]+)( |;| ;).*&quot;</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\1</span><span class="s2">&quot;</span><span class="p">);</span>
+    <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Cookie</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">Varnish</span><span class="o">-</span><span class="n">PHP_SID</span><span class="p">;</span>
+    <span class="n">unset</span> <span class="n">req</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">Varnish</span><span class="o">-</span><span class="n">PHP_SID</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>There are other scary examples of what can be done in VCL in the
@@ -236,7 +238,7 @@ Varnish Cache Wiki.</p>
 <h2>Cookies coming from the backend<a class="headerlink" href="#cookies-coming-from-the-backend" title="Permalink to this headline">¶</a></h2>
 <p>If your backend server sets a cookie using the 'Set-Cookie' header
 Varnish will not cache the page when using the default configuration.
-A <cite>hit-for-pass</cite> object (see <a class="reference internal" href="vcl-actions.html#user-guide-vcl-actions"><em>actions</em></a>) is
+A <cite>hit-for-pass</cite> object (see <a class="reference internal" href="vcl-actions.html#user-guide-vcl-actions"><span class="std std-ref">actions</span></a>) is
 created.  So, if the backend server acts silly and sets unwanted
 cookies just unset the 'Set-Cookie' header and all should be fine.</p>
 </div>
@@ -248,7 +250,7 @@ for an object.</p>
 <p>So make sure you issue a 'Cache-Control' header with a max-age
 header. You can have a look at what Varnish Software's Drupal server
 issues:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ GET -Used http://www.varnish-software.com/|grep ^Cache-Control
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ GET -Used http://www.varnish-software.com/|grep ^Cache-Control
 Cache-Control: public, max-age=600
 </pre></div>
 </div>
@@ -256,18 +258,18 @@ Cache-Control: public, max-age=600
 <div class="section" id="age">
 <h2>Age<a class="headerlink" href="#age" title="Permalink to this headline">¶</a></h2>
 <p>Varnish adds an 'Age' header to indicate how long the object has been
-kept inside Varnish. You can grep out 'Age' from <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><em>varnishlog</em></a>
-with <tt class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-I</span> <span class="pre">RespHeader:^Age</span></tt>.</p>
+kept inside Varnish. You can grep out 'Age' from <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a>
+with <code class="docutils literal"><span class="pre">varnishlog</span> <span class="pre">-I</span> <span class="pre">RespHeader:^Age</span></code>.</p>
 </div>
 <div class="section" id="pragma">
 <h2>Pragma<a class="headerlink" href="#pragma" title="Permalink to this headline">¶</a></h2>
-<p>An HTTP 1.0 server might send the header <tt class="docutils literal"><span class="pre">Pragma:</span> <span class="pre">nocache</span></tt>. Varnish ignores this
+<p>An HTTP 1.0 server might send the header <code class="docutils literal"><span class="pre">Pragma:</span> <span class="pre">nocache</span></code>. Varnish ignores this
 header. You could easily add support for this header in VCL.</p>
 <p>In <cite>vcl_backend_response</cite>:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (beresp.http.Pragma ~ &quot;nocache&quot;) {
-    set beresp.uncacheable = true;
-    set beresp.ttl = 120s; # how long not to cache this url.
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">beresp</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Pragma</span> <span class="o">~</span> <span class="s2">&quot;nocache&quot;</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">uncacheable</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+    <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">ttl</span> <span class="o">=</span> <span class="mi">120</span><span class="n">s</span><span class="p">;</span> <span class="c1"># how long not to cache this url.</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -283,11 +285,11 @@ setup, be easier to override the TTL in Varnish then to fix your
 somewhat cumbersome backend.</p>
 <p>You need VCL to identify the objects you want and then you set the
 'beresp.ttl' to whatever you want:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
-    if (bereq.url ~ &quot;^/legacy_broken_cms/&quot;) {
-        set beresp.ttl = 5d;
-    }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">bereq</span><span class="o">.</span><span class="n">url</span> <span class="o">~</span> <span class="s2">&quot;^/legacy_broken_cms/&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">ttl</span> <span class="o">=</span> <span class="mi">5</span><span class="n">d</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>This example will set the TTL to 5 days for the old legacy stuff on
@@ -309,9 +311,9 @@ the cache but it isn't really recommended.</p>
 doesn't know they are the same, Varnish will cache different versions of
 every page for every hostname. You can mitigate this in your web server
 configuration by setting up redirects or by using the following VCL:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (req.http.host ~ &quot;(?i)^(www.)?varnish-?software.com&quot;) {
-    set req.http.host = &quot;varnish-software.com&quot;;
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">host</span> <span class="o">~</span> <span class="s2">&quot;(?i)^(www.)?varnish-?software.com&quot;</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s2">&quot;varnish-software.com&quot;</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -324,10 +326,10 @@ HTTP header.</em></p>
 HTTP object being delivered. Clients can request different variants
 of a HTTP object, based on their preference. Their preferences might
 cover stuff like encoding or language. When a client prefers UK
-English this is indicated through <tt class="docutils literal"><span class="pre">Accept-Language:</span> <span class="pre">en-uk</span></tt>. Caches
+English this is indicated through <code class="docutils literal"><span class="pre">Accept-Language:</span> <span class="pre">en-uk</span></code>. Caches
 need to keep these different variants apart and this is done through
 the HTTP response header 'Vary'.</p>
-<p>When a backend server issues a <tt class="docutils literal"><span class="pre">Vary:</span> <span class="pre">Accept-Language</span></tt> it tells
+<p>When a backend server issues a <code class="docutils literal"><span class="pre">Vary:</span> <span class="pre">Accept-Language</span></code> it tells
 Varnish that its needs to cache a separate version for every different
 Accept-Language that is coming from the clients.</p>
 <p>If two clients say they accept the languages &quot;en-us, en-uk&quot; and
@@ -344,19 +346,19 @@ crucial to normalize the headers the backends varies on. Remember,
 just a difference in casing can force different cache entries.</p>
 <p>The following VCL code will normalize the 'Accept-Language' header to
 either &quot;en&quot;, &quot;de&quot; or &quot;fr&quot;, in this order of precedence:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (req.http.Accept-Language) {
-    if (req.http.Accept-Language ~ &quot;en&quot;) {
-        set req.http.Accept-Language = &quot;en&quot;;
-    } elsif (req.http.Accept-Language ~ &quot;de&quot;) {
-        set req.http.Accept-Language = &quot;de&quot;;
-    } elsif (req.http.Accept-Language ~ &quot;fr&quot;) {
-        set req.http.Accept-Language = &quot;fr&quot;;
-    } else {
-        # unknown language. Remove the accept-language header and
-        # use the backend default.
-        unset req.http.Accept-Language
-    }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span> <span class="o">~</span> <span class="s2">&quot;en&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span> <span class="o">=</span> <span class="s2">&quot;en&quot;</span><span class="p">;</span>
+    <span class="p">}</span> <span class="n">elsif</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span> <span class="o">~</span> <span class="s2">&quot;de&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span> <span class="o">=</span> <span class="s2">&quot;de&quot;</span><span class="p">;</span>
+    <span class="p">}</span> <span class="n">elsif</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span> <span class="o">~</span> <span class="s2">&quot;fr&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span> <span class="o">=</span> <span class="s2">&quot;fr&quot;</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="c1"># unknown language. Remove the accept-language header and</span>
+        <span class="c1"># use the backend default.</span>
+        <span class="n">unset</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Accept</span><span class="o">-</span><span class="n">Language</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <div class="section" id="vary-parse-errors">
@@ -368,7 +370,7 @@ log entry is added in these cases.</p>
 </div>
 <div class="section" id="pitfall-vary-user-agent">
 <h2>Pitfall - Vary: User-Agent<a class="headerlink" href="#pitfall-vary-user-agent" title="Permalink to this headline">¶</a></h2>
-<p>Some applications or application servers send <tt class="docutils literal"><span class="pre">Vary:</span> <span class="pre">User-Agent</span></tt>
+<p>Some applications or application servers send <code class="docutils literal"><span class="pre">Vary:</span> <span class="pre">User-Agent</span></code>
 along with their content. This instructs Varnish to cache a separate
 copy for every variation of 'User-Agent' there is and there are
 plenty. Even a single patchlevel of the same browser will generate
@@ -384,7 +386,7 @@ above code as a template.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -421,29 +423,28 @@ above code as a template.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="purging.html"
                         title="next chapter">Purging and banning</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/users-guide/increasing-your-hitrate.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/users-guide/increasing-your-hitrate.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -455,14 +456,14 @@ above code as a template.</p>
         <li class="right" >
           <a href="performance.html" title="Varnish and Website Performance"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="performance.html" >Varnish and Website Performance</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="performance.html" >Varnish and Website Performance</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

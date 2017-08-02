@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>What SPDY did to my summer vacation &mdash; Varnish version 4.1.7 documentation</title>
+    <title>What SPDY did to my summer vacation &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="Why HTTP/2.0 does not seem interesting" href="http20.html" />
     <link rel="prev" title="Wanton destruction for the greater good" href="wanton_destruction.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="wanton_destruction.html" title="Wanton destruction for the greater good"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="what-spdy-did-to-my-summer-vacation">
 <span id="phk-spdy"></span><h1>What SPDY did to my summer vacation<a class="headerlink" href="#what-spdy-did-to-my-summer-vacation" title="Permalink to this headline">¶</a></h1>
@@ -120,16 +122,16 @@ are independent and you can only look up one at a time.</p>
 if you inline-C grab a refcount, then restart and ...&quot; but let's
 be honest, that's not how it should look.</p>
 <p>You should be able to do something like:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (req.proto == &quot;SPDY&quot; &amp;&amp; req.url ~ &quot;index.html&quot;) {
-        req.obj1 = lookup(backend1, &quot;/main.css&quot;)
-        if (req.obj1.status == 200) {
-                sess.push(req.obj1, bla, bla, bla);
-        }
-        req.obj2 = lookup(backend1, &quot;/cat.gif&quot;)
-        if (req.obj1.status == 200) {
-                sess.push(req.obj2, bla, bla, bla);
-        }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">proto</span> <span class="o">==</span> <span class="s2">&quot;SPDY&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">req</span><span class="o">.</span><span class="n">url</span> <span class="o">~</span> <span class="s2">&quot;index.html&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">req</span><span class="o">.</span><span class="n">obj1</span> <span class="o">=</span> <span class="n">lookup</span><span class="p">(</span><span class="n">backend1</span><span class="p">,</span> <span class="s2">&quot;/main.css&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">obj1</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">200</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">sess</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">obj1</span><span class="p">,</span> <span class="n">bla</span><span class="p">,</span> <span class="n">bla</span><span class="p">,</span> <span class="n">bla</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="n">req</span><span class="o">.</span><span class="n">obj2</span> <span class="o">=</span> <span class="n">lookup</span><span class="p">(</span><span class="n">backend1</span><span class="p">,</span> <span class="s2">&quot;/cat.gif&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">obj1</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">200</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">sess</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">obj2</span><span class="p">,</span> <span class="n">bla</span><span class="p">,</span> <span class="n">bla</span><span class="p">,</span> <span class="n">bla</span><span class="p">);</span>
+        <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>And doing that is not really <em>that</em> hard, I think.  We just need
@@ -180,7 +182,7 @@ to talk more about this.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -198,29 +200,28 @@ to talk more about this.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="http20.html"
                         title="next chapter">Why HTTP/2.0 does not seem interesting</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/phk/spdy.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/phk/spdy.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -232,13 +233,13 @@ to talk more about this.</p>
         <li class="right" >
           <a href="wanton_destruction.html" title="Wanton destruction for the greater good"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

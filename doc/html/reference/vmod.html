@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VMOD - Varnish Modules &mdash; Varnish version 4.1.7 documentation</title>
+    <title>VMOD - Varnish Modules &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_std" href="vmod_std.generated.html" />
     <link rel="prev" title="VSM: Shared Memory Logging and Statistics" href="vsm.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="vmod-varnish-modules">
 <span id="ref-vmod"></span><h1>VMOD - Varnish Modules<a class="headerlink" href="#vmod-varnish-modules" title="Permalink to this headline">¶</a></h1>
@@ -61,11 +63,11 @@ problems.</p>
 <p>This is where VMODs come into the picture:   A VMOD is a shared
 library with some C functions which can be called from VCL code.</p>
 <p>For instance:</p>
-<div class="highlight-python"><div class="highlight"><pre>import std;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">std</span><span class="p">;</span>
 
-sub vcl_deliver {
-        set resp.http.foo = std.toupper(req.url);
-}
+<span class="n">sub</span> <span class="n">vcl_deliver</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">resp</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">foo</span> <span class="o">=</span> <span class="n">std</span><span class="o">.</span><span class="n">toupper</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">url</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>The &quot;std&quot; vmod is one you get with Varnish, it will always be there
@@ -91,7 +93,7 @@ VCL runtime (&quot;VRT&quot;) is defined in the vmod.vcc file which a python
 script called &quot;vmodtool.py&quot; turns into thaumaturgically challenged C
 data structures that does all the hard work.</p>
 <p>The std VMODs vmod.vcc file looks somewhat like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>$Module std 3
+<div class="highlight-default"><div class="highlight"><pre><span></span>$Module std 3
 $Event event_function
 $Function STRING toupper(STRING_LIST)
 $Function STRING tolower(STRING_LIST)
@@ -112,9 +114,9 @@ a moment.</p>
 in VCL lingo, meaning that it cannot be used in expressions, right side
 of assignments and such.  Instead it can be used as a primary action,
 something functions which return a value can not:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-        std.set_ip_tos(32);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+        <span class="n">std</span><span class="o">.</span><span class="n">set_ip_tos</span><span class="p">(</span><span class="mi">32</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Running vmodtool.py on the vmod.vcc file, produces a &quot;vcc_if.c&quot; and
@@ -126,16 +128,16 @@ modify it, that voids your warranty instantly.</p>
 <p>But vcc_if.h is important for you, it contains the prototypes for
 the functions you want to export to VCL.</p>
 <p>For the std VMOD, the compiled vcc_if.h file looks like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>struct vmod_priv;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">struct</span> <span class="n">vmod_priv</span><span class="p">;</span>
 
-VCL_STRING vmod_toupper(VRT_CTX, const char *, ...);
-VCL_STRING vmod_tolower(VRT_CTX, const char *, ...);
-VCL_VOID vmod_set_ip_tos(VRT_CTX, VCL_INT);
+<span class="n">VCL_STRING</span> <span class="n">vmod_toupper</span><span class="p">(</span><span class="n">VRT_CTX</span><span class="p">,</span> <span class="n">const</span> <span class="n">char</span> <span class="o">*</span><span class="p">,</span> <span class="o">...</span><span class="p">);</span>
+<span class="n">VCL_STRING</span> <span class="n">vmod_tolower</span><span class="p">(</span><span class="n">VRT_CTX</span><span class="p">,</span> <span class="n">const</span> <span class="n">char</span> <span class="o">*</span><span class="p">,</span> <span class="o">...</span><span class="p">);</span>
+<span class="n">VCL_VOID</span> <span class="n">vmod_set_ip_tos</span><span class="p">(</span><span class="n">VRT_CTX</span><span class="p">,</span> <span class="n">VCL_INT</span><span class="p">);</span>
 
-vmod_event_f event_function;
+<span class="n">vmod_event_f</span> <span class="n">event_function</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Those are your C prototypes.  Notice the <tt class="docutils literal"><span class="pre">vmod_</span></tt> prefix on the
+<p>Those are your C prototypes.  Notice the <code class="docutils literal"><span class="pre">vmod_</span></code> prefix on the
 function names.</p>
 </div>
 <div class="section" id="vcl-and-c-data-types">
@@ -147,81 +149,81 @@ language representation.  Here is a description of them.</p>
 etc.</p>
 <dl class="docutils">
 <dt>ACL</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vrt_acl</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vrt_acl</span> <span class="pre">*</span></code></p>
 <p class="last">A type for named ACLs declared in VCL.</p>
 </dd>
 <dt>BACKEND</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">director</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">director</span> <span class="pre">*</span></code></p>
 <p class="last">A type for backend and director implementations. See
-<a class="reference internal" href="directors.html#ref-writing-a-director"><em>Writing a Director</em></a>.</p>
+<a class="reference internal" href="directors.html#ref-writing-a-director"><span class="std std-ref">Writing a Director</span></a>.</p>
 </dd>
 <dt>BLOB</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vmod_priv</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vmod_priv</span> <span class="pre">*</span></code></p>
 <p class="last">An opaque type to pass random bits of memory between VMOD
 functions.</p>
 </dd>
 <dt>BOOL</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">unsigned</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">unsigned</span></code></p>
 <p class="last">Zero means false, anything else means true.</p>
 </dd>
 <dt>BYTES</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">double</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">double</span></code></p>
 <p>Unit: bytes.</p>
 <p class="last">A storage space, as in 1024 bytes.</p>
 </dd>
 <dt>DURATION</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">double</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">double</span></code></p>
 <p>Unit: seconds.</p>
 <p class="last">A time interval, as in 25 seconds.</p>
 </dd>
 <dt>ENUM</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*</span></code></p>
 <p class="last">TODO</p>
 </dd>
 <dt>HEADER</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">gethdr_s</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">gethdr_s</span> <span class="pre">*</span></code></p>
 <p>These are VCL compiler generated constants referencing a
 particular header in a particular HTTP entity, for instance
-<tt class="docutils literal"><span class="pre">req.http.cookie</span></tt> or <tt class="docutils literal"><span class="pre">beresp.http.last-modified</span></tt>.  By passing
+<code class="docutils literal"><span class="pre">req.http.cookie</span></code> or <code class="docutils literal"><span class="pre">beresp.http.last-modified</span></code>.  By passing
 a reference to the header, the VMOD code can both read and write
 the header in question.</p>
 <p class="last">If the header was passed as STRING, the VMOD code only sees
 the value, but not where it came from.</p>
 </dd>
 <dt>HTTP</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">struct</span> <span class="pre">http</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">struct</span> <span class="pre">http</span> <span class="pre">*</span></code></p>
 <p class="last">TODO</p>
 </dd>
 <dt>INT</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">long</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">long</span></code></p>
 <p class="last">A (long) integer as we know and love them.</p>
 </dd>
 <dt>IP</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">suckaddr</span> <span class="pre">*</span></tt></p>
-<p class="last">This is an opaque type, see the <tt class="docutils literal"><span class="pre">include/vsa.h</span></tt> file for
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">suckaddr</span> <span class="pre">*</span></code></p>
+<p class="last">This is an opaque type, see the <code class="docutils literal"><span class="pre">include/vsa.h</span></code> file for
 which primitives we support on this type.</p>
 </dd>
 <dt>PRIV_CALL</dt>
-<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><em>Private Pointers</em></a> below.</dd>
+<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><span class="std std-ref">Private Pointers</span></a> below.</dd>
 <dt>PRIV_TASK</dt>
-<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><em>Private Pointers</em></a> below.</dd>
+<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><span class="std std-ref">Private Pointers</span></a> below.</dd>
 <dt>PRIV_TOP</dt>
-<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><em>Private Pointers</em></a> below.</dd>
+<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><span class="std std-ref">Private Pointers</span></a> below.</dd>
 <dt>PRIV_VCL</dt>
-<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><em>Private Pointers</em></a> below.</dd>
+<dd>See <a class="reference internal" href="#ref-vmod-private-pointers"><span class="std std-ref">Private Pointers</span></a> below.</dd>
 <dt>PROBE</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vrt_backend_probe</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vrt_backend_probe</span> <span class="pre">*</span></code></p>
 <p class="last">A named standalone backend probe definition.</p>
 </dd>
 <dt>REAL</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">double</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">double</span></code></p>
 <p class="last">A floating point value.</p>
 </dd>
 <dt>STRING</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*</span></code></p>
 <p>A NUL-terminated text-string.</p>
 <p>Can be NULL to indicate a nonexistent string, for instance in:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">mymod</span><span class="o">.</span><span class="n">foo</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">foobar</span><span class="p">);</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">mymod</span><span class="o">.</span><span class="n">foo</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">foobar</span><span class="p">);</span>
 </pre></div>
 </div>
 <p>If there were no &quot;foobar&quot; HTTP header, the vmod_foo()
@@ -233,24 +235,24 @@ by using storage allocated from the client or backend
 workspaces.</p>
 </dd>
 <dt>STRING_LIST</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*,</span> <span class="pre">...</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*,</span> <span class="pre">...</span></code></p>
 <p>A multi-component text-string.  We try very hard to avoid
 doing text-processing in Varnish, and this is one way we
 to avoid that, by not editing separate pieces of a string
 together to one string, unless we have to.</p>
 <p>Consider this contrived example:</p>
-<div class="highlight-python"><div class="highlight"><pre>set req.http.foo = std.toupper(req.http.foo + req.http.bar);
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">foo</span> <span class="o">=</span> <span class="n">std</span><span class="o">.</span><span class="n">toupper</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">foo</span> <span class="o">+</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">bar</span><span class="p">);</span>
 </pre></div>
 </div>
 <p>The usual way to do this, would be be to allocate memory for
-the concatenated string, then pass that to <tt class="docutils literal"><span class="pre">toupper()</span></tt> which in
+the concatenated string, then pass that to <code class="docutils literal"><span class="pre">toupper()</span></code> which in
 turn would return another freshly allocated string with the
-modified result.  Remember: strings in VCL are <tt class="docutils literal"><span class="pre">const</span></tt>, we
+modified result.  Remember: strings in VCL are <code class="docutils literal"><span class="pre">const</span></code>, we
 cannot just modify the string in place.</p>
-<p>What we do instead, is declare that <tt class="docutils literal"><span class="pre">toupper()</span></tt> takes a &quot;STRING_LIST&quot;
-as argument.  This makes the C function implementing <tt class="docutils literal"><span class="pre">toupper()</span></tt>
+<p>What we do instead, is declare that <code class="docutils literal"><span class="pre">toupper()</span></code> takes a &quot;STRING_LIST&quot;
+as argument.  This makes the C function implementing <code class="docutils literal"><span class="pre">toupper()</span></code>
 a vararg function (see the prototype above) and responsible for
-considering all the <tt class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*</span></tt> arguments it finds, until the
+considering all the <code class="docutils literal"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*</span></code> arguments it finds, until the
 magic marker &quot;vrt_magic_string_end&quot; is encountered.</p>
 <p>Bear in mind that the individual strings in a STRING_LIST can be
 NULL, as described under STRING, that is why we do not use NULL
@@ -262,12 +264,12 @@ and make sure your workspace_client and workspace_backend params
 are big enough.</p>
 </dd>
 <dt>TIME</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">double</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">double</span></code></p>
 <p>Unit: seconds since UNIX epoch.</p>
 <p class="last">An absolute time, as in 1284401161.</p>
 </dd>
 <dt>VOID</dt>
-<dd><p class="first">C-type: <tt class="docutils literal"><span class="pre">void</span></tt></p>
+<dd><p class="first">C-type: <code class="docutils literal"><span class="pre">void</span></code></p>
 <p class="last">Can only be used for return-value, which makes the function a VCL
 procedure.</p>
 </dd>
@@ -280,37 +282,37 @@ this can be anything from a precompiled regexp to open file descriptors
 and vast data structures.</p>
 <p>The VCL compiler supports the following private pointers:</p>
 <ul class="simple">
-<li><tt class="docutils literal"><span class="pre">PRIV_CALL</span></tt> &quot;per call&quot; private pointers are useful to cache/store
+<li><code class="docutils literal"><span class="pre">PRIV_CALL</span></code> &quot;per call&quot; private pointers are useful to cache/store
 state relative to the specific call or its arguments, for instance a
 compiled regular expression specific to a regsub() statement or a
 simply caching the last output of some expensive lookup.</li>
-<li><tt class="docutils literal"><span class="pre">PRIV_TASK</span></tt> &quot;per task&quot; private pointers are useful for state that
+<li><code class="docutils literal"><span class="pre">PRIV_TASK</span></code> &quot;per task&quot; private pointers are useful for state that
 applies to calls for either a specific request or a backend
 request. For instance this can be the result of a parsed cookie
-specific to a client. Note that <tt class="docutils literal"><span class="pre">PRIV_TASK</span></tt> contexts are separate
+specific to a client. Note that <code class="docutils literal"><span class="pre">PRIV_TASK</span></code> contexts are separate
 for the client side and the backend side, so use in
-<tt class="docutils literal"><span class="pre">vcl_backend_*</span></tt> will yield a different private pointer from the
+<code class="docutils literal"><span class="pre">vcl_backend_*</span></code> will yield a different private pointer from the
 one used on the client side.</li>
-<li><tt class="docutils literal"><span class="pre">PRIV_TOP</span></tt> &quot;per top-request&quot; private pointers live for the
+<li><code class="docutils literal"><span class="pre">PRIV_TOP</span></code> &quot;per top-request&quot; private pointers live for the
 duration of one request and all its ESI-includes. They are only
 defined for the client side. When used from backend VCL subs, a NULL
 pointer will be passed.</li>
-<li><tt class="docutils literal"><span class="pre">PRIV_VCL</span></tt> &quot;per vcl&quot; private pointers are useful for such global
+<li><code class="docutils literal"><span class="pre">PRIV_VCL</span></code> &quot;per vcl&quot; private pointers are useful for such global
 state that applies to all calls in this VCL, for instance flags that
 determine if regular expressions are case-sensitive in this vmod or
-similar. The <tt class="docutils literal"><span class="pre">PRIV_VCL</span></tt> object is the same object that is passed
+similar. The <code class="docutils literal"><span class="pre">PRIV_VCL</span></code> object is the same object that is passed
 to the VMOD's event function.</li>
 </ul>
-<p>The way it works in the vmod code, is that a <tt class="docutils literal"><span class="pre">struct</span> <span class="pre">vmod_priv</span> <span class="pre">*</span></tt> is
-passed to the functions where one of the <tt class="docutils literal"><span class="pre">PRIV_*</span></tt> argument types is
+<p>The way it works in the vmod code, is that a <code class="docutils literal"><span class="pre">struct</span> <span class="pre">vmod_priv</span> <span class="pre">*</span></code> is
+passed to the functions where one of the <code class="docutils literal"><span class="pre">PRIV_*</span></code> argument types is
 specified.</p>
 <p>This structure contains three members:</p>
-<div class="highlight-python"><div class="highlight"><pre>typedef void vmod_priv_free_f(void *);
-struct vmod_priv {
-        void                    *priv;
-        int                     len;
-        vmod_priv_free_f        *free;
-};
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">typedef</span> <span class="n">void</span> <span class="n">vmod_priv_free_f</span><span class="p">(</span><span class="n">void</span> <span class="o">*</span><span class="p">);</span>
+<span class="n">struct</span> <span class="n">vmod_priv</span> <span class="p">{</span>
+        <span class="n">void</span>                    <span class="o">*</span><span class="n">priv</span><span class="p">;</span>
+        <span class="nb">int</span>                     <span class="nb">len</span><span class="p">;</span>
+        <span class="n">vmod_priv_free_f</span>        <span class="o">*</span><span class="n">free</span><span class="p">;</span>
+<span class="p">};</span>
 </pre></div>
 </div>
 <p>The &quot;priv&quot; element can be used for whatever the vmod code wants to
@@ -325,19 +327,19 @@ they are, the &quot;free&quot; function will be called with the &quot;priv&quot;
 as the only argument.</p>
 <p>In the common case where a private data structure is allocated with
 malloc would look like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (priv-&gt;priv == NULL) {
-        priv-&gt;priv = calloc(sizeof(struct myfoo), 1);
-        AN(priv-&gt;priv);
-        priv-&gt;free = free;      /* free(3) */
-        mystate = priv-&gt;priv;
-        mystate-&gt;foo = 21;
-        ...
-} else {
-        mystate = priv-&gt;priv;
-}
-if (foo &gt; 25) {
-        ...
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">priv</span><span class="o">-&gt;</span><span class="n">priv</span> <span class="o">==</span> <span class="n">NULL</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">priv</span><span class="o">-&gt;</span><span class="n">priv</span> <span class="o">=</span> <span class="n">calloc</span><span class="p">(</span><span class="n">sizeof</span><span class="p">(</span><span class="n">struct</span> <span class="n">myfoo</span><span class="p">),</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">AN</span><span class="p">(</span><span class="n">priv</span><span class="o">-&gt;</span><span class="n">priv</span><span class="p">);</span>
+        <span class="n">priv</span><span class="o">-&gt;</span><span class="n">free</span> <span class="o">=</span> <span class="n">free</span><span class="p">;</span>      <span class="o">/*</span> <span class="n">free</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">*/</span>
+        <span class="n">mystate</span> <span class="o">=</span> <span class="n">priv</span><span class="o">-&gt;</span><span class="n">priv</span><span class="p">;</span>
+        <span class="n">mystate</span><span class="o">-&gt;</span><span class="n">foo</span> <span class="o">=</span> <span class="mi">21</span><span class="p">;</span>
+        <span class="o">...</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">mystate</span> <span class="o">=</span> <span class="n">priv</span><span class="o">-&gt;</span><span class="n">priv</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">foo</span> <span class="o">&gt;</span> <span class="mi">25</span><span class="p">)</span> <span class="p">{</span>
+        <span class="o">...</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>The per-call vmod_privs are freed before the per-vcl vmod_priv.</p>
@@ -346,10 +348,10 @@ if (foo &gt; 25) {
 <span id="ref-vmod-event-functions"></span><h2>Event functions<a class="headerlink" href="#event-functions" title="Permalink to this headline">¶</a></h2>
 <p>VMODs can have an &quot;event&quot; function which is called when a VCL which
 imports the VMOD is loaded or discarded.  This corresponds to the
-<tt class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></tt> and <tt class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></tt> events, respectively.
+<code class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></code> and <code class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></code> events, respectively.
 In addition, this function will be called when the VCL temperature is
-changed to cold or warm, corresponding to the <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> and
-<tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> events.</p>
+changed to cold or warm, corresponding to the <code class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></code> and
+<code class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></code> events.</p>
 <p>The first argument to the event function is a VRT context.</p>
 <p>The second argument is the vmod_priv specific to this particular VCL,
 and if necessary, a VCL specific VMOD &quot;fini&quot; function can be attached
@@ -360,34 +362,34 @@ opened, any memory allocated to global or private variables in the C-code etc,
 it is the VMODs own responsibility to track how many VCLs were loaded or
 discarded and free this global state when the count reaches zero.</p>
 <p>VMOD writers are <em>strongly</em> encouraged to release all per-VCL resources for a
-given VCL when it emits a <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> event. You will get a chance to
+given VCL when it emits a <code class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></code> event. You will get a chance to
 reacquire the resources before the VCL becomes active again and be notified
-first with a <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> event. Unless a user decides that a given VCL
+first with a <code class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></code> event. Unless a user decides that a given VCL
 should always be warm, an inactive VMOD will eventually become cold and should
 manage resources accordingly.</p>
 <p>An event function must return zero upon success. It is only possible to fail
-an initialization with the <tt class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></tt> or <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> events.
-Should such a failure happen, a <tt class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></tt> or <tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt>
+an initialization with the <code class="docutils literal"><span class="pre">VCL_EVENT_LOAD</span></code> or <code class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></code> events.
+Should such a failure happen, a <code class="docutils literal"><span class="pre">VCL_EVENT_DISCARD</span></code> or <code class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></code>
 event will be sent to the VMODs that succeeded to put them back in a cold
 state. The VMOD that failed will not receive this event, and therefore must
 not be left half-initialized should a failure occur.</p>
 <p>If your VMOD is running an asynchronous background job you can hold a reference
 to the VCL to prevent it from going cold too soon and get the same guarantees
 as backends with ongoing requests for instance. For that, you must acquire the
-reference by calling <tt class="docutils literal"><span class="pre">VRT_ref_vcl</span></tt> when you receive a <tt class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></tt> and
-later calling <tt class="docutils literal"><span class="pre">VRT_rel_vcl</span></tt> once the background job is over. Receiving a
-<tt class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></tt> is your cue to terminate any background job bound to a VCL.</p>
+reference by calling <code class="docutils literal"><span class="pre">VRT_ref_vcl</span></code> when you receive a <code class="docutils literal"><span class="pre">VCL_EVENT_WARM</span></code> and
+later calling <code class="docutils literal"><span class="pre">VRT_rel_vcl</span></code> once the background job is over. Receiving a
+<code class="docutils literal"><span class="pre">VCL_EVENT_COLD</span></code> is your cue to terminate any background job bound to a VCL.</p>
 <p>You can find an example of VCL references in vmod-debug:</p>
-<div class="highlight-python"><div class="highlight"><pre>priv_vcl-&gt;vclref = VRT_ref_vcl(ctx, &quot;vmod-debug&quot;);
-...
-VRT_rel_vcl(&amp;ctx, &amp;priv_vcl-&gt;vclref);
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">priv_vcl</span><span class="o">-&gt;</span><span class="n">vclref</span> <span class="o">=</span> <span class="n">VRT_ref_vcl</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s2">&quot;vmod-debug&quot;</span><span class="p">);</span>
+<span class="o">...</span>
+<span class="n">VRT_rel_vcl</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ctx</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">priv_vcl</span><span class="o">-&gt;</span><span class="n">vclref</span><span class="p">);</span>
 </pre></div>
 </div>
 <p>In this simplified version, you can see that you need at least a VCL-bound data
-structure like a <tt class="docutils literal"><span class="pre">PRIV_VCL</span></tt> or a VMOD object to keep track of the reference
+structure like a <code class="docutils literal"><span class="pre">PRIV_VCL</span></code> or a VMOD object to keep track of the reference
 and later release it. You also have to provide a description, it will be printed
 to the user if they try to warm up a cooling VCL:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ varnishadm vcl.list
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ varnishadm vcl.list
 available  auto/cooling       0 vcl1
 active     auto/warm          0 vcl2
 
@@ -402,7 +404,7 @@ Message:
 <p>In the case where properly releasing resources may take some time, you can
 opt for an asynchronous worker, either by spawning a thread and tracking it, or
 by using Varnish's worker pools.</p>
-<p>There is also a <tt class="docutils literal"><span class="pre">VCL_EVENT_USE</span></tt> event. Please note that this event is now
+<p>There is also a <code class="docutils literal"><span class="pre">VCL_EVENT_USE</span></code> event. Please note that this event is now
 deprecated and may be removed in a future release. A warm VCL should be ready
 to use so no additional task should be postponed at use time.</p>
 </div>
@@ -440,7 +442,7 @@ before Varnish will discover an updated VMOD.</p>
 <p>If you want to test a new version of a VMOD, while being able to
 instantly switch back to the old version, you will have to install
 each version with a distinct filename or in a distinct subdirectory
-and use <tt class="docutils literal"><span class="pre">import</span> <span class="pre">foo</span> <span class="pre">from</span> <span class="pre">&quot;...&quot;;</span></tt> to reference it in your VCL.</p>
+and use <code class="docutils literal"><span class="pre">import</span> <span class="pre">foo</span> <span class="pre">from</span> <span class="pre">&quot;...&quot;;</span></code> to reference it in your VCL.</p>
 <p>We're not happy about this, but have found no sensible workarounds.</p>
 </div>
 </div>
@@ -449,7 +451,7 @@ and use <tt class="docutils literal"><span class="pre">import</span> <span class
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -471,29 +473,28 @@ and use <tt class="docutils literal"><span class="pre">import</span> <span class
   <h4>Next topic</h4>
   <p class="topless"><a href="vmod_std.generated.html"
                         title="next chapter">vmod_std</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/vmod.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/vmod.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -505,13 +506,13 @@ and use <tt class="docutils literal"><span class="pre">import</span> <span class
         <li class="right" >
           <a href="vsm.html" title="VSM: Shared Memory Logging and Statistics"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

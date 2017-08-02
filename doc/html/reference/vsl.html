@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VSL &mdash; Varnish version 4.1.7 documentation</title>
+    <title>VSL &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vsl-query" href="vsl-query.html" />
     <link rel="prev" title="varnish-counters" href="varnish-counters.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="vsl">
 <span id="vsl-7"></span><h1>VSL<a class="headerlink" href="#vsl" title="Permalink to this headline">¶</a></h1>
@@ -74,108 +76,108 @@ logging tools supplied with Varnish.</p>
 <dt>Backend - Backend selected</dt>
 <dd><p class="first">Logged when a connection is selected for handling a backend request.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s %s
-|  |  |
-|  |  +- Backend display name
-|  +---- VCL name
-+------- Connection file descriptor
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Backend</span> <span class="n">display</span> <span class="n">name</span>
+<span class="o">|</span>  <span class="o">+----</span> <span class="n">VCL</span> <span class="n">name</span>
+<span class="o">+-------</span> <span class="n">Connection</span> <span class="n">file</span> <span class="n">descriptor</span>
 </pre></div>
 </div>
 </dd>
 <dt>BackendClose - Backend connection closed</dt>
 <dd><p class="first">Logged when a backend connection is closed.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s [ %s ]
-|  |    |
-|  |    +- Optional reason
-|  +------ Backend display name
-+--------- Connection file descriptor
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span> <span class="p">[</span> <span class="o">%</span><span class="n">s</span> <span class="p">]</span>
+<span class="o">|</span>  <span class="o">|</span>    <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>    <span class="o">+-</span> <span class="n">Optional</span> <span class="n">reason</span>
+<span class="o">|</span>  <span class="o">+------</span> <span class="n">Backend</span> <span class="n">display</span> <span class="n">name</span>
+<span class="o">+---------</span> <span class="n">Connection</span> <span class="n">file</span> <span class="n">descriptor</span>
 </pre></div>
 </div>
 </dd>
 <dt>BackendOpen - Backend connection opened</dt>
 <dd><p class="first">Logged when a new backend connection is opened.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s %s %s %s %s
-|  |  |  |  |  |
-|  |  |  |  |  +- Local port
-|  |  |  |  +---- Local address
-|  |  |  +------- Remote port
-|  |  +---------- Remote address
-|  +------------- Backend display name
-+---------------- Connection file descriptor
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Local</span> <span class="n">port</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">Local</span> <span class="n">address</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Remote</span> <span class="n">port</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------</span> <span class="n">Remote</span> <span class="n">address</span>
+<span class="o">|</span>  <span class="o">+-------------</span> <span class="n">Backend</span> <span class="n">display</span> <span class="n">name</span>
+<span class="o">+----------------</span> <span class="n">Connection</span> <span class="n">file</span> <span class="n">descriptor</span>
 </pre></div>
 </div>
 </dd>
 <dt>BackendReuse - Backend connection put up for reuse</dt>
 <dd><p class="first">Logged when a backend connection is put up for reuse by a later connection.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s
-|  |
-|  +- Backend display name
-+---- Connection file descriptor
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">+-</span> <span class="n">Backend</span> <span class="n">display</span> <span class="n">name</span>
+<span class="o">+----</span> <span class="n">Connection</span> <span class="n">file</span> <span class="n">descriptor</span>
 </pre></div>
 </div>
 </dd>
 <dt>BackendStart - Backend request start</dt>
 <dd><p class="first">Start of backend processing. Logs the backend IP address and port number.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %s
-|  |
-|  +- Backend Port number
-+---- Backend IP4/6 address
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">+-</span> <span class="n">Backend</span> <span class="n">Port</span> <span class="n">number</span>
+<span class="o">+----</span> <span class="n">Backend</span> <span class="n">IP4</span><span class="o">/</span><span class="mi">6</span> <span class="n">address</span>
 </pre></div>
 </div>
 </dd>
 <dt>Backend_health - Backend health check</dt>
 <dd><p class="first">The result of a backend health probe.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %s %s %u %u %u %f %f %s
-|  |  |  |  |  |  |  |  |
-|  |  |  |  |  |  |  |  +- Probe HTTP response
-|  |  |  |  |  |  |  +---- Average response time
-|  |  |  |  |  |  +------- Response time
-|  |  |  |  |  +---------- Probe window size
-|  |  |  |  +------------- Probe threshold level
-|  |  |  +---------------- Number of good probes in window
-|  |  +------------------- Probe window bits
-|  +---------------------- Status message
-+------------------------- Backend name
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">u</span> <span class="o">%</span><span class="n">u</span> <span class="o">%</span><span class="n">u</span> <span class="o">%</span><span class="n">f</span> <span class="o">%</span><span class="n">f</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Probe</span> <span class="n">HTTP</span> <span class="n">response</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">Average</span> <span class="n">response</span> <span class="n">time</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Response</span> <span class="n">time</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------</span> <span class="n">Probe</span> <span class="n">window</span> <span class="n">size</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------------</span> <span class="n">Probe</span> <span class="n">threshold</span> <span class="n">level</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------------</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">good</span> <span class="n">probes</span> <span class="ow">in</span> <span class="n">window</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------------------</span> <span class="n">Probe</span> <span class="n">window</span> <span class="n">bits</span>
+<span class="o">|</span>  <span class="o">+----------------------</span> <span class="n">Status</span> <span class="n">message</span>
+<span class="o">+-------------------------</span> <span class="n">Backend</span> <span class="n">name</span>
 </pre></div>
 </div>
 </dd>
 <dt>Begin - Marks the start of a VXID</dt>
 <dd><p class="first">The first record of a VXID transaction.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %d %s
-|  |  |
-|  |  +- Reason
-|  +---- Parent vxid
-+------- Type (&quot;sess&quot;, &quot;req&quot; or &quot;bereq&quot;)
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Reason</span>
+<span class="o">|</span>  <span class="o">+----</span> <span class="n">Parent</span> <span class="n">vxid</span>
+<span class="o">+-------</span> <span class="n">Type</span> <span class="p">(</span><span class="s2">&quot;sess&quot;</span><span class="p">,</span> <span class="s2">&quot;req&quot;</span> <span class="ow">or</span> <span class="s2">&quot;bereq&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>
 <dt>BereqAcct - Backend request accounting</dt>
 <dd><p class="first">Contains byte counters from backend request processing.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %d %d %d %d %d
-|  |  |  |  |  |
-|  |  |  |  |  +- Total bytes received
-|  |  |  |  +---- Body bytes received
-|  |  |  +------- Header bytes received
-|  |  +---------- Total bytes transmitted
-|  +------------- Body bytes transmitted
-+---------------- Header bytes transmitted
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Total</span> <span class="nb">bytes</span> <span class="n">received</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">Body</span> <span class="nb">bytes</span> <span class="n">received</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Header</span> <span class="nb">bytes</span> <span class="n">received</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------</span> <span class="n">Total</span> <span class="nb">bytes</span> <span class="n">transmitted</span>
+<span class="o">|</span>  <span class="o">+-------------</span> <span class="n">Body</span> <span class="nb">bytes</span> <span class="n">transmitted</span>
+<span class="o">+----------------</span> <span class="n">Header</span> <span class="nb">bytes</span> <span class="n">transmitted</span>
 </pre></div>
 </div>
 </dd>
 <dt>BereqHeader - Backend request header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
-|   |
-|   +- Header value
-+----- Header name
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span><span class="p">:</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>   <span class="o">|</span>
+<span class="o">|</span>   <span class="o">+-</span> <span class="n">Header</span> <span class="n">value</span>
+<span class="o">+-----</span> <span class="n">Header</span> <span class="n">name</span>
 </pre></div>
 </div>
 </dd>
@@ -188,10 +190,10 @@ logging tools supplied with Varnish.</p>
 <dt>BerespHeader - Backend response header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
-|   |
-|   +- Header value
-+----- Header name
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span><span class="p">:</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>   <span class="o">|</span>
+<span class="o">|</span>   <span class="o">+-</span> <span class="n">Header</span> <span class="n">value</span>
+<span class="o">+-----</span> <span class="n">Header</span> <span class="n">name</span>
 </pre></div>
 </div>
 </dd>
@@ -236,23 +238,23 @@ logging tools supplied with Varnish.</p>
 <dd>Logged when no suitable candidate object is found for LRU force expiry.</dd>
 </dl>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>EXP_Rearm p=%p E=%f e=%f f=0x%x
-EXP_Inbox p=%p e=%f f=0x%x
-EXP_Kill p=%p e=%f f=0x%x
-EXP_When p=%p e=%f f=0x%x
-EXP_Expired x=%u t=%f
-LRU_Cand p=%p f=0x%x r=%d
-LRU x=%u
-LRU_Fail
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="n">EXP_Rearm</span> <span class="n">p</span><span class="o">=%</span><span class="n">p</span> <span class="n">E</span><span class="o">=%</span><span class="n">f</span> <span class="n">e</span><span class="o">=%</span><span class="n">f</span> <span class="n">f</span><span class="o">=</span><span class="mi">0</span><span class="n">x</span><span class="o">%</span><span class="n">x</span>
+<span class="n">EXP_Inbox</span> <span class="n">p</span><span class="o">=%</span><span class="n">p</span> <span class="n">e</span><span class="o">=%</span><span class="n">f</span> <span class="n">f</span><span class="o">=</span><span class="mi">0</span><span class="n">x</span><span class="o">%</span><span class="n">x</span>
+<span class="n">EXP_Kill</span> <span class="n">p</span><span class="o">=%</span><span class="n">p</span> <span class="n">e</span><span class="o">=%</span><span class="n">f</span> <span class="n">f</span><span class="o">=</span><span class="mi">0</span><span class="n">x</span><span class="o">%</span><span class="n">x</span>
+<span class="n">EXP_When</span> <span class="n">p</span><span class="o">=%</span><span class="n">p</span> <span class="n">e</span><span class="o">=%</span><span class="n">f</span> <span class="n">f</span><span class="o">=</span><span class="mi">0</span><span class="n">x</span><span class="o">%</span><span class="n">x</span>
+<span class="n">EXP_Expired</span> <span class="n">x</span><span class="o">=%</span><span class="n">u</span> <span class="n">t</span><span class="o">=%</span><span class="n">f</span>
+<span class="n">LRU_Cand</span> <span class="n">p</span><span class="o">=%</span><span class="n">p</span> <span class="n">f</span><span class="o">=</span><span class="mi">0</span><span class="n">x</span><span class="o">%</span><span class="n">x</span> <span class="n">r</span><span class="o">=%</span><span class="n">d</span>
+<span class="n">LRU</span> <span class="n">x</span><span class="o">=%</span><span class="n">u</span>
+<span class="n">LRU_Fail</span>
 
-Legend:
-p=%p         Objcore pointer
-t=%f         Remaining TTL (s)
-e=%f         Expiry time (unix epoch)
-E=%f         Old expiry time (unix epoch)
-f=0x%x       Objcore flags
-r=%d         Objcore refcount
-x=%u         Object VXID
+<span class="n">Legend</span><span class="p">:</span>
+<span class="n">p</span><span class="o">=%</span><span class="n">p</span>         <span class="n">Objcore</span> <span class="n">pointer</span>
+<span class="n">t</span><span class="o">=%</span><span class="n">f</span>         <span class="n">Remaining</span> <span class="n">TTL</span> <span class="p">(</span><span class="n">s</span><span class="p">)</span>
+<span class="n">e</span><span class="o">=%</span><span class="n">f</span>         <span class="n">Expiry</span> <span class="n">time</span> <span class="p">(</span><span class="n">unix</span> <span class="n">epoch</span><span class="p">)</span>
+<span class="n">E</span><span class="o">=%</span><span class="n">f</span>         <span class="n">Old</span> <span class="n">expiry</span> <span class="n">time</span> <span class="p">(</span><span class="n">unix</span> <span class="n">epoch</span><span class="p">)</span>
+<span class="n">f</span><span class="o">=</span><span class="mi">0</span><span class="n">x</span><span class="o">%</span><span class="n">x</span>       <span class="n">Objcore</span> <span class="n">flags</span>
+<span class="n">r</span><span class="o">=%</span><span class="n">d</span>         <span class="n">Objcore</span> <span class="n">refcount</span>
+<span class="n">x</span><span class="o">=%</span><span class="n">u</span>         <span class="n">Object</span> <span class="n">VXID</span>
 </pre></div>
 </div>
 </dd>
@@ -261,32 +263,32 @@ x=%u         Object VXID
 <dt>Fetch_Body - Body fetched from backend</dt>
 <dd><p class="first">Ready to fetch body from backend.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d (%s) %s
-|   |    |
-|   |    +---- &#39;stream&#39; or &#39;-&#39;
-|   +--------- Text description of body fetch mode
-+------------- Body fetch mode
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="p">(</span><span class="o">%</span><span class="n">s</span><span class="p">)</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>   <span class="o">|</span>    <span class="o">|</span>
+<span class="o">|</span>   <span class="o">|</span>    <span class="o">+----</span> <span class="s1">&#39;stream&#39;</span> <span class="ow">or</span> <span class="s1">&#39;-&#39;</span>
+<span class="o">|</span>   <span class="o">+---------</span> <span class="n">Text</span> <span class="n">description</span> <span class="n">of</span> <span class="n">body</span> <span class="n">fetch</span> <span class="n">mode</span>
+<span class="o">+-------------</span> <span class="n">Body</span> <span class="n">fetch</span> <span class="n">mode</span>
 </pre></div>
 </div>
 </dd>
 <dt>Gzip - G(un)zip performed on object</dt>
 <dd><p class="first">A Gzip record is emitted for each instance of gzip or gunzip work performed. Worst case, an ESI transaction stored in gzip'ed objects but delivered gunziped, will run into many of these.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%c %c %c %d %d %d %d %d
-|  |  |  |  |  |  |  |
-|  |  |  |  |  |  |  +- Bit length of compressed data
-|  |  |  |  |  |  +---- Bit location of &#39;last&#39; bit
-|  |  |  |  |  +------- Bit location of first deflate block
-|  |  |  |  +---------- Bytes output
-|  |  |  +------------- Bytes input
-|  |  +---------------- &#39;E&#39;: ESI, &#39;-&#39;: Plain object
-|  +------------------- &#39;F&#39;: Fetch, &#39;D&#39;: Deliver
-+---------------------- &#39;G&#39;: Gzip, &#39;U&#39;: Gunzip, &#39;u&#39;: Gunzip-test
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">c</span> <span class="o">%</span><span class="n">c</span> <span class="o">%</span><span class="n">c</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Bit</span> <span class="n">length</span> <span class="n">of</span> <span class="n">compressed</span> <span class="n">data</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">Bit</span> <span class="n">location</span> <span class="n">of</span> <span class="s1">&#39;last&#39;</span> <span class="n">bit</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Bit</span> <span class="n">location</span> <span class="n">of</span> <span class="n">first</span> <span class="n">deflate</span> <span class="n">block</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------</span> <span class="n">Bytes</span> <span class="n">output</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------------</span> <span class="n">Bytes</span> <span class="nb">input</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------------</span> <span class="s1">&#39;E&#39;</span><span class="p">:</span> <span class="n">ESI</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">:</span> <span class="n">Plain</span> <span class="nb">object</span>
+<span class="o">|</span>  <span class="o">+-------------------</span> <span class="s1">&#39;F&#39;</span><span class="p">:</span> <span class="n">Fetch</span><span class="p">,</span> <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="n">Deliver</span>
+<span class="o">+----------------------</span> <span class="s1">&#39;G&#39;</span><span class="p">:</span> <span class="n">Gzip</span><span class="p">,</span> <span class="s1">&#39;U&#39;</span><span class="p">:</span> <span class="n">Gunzip</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">:</span> <span class="n">Gunzip</span><span class="o">-</span><span class="n">test</span>
 </pre></div>
 </div>
 <p>Examples:</p>
-<div class="last highlight-python"><div class="highlight"><pre>U F E 182 159 80 80 1392
-G F E 159 173 80 1304 1314
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="n">U</span> <span class="n">F</span> <span class="n">E</span> <span class="mi">182</span> <span class="mi">159</span> <span class="mi">80</span> <span class="mi">80</span> <span class="mi">1392</span>
+<span class="n">G</span> <span class="n">F</span> <span class="n">E</span> <span class="mi">159</span> <span class="mi">173</span> <span class="mi">80</span> <span class="mi">1304</span> <span class="mi">1314</span>
 </pre></div>
 </div>
 </dd>
@@ -305,11 +307,11 @@ G F E 159 173 80 1304 1314
 <dt>Link - Links to a child VXID</dt>
 <dd><p class="first">Links this VXID to any child VXID it initiates.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %d %s
-|  |  |
-|  |  +- Reason
-|  +---- Child vxid
-+------- Child type (&quot;req&quot; or &quot;bereq&quot;)
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Reason</span>
+<span class="o">|</span>  <span class="o">+----</span> <span class="n">Child</span> <span class="n">vxid</span>
+<span class="o">+-------</span> <span class="n">Child</span> <span class="nb">type</span> <span class="p">(</span><span class="s2">&quot;req&quot;</span> <span class="ow">or</span> <span class="s2">&quot;bereq&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>
@@ -318,10 +320,10 @@ G F E 159 173 80 1304 1314
 <dt>ObjHeader - Object  header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
-|   |
-|   +- Header value
-+----- Header name
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span><span class="p">:</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>   <span class="o">|</span>
+<span class="o">|</span>   <span class="o">+-</span> <span class="n">Header</span> <span class="n">value</span>
+<span class="o">+-----</span> <span class="n">Header</span> <span class="n">name</span>
 </pre></div>
 </div>
 </dd>
@@ -334,25 +336,25 @@ G F E 159 173 80 1304 1314
 <dt>PipeAcct - Pipe byte counts</dt>
 <dd><p class="first">Contains byte counters for pipe sessions.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %d %d %d
-|  |  |  |
-|  |  |  +------- Piped bytes to client
-|  |  +---------- Piped bytes from client
-|  +------------- Backend request headers
-+---------------- Client request headers
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Piped</span> <span class="nb">bytes</span> <span class="n">to</span> <span class="n">client</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------</span> <span class="n">Piped</span> <span class="nb">bytes</span> <span class="kn">from</span> <span class="nn">client</span>
+<span class="o">|</span>  <span class="o">+-------------</span> <span class="n">Backend</span> <span class="n">request</span> <span class="n">headers</span>
+<span class="o">+----------------</span> <span class="n">Client</span> <span class="n">request</span> <span class="n">headers</span>
 </pre></div>
 </div>
 </dd>
 <dt>Proxy - PROXY protocol information</dt>
 <dd><p class="first">PROXY protocol information.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %s %d %s %d
-|  |  |  |  |
-|  |  |  |  +- server port
-|  |  |  +---- server ip
-|  |  +------- client port
-|  +---------- client ip
-+------------- PROXY protocol version
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">server</span> <span class="n">port</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">server</span> <span class="n">ip</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">client</span> <span class="n">port</span>
+<span class="o">|</span>  <span class="o">+----------</span> <span class="n">client</span> <span class="n">ip</span>
+<span class="o">+-------------</span> <span class="n">PROXY</span> <span class="n">protocol</span> <span class="n">version</span>
 </pre></div>
 </div>
 </dd>
@@ -363,24 +365,24 @@ G F E 159 173 80 1304 1314
 ESI sub-request counts are also added to their parent request.
 The body bytes count does not include transmission (ie: chunked encoding) overhead.
 The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%d %d %d %d %d %d
-|  |  |  |  |  |
-|  |  |  |  |  +- Total bytes transmitted
-|  |  |  |  +---- Body bytes transmitted
-|  |  |  +------- Header bytes transmitted
-|  |  +---------- Total bytes received
-|  +------------- Body bytes received
-+---------------- Header bytes received
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Total</span> <span class="nb">bytes</span> <span class="n">transmitted</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">Body</span> <span class="nb">bytes</span> <span class="n">transmitted</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Header</span> <span class="nb">bytes</span> <span class="n">transmitted</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------</span> <span class="n">Total</span> <span class="nb">bytes</span> <span class="n">received</span>
+<span class="o">|</span>  <span class="o">+-------------</span> <span class="n">Body</span> <span class="nb">bytes</span> <span class="n">received</span>
+<span class="o">+----------------</span> <span class="n">Header</span> <span class="nb">bytes</span> <span class="n">received</span>
 </pre></div>
 </div>
 </dd>
 <dt>ReqHeader - Client request header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
-|   |
-|   +- Header value
-+----- Header name
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span><span class="p">:</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>   <span class="o">|</span>
+<span class="o">|</span>   <span class="o">+-</span> <span class="n">Header</span> <span class="n">value</span>
+<span class="o">+-----</span> <span class="n">Header</span> <span class="n">name</span>
 </pre></div>
 </div>
 </dd>
@@ -391,10 +393,10 @@ The format is:</p>
 <dt>ReqStart - Client request start</dt>
 <dd><p class="first">Start of request processing. Logs the client IP address and port number.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %s
-|  |
-|  +- Client Port number
-+---- Client IP4/6 address
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">+-</span> <span class="n">Client</span> <span class="n">Port</span> <span class="n">number</span>
+<span class="o">+----</span> <span class="n">Client</span> <span class="n">IP4</span><span class="o">/</span><span class="mi">6</span> <span class="n">address</span>
 </pre></div>
 </div>
 </dd>
@@ -403,10 +405,10 @@ The format is:</p>
 <dt>RespHeader - Client response header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %s
-|   |
-|   +- Header value
-+----- Header name
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span><span class="p">:</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>   <span class="o">|</span>
+<span class="o">|</span>   <span class="o">+-</span> <span class="n">Header</span> <span class="n">value</span>
+<span class="o">+-----</span> <span class="n">Header</span> <span class="n">name</span>
 </pre></div>
 </div>
 </dd>
@@ -419,17 +421,17 @@ The format is:</p>
 <dt>SessClose - Client connection closed</dt>
 <dd><p class="first">SessClose is the last record for any client connection.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %f
-|  |
-|  +- How long the session was open
-+---- Why the connection closed
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">f</span>
+<span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">+-</span> <span class="n">How</span> <span class="n">long</span> <span class="n">the</span> <span class="n">session</span> <span class="n">was</span> <span class="nb">open</span>
+<span class="o">+----</span> <span class="n">Why</span> <span class="n">the</span> <span class="n">connection</span> <span class="n">closed</span>
 </pre></div>
 </div>
 </dd>
 <dt>SessOpen - Client connection opened</dt>
 <dd><p class="first">The first record for a client connection, with the socket-endpoints of the connection.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %d %s %s %s %d
+<div class="last highlight-default"><div class="highlight"><pre><span></span>%s %d %s %s %s %d
 |  |  |  |  |  |
 |  |  |  |  |  +- File descriptor number
 |  |  |  |  +---- Local TCP port (&#39;-&#39; if !$log_local_addr)
@@ -443,46 +445,46 @@ The format is:</p>
 <dt>Storage - Where object is stored</dt>
 <dd><p class="first">Type and name of the storage backend the object is stored in.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s %s
-|  |
-|  +- Name of storage backend
-+---- Type (&quot;malloc&quot;, &quot;file&quot;, &quot;persistent&quot; etc.)
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">+-</span> <span class="n">Name</span> <span class="n">of</span> <span class="n">storage</span> <span class="n">backend</span>
+<span class="o">+----</span> <span class="n">Type</span> <span class="p">(</span><span class="s2">&quot;malloc&quot;</span><span class="p">,</span> <span class="s2">&quot;file&quot;</span><span class="p">,</span> <span class="s2">&quot;persistent&quot;</span> <span class="n">etc</span><span class="o">.</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>
 <dt>TTL - TTL set on object</dt>
 <dd><p class="first">A TTL record is emitted whenever the ttl, grace or keep values for an object is set.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%s %d %d %d %d [ %d %d %u %u ]
-|  |  |  |  |    |  |  |  |
-|  |  |  |  |    |  |  |  +- Max-Age from Cache-Control header
-|  |  |  |  |    |  |  +---- Expires header
-|  |  |  |  |    |  +------- Date header
-|  |  |  |  |    +---------- Age (incl Age: header value)
-|  |  |  |  +--------------- Reference time for TTL
-|  |  |  +------------------ Keep
-|  |  +--------------------- Grace
-|  +------------------------ TTL
-+--------------------------- &quot;RFC&quot; or &quot;VCL&quot;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="p">[</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">u</span> <span class="o">%</span><span class="n">u</span> <span class="p">]</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>    <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>    <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Max</span><span class="o">-</span><span class="n">Age</span> <span class="kn">from</span> <span class="nn">Cache</span><span class="o">-</span><span class="n">Control</span> <span class="n">header</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>    <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">Expires</span> <span class="n">header</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>    <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Date</span> <span class="n">header</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>    <span class="o">+----------</span> <span class="n">Age</span> <span class="p">(</span><span class="n">incl</span> <span class="n">Age</span><span class="p">:</span> <span class="n">header</span> <span class="n">value</span><span class="p">)</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+---------------</span> <span class="n">Reference</span> <span class="n">time</span> <span class="k">for</span> <span class="n">TTL</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+------------------</span> <span class="n">Keep</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+---------------------</span> <span class="n">Grace</span>
+<span class="o">|</span>  <span class="o">+------------------------</span> <span class="n">TTL</span>
+<span class="o">+---------------------------</span> <span class="s2">&quot;RFC&quot;</span> <span class="ow">or</span> <span class="s2">&quot;VCL&quot;</span>
 </pre></div>
 </div>
 <p>The last four fields are only present in &quot;RFC&quot; headers.</p>
 <p>Examples:</p>
-<div class="last highlight-python"><div class="highlight"><pre>RFC 60 10 -1 1312966109 1312966109 1312966109 0 60
-VCL 120 10 0 1312966111
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="n">RFC</span> <span class="mi">60</span> <span class="mi">10</span> <span class="o">-</span><span class="mi">1</span> <span class="mi">1312966109</span> <span class="mi">1312966109</span> <span class="mi">1312966109</span> <span class="mi">0</span> <span class="mi">60</span>
+<span class="n">VCL</span> <span class="mi">120</span> <span class="mi">10</span> <span class="mi">0</span> <span class="mi">1312966111</span>
 </pre></div>
 </div>
 </dd>
 <dt>Timestamp - Timing information</dt>
 <dd><p class="first">Contains timing information for the Varnish worker threads.</p>
-<p>Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.</p>
+<p>Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See the TIMESTAMPS section below for information about the individual time stamps.</p>
 <p>The format is:</p>
-<div class="last highlight-python"><div class="highlight"><pre>%s: %f %f %f
-|   |  |  |
-|   |  |  +- Time since last timestamp
-|   |  +---- Time since start of work unit
-|   +------- Absolute time of event
-+----------- Event label
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span><span class="p">:</span> <span class="o">%</span><span class="n">f</span> <span class="o">%</span><span class="n">f</span> <span class="o">%</span><span class="n">f</span>
+<span class="o">|</span>   <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>   <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Time</span> <span class="n">since</span> <span class="n">last</span> <span class="n">timestamp</span>
+<span class="o">|</span>   <span class="o">|</span>  <span class="o">+----</span> <span class="n">Time</span> <span class="n">since</span> <span class="n">start</span> <span class="n">of</span> <span class="n">work</span> <span class="n">unit</span>
+<span class="o">|</span>   <span class="o">+-------</span> <span class="n">Absolute</span> <span class="n">time</span> <span class="n">of</span> <span class="n">event</span>
+<span class="o">+-----------</span> <span class="n">Event</span> <span class="n">label</span>
 </pre></div>
 </div>
 </dd>
@@ -499,11 +501,11 @@ VCL 120 10 0 1312966111
 <dt>VCL_trace - VCL trace data</dt>
 <dd><p class="first">Logs VCL execution trace data.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%u %u.%u
-|  |  |
-|  |  +- VCL program line position
-|  +---- VCL program line number
-+------- VCL trace point index
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">u</span> <span class="o">%</span><span class="n">u</span><span class="o">.%</span><span class="n">u</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">VCL</span> <span class="n">program</span> <span class="n">line</span> <span class="n">position</span>
+<span class="o">|</span>  <span class="o">+----</span> <span class="n">VCL</span> <span class="n">program</span> <span class="n">line</span> <span class="n">number</span>
+<span class="o">+-------</span> <span class="n">VCL</span> <span class="n">trace</span> <span class="n">point</span> <span class="n">index</span>
 </pre></div>
 </div>
 <p class="last">NB: This log record is masked by default.</p>
@@ -513,11 +515,11 @@ VCL 120 10 0 1312966111
 <dt>VfpAcct - Fetch filter accounting</dt>
 <dd><p class="first">Contains name of VFP and statistics.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%s %d %d
-|  |  |
-|  |  +- Total bytes produced
-|  +---- Number of calls made
-+------- Name of filter
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">d</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">Total</span> <span class="nb">bytes</span> <span class="n">produced</span>
+<span class="o">|</span>  <span class="o">+----</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">calls</span> <span class="n">made</span>
+<span class="o">+-------</span> <span class="n">Name</span> <span class="n">of</span> <span class="nb">filter</span>
 </pre></div>
 </div>
 <p class="last">NB: This log record is masked by default.</p>
@@ -527,10 +529,10 @@ VCL 120 10 0 1312966111
 <dt>WorkThread - Logs thread start/stop events</dt>
 <dd><p class="first">Logs worker thread creation and termination events.</p>
 <p>The format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>%p %s
-|  |
-|  +- [start|end]
-+---- Worker struct pointer
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">p</span> <span class="o">%</span><span class="n">s</span>
+<span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">+-</span> <span class="p">[</span><span class="n">start</span><span class="o">|</span><span class="n">end</span><span class="p">]</span>
+<span class="o">+----</span> <span class="n">Worker</span> <span class="n">struct</span> <span class="n">pointer</span>
 </pre></div>
 </div>
 <p class="last">NB: This log record is masked by default.</p>
@@ -611,10 +613,10 @@ Martin Blix Grydeland.</p>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><em>varnishhist</em></a></li>
-<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><em>varnishlog</em></a></li>
-<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><em>varnishncsa</em></a></li>
-<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><em>varnishtop</em></a></li>
+<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><span class="std std-ref">varnishhist</span></a></li>
+<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a></li>
+<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><span class="std std-ref">varnishncsa</span></a></li>
+<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><span class="std std-ref">varnishtop</span></a></li>
 </ul>
 </div>
 <div class="section" id="copyright">
@@ -633,7 +635,7 @@ itself. See LICENCE for details.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -664,29 +666,28 @@ itself. See LICENCE for details.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="vsl-query.html"
                         title="next chapter">vsl-query</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/vsl.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/vsl.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -698,13 +699,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

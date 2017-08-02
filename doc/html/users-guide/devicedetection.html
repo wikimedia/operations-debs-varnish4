@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Device detection &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Device detection &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="Reporting and statistics" href="report.html" />
     <link rel="prev" title="Adding WebSockets support" href="vcl-example-websockets.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,16 +43,16 @@
         <li class="right" >
           <a href="vcl-example-websockets.html" title="Adding WebSockets support"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="device-detection">
 <span id="users-guide-devicedetect"></span><h1>Device detection<a class="headerlink" href="#device-detection" title="Permalink to this headline">¶</a></h1>
@@ -66,11 +68,11 @@ provide a streaming video codec that the client understands.</p>
 <p>To perhaps make the strategies easier to understand, we, in this context, assume
 that the <cite>req.http.X-UA-Device</cite> header is present and unique per client class.</p>
 <p>Setting this header can be as simple as:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    if (req.http.User-Agent ~ &quot;(?i)iphone&quot; {
-        set req.http.X-UA-Device = &quot;mobile-iphone&quot;;
-    }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">User</span><span class="o">-</span><span class="n">Agent</span> <span class="o">~</span> <span class="s2">&quot;(?i)iphone&quot;</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">UA</span><span class="o">-</span><span class="n">Device</span> <span class="o">=</span> <span class="s2">&quot;mobile-iphone&quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>There are different commercial and free offerings in doing grouping and
@@ -98,7 +100,7 @@ requests, and the backend mentions in the response 'Vary' header that the conten
 is dependant on this header.</p>
 <p>Everything works out of the box from Varnish' perspective.</p>
 <p>VCL:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
+<div class="highlight-default"><div class="highlight"><pre><span></span>sub vcl_recv {
     # call some detection engine that set req.http.X-UA-Device
 }
 # req.http.X-UA-Device is copied by Varnish into bereq.http.X-UA-Device
@@ -138,11 +140,11 @@ sub vcl_deliver {
 <p>Another way of signalling the device type is to override or normalize the
 'User-Agent' header sent to the backend.</p>
 <p>For example:</p>
-<div class="highlight-python"><div class="highlight"><pre>User-Agent: Mozilla/5.0 (Linux; U; Android 2.2; nb-no; HTC Desire Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">User</span><span class="o">-</span><span class="n">Agent</span><span class="p">:</span> <span class="n">Mozilla</span><span class="o">/</span><span class="mf">5.0</span> <span class="p">(</span><span class="n">Linux</span><span class="p">;</span> <span class="n">U</span><span class="p">;</span> <span class="n">Android</span> <span class="mf">2.2</span><span class="p">;</span> <span class="n">nb</span><span class="o">-</span><span class="n">no</span><span class="p">;</span> <span class="n">HTC</span> <span class="n">Desire</span> <span class="n">Build</span><span class="o">/</span><span class="n">FRF91</span><span class="p">)</span> <span class="n">AppleWebKit</span><span class="o">/</span><span class="mf">533.1</span> <span class="p">(</span><span class="n">KHTML</span><span class="p">,</span> <span class="n">like</span> <span class="n">Gecko</span><span class="p">)</span> <span class="n">Version</span><span class="o">/</span><span class="mf">4.0</span> <span class="n">Mobile</span> <span class="n">Safari</span><span class="o">/</span><span class="mf">533.1</span>
 </pre></div>
 </div>
 <p>becomes:</p>
-<div class="highlight-python"><div class="highlight"><pre>User-Agent: mobile-android
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">User</span><span class="o">-</span><span class="n">Agent</span><span class="p">:</span> <span class="n">mobile</span><span class="o">-</span><span class="n">android</span>
 </pre></div>
 </div>
 <p>when seen by the backend.</p>
@@ -150,7 +152,7 @@ sub vcl_deliver {
 A possible use for this is for CGI scripts where only a small set of predefined
 headers are (by default) available for the script.</p>
 <p>VCL:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
+<div class="highlight-default"><div class="highlight"><pre><span></span>sub vcl_recv {
     # call some detection engine that set req.http.X-UA-Device
 }
 
@@ -185,7 +187,7 @@ sub vcl_deliver {
 <p>The client itself does not see this classification, only the backend request
 is changed.</p>
 <p>VCL:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
+<div class="highlight-default"><div class="highlight"><pre><span></span>sub vcl_recv {
     # call some detection engine that set req.http.X-UA-Device
 }
 
@@ -240,23 +242,23 @@ sub vcl_deliver {
 <h2>Different backend for mobile clients<a class="headerlink" href="#different-backend-for-mobile-clients" title="Permalink to this headline">¶</a></h2>
 <p>If you have a different backend that serves pages for mobile clients, or any
 special needs in VCL, you can use the 'X-UA-Device' header like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>backend mobile {
-    .host = &quot;10.0.0.1&quot;;
-    .port = &quot;80&quot;;
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">backend</span> <span class="n">mobile</span> <span class="p">{</span>
+    <span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s2">&quot;10.0.0.1&quot;</span><span class="p">;</span>
+    <span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="s2">&quot;80&quot;</span><span class="p">;</span>
+<span class="p">}</span>
 
-sub vcl_recv {
-    # call some detection engine
+<span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="c1"># call some detection engine</span>
 
-    if (req.http.X-UA-Device ~ &quot;^mobile&quot; || req.http.X-UA-device ~ &quot;^tablet&quot;) {
-        set req.backend_hint = mobile;
-    }
-}
-sub vcl_hash {
-    if (req.http.X-UA-Device) {
-        hash_data(req.http.X-UA-Device);
-    }
-}
+    <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">UA</span><span class="o">-</span><span class="n">Device</span> <span class="o">~</span> <span class="s2">&quot;^mobile&quot;</span> <span class="o">||</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">UA</span><span class="o">-</span><span class="n">device</span> <span class="o">~</span> <span class="s2">&quot;^tablet&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">backend_hint</span> <span class="o">=</span> <span class="n">mobile</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="n">sub</span> <span class="n">vcl_hash</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">UA</span><span class="o">-</span><span class="n">Device</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">hash_data</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">UA</span><span class="o">-</span><span class="n">Device</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -264,21 +266,21 @@ sub vcl_hash {
 <h2>Redirecting mobile clients<a class="headerlink" href="#redirecting-mobile-clients" title="Permalink to this headline">¶</a></h2>
 <p>If you want to redirect mobile clients you can use the following snippet.</p>
 <p>VCL:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    # call some detection engine
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="c1"># call some detection engine</span>
 
-    if (req.http.X-UA-Device ~ &quot;^mobile&quot; || req.http.X-UA-device ~ &quot;^tablet&quot;) {
-        return(synth(750, &quot;Moved Temporarily&quot;));
-    }
-}
+    <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">UA</span><span class="o">-</span><span class="n">Device</span> <span class="o">~</span> <span class="s2">&quot;^mobile&quot;</span> <span class="o">||</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">UA</span><span class="o">-</span><span class="n">device</span> <span class="o">~</span> <span class="s2">&quot;^tablet&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">(</span><span class="n">synth</span><span class="p">(</span><span class="mi">750</span><span class="p">,</span> <span class="s2">&quot;Moved Temporarily&quot;</span><span class="p">));</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 
-sub vcl_synth {
-    if (obj.status == 750) {
-        set obj.http.Location = &quot;http://m.example.com&quot; + req.url;
-        set obj.status = 302;
-        return(deliver);
-    }
-}
+<span class="n">sub</span> <span class="n">vcl_synth</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">750</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">obj</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Location</span> <span class="o">=</span> <span class="s2">&quot;http://m.example.com&quot;</span> <span class="o">+</span> <span class="n">req</span><span class="o">.</span><span class="n">url</span><span class="p">;</span>
+        <span class="nb">set</span> <span class="n">obj</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="mi">302</span><span class="p">;</span>
+        <span class="k">return</span><span class="p">(</span><span class="n">deliver</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -288,7 +290,7 @@ sub vcl_synth {
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -311,29 +313,28 @@ sub vcl_synth {
   <h4>Next topic</h4>
   <p class="topless"><a href="report.html"
                         title="next chapter">Reporting and statistics</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/users-guide/devicedetection.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/users-guide/devicedetection.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -345,14 +346,14 @@ sub vcl_synth {
         <li class="right" >
           <a href="vcl-example-websockets.html" title="Adding WebSockets support"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="vcl.html" >VCL - Varnish Configuration Language</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

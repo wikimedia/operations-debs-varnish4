@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VCL &mdash; Varnish version 4.1.7 documentation</title>
+    <title>VCL &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Varnish Processing States" href="states.html" />
     <link rel="prev" title="The Varnish Reference Manual" href="index.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="vcl">
 <span id="vcl-7"></span><h1>VCL<a class="headerlink" href="#vcl" title="Permalink to this headline">¶</a></h1>
@@ -116,8 +118,8 @@ with the <em>elseif</em> statement (<em>elsif</em>/<em>elif</em>/<em>else if</em
 <h4>Strings, booleans, time, duration and integers<a class="headerlink" href="#strings-booleans-time-duration-and-integers" title="Permalink to this headline">¶</a></h4>
 <p>These are the data types in Varnish. You can <em>set</em> or <em>unset</em> these.</p>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre>set req.http.User-Agent = &quot;unknown&quot;;
-unset req.http.Range;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">User</span><span class="o">-</span><span class="n">Agent</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span><span class="p">;</span>
+<span class="n">unset</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Range</span><span class="p">;</span>
 </pre></div>
 </div>
 <div class="section" id="strings">
@@ -177,7 +179,7 @@ context they will return a string.</p>
 complete description please see the pcre(3) man page.</p>
 <p>To send flags to the PCRE engine, such as to do case insensitive matching, add
 the flag within parens following a question mark, like this:</p>
-<div class="highlight-python"><div class="highlight"><pre># If host is NOT example dot com..
+<div class="highlight-default"><div class="highlight"><pre><span></span># If host is NOT example dot com..
 if (req.http.host !~ &quot;(?i)example.com$&quot;) {
     ...
 }
@@ -187,7 +189,7 @@ if (req.http.host !~ &quot;(?i)example.com$&quot;) {
 <div class="section" id="include-statement">
 <h4>Include statement<a class="headerlink" href="#include-statement" title="Permalink to this headline">¶</a></h4>
 <p>To include a VCL file in another file use the include keyword:</p>
-<div class="highlight-python"><div class="highlight"><pre>include &quot;foo.vcl&quot;;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">include</span> <span class="s2">&quot;foo.vcl&quot;</span><span class="p">;</span>
 </pre></div>
 </div>
 </div>
@@ -195,10 +197,10 @@ if (req.http.host !~ &quot;(?i)example.com$&quot;) {
 <h4>Import statement<a class="headerlink" href="#import-statement" title="Permalink to this headline">¶</a></h4>
 <p>The <em>import</em> statement is used to load Varnish Modules (VMODs.)</p>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre>import std;
-sub vcl_recv {
-    std.log(&quot;foo&quot;);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">std</span><span class="p">;</span>
+<span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -207,13 +209,13 @@ sub vcl_recv {
 <p>Single lines of VCL can be commented out using // or #. Multi-line blocks can
 be commented out with /* block /*.</p>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    // Single line of out-commented VCL.
-    # Another way of commenting out a single line.
-    /*
-        Multi-line block of commented-out VCL.
-    */
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="o">//</span> <span class="n">Single</span> <span class="n">line</span> <span class="n">of</span> <span class="n">out</span><span class="o">-</span><span class="n">commented</span> <span class="n">VCL</span><span class="o">.</span>
+    <span class="c1"># Another way of commenting out a single line.</span>
+    <span class="o">/*</span>
+        <span class="n">Multi</span><span class="o">-</span><span class="n">line</span> <span class="n">block</span> <span class="n">of</span> <span class="n">commented</span><span class="o">-</span><span class="n">out</span> <span class="n">VCL</span><span class="o">.</span>
+    <span class="o">*/</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -222,9 +224,9 @@ be commented out with /* block /*.</p>
 <p>A backend declaration creates and initialises a named backend object. A
 declaration start with the keyword <em>backend</em> followed by the name of the
 backend. The actual declaration is in curly brackets, in a key/value fashion.:</p>
-<div class="highlight-python"><div class="highlight"><pre>backend name {
-    .attribute = &quot;value&quot;;
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">backend</span> <span class="n">name</span> <span class="p">{</span>
+    <span class="o">.</span><span class="n">attribute</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>The only mandatory attribute is <em>host</em>. The attributes will inherit
@@ -254,15 +256,15 @@ connections.</dd>
 </dl>
 </div></blockquote>
 <p>Backends can be used with <em>directors</em>. Please see the
-<a class="reference internal" href="vmod_directors.generated.html#vmod-directors-3"><em>vmod_directors</em></a> man page for more information.</p>
+<a class="reference internal" href="vmod_directors.generated.html#vmod-directors-3"><span class="std std-ref">vmod_directors</span></a> man page for more information.</p>
 </div>
 <div class="section" id="probes">
 <span id="reference-vcl-probes"></span><h4>Probes<a class="headerlink" href="#probes" title="Permalink to this headline">¶</a></h4>
 <p>Probes will query the backend for status on a regular basis and mark
 the backend as down it they fail. A probe is defined as this:</p>
-<div class="highlight-python"><div class="highlight"><pre>probe name {
-    .attribute = &quot;value&quot;;
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">probe</span> <span class="n">name</span> <span class="p">{</span>
+    <span class="o">.</span><span class="n">attribute</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>The probe named <cite>default</cite> is special and will be used for all backends
@@ -300,7 +302,7 @@ consider the backend healthy. Defaults to 3.</dd>
 <h4>Access Control List (ACL)<a class="headerlink" href="#access-control-list-acl" title="Permalink to this headline">¶</a></h4>
 <p>An Access Control List (ACL) declaration creates and initialises a named access
 control list which can later be used to match client addresses:</p>
-<div class="highlight-python"><div class="highlight"><pre>acl localnetwork {
+<div class="highlight-default"><div class="highlight"><pre><span></span>acl localnetwork {
     &quot;localhost&quot;;    # myself
     &quot;192.0.2.0&quot;/24; # and everyone on the local network
     ! &quot;192.0.2.23&quot;; # except for the dial-in router
@@ -313,19 +315,19 @@ if it is preceded by a negation mark, it will reject any address it is
 compared to, which may not be what you intended. If the entry is
 enclosed in parentheses, however, it will simply be ignored.</p>
 <p>To match an IP address against an ACL, simply use the match operator:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (client.ip ~ localnetwork) {
-    return (pipe);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">ip</span> <span class="o">~</span> <span class="n">localnetwork</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">pipe</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="vcl-objects">
 <h4>VCL objects<a class="headerlink" href="#vcl-objects" title="Permalink to this headline">¶</a></h4>
 <p>A VCL object can be instantiated with the <em>new</em> keyword:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_init {
-    new b = directors.round_robin()
-    b.add_backend(node1);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_init</span> <span class="p">{</span>
+    <span class="n">new</span> <span class="n">b</span> <span class="o">=</span> <span class="n">directors</span><span class="o">.</span><span class="n">round_robin</span><span class="p">()</span>
+    <span class="n">b</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">node1</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>This is only available in vcl_init.</p>
@@ -333,20 +335,20 @@ enclosed in parentheses, however, it will simply be ignored.</p>
 <div class="section" id="subroutines">
 <h4>Subroutines<a class="headerlink" href="#subroutines" title="Permalink to this headline">¶</a></h4>
 <p>A subroutine is used to group code for legibility or reusability:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub pipe_if_local {
-    if (client.ip ~ localnetwork) {
-        return (pipe);
-    }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">pipe_if_local</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">ip</span> <span class="o">~</span> <span class="n">localnetwork</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">pipe</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Subroutines in VCL do not take arguments, nor do they return
 values. The built in subroutines all have names beginning with vcl_,
 which is reserved.</p>
 <p>To call a subroutine, use the call keyword followed by the subroutine's name:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_recv {
-    call pipe_if_local;
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="n">call</span> <span class="n">pipe_if_local</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <div class="section" id="return-statements">
@@ -990,9 +992,9 @@ available in the std VMOD.</p>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="varnishd.html#varnishd-1"><em>varnishd</em></a></li>
-<li><a class="reference internal" href="vmod_directors.generated.html#vmod-directors-3"><em>vmod_directors</em></a></li>
-<li><a class="reference internal" href="vmod_std.generated.html#vmod-std-3"><em>vmod_std</em></a></li>
+<li><a class="reference internal" href="varnishd.html#varnishd-1"><span class="std std-ref">varnishd</span></a></li>
+<li><a class="reference internal" href="vmod_directors.generated.html#vmod-directors-3"><span class="std std-ref">vmod_directors</span></a></li>
+<li><a class="reference internal" href="vmod_std.generated.html#vmod-std-3"><span class="std std-ref">vmod_std</span></a></li>
 </ul>
 </div>
 <div class="section" id="history">
@@ -1018,7 +1020,7 @@ itself. See LICENSE for details.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -1083,29 +1085,28 @@ itself. See LICENSE for details.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="states.html"
                         title="next chapter">Varnish Processing States</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/vcl.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/vcl.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -1117,13 +1118,13 @@ itself. See LICENSE for details.</p>
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>
