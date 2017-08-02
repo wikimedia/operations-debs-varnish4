@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishd &mdash; Varnish version 4.1.7 documentation</title>
+    <title>varnishd &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="varnishd">
 <span id="varnishd-1"></span><h1>varnishd<a class="headerlink" href="#varnishd" title="Permalink to this headline">¶</a></h1>
@@ -112,7 +114,7 @@ process will also terminate the child.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-f <var>config</var></span></kbd></td>
 <td><p class="first">Use the specified VCL configuration file instead of the builtin
-default.  See <a class="reference internal" href="vcl.html#vcl-7"><em>VCL</em></a> for details on VCL syntax.</p>
+default.  See <a class="reference internal" href="vcl.html#vcl-7"><span class="std std-ref">VCL</span></a> for details on VCL syntax.</p>
 <p class="last">When neither a -f nor a -b argument are given, <cite>varnishd</cite> will not
 start the worker process but process cli commands.</p>
 </td></tr>
@@ -124,7 +126,7 @@ of supported algorithms.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-i <var>identity</var></span></kbd></td>
 <td>Specify the identity of the Varnish server. This can be accessed
-using <tt class="docutils literal"><span class="pre">server.identity</span></tt> from VCL.</td></tr>
+using <code class="docutils literal"><span class="pre">server.identity</span></code> from VCL.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-j <var>&lt;jail[,jailoptions]&gt;</var></span></kbd></td>
 </tr>
@@ -169,7 +171,7 @@ privileges from the CLI.</td></tr>
 <kbd><span class="option">-S <var>secret-file</var></span></kbd></td>
 <td>Path to a file containing a secret used for authorizing access to
 the management port. If not provided a new secret will be drawn
-from the system PRNG.  To disable authentication use <tt class="docutils literal"><span class="pre">none</span></tt>.</td></tr>
+from the system PRNG.  To disable authentication use <code class="docutils literal"><span class="pre">none</span></code>.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-s <var>&lt;[name=]type[,options]&gt;</var></span></kbd></td>
 </tr>
@@ -276,19 +278,19 @@ call.</td></tr>
 </tr>
 <tr><td>&nbsp;</td><td><p class="first">Default on all other platforms when <cite>varnishd</cite> is started with an
 effective uid of 0 (&quot;as root&quot;).</p>
-<p>With the <tt class="docutils literal"><span class="pre">unix</span></tt> jail mechanism activated, varnish will switch to
+<p>With the <code class="docutils literal"><span class="pre">unix</span></code> jail mechanism activated, varnish will switch to
 an alternative user for subprocesses and change the effective uid of
 the master process whenever possible.</p>
 <p>The optional <cite>user</cite> argument specifies which alternative user to
-use. It defaults to <tt class="docutils literal"><span class="pre">varnish</span></tt>.</p>
+use. It defaults to <code class="docutils literal"><span class="pre">varnish</span></code>.</p>
 <p>The optional <cite>ccgroup</cite> argument specifies a group to add to varnish
 subprocesses requiring access to a c-compiler. There is no default.</p>
 <p class="last">The optional <cite>workuser</cite> argument specifies an alternative user to use
-for the worker process. It defaults to <tt class="docutils literal"><span class="pre">vcache</span></tt>.</p>
+for the worker process. It defaults to <code class="docutils literal"><span class="pre">vcache</span></code>.</p>
 </td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-j <var>none</var></span></kbd></td>
-<td>last resort jail choice: With jail mechanism <tt class="docutils literal"><span class="pre">none</span></tt>, varnish will
+<td>last resort jail choice: With jail mechanism <code class="docutils literal"><span class="pre">none</span></code>, varnish will
 run all processes with the privileges it was started with.</td></tr>
 </tbody>
 </table>
@@ -1584,13 +1586,13 @@ signal and</li>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><em>varnishlog</em></a></li>
-<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><em>varnishhist</em></a></li>
-<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><em>varnishncsa</em></a></li>
-<li><a class="reference internal" href="varnishstat.html#varnishstat-1"><em>varnishstat</em></a></li>
-<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><em>varnishtop</em></a></li>
-<li><a class="reference internal" href="varnish-cli.html#varnish-cli-7"><em>varnish-cli</em></a></li>
-<li><a class="reference internal" href="vcl.html#vcl-7"><em>VCL</em></a></li>
+<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a></li>
+<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><span class="std std-ref">varnishhist</span></a></li>
+<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><span class="std std-ref">varnishncsa</span></a></li>
+<li><a class="reference internal" href="varnishstat.html#varnishstat-1"><span class="std std-ref">varnishstat</span></a></li>
+<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><span class="std std-ref">varnishtop</span></a></li>
+<li><a class="reference internal" href="varnish-cli.html#varnish-cli-7"><span class="std std-ref">varnish-cli</span></a></li>
+<li><a class="reference internal" href="vcl.html#vcl-7"><span class="std std-ref">VCL</span></a></li>
 </ul>
 </div>
 <div class="section" id="history">
@@ -1615,7 +1617,7 @@ itself. See LICENCE for details.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -1746,29 +1748,28 @@ itself. See LICENCE for details.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="varnishhist.html"
                         title="next chapter">varnishhist</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/varnishd.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/varnishd.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -1780,13 +1781,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

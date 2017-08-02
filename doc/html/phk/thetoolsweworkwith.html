@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>The Tools We Work With &mdash; Varnish version 4.1.7 documentation</title>
+    <title>The Tools We Work With &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="Thoughts on the eve of Varnish 3.0" href="three-zero.html" />
     <link rel="prev" title="Varnish Does Not Hash" href="varnish_does_not_hash.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="varnish_does_not_hash.html" title="Varnish Does Not Hash"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="the-tools-we-work-with">
 <span id="phk-thetoolsweworkwith"></span><h1>The Tools We Work With<a class="headerlink" href="#the-tools-we-work-with" title="Permalink to this headline">¶</a></h1>
@@ -102,22 +104,22 @@ for any use.</div></blockquote>
 <p>Feel free to guess, there's more such on pdf page 200 of the draft.</p>
 <p>Next, they broke the upper/lower rule, by adding special keywords
 in mixed case, probably because they thought it looked nicer:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">_Atomic</span><span class="p">,</span> <span class="n">_Bool</span><span class="p">,</span> <span class="n">_Noreturn</span> <span class="o">&amp;</span><span class="n">c</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">_Atomic</span><span class="p">,</span> <span class="n">_Bool</span><span class="p">,</span> <span class="n">_Noreturn</span> <span class="o">&amp;</span><span class="n">c</span>
 </pre></div>
 </div>
 <p>Then, presumably, somebody pointed out that this looked ugly:</p>
-<div class="highlight-python"><div class="highlight"><pre>void _Noreturn foo(int bar);
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">void</span> <span class="n">_Noreturn</span> <span class="n">foo</span><span class="p">(</span><span class="nb">int</span> <span class="n">bar</span><span class="p">);</span>
 </pre></div>
 </div>
 <p>So they have come up with a #include file called &lt;stdnoreturn.h&gt;
 so that instead you can write:</p>
-<div class="highlight-python"><div class="highlight"><pre>#include &lt;nostdreturn.h&gt;
-void noreturn foo(int bar);
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#include &lt;nostdreturn.h&gt;</span>
+<span class="n">void</span> <span class="n">noreturn</span> <span class="n">foo</span><span class="p">(</span><span class="nb">int</span> <span class="n">bar</span><span class="p">);</span>
 </pre></div>
 </div>
 <p>The &lt;nostdreturn.h&gt; file according to the standard shall have
 exactly this content:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="c">#define noreturn _Noreturn</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#define noreturn _Noreturn</span>
 </pre></div>
 </div>
 <p>Are you crying or laughing yet ?   You should be.</p>
@@ -152,19 +154,19 @@ boot.</p>
 widespread, I could see the point, but I have actually never seen
 that in any source code.  What I have seen are wrappers that take
 the general shape of:</p>
-<div class="highlight-python"><div class="highlight"><pre>int
-get_lock_timed(lock, timeout)
-{
-        while (timeout &gt; 0) {
-                t0 = time();
-                i = get_lock_before(lock, t + timeout));
-                if (i == WASLOCKED)
-                        return (i);
-                t1 = time();
-                timeout -= (t1 - t0);
-        }
-        return (TIMEDOUT);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">int</span>
+<span class="n">get_lock_timed</span><span class="p">(</span><span class="n">lock</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">timeout</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">();</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">get_lock_before</span><span class="p">(</span><span class="n">lock</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">timeout</span><span class="p">));</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">WASLOCKED</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="p">(</span><span class="n">i</span><span class="p">);</span>
+                <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="p">();</span>
+                <span class="n">timeout</span> <span class="o">-=</span> <span class="p">(</span><span class="n">t1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">TIMEDOUT</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Because it's not like the call is actually guaranteed to return at
@@ -200,12 +202,12 @@ you from implementing all these things using macros and other tricks.</p>
 <p>But it would be better to have them in the language, so the compiler
 could issue sensible warnings and programmers won't have to write
 monsters like:</p>
-<div class="highlight-python"><div class="highlight"><pre>#define VTAILQ_INSERT_BEFORE(listelm, elm, field) do {              \
-    (elm)-&gt;field.vtqe_prev = (listelm)-&gt;field.vtqe_prev;            \
-    VTAILQ_NEXT((elm), field) = (listelm);                          \
-    *(listelm)-&gt;field.vtqe_prev = (elm);                            \
-    (listelm)-&gt;field.vtqe_prev = &amp;VTAILQ_NEXT((elm), field);        \
-} while (0)
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#define VTAILQ_INSERT_BEFORE(listelm, elm, field) do {              \</span>
+    <span class="p">(</span><span class="n">elm</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">field</span><span class="o">.</span><span class="n">vtqe_prev</span> <span class="o">=</span> <span class="p">(</span><span class="n">listelm</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">field</span><span class="o">.</span><span class="n">vtqe_prev</span><span class="p">;</span>            \
+    <span class="n">VTAILQ_NEXT</span><span class="p">((</span><span class="n">elm</span><span class="p">),</span> <span class="n">field</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">listelm</span><span class="p">);</span>                          \
+    <span class="o">*</span><span class="p">(</span><span class="n">listelm</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">field</span><span class="o">.</span><span class="n">vtqe_prev</span> <span class="o">=</span> <span class="p">(</span><span class="n">elm</span><span class="p">);</span>                            \
+    <span class="p">(</span><span class="n">listelm</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">field</span><span class="o">.</span><span class="n">vtqe_prev</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">VTAILQ_NEXT</span><span class="p">((</span><span class="n">elm</span><span class="p">),</span> <span class="n">field</span><span class="p">);</span>        \
+<span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>To put an element on a linked list.</p>
@@ -224,7 +226,7 @@ program through well-thought-out examples.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h4>Previous topic</h4>
   <p class="topless"><a href="varnish_does_not_hash.html"
@@ -232,29 +234,28 @@ program through well-thought-out examples.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="three-zero.html"
                         title="next chapter">Thoughts on the eve of Varnish 3.0</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/phk/thetoolsweworkwith.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/phk/thetoolsweworkwith.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -266,13 +267,13 @@ program through well-thought-out examples.</p>
         <li class="right" >
           <a href="varnish_does_not_hash.html" title="Varnish Does Not Hash"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

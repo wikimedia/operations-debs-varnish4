@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishstat &mdash; Varnish version 4.1.7 documentation</title>
+    <title>varnishstat &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishtest" href="varnishtest.html" />
     <link rel="prev" title="varnishncsa" href="varnishncsa.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="varnishncsa.html" title="varnishncsa"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="varnishstat">
 <span id="varnishstat-1"></span><h1>varnishstat<a class="headerlink" href="#varnishstat" title="Permalink to this headline">¶</a></h1>
@@ -192,38 +194,38 @@ informational counters.</dd>
 <div class="section" id="xml-output">
 <h3>XML Output<a class="headerlink" href="#xml-output" title="Permalink to this headline">¶</a></h3>
 <p>When using the -x option, the output is:</p>
-<div class="highlight-python"><div class="highlight"><pre>&lt;varnishstat timestamp=&quot;YYYY-MM-DDTHH:mm:SS&quot;&gt;
-  &lt;stat&gt;
-    &lt;type&gt;FIELD TYPE&lt;/type&gt;
-    &lt;ident&gt;FIELD IDENT&lt;/ident&gt;
-    &lt;name&gt;FIELD NAME&lt;/name&gt;
-    &lt;value&gt;FIELD VALUE&lt;/value&gt;
-    &lt;flag&gt;FIELD SEMANTICS&lt;/flag&gt;
-    &lt;format&gt;FIELD DISPLAY FORMAT&lt;/format&gt;
-    &lt;description&gt;FIELD DESCRIPTION&lt;/description&gt;
-  &lt;/stat&gt;
-  [..]
-&lt;/varnishstat&gt;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">varnishstat</span> <span class="n">timestamp</span><span class="o">=</span><span class="s2">&quot;YYYY-MM-DDTHH:mm:SS&quot;</span><span class="o">&gt;</span>
+  <span class="o">&lt;</span><span class="n">stat</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="nb">type</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">TYPE</span><span class="o">&lt;/</span><span class="nb">type</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">ident</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">IDENT</span><span class="o">&lt;/</span><span class="n">ident</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">NAME</span><span class="o">&lt;/</span><span class="n">name</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">value</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">VALUE</span><span class="o">&lt;/</span><span class="n">value</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">flag</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">SEMANTICS</span><span class="o">&lt;/</span><span class="n">flag</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="nb">format</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">DISPLAY</span> <span class="n">FORMAT</span><span class="o">&lt;/</span><span class="nb">format</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">description</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">DESCRIPTION</span><span class="o">&lt;/</span><span class="n">description</span><span class="o">&gt;</span>
+  <span class="o">&lt;/</span><span class="n">stat</span><span class="o">&gt;</span>
+  <span class="p">[</span><span class="o">..</span><span class="p">]</span>
+<span class="o">&lt;/</span><span class="n">varnishstat</span><span class="o">&gt;</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="json-output">
 <h3>JSON OUTPUT<a class="headerlink" href="#json-output" title="Permalink to this headline">¶</a></h3>
 <p>With -j the output format is:</p>
-<div class="highlight-python"><div class="highlight"><pre>{
-  &quot;timestamp&quot;: &quot;YYYY-MM-DDTHH:mm:SS&quot;,
-  &quot;FIELD NAME&quot;: {
-    &quot;description&quot;: &quot;FIELD DESCRIPTION&quot;,
-    &quot;type&quot;: &quot;FIELD TYPE&quot;, &quot;ident&quot;: &quot;FIELD IDENT&quot;, &quot;flag&quot;: &quot;FIELD SEMANTICS&quot;, &quot;format&quot;: &quot;FIELD DISPLAY FORMAT&quot;,
-    &quot;value&quot;: FIELD VALUE
-  },
-  &quot;FIELD2 NAME&quot;: {
-    &quot;description&quot;: &quot;FIELD2 DESCRIPTION&quot;,
-    &quot;type&quot;: &quot;FIELD2 TYPE&quot;, &quot;ident&quot;: &quot;FIELD2 IDENT&quot;, &quot;flag&quot;: &quot;FIELD2 SEMANTICS&quot;, &quot;format&quot;: &quot;FIELD2 DISPLAY FORMAT&quot;,
-    &quot;value&quot;: FIELD2 VALUE
-  },
-  [..]
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;YYYY-MM-DDTHH:mm:SS&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;FIELD NAME&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DESCRIPTION&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD TYPE&quot;</span><span class="p">,</span> <span class="s2">&quot;ident&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD IDENT&quot;</span><span class="p">,</span> <span class="s2">&quot;flag&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD SEMANTICS&quot;</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DISPLAY FORMAT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">FIELD</span> <span class="n">VALUE</span>
+  <span class="p">},</span>
+  <span class="s2">&quot;FIELD2 NAME&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD2 DESCRIPTION&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD2 TYPE&quot;</span><span class="p">,</span> <span class="s2">&quot;ident&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD2 IDENT&quot;</span><span class="p">,</span> <span class="s2">&quot;flag&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD2 SEMANTICS&quot;</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD2 DISPLAY FORMAT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">FIELD2</span> <span class="n">VALUE</span>
+  <span class="p">},</span>
+  <span class="p">[</span><span class="o">..</span><span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Type and ident are optional.  Timestamp is the time when the report was
@@ -234,13 +236,13 @@ between each block of output.</p>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="varnishd.html#varnishd-1"><em>varnishd</em></a></li>
-<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><em>varnishhist</em></a></li>
-<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><em>varnishlog</em></a></li>
-<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><em>varnishncsa</em></a></li>
-<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><em>varnishtop</em></a></li>
+<li><a class="reference internal" href="varnishd.html#varnishd-1"><span class="std std-ref">varnishd</span></a></li>
+<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><span class="std std-ref">varnishhist</span></a></li>
+<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a></li>
+<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><span class="std std-ref">varnishncsa</span></a></li>
+<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><span class="std std-ref">varnishtop</span></a></li>
 <li>curses(3)</li>
-<li><a class="reference internal" href="varnish-counters.html#varnish-counters-7"><em>varnish-counters</em></a></li>
+<li><a class="reference internal" href="varnish-counters.html#varnish-counters-7"><span class="std std-ref">varnish-counters</span></a></li>
 </ul>
 </div>
 <div class="section" id="authors">
@@ -255,7 +257,7 @@ Lasse Karstensen and Martin Blix Grydeland.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -285,29 +287,28 @@ Lasse Karstensen and Martin Blix Grydeland.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="varnishtest.html"
                         title="next chapter">varnishtest</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/varnishstat.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/varnishstat.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -319,13 +320,13 @@ Lasse Karstensen and Martin Blix Grydeland.</p>
         <li class="right" >
           <a href="varnishncsa.html" title="varnishncsa"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

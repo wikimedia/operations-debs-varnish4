@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Installing Varnish &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Installing Varnish &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Varnish Installation" href="index.html" />
     <link rel="next" title="Getting help" href="help.html" />
     <link rel="prev" title="Prerequisites" href="prerequisites.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="prerequisites.html" title="Prerequisites"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">Varnish Installation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Varnish Installation</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="installing-varnish">
 <span id="install-doc"></span><h1>Installing Varnish<a class="headerlink" href="#installing-varnish" title="Permalink to this headline">¶</a></h1>
@@ -68,9 +70,9 @@ being:</p>
 <h2>FreeBSD<a class="headerlink" href="#freebsd" title="Permalink to this headline">¶</a></h2>
 <dl class="docutils">
 <dt>Binary package:</dt>
-<dd><tt class="docutils literal"><span class="pre">pkg_add</span> <span class="pre">-r</span> <span class="pre">varnish</span></tt></dd>
+<dd><code class="docutils literal"><span class="pre">pkg_add</span> <span class="pre">-r</span> <span class="pre">varnish</span></code></dd>
 <dt>From source:</dt>
-<dd><tt class="docutils literal"><span class="pre">cd</span> <span class="pre">/usr/ports/varnish</span> <span class="pre">&amp;&amp;</span> <span class="pre">make</span> <span class="pre">install</span> <span class="pre">clean</span></tt></dd>
+<dd><code class="docutils literal"><span class="pre">cd</span> <span class="pre">/usr/ports/varnish</span> <span class="pre">&amp;&amp;</span> <span class="pre">make</span> <span class="pre">install</span> <span class="pre">clean</span></code></dd>
 </dl>
 </div>
 <div class="section" id="red-hat-centos">
@@ -86,7 +88,7 @@ versions are available.</p>
 <div class="section" id="debian-ubuntu">
 <h2>Debian/Ubuntu<a class="headerlink" href="#debian-ubuntu" title="Permalink to this headline">¶</a></h2>
 <p>Varnish is distributed with both Debian and Ubuntu. In order to get
-Varnish up and running type <tt class="docutils literal"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">varnish</span></tt>. Please
+Varnish up and running type <code class="docutils literal"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">varnish</span></code>. Please
 note that this might not be the latest version of Varnish.  If you
 need a later version of Varnish, please follow the online installation
 instructions for <a class="reference external" href="https://www.varnish-cache.org/installation/debian">Debian</a> or <a class="reference external" href="https://www.varnish-cache.org/installation/ubuntu">Ubuntu</a>.</p>
@@ -102,7 +104,7 @@ steps:</p>
 <p>Alternatively, if you want to hack on Varnish, you should clone our
 git repository by doing.</p>
 <blockquote>
-<div><tt class="docutils literal"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">git://git.varnish-cache.org/varnish-cache</span></tt></div></blockquote>
+<div><code class="docutils literal"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">git://git.varnish-cache.org/varnish-cache</span></code></div></blockquote>
 <div class="section" id="build-dependencies-on-debian-ubuntu">
 <h2>Build dependencies on Debian / Ubuntu<a class="headerlink" href="#build-dependencies-on-debian-ubuntu" title="Permalink to this headline">¶</a></h2>
 <p>In order to build Varnish from source you need a number of packages
@@ -142,13 +144,13 @@ packages installed:</p>
 <div class="section" id="build-dependencies-on-a-smartos-zone">
 <h2>Build dependencies on a SmartOS Zone<a class="headerlink" href="#build-dependencies-on-a-smartos-zone" title="Permalink to this headline">¶</a></h2>
 <p>As of SmartOS pkgsrc 2015Q4, install the following packages:</p>
-<div class="highlight-python"><div class="highlight"><pre>pkgin in autoconf automake libedit libtool ncurses \
-         pcre graphviz py27-sphinx python27 gmake gcc49 \
-         pkg-config
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">pkgin</span> <span class="ow">in</span> <span class="n">autoconf</span> <span class="n">automake</span> <span class="n">libedit</span> <span class="n">libtool</span> <span class="n">ncurses</span> \
+         <span class="n">pcre</span> <span class="n">graphviz</span> <span class="n">py27</span><span class="o">-</span><span class="n">sphinx</span> <span class="n">python27</span> <span class="n">gmake</span> <span class="n">gcc49</span> \
+         <span class="n">pkg</span><span class="o">-</span><span class="n">config</span>
 </pre></div>
 </div>
 <p>Optionally, to pull from a repository:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">pkgin</span> <span class="ow">in</span> <span class="n">git</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">pkgin</span> <span class="ow">in</span> <span class="n">git</span>
 </pre></div>
 </div>
 </div>
@@ -156,10 +158,10 @@ packages installed:</p>
 <h2>Compiling Varnish<a class="headerlink" href="#compiling-varnish" title="Permalink to this headline">¶</a></h2>
 <p>The configuration will need the dependencies above satisfied. Once that is
 taken care of:</p>
-<div class="highlight-python"><div class="highlight"><pre>cd varnish-cache
-sh autogen.sh
-sh configure
-make
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">varnish</span><span class="o">-</span><span class="n">cache</span>
+<span class="n">sh</span> <span class="n">autogen</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">sh</span> <span class="n">configure</span>
+<span class="n">make</span>
 </pre></div>
 </div>
 <p>The <cite>configure</cite> script takes some arguments, but more likely than not you can
@@ -167,7 +169,7 @@ forget about that for now, almost everything in Varnish can be tweaked with run
 time parameters.</p>
 <p>Before you install, you may want to run the test suite, make a cup of
 tea while it runs, it usually takes a couple of minutes:</p>
-<div class="highlight-python"><div class="highlight"><pre>make check
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">check</span>
 </pre></div>
 </div>
 <p>Don't worry if one or two tests fail. Some of the tests are a
@@ -178,19 +180,19 @@ figuring this one out.</p>
 </div>
 <div class="section" id="installing">
 <h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h2>
-<p>And finally, the true test of a brave heart: <tt class="docutils literal"><span class="pre">sudo</span> <span class="pre">make</span> <span class="pre">install</span></tt></p>
-<p>Varnish will now be installed in <tt class="docutils literal"><span class="pre">/usr/local</span></tt>. The <tt class="docutils literal"><span class="pre">varnishd</span></tt> binary is in
+<p>And finally, the true test of a brave heart: <code class="docutils literal"><span class="pre">sudo</span> <span class="pre">make</span> <span class="pre">install</span></code></p>
+<p>Varnish will now be installed in <code class="docutils literal"><span class="pre">/usr/local</span></code>. The <code class="docutils literal"><span class="pre">varnishd</span></code> binary is in
 <cite>/usr/local/sbin/varnishd</cite>. To make sure that the necessary links and caches
-of the most recent shared libraries are found, run <tt class="docutils literal"><span class="pre">sudo</span> <span class="pre">ldconfig</span></tt>.</p>
+of the most recent shared libraries are found, run <code class="docutils literal"><span class="pre">sudo</span> <span class="pre">ldconfig</span></code>.</p>
 </div>
 </div>
 <div class="section" id="next-steps">
 <h1>Next steps<a class="headerlink" href="#next-steps" title="Permalink to this headline">¶</a></h1>
-<p>After successful installation you are ready to proceed to the <a class="reference internal" href="../tutorial/index.html#tutorial-index"><em>The Varnish Tutorial</em></a>.</p>
+<p>After successful installation you are ready to proceed to the <a class="reference internal" href="../tutorial/index.html#tutorial-index"><span class="std std-ref">The Varnish Tutorial</span></a>.</p>
 <p>This tutorial is written for installations from binary packages.
 In practice, it means that some configurations are not in place for installations from source code.
-For example, instead of calling <tt class="docutils literal"><span class="pre">service</span> <span class="pre">varnish</span> <span class="pre">start</span></tt>, you start the varnish daemon manually by typing:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishd -a :6081 -T localhost:6082 -b localhost:8080
+For example, instead of calling <code class="docutils literal"><span class="pre">service</span> <span class="pre">varnish</span> <span class="pre">start</span></code>, you start the varnish daemon manually by typing:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnishd</span> <span class="o">-</span><span class="n">a</span> <span class="p">:</span><span class="mi">6081</span> <span class="o">-</span><span class="n">T</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">6082</span> <span class="o">-</span><span class="n">b</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8080</span>
 </pre></div>
 </div>
 </div>
@@ -199,7 +201,7 @@ For example, instead of calling <tt class="docutils literal"><span class="pre">s
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -227,29 +229,28 @@ For example, instead of calling <tt class="docutils literal"><span class="pre">s
   <h4>Next topic</h4>
   <p class="topless"><a href="help.html"
                         title="next chapter">Getting help</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/installation/install.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/installation/install.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -261,13 +262,13 @@ For example, instead of calling <tt class="docutils literal"><span class="pre">s
         <li class="right" >
           <a href="prerequisites.html" title="Prerequisites"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >Varnish Installation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Varnish Installation</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

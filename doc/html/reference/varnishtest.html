@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishtest &mdash; Varnish version 4.1.7 documentation</title>
+    <title>varnishtest &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishtop" href="varnishtop.html" />
     <link rel="prev" title="varnishstat" href="varnishstat.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="varnishstat.html" title="varnishstat"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="varnishtest">
 <span id="varnishtest-1"></span><h1>varnishtest<a class="headerlink" href="#varnishtest" title="Permalink to this headline">¶</a></h1>
@@ -138,40 +140,40 @@ language. The best reference for writing scripts is the varnishtest program
 itself. In the Varnish source code repository, under
 <cite>bin/varnishtest/tests/</cite>, all the regression tests for Varnish are kept.</p>
 <p>An example:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishtest &quot;#1029&quot;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnishtest</span> <span class="s2">&quot;#1029&quot;</span>
 
-server s1 {
-        rxreq
-        expect req.url == &quot;/bar&quot;
-        txresp -gzipbody {[bar]}
+<span class="n">server</span> <span class="n">s1</span> <span class="p">{</span>
+        <span class="n">rxreq</span>
+        <span class="n">expect</span> <span class="n">req</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;/bar&quot;</span>
+        <span class="n">txresp</span> <span class="o">-</span><span class="n">gzipbody</span> <span class="p">{[</span><span class="n">bar</span><span class="p">]}</span>
 
-        rxreq
-        expect req.url == &quot;/foo&quot;
-        txresp -body {&lt;h1&gt;FOO&lt;esi:include src=&quot;/bar&quot;/&gt;BARF&lt;/h1&gt;}
+        <span class="n">rxreq</span>
+        <span class="n">expect</span> <span class="n">req</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;/foo&quot;</span>
+        <span class="n">txresp</span> <span class="o">-</span><span class="n">body</span> <span class="p">{</span><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">FOO</span><span class="o">&lt;</span><span class="n">esi</span><span class="p">:</span><span class="n">include</span> <span class="n">src</span><span class="o">=</span><span class="s2">&quot;/bar&quot;</span><span class="o">/&gt;</span><span class="n">BARF</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span><span class="p">}</span>
 
-} -start
+<span class="p">}</span> <span class="o">-</span><span class="n">start</span>
 
-varnish v1 -vcl+backend {
-        sub vcl_backend_response {
-                set beresp.do_esi = true;
-                if (bereq.url == &quot;/foo&quot;) {
-                        set beresp.ttl = 0s;
-                } else {
-                        set beresp.ttl = 10m;
-                }
-        }
-} -start
+<span class="n">varnish</span> <span class="n">v1</span> <span class="o">-</span><span class="n">vcl</span><span class="o">+</span><span class="n">backend</span> <span class="p">{</span>
+        <span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+                <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_esi</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">bereq</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;/foo&quot;</span><span class="p">)</span> <span class="p">{</span>
+                        <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">ttl</span> <span class="o">=</span> <span class="mi">0</span><span class="n">s</span><span class="p">;</span>
+                <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                        <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">ttl</span> <span class="o">=</span> <span class="mi">10</span><span class="n">m</span><span class="p">;</span>
+                <span class="p">}</span>
+        <span class="p">}</span>
+<span class="p">}</span> <span class="o">-</span><span class="n">start</span>
 
-client c1 {
-        txreq -url &quot;/bar&quot; -hdr &quot;Accept-Encoding: gzip&quot;
-        rxresp
-        gunzip
-        expect resp.bodylen == 5
+<span class="n">client</span> <span class="n">c1</span> <span class="p">{</span>
+        <span class="n">txreq</span> <span class="o">-</span><span class="n">url</span> <span class="s2">&quot;/bar&quot;</span> <span class="o">-</span><span class="n">hdr</span> <span class="s2">&quot;Accept-Encoding: gzip&quot;</span>
+        <span class="n">rxresp</span>
+        <span class="n">gunzip</span>
+        <span class="n">expect</span> <span class="n">resp</span><span class="o">.</span><span class="n">bodylen</span> <span class="o">==</span> <span class="mi">5</span>
 
-        txreq -url &quot;/foo&quot; -hdr &quot;Accept-Encoding: gzip&quot;
-        rxresp
-        expect resp.bodylen == 21
-} -run
+        <span class="n">txreq</span> <span class="o">-</span><span class="n">url</span> <span class="s2">&quot;/foo&quot;</span> <span class="o">-</span><span class="n">hdr</span> <span class="s2">&quot;Accept-Encoding: gzip&quot;</span>
+        <span class="n">rxresp</span>
+        <span class="n">expect</span> <span class="n">resp</span><span class="o">.</span><span class="n">bodylen</span> <span class="o">==</span> <span class="mi">21</span>
+<span class="p">}</span> <span class="o">-</span><span class="n">run</span>
 </pre></div>
 </div>
 <p>When run, the above script will simulate a server (s1) that expects two
@@ -183,12 +185,12 @@ c1-client, which is a single client sending two requests.</p>
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>varnishtest source code repository with tests</li>
-<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><em>varnishhist</em></a></li>
-<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><em>varnishlog</em></a></li>
-<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><em>varnishncsa</em></a></li>
-<li><a class="reference internal" href="varnishstat.html#varnishstat-1"><em>varnishstat</em></a></li>
-<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><em>varnishtop</em></a></li>
-<li><a class="reference internal" href="vcl.html#vcl-7"><em>VCL</em></a></li>
+<li><a class="reference internal" href="varnishhist.html#varnishhist-1"><span class="std std-ref">varnishhist</span></a></li>
+<li><a class="reference internal" href="varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a></li>
+<li><a class="reference internal" href="varnishncsa.html#varnishncsa-1"><span class="std std-ref">varnishncsa</span></a></li>
+<li><a class="reference internal" href="varnishstat.html#varnishstat-1"><span class="std std-ref">varnishstat</span></a></li>
+<li><a class="reference internal" href="varnishtop.html#varnishtop-1"><span class="std std-ref">varnishtop</span></a></li>
+<li><a class="reference internal" href="vcl.html#vcl-7"><span class="std std-ref">VCL</span></a></li>
 </ul>
 </div>
 <div class="section" id="history">
@@ -214,7 +216,7 @@ itself. See LICENCE for details.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -238,29 +240,28 @@ itself. See LICENCE for details.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="varnishtop.html"
                         title="next chapter">varnishtop</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/varnishtest.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/varnishtest.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -272,13 +273,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishstat.html" title="varnishstat"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

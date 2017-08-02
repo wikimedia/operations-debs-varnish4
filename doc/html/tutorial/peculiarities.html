@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Peculiarities &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Peculiarities &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Tutorial" href="index.html" />
     <link rel="next" title="Now what?" href="now_what.html" />
     <link rel="prev" title="Backend servers" href="backend_servers.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="backend_servers.html" title="Backend servers"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Tutorial</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Tutorial</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="peculiarities">
 <h1>Peculiarities<a class="headerlink" href="#peculiarities" title="Permalink to this headline">¶</a></h1>
@@ -67,7 +69,7 @@ handled.</p>
 <div class="section" id="varnishadm">
 <h2>varnishadm<a class="headerlink" href="#varnishadm" title="Permalink to this headline">¶</a></h2>
 <p>Varnish Cache has an admin console. You can connect it it through the
-<a class="reference internal" href="../reference/varnishadm.html#varnishadm-1"><em>varnishadm</em></a> command. In order to connect the user needs to be
+<a class="reference internal" href="../reference/varnishadm.html#varnishadm-1"><span class="std std-ref">varnishadm</span></a> command. In order to connect the user needs to be
 able to read <cite>/etc/varnish/secret</cite> in order to authenticate.</p>
 <p>Once you've started the console you can do quite a few operations on
 Varnish, like stopping and starting the cache process, load VCL,
@@ -81,7 +83,7 @@ what it does.</p>
 is actually streaming the logs. At any time you'll be able to connect
 to the stream and see what is going on. Varnish logs quite a bit of
 information. You can have a look at the logstream with the command
-<a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><em>varnishlog</em></a>.</p>
+<a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a>.</p>
 </div>
 </div>
 
@@ -89,7 +91,7 @@ information. You can have a look at the logstream with the command
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -107,29 +109,28 @@ information. You can have a look at the logstream with the command
   <h4>Next topic</h4>
   <p class="topless"><a href="now_what.html"
                         title="next chapter">Now what?</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/tutorial/peculiarities.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/tutorial/peculiarities.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -141,13 +142,13 @@ information. You can have a look at the logstream with the command
         <li class="right" >
           <a href="backend_servers.html" title="Backend servers"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Tutorial</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Tutorial</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

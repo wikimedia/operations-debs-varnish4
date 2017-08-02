@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>How GZIP, and GZIP+ESI works in Varnish &mdash; Varnish version 4.1.7 documentation</title>
+    <title>How GZIP, and GZIP+ESI works in Varnish &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="VCL Expressions" href="vcl_expr.html" />
     <link rel="prev" title="Why no SSL ?" href="ssl.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="ssl.html" title="Why no SSL ?"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="how-gzip-and-gzip-esi-works-in-varnish">
 <span id="phk-gzip"></span><h1>How GZIP, and GZIP+ESI works in Varnish<a class="headerlink" href="#how-gzip-and-gzip-esi-works-in-varnish" title="Permalink to this headline">¶</a></h1>
@@ -119,20 +121,20 @@ the backend didn't send us a gzip'ed object.</p>
 <p>Remember that a lot of content types cannot sensibly be gziped, most
 notably compressed image formats like jpeg, png and similar, so a
 typical use would be:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
-        if (bereq.url ~ &quot;html$&quot;) {
-                set beresp.do_gzip = true;
-        }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">bereq</span><span class="o">.</span><span class="n">url</span> <span class="o">~</span> <span class="s2">&quot;html$&quot;</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_gzip</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+        <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="gzip-and-esi">
 <h2>GZIP and ESI<a class="headerlink" href="#gzip-and-esi" title="Permalink to this headline">¶</a></h2>
 <p>First, note the new syntax for activating ESI:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
-        set beresp.do_esi = true;
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_esi</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>In theory, and hopefully in practice, all you read above should apply also
@@ -166,18 +168,18 @@ gunzip them, but when we encounter gunzip'ed objects which should
 be, we gzip them, but only at compression level zero.</p>
 <p>So in order to avoid unnecessary work, and in order to get maximum
 compression efficiency, you should:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_miss {
-        if (object needs ESI processing) {
-                unset req.http.accept-encoding;
-        }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_miss</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">object</span> <span class="n">needs</span> <span class="n">ESI</span> <span class="n">processing</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">unset</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">accept</span><span class="o">-</span><span class="n">encoding</span><span class="p">;</span>
+        <span class="p">}</span>
+<span class="p">}</span>
 
-sub vcl_backend_response {
-        if (object needs ESI processing) {
-                set beresp.do_esi = true;
-                set beresp.do_gzip = true;
-        }
-}
+<span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">object</span> <span class="n">needs</span> <span class="n">ESI</span> <span class="n">processing</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_esi</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+                <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_gzip</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+        <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>So that the backend sends these objects uncompressed to varnish.</p>
@@ -191,7 +193,7 @@ by making varnish do it.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -209,29 +211,28 @@ by making varnish do it.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="vcl_expr.html"
                         title="next chapter">VCL Expressions</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/phk/gzip.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/phk/gzip.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -243,13 +244,13 @@ by making varnish do it.</p>
         <li class="right" >
           <a href="ssl.html" title="Why no SSL ?"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

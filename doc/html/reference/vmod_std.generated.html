@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>vmod_std &mdash; Varnish version 4.1.7 documentation</title>
+    <title>vmod_std &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vmod_directors" href="vmod_directors.generated.html" />
     <link rel="prev" title="VMOD - Varnish Modules" href="vmod.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="vmod-std">
 <span id="vmod-std-3"></span><h1>vmod_std<a class="headerlink" href="#vmod-std" title="Permalink to this headline">¶</a></h1>
@@ -73,7 +75,7 @@
 but which for reasons of architecture fit better in a VMOD.</p>
 <p>One particular class of functions in vmod_std is the conversions functions
 which all have the form:</p>
-<div class="highlight-python"><div class="highlight"><pre>TYPE type(STRING, TYPE)
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">TYPE</span> <span class="nb">type</span><span class="p">(</span><span class="n">STRING</span><span class="p">,</span> <span class="n">TYPE</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>These functions attempt to convert STRING to the TYPE, and if that fails,
@@ -82,32 +84,32 @@ they return the second argument, which must have the given TYPE.</p>
 <div class="section" id="contents">
 <h3>CONTENTS<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="#func-cache-req-body"><em>VOID cache_req_body(BYTES)</em></a></li>
-<li><a class="reference internal" href="#func-collect"><em>VOID collect(HEADER)</em></a></li>
-<li><a class="reference internal" href="#func-duration"><em>DURATION duration(STRING, DURATION)</em></a></li>
-<li><a class="reference internal" href="#func-file-exists"><em>BOOL file_exists(STRING)</em></a></li>
-<li><a class="reference internal" href="#func-fileread"><em>STRING fileread(PRIV_CALL, STRING)</em></a></li>
-<li><a class="reference internal" href="#func-getenv"><em>STRING getenv(STRING)</em></a></li>
-<li><a class="reference internal" href="#func-healthy"><em>BOOL healthy(BACKEND)</em></a></li>
-<li><a class="reference internal" href="#func-integer"><em>INT integer(STRING, INT)</em></a></li>
-<li><a class="reference internal" href="#func-ip"><em>IP ip(STRING, IP)</em></a></li>
-<li><a class="reference internal" href="#func-log"><em>VOID log(STRING_LIST)</em></a></li>
-<li><a class="reference internal" href="#func-port"><em>INT port(IP)</em></a></li>
-<li><a class="reference internal" href="#func-querysort"><em>STRING querysort(STRING)</em></a></li>
-<li><a class="reference internal" href="#func-random"><em>REAL random(REAL, REAL)</em></a></li>
-<li><a class="reference internal" href="#func-real"><em>REAL real(STRING, REAL)</em></a></li>
-<li><a class="reference internal" href="#func-real2integer"><em>INT real2integer(REAL, INT)</em></a></li>
-<li><a class="reference internal" href="#func-real2time"><em>TIME real2time(REAL, TIME)</em></a></li>
-<li><a class="reference internal" href="#func-rollback"><em>VOID rollback(HTTP)</em></a></li>
-<li><a class="reference internal" href="#func-set-ip-tos"><em>VOID set_ip_tos(INT)</em></a></li>
-<li><a class="reference internal" href="#func-strstr"><em>STRING strstr(STRING, STRING)</em></a></li>
-<li><a class="reference internal" href="#func-syslog"><em>VOID syslog(INT, STRING_LIST)</em></a></li>
-<li><a class="reference internal" href="#func-time"><em>TIME time(STRING, TIME)</em></a></li>
-<li><a class="reference internal" href="#func-time2integer"><em>INT time2integer(TIME, INT)</em></a></li>
-<li><a class="reference internal" href="#func-time2real"><em>REAL time2real(TIME, REAL)</em></a></li>
-<li><a class="reference internal" href="#func-timestamp"><em>VOID timestamp(STRING)</em></a></li>
-<li><a class="reference internal" href="#func-tolower"><em>STRING tolower(STRING_LIST)</em></a></li>
-<li><a class="reference internal" href="#func-toupper"><em>STRING toupper(STRING_LIST)</em></a></li>
+<li><a class="reference internal" href="#func-cache-req-body"><span class="std std-ref">VOID cache_req_body(BYTES)</span></a></li>
+<li><a class="reference internal" href="#func-collect"><span class="std std-ref">VOID collect(HEADER)</span></a></li>
+<li><a class="reference internal" href="#func-duration"><span class="std std-ref">DURATION duration(STRING, DURATION)</span></a></li>
+<li><a class="reference internal" href="#func-file-exists"><span class="std std-ref">BOOL file_exists(STRING)</span></a></li>
+<li><a class="reference internal" href="#func-fileread"><span class="std std-ref">STRING fileread(PRIV_CALL, STRING)</span></a></li>
+<li><a class="reference internal" href="#func-getenv"><span class="std std-ref">STRING getenv(STRING)</span></a></li>
+<li><a class="reference internal" href="#func-healthy"><span class="std std-ref">BOOL healthy(BACKEND)</span></a></li>
+<li><a class="reference internal" href="#func-integer"><span class="std std-ref">INT integer(STRING, INT)</span></a></li>
+<li><a class="reference internal" href="#func-ip"><span class="std std-ref">IP ip(STRING, IP)</span></a></li>
+<li><a class="reference internal" href="#func-log"><span class="std std-ref">VOID log(STRING_LIST)</span></a></li>
+<li><a class="reference internal" href="#func-port"><span class="std std-ref">INT port(IP)</span></a></li>
+<li><a class="reference internal" href="#func-querysort"><span class="std std-ref">STRING querysort(STRING)</span></a></li>
+<li><a class="reference internal" href="#func-random"><span class="std std-ref">REAL random(REAL, REAL)</span></a></li>
+<li><a class="reference internal" href="#func-real"><span class="std std-ref">REAL real(STRING, REAL)</span></a></li>
+<li><a class="reference internal" href="#func-real2integer"><span class="std std-ref">INT real2integer(REAL, INT)</span></a></li>
+<li><a class="reference internal" href="#func-real2time"><span class="std std-ref">TIME real2time(REAL, TIME)</span></a></li>
+<li><a class="reference internal" href="#func-rollback"><span class="std std-ref">VOID rollback(HTTP)</span></a></li>
+<li><a class="reference internal" href="#func-set-ip-tos"><span class="std std-ref">VOID set_ip_tos(INT)</span></a></li>
+<li><a class="reference internal" href="#func-strstr"><span class="std std-ref">STRING strstr(STRING, STRING)</span></a></li>
+<li><a class="reference internal" href="#func-syslog"><span class="std std-ref">VOID syslog(INT, STRING_LIST)</span></a></li>
+<li><a class="reference internal" href="#func-time"><span class="std std-ref">TIME time(STRING, TIME)</span></a></li>
+<li><a class="reference internal" href="#func-time2integer"><span class="std std-ref">INT time2integer(TIME, INT)</span></a></li>
+<li><a class="reference internal" href="#func-time2real"><span class="std std-ref">REAL time2real(TIME, REAL)</span></a></li>
+<li><a class="reference internal" href="#func-timestamp"><span class="std std-ref">VOID timestamp(STRING)</span></a></li>
+<li><a class="reference internal" href="#func-tolower"><span class="std std-ref">STRING tolower(STRING_LIST)</span></a></li>
+<li><a class="reference internal" href="#func-toupper"><span class="std std-ref">STRING toupper(STRING_LIST)</span></a></li>
 </ul>
 <div class="section" id="string-toupper-string-list">
 <span id="func-toupper"></span><h4>STRING toupper(STRING_LIST)<a class="headerlink" href="#string-toupper-string-list" title="Permalink to this headline">¶</a></h4>
@@ -502,8 +504,8 @@ anywhere in req.url.</p>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="varnishd.html#varnishd-1"><em>varnishd</em></a></li>
-<li><a class="reference internal" href="vsl.html#vsl-7"><em>VSL</em></a></li>
+<li><a class="reference internal" href="varnishd.html#varnishd-1"><span class="std std-ref">varnishd</span></a></li>
+<li><a class="reference internal" href="vsl.html#vsl-7"><span class="std std-ref">VSL</span></a></li>
 </ul>
 </div>
 <div class="section" id="history">
@@ -527,7 +529,7 @@ itself. See LICENCE for details.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -579,29 +581,28 @@ itself. See LICENCE for details.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="vmod_directors.generated.html"
                         title="next chapter">vmod_directors</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/vmod_std.generated.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/vmod_std.generated.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -613,13 +614,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

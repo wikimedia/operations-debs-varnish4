@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Varnish Administrator Documentation &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Varnish Administrator Documentation &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,11 +23,13 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="#" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="#" />
     <link rel="next" title="Varnish Installation" href="installation/index.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -36,14 +38,14 @@
         <li class="right" >
           <a href="installation/index.html" title="Varnish Installation"
              accesskey="N">next</a> |</li>
-        <li><a href="#">Varnish version 4.1.7 documentation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="#">Varnish version 4.1.8 documentation</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="varnish-administrator-documentation">
 <h1>Varnish Administrator Documentation<a class="headerlink" href="#varnish-administrator-documentation" title="Permalink to this headline">¶</a></h1>
@@ -53,18 +55,18 @@ configure it to cache the contents. Varnish Cache is really, really fast. It
 typically speeds up delivery with a factor of 300 - 1000x, depending on your
 architecture.</p>
 <p>To get started with Varnish-Cache we recommend that you read the installation
-guide <a class="reference internal" href="installation/index.html#install-index"><em>Varnish Installation</em></a>. Once you have Varnish up and running we recommend
-that you go through our tutorial - <a class="reference internal" href="tutorial/index.html#tutorial-index"><em>The Varnish Tutorial</em></a>, and finally the
-<a class="reference internal" href="users-guide/index.html#users-guide-index"><em>The Varnish Users Guide</em></a>.</p>
+guide <a class="reference internal" href="installation/index.html#install-index"><span class="std std-ref">Varnish Installation</span></a>. Once you have Varnish up and running we recommend
+that you go through our tutorial - <a class="reference internal" href="tutorial/index.html#tutorial-index"><span class="std std-ref">The Varnish Tutorial</span></a>, and finally the
+<a class="reference internal" href="users-guide/index.html#users-guide-index"><span class="std std-ref">The Varnish Users Guide</span></a>.</p>
 <p>If you need to find out how to use a specific Varnish tool, the
-<a class="reference internal" href="reference/index.html#reference-index"><em>The Varnish Reference Manual</em></a> contains detailed documentation over the tools. Changes
-from previous versions are located in the <a class="reference internal" href="whats-new/index.html#whats-new-index"><em>What's new in Varnish 4.1</em></a> chapter. In
-closing, we have <a class="reference internal" href="phk/index.html#phk"><em>Poul-Hennings random outbursts</em></a>, a collection of blog posts from Poul-Henning Kamp
+<a class="reference internal" href="reference/index.html#reference-index"><span class="std std-ref">The Varnish Reference Manual</span></a> contains detailed documentation over the tools. Changes
+from previous versions are located in the <a class="reference internal" href="whats-new/index.html#whats-new-index"><span class="std std-ref">What's new in Varnish 4.1</span></a> chapter. In
+closing, we have <a class="reference internal" href="phk/index.html#phk"><span class="std std-ref">Poul-Hennings random outbursts</span></a>, a collection of blog posts from Poul-Henning Kamp
 related to Varnish and HTTP.</p>
 <p>Conventions used in this manual include:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">service</span> <span class="pre">varnish</span> <span class="pre">restart</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">service</span> <span class="pre">varnish</span> <span class="pre">restart</span></code></dt>
 <dd>A command you can run, or a shortkey you can press. Used either in the
 terminal or after starting one of the tools.</dd>
 <dt><cite>/usr/local/</cite>, <cite>varnishadm</cite>, <cite>sess_timeout</cite></dt>
@@ -74,7 +76,7 @@ terminal or after starting one of the tools.</dd>
 </dl>
 </div></blockquote>
 <p>Longer listings like example command output and VCL look like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ /opt/varnish/sbin/varnishd -V
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ /opt/varnish/sbin/varnishd -V
 varnishd (varnish-trunk revision 199de9b)
 Copyright (c) 2006 Verdens Gang AS
 Copyright (c) 2006-2015 Varnish Software AS
@@ -94,8 +96,8 @@ Copyright (c) 2006-2015 Varnish Software AS
 <div class="section" id="indices-and-tables">
 <h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
-<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
+<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
 </ul>
 </div>
 </div>
@@ -104,7 +106,7 @@ Copyright (c) 2006-2015 Varnish Software AS
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="#">Table Of Contents</a></h3>
   <ul>
@@ -117,29 +119,28 @@ Copyright (c) 2006-2015 Varnish Software AS
   <h4>Next topic</h4>
   <p class="topless"><a href="installation/index.html"
                         title="next chapter">Varnish Installation</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="_sources/index.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -148,12 +149,12 @@ Copyright (c) 2006-2015 Varnish Software AS
         <li class="right" >
           <a href="installation/index.html" title="Varnish Installation"
              >next</a> |</li>
-        <li><a href="#">Varnish version 4.1.7 documentation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="#">Varnish version 4.1.8 documentation</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

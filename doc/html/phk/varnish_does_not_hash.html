@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Varnish Does Not Hash &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Varnish Does Not Hash &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="The Tools We Work With" href="thetoolsweworkwith.html" />
     <link rel="prev" title="Why HTTP/2.0 does not seem interesting" href="http20.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="http20.html" title="Why HTTP/2.0 does not seem interesting"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="varnish-does-not-hash">
 <span id="phk-varnish-does-not-hash"></span><h1>Varnish Does Not Hash<a class="headerlink" href="#varnish-does-not-hash" title="Permalink to this headline">¶</a></h1>
@@ -65,7 +67,7 @@ Shannon's information theory: &quot;entropy.&quot;</p>
 why Shannon recycled that term from thermodynamics.</p>
 <p>In this context, we can get away with thinking about entropy as how
 much our &quot;keys&quot; differ:</p>
-<div class="highlight-python"><div class="highlight"><pre>Low entropy (1 bit):
+<div class="highlight-default"><div class="highlight"><pre><span></span>Low entropy (1 bit):
         /foo/bar/barf/some/cms/content/article?article=2
         /foo/bar/barf/some/cms/content/article?article=3
 
@@ -104,15 +106,15 @@ tree instead. There every object has its own place and there are no
 collisions.</p>
 <p>Varnish does that, but with a twist.</p>
 <p>The &quot;keys&quot; in Varnish can be very long; by default they consist of:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_hash {
-    hash_data(req.url);
-    if (req.http.host) {
-        hash_data(req.http.host);
-    } else {
-        hash_data(server.ip);
-    }
-    return (hash);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_hash</span> <span class="p">{</span>
+    <span class="n">hash_data</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">url</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">host</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">hash_data</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">host</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">hash_data</span><span class="p">(</span><span class="n">server</span><span class="o">.</span><span class="n">ip</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="p">(</span><span class="nb">hash</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>But some users will add cookies, user identification and many other
@@ -143,15 +145,15 @@ SHA256, which, as the name says, always spits out 256 bits (= 32
 bytes), no matter how many bits you feed it.</p>
 <p>This does not eliminate the key-storage requirement, but now all
 the keys are 32 bytes and can be put directly into the data structure:</p>
-<div class="highlight-python"><div class="highlight"><pre>struct objhead {
-        [...]
-        unsigned char           digest[DIGEST_LEN];
-};
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">struct</span> <span class="n">objhead</span> <span class="p">{</span>
+        <span class="p">[</span><span class="o">...</span><span class="p">]</span>
+        <span class="n">unsigned</span> <span class="n">char</span>           <span class="n">digest</span><span class="p">[</span><span class="n">DIGEST_LEN</span><span class="p">];</span>
+<span class="p">};</span>
 </pre></div>
 </div>
 <p>In the example above, the output of SHA256 for the 1 bit difference
 in entropy becomes:</p>
-<div class="highlight-python"><div class="highlight"><pre>/foo/bar/barf/some/cms/content/article?article=2
+<div class="highlight-default"><div class="highlight"><pre><span></span>/foo/bar/barf/some/cms/content/article?article=2
 -&gt; 14f0553caa5c796650ec82256e3f111ae2f20020a4b9029f135a01610932054e
 /foo/bar/barf/some/cms/content/article?article=3
 -&gt; 4d45b9544077921575c3c5a2a14c779bff6c4830d1fbafe4bd7e03e5dd93ca05
@@ -174,7 +176,7 @@ be the first person to find a SHA256 collision.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -190,29 +192,28 @@ be the first person to find a SHA256 collision.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="thetoolsweworkwith.html"
                         title="next chapter">The Tools We Work With</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/phk/varnish_does_not_hash.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/phk/varnish_does_not_hash.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -224,13 +225,13 @@ be the first person to find a SHA256 collision.</p>
         <li class="right" >
           <a href="http20.html" title="Why HTTP/2.0 does not seem interesting"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >Poul-Hennings random outbursts</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>vmod_directors &mdash; Varnish version 4.1.7 documentation</title>
+    <title>vmod_directors &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Writing a Director" href="directors.html" />
     <link rel="prev" title="vmod_std" href="vmod_std.generated.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="vmod_std.generated.html" title="vmod_std"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="vmod-directors">
 <span id="vmod-directors-3"></span><h1>vmod_directors<a class="headerlink" href="#vmod-directors" title="Permalink to this headline">¶</a></h1>
@@ -78,11 +80,11 @@ capabilities of Varnish.</p>
 can add them to a director. This happens in executed VCL code. If you
 want to emulate the previous behavior of Varnish 3.0 you can just
 initialize the directors in vcl_init, like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_init {
-    new vdir = directors.round_robin();
-    vdir.add_backend(backend1);
-    vdir.add_backend(backend2);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_init</span> <span class="p">{</span>
+    <span class="n">new</span> <span class="n">vdir</span> <span class="o">=</span> <span class="n">directors</span><span class="o">.</span><span class="n">round_robin</span><span class="p">();</span>
+    <span class="n">vdir</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">backend1</span><span class="p">);</span>
+    <span class="n">vdir</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">backend2</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>As you can see there is nothing keeping you from manipulating the
@@ -93,22 +95,22 @@ add more backends to a director when a certain URL is called.</p>
 <div class="section" id="contents">
 <h3>CONTENTS<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="#obj-fallback"><em>Object fallback</em></a></li>
-<li><a class="reference internal" href="#func-fallback-add-backend"><em>VOID fallback.add_backend(BACKEND)</em></a></li>
-<li><a class="reference internal" href="#func-fallback-backend"><em>BACKEND fallback.backend()</em></a></li>
-<li><a class="reference internal" href="#func-fallback-remove-backend"><em>VOID fallback.remove_backend(BACKEND)</em></a></li>
-<li><a class="reference internal" href="#obj-hash"><em>Object hash</em></a></li>
-<li><a class="reference internal" href="#func-hash-add-backend"><em>VOID hash.add_backend(BACKEND, REAL)</em></a></li>
-<li><a class="reference internal" href="#func-hash-backend"><em>BACKEND hash.backend(STRING_LIST)</em></a></li>
-<li><a class="reference internal" href="#func-hash-remove-backend"><em>VOID hash.remove_backend(BACKEND)</em></a></li>
-<li><a class="reference internal" href="#obj-random"><em>Object random</em></a></li>
-<li><a class="reference internal" href="#func-random-add-backend"><em>VOID random.add_backend(BACKEND, REAL)</em></a></li>
-<li><a class="reference internal" href="#func-random-backend"><em>BACKEND random.backend()</em></a></li>
-<li><a class="reference internal" href="#func-random-remove-backend"><em>VOID random.remove_backend(BACKEND)</em></a></li>
-<li><a class="reference internal" href="#obj-round-robin"><em>Object round_robin</em></a></li>
-<li><a class="reference internal" href="#func-round-robin-add-backend"><em>VOID round_robin.add_backend(BACKEND)</em></a></li>
-<li><a class="reference internal" href="#func-round-robin-backend"><em>BACKEND round_robin.backend()</em></a></li>
-<li><a class="reference internal" href="#func-round-robin-remove-backend"><em>VOID round_robin.remove_backend(BACKEND)</em></a></li>
+<li><a class="reference internal" href="#obj-fallback"><span class="std std-ref">Object fallback</span></a></li>
+<li><a class="reference internal" href="#func-fallback-add-backend"><span class="std std-ref">VOID fallback.add_backend(BACKEND)</span></a></li>
+<li><a class="reference internal" href="#func-fallback-backend"><span class="std std-ref">BACKEND fallback.backend()</span></a></li>
+<li><a class="reference internal" href="#func-fallback-remove-backend"><span class="std std-ref">VOID fallback.remove_backend(BACKEND)</span></a></li>
+<li><a class="reference internal" href="#obj-hash"><span class="std std-ref">Object hash</span></a></li>
+<li><a class="reference internal" href="#func-hash-add-backend"><span class="std std-ref">VOID hash.add_backend(BACKEND, REAL)</span></a></li>
+<li><a class="reference internal" href="#func-hash-backend"><span class="std std-ref">BACKEND hash.backend(STRING_LIST)</span></a></li>
+<li><a class="reference internal" href="#func-hash-remove-backend"><span class="std std-ref">VOID hash.remove_backend(BACKEND)</span></a></li>
+<li><a class="reference internal" href="#obj-random"><span class="std std-ref">Object random</span></a></li>
+<li><a class="reference internal" href="#func-random-add-backend"><span class="std std-ref">VOID random.add_backend(BACKEND, REAL)</span></a></li>
+<li><a class="reference internal" href="#func-random-backend"><span class="std std-ref">BACKEND random.backend()</span></a></li>
+<li><a class="reference internal" href="#func-random-remove-backend"><span class="std std-ref">VOID random.remove_backend(BACKEND)</span></a></li>
+<li><a class="reference internal" href="#obj-round-robin"><span class="std std-ref">Object round_robin</span></a></li>
+<li><a class="reference internal" href="#func-round-robin-add-backend"><span class="std std-ref">VOID round_robin.add_backend(BACKEND)</span></a></li>
+<li><a class="reference internal" href="#func-round-robin-backend"><span class="std std-ref">BACKEND round_robin.backend()</span></a></li>
+<li><a class="reference internal" href="#func-round-robin-remove-backend"><span class="std std-ref">VOID round_robin.remove_backend(BACKEND)</span></a></li>
 </ul>
 </div>
 <div class="section" id="object-round-robin">
@@ -266,7 +268,7 @@ vdir.remove_backend(backend2);</dd>
 <dd><p class="first">Create a hashing backend director.</p>
 <p>The director chooses the backend server by computing a hash/digest
 of the string given to .backend().</p>
-<p class="last">Commonly used with <tt class="docutils literal"><span class="pre">client.ip</span></tt> or a session cookie to get
+<p class="last">Commonly used with <code class="docutils literal"><span class="pre">client.ip</span></code> or a session cookie to get
 sticky sessions.</p>
 </dd>
 <dt>Example</dt>
@@ -329,7 +331,7 @@ itself. See LICENCE for details.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -375,29 +377,28 @@ itself. See LICENCE for details.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="directors.html"
                         title="next chapter">Writing a Director</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/reference/vmod_directors.generated.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/reference/vmod_directors.generated.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -409,13 +410,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="vmod_std.generated.html" title="vmod_std"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Reference Manual</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

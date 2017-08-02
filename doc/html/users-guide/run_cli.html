@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>CLI - bossing Varnish around &mdash; Varnish version 4.1.7 documentation</title>
+    <title>CLI - bossing Varnish around &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="Starting and running Varnish" href="running.html" />
     <link rel="next" title="Storage backends" href="storage-backends.html" />
     <link rel="prev" title="Important command line arguments" href="command-line.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,16 +43,16 @@
         <li class="right" >
           <a href="command-line.html" title="Important command line arguments"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="running.html" accesskey="U">Starting and running Varnish</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="running.html" accesskey="U">Starting and running Varnish</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="cli-bossing-varnish-around">
 <span id="run-cli"></span><h1>CLI - bossing Varnish around<a class="headerlink" href="#cli-bossing-varnish-around" title="Permalink to this headline">¶</a></h1>
@@ -58,22 +60,22 @@
 interface.</p>
 <p>The easiest way to do this, is using <cite>varnishadm</cite> on the
 same machine as <cite>varnishd</cite> is running:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishadm help
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnishadm</span> <span class="n">help</span>
 </pre></div>
 </div>
 <p>If you want to run <cite>varnishadm</cite> from a remote system, you can do it
 two ways.</p>
 <p>You can SSH into the <cite>varnishd</cite> computer and run <cite>varnishadm</cite>:</p>
-<div class="highlight-python"><div class="highlight"><pre>ssh $http_front_end varnishadm help
+<div class="highlight-default"><div class="highlight"><pre><span></span>ssh $http_front_end varnishadm help
 </pre></div>
 </div>
 <p>But you can also configure <cite>varnishd</cite> to accept remote CLI connections
 (using the '-T' and '-S' arguments):</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishd -T :6082 -S /etc/varnish_secret
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnishd</span> <span class="o">-</span><span class="n">T</span> <span class="p">:</span><span class="mi">6082</span> <span class="o">-</span><span class="n">S</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_secret</span>
 </pre></div>
 </div>
 <p>And then on the remote system run <cite>varnishadm</cite>:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnishadm -T $http_front_end -S /etc/copy_of_varnish_secret help
+<div class="highlight-default"><div class="highlight"><pre><span></span>varnishadm -T $http_front_end -S /etc/copy_of_varnish_secret help
 </pre></div>
 </div>
 <p>but as you can see, SSH is much more convenient.</p>
@@ -101,28 +103,28 @@ standard error if it is not 200.</p>
 is designated the &quot;active&quot; VCL program, and this is where
 all new requests start out.</p>
 <p>To load new VCL program:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.load some_name some_filename
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">load</span> <span class="n">some_name</span> <span class="n">some_filename</span>
 </pre></div>
 </div>
 <p>Loading will read the VCL program from the file, and compile it. If
 the compilation fails, you will get an error messages:</p>
-<div class="highlight-python"><div class="highlight"><pre>.../mask is not numeric.
-(&#39;input&#39; Line 4 Pos 17)
-                &quot;192.168.2.0/24x&quot;,
-----------------#################-
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">.../</span><span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">numeric</span><span class="o">.</span>
+<span class="p">(</span><span class="s1">&#39;input&#39;</span> <span class="n">Line</span> <span class="mi">4</span> <span class="n">Pos</span> <span class="mi">17</span><span class="p">)</span>
+                <span class="s2">&quot;192.168.2.0/24x&quot;</span><span class="p">,</span>
+<span class="o">----------------</span><span class="c1">#################-</span>
 
-Running VCC-compiler failed, exit 1
-VCL compilation failed
+<span class="n">Running</span> <span class="n">VCC</span><span class="o">-</span><span class="n">compiler</span> <span class="n">failed</span><span class="p">,</span> <span class="n">exit</span> <span class="mi">1</span>
+<span class="n">VCL</span> <span class="n">compilation</span> <span class="n">failed</span>
 </pre></div>
 </div>
 <p>If compilation succeeds, the VCL program is loaded, and you can
 now make it the active VCL, whenever you feel like it:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.use some_name
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">use</span> <span class="n">some_name</span>
 </pre></div>
 </div>
 <p>If you find out that was a really bad idea, you can switch back
 to the previous VCL program again:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; vcl.use old_name
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">use</span> <span class="n">old_name</span>
 </pre></div>
 </div>
 <p>The switch is instantaneous, all new requests will start using the
@@ -140,7 +142,7 @@ you know exactly what they are.</p>
 without having an exact list of what to throw out.</p>
 <p>Imagine for instance that the company logo changed and now you need
 Varnish to stop serving the old logo out of the cache:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; ban req.url ~ &quot;logo.*[.]png&quot;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">ban</span> <span class="n">req</span><span class="o">.</span><span class="n">url</span> <span class="o">~</span> <span class="s2">&quot;logo.*[.]png&quot;</span>
 </pre></div>
 </div>
 <p>should do that, and yes, that is a regular expression.</p>
@@ -156,15 +158,15 @@ of wronly cached content.</p>
 <h3>Change parameters<a class="headerlink" href="#change-parameters" title="Permalink to this headline">¶</a></h3>
 <p>Parameters can be set on the command line with the '-p' argument,
 but they can also be examined and changed on the fly from the CLI:</p>
-<div class="highlight-python"><div class="highlight"><pre>varnish&gt; param.show prefer_ipv6
-200
-prefer_ipv6         off [bool]
-                    Default is off
-                    Prefer IPv6 address when connecting to backends
-                    which have both IPv4 and IPv6 addresses.
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">param</span><span class="o">.</span><span class="n">show</span> <span class="n">prefer_ipv6</span>
+<span class="mi">200</span>
+<span class="n">prefer_ipv6</span>         <span class="n">off</span> <span class="p">[</span><span class="nb">bool</span><span class="p">]</span>
+                    <span class="n">Default</span> <span class="ow">is</span> <span class="n">off</span>
+                    <span class="n">Prefer</span> <span class="n">IPv6</span> <span class="n">address</span> <span class="n">when</span> <span class="n">connecting</span> <span class="n">to</span> <span class="n">backends</span>
+                    <span class="n">which</span> <span class="n">have</span> <span class="n">both</span> <span class="n">IPv4</span> <span class="ow">and</span> <span class="n">IPv6</span> <span class="n">addresses</span><span class="o">.</span>
 
-varnish&gt; param.set prefer_ipv6 true
-200
+<span class="n">varnish</span><span class="o">&gt;</span> <span class="n">param</span><span class="o">.</span><span class="n">set</span> <span class="n">prefer_ipv6</span> <span class="n">true</span>
+<span class="mi">200</span>
 </pre></div>
 </div>
 <p>In general it is not a good idea to modify parameters unless you
@@ -179,11 +181,11 @@ description of the parameter.</p>
 <h3>Starting and stopping the worker process<a class="headerlink" href="#starting-and-stopping-the-worker-process" title="Permalink to this headline">¶</a></h3>
 <p>In general you should just leave the worker process running, but
 if you need to stop and/or start it, the obvious commands work:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">stop</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">stop</span>
 </pre></div>
 </div>
 <p>and:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">start</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">start</span>
 </pre></div>
 </div>
 <p>If you start <cite>varnishd</cite> with the '-d' (debugging) argument, you will
@@ -198,7 +200,7 @@ restart it, but you can disable that with the 'auto_restart' parameter.</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -220,29 +222,28 @@ restart it, but you can disable that with the 'auto_restart' parameter.</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="storage-backends.html"
                         title="next chapter">Storage backends</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/users-guide/run_cli.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/users-guide/run_cli.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -254,14 +255,14 @@ restart it, but you can disable that with the 'auto_restart' parameter.</p>
         <li class="right" >
           <a href="command-line.html" title="Important command line arguments"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="running.html" >Starting and running Varnish</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="running.html" >Starting and running Varnish</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

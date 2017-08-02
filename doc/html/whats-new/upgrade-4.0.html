@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Upgrading to Varnish 4.0 &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Upgrading to Varnish 4.0 &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="What&#39;s new in Varnish 4.1" href="index.html" />
     <link rel="next" title="Poul-Hennings random outbursts" href="../phk/index.html" />
     <link rel="prev" title="Upgrading to Varnish 4.1" href="upgrading.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,15 +43,15 @@
         <li class="right" >
           <a href="upgrading.html" title="Upgrading to Varnish 4.1"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">What's new in Varnish 4.1</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="upgrading-to-varnish-4-0">
 <span id="whatsnew-upgrading"></span><h1>Upgrading to Varnish 4.0<a class="headerlink" href="#upgrading-to-varnish-4-0" title="Permalink to this headline">¶</a></h1>
@@ -62,7 +64,7 @@ compile a list of changes needed to upgrade here.</p>
 <p>To make sure that people have upgraded their VCL to the current
 version, Varnish now requires the first line of VCL to indicate the
 VCL version number:</p>
-<div class="highlight-python"><div class="highlight"><pre>vcl 4.0;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">vcl</span> <span class="mf">4.0</span><span class="p">;</span>
 </pre></div>
 </div>
 </div>
@@ -79,15 +81,15 @@ VCL version number:</p>
 <p>To make directors (backend selection logic) easier to extend, the
 directors are now defined in loadable VMODs.</p>
 <p>Setting a backend for future fetches in <cite>vcl_recv</cite> is now done as follows:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_init {
-    new cluster1 = directors.round_robin();
-    cluster1.add_backend(b1, 1.0);
-    cluster1.add_backend(b2, 1.0);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_init</span> <span class="p">{</span>
+    <span class="n">new</span> <span class="n">cluster1</span> <span class="o">=</span> <span class="n">directors</span><span class="o">.</span><span class="n">round_robin</span><span class="p">();</span>
+    <span class="n">cluster1</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">b1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">);</span>
+    <span class="n">cluster1</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">b2</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">);</span>
+<span class="p">}</span>
 
-sub vcl_recv {
-    set req.backend_hint = cluster1.backend();
-}
+<span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">backend_hint</span> <span class="o">=</span> <span class="n">cluster1</span><span class="o">.</span><span class="n">backend</span><span class="p">();</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Note the extra <cite>.backend()</cite> needed after the director name.</p>
@@ -96,15 +98,15 @@ sub vcl_recv {
 <h3>Use the hash director as a client director<a class="headerlink" href="#use-the-hash-director-as-a-client-director" title="Permalink to this headline">¶</a></h3>
 <p>Since the client director was already a special case of the hash director, it
 has been removed, and you should use the hash director directly:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_init {
-    new h = directors.hash();
-    h.add_backend(b1, 1);
-    h.add_backend(b2, 1);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_init</span> <span class="p">{</span>
+    <span class="n">new</span> <span class="n">h</span> <span class="o">=</span> <span class="n">directors</span><span class="o">.</span><span class="n">hash</span><span class="p">();</span>
+    <span class="n">h</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">b1</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">h</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">b2</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
 
-sub vcl_recv {
-    set req.backend_hint = h.backend(client.identity);
-}
+<span class="n">sub</span> <span class="n">vcl_recv</span> <span class="p">{</span>
+    <span class="nb">set</span> <span class="n">req</span><span class="o">.</span><span class="n">backend_hint</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">backend</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">identity</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -117,7 +119,7 @@ varnish encounters an error when trying to fetch an object.</p>
 <div class="section" id="error-is-now-synth">
 <h3>error() is now synth()<a class="headerlink" href="#error-is-now-synth" title="Permalink to this headline">¶</a></h3>
 <p>And you must explicitly return it:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="k">return</span> <span class="p">(</span><span class="n">synth</span><span class="p">(</span><span class="mi">999</span><span class="p">,</span> <span class="s">&quot;Response&quot;</span><span class="p">));</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="p">(</span><span class="n">synth</span><span class="p">(</span><span class="mi">999</span><span class="p">,</span> <span class="s2">&quot;Response&quot;</span><span class="p">));</span>
 </pre></div>
 </div>
 </div>
@@ -126,12 +128,12 @@ varnish encounters an error when trying to fetch an object.</p>
 <p>Setting headers on synthetic response bodies made in vcl_synth are now done on
 resp.http instead of obj.http.</p>
 <p>The synthetic keyword is now a function:</p>
-<div class="highlight-python"><div class="highlight"><pre>if (resp.status == 799) {
-    set resp.status = 200;
-    set resp.http.Content-Type = &quot;text/plain; charset=utf-8&quot;;
-    synthetic(&quot;You are &quot; + client.ip);
-    return (deliver);
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">799</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">set</span> <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="mi">200</span><span class="p">;</span>
+    <span class="nb">set</span> <span class="n">resp</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">Content</span><span class="o">-</span><span class="n">Type</span> <span class="o">=</span> <span class="s2">&quot;text/plain; charset=utf-8&quot;</span><span class="p">;</span>
+    <span class="n">synthetic</span><span class="p">(</span><span class="s2">&quot;You are &quot;</span> <span class="o">+</span> <span class="n">client</span><span class="o">.</span><span class="n">ip</span><span class="p">);</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">deliver</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -144,13 +146,13 @@ use <cite>obj.*</cite> in <cite>vcl_error</cite>.</p>
 <div class="section" id="hit-for-pass-objects-are-created-using-beresp-uncacheable">
 <h3>hit_for_pass objects are created using beresp.uncacheable<a class="headerlink" href="#hit-for-pass-objects-are-created-using-beresp-uncacheable" title="Permalink to this headline">¶</a></h3>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre>sub vcl_backend_response {
-    if (beresp.http.X-No-Cache) {
-        set beresp.uncacheable = true;
-        set beresp.ttl = 120s;
-        return (deliver);
-    }
-}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">beresp</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">X</span><span class="o">-</span><span class="n">No</span><span class="o">-</span><span class="n">Cache</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">uncacheable</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+        <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">ttl</span> <span class="o">=</span> <span class="mi">120</span><span class="n">s</span><span class="p">;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">deliver</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -266,7 +268,7 @@ disabled by default.</p>
 <h3>New log filtering<a class="headerlink" href="#new-log-filtering" title="Permalink to this headline">¶</a></h3>
 <p>The logging framework has a new filtering language, which means that
 the -m switch has been replaced with a new -q switch.  See
-<a class="reference internal" href="../reference/vsl-query.html#vsl-query-7"><em>vsl-query</em></a> for more information about the new query language.</p>
+<a class="reference internal" href="../reference/vsl-query.html#vsl-query-7"><span class="std std-ref">vsl-query</span></a> for more information about the new query language.</p>
 </div>
 </div>
 </div>
@@ -275,7 +277,7 @@ the -m switch has been replaced with a new -q switch.  See
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -330,29 +332,28 @@ the -m switch has been replaced with a new -q switch.  See
   <h4>Next topic</h4>
   <p class="topless"><a href="../phk/index.html"
                         title="next chapter">Poul-Hennings random outbursts</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/whats-new/upgrade-4.0.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/whats-new/upgrade-4.0.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -364,13 +365,13 @@ the -m switch has been replaced with a new -q switch.  See
         <li class="right" >
           <a href="upgrading.html" title="Upgrading to Varnish 4.1"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >What's new in Varnish 4.1</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >What's new in Varnish 4.1</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>

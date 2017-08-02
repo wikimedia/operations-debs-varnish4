@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Built in subroutines &mdash; Varnish version 4.1.7 documentation</title>
+    <title>Built in subroutines &#8212; Varnish version 4.1.8 documentation</title>
     
-    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.7',
+        VERSION:     '4.1.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,13 +23,15 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <link rel="top" title="Varnish version 4.1.7 documentation" href="../index.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
     <link rel="up" title="VCL - Varnish Configuration Language" href="vcl.html" />
     <link rel="next" title="Request and response VCL objects" href="vcl-variables.html" />
     <link rel="prev" title="VCL Syntax" href="vcl-syntax.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -41,22 +43,22 @@
         <li class="right" >
           <a href="vcl-syntax.html" title="VCL Syntax"
              accesskey="P">previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="vcl.html" accesskey="U">VCL - Varnish Configuration Language</a> &#187;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="built-in-subroutines">
 <span id="vcl-built-in-subs"></span><h1>Built in subroutines<a class="headerlink" href="#built-in-subroutines" title="Permalink to this headline">¶</a></h1>
 <p>Various built-in subroutines are called during processing of client-
-and backend requests as well as upon <tt class="docutils literal"><span class="pre">vcl.load</span></tt> and <tt class="docutils literal"><span class="pre">vcl.discard</span></tt>.</p>
-<p>See <a class="reference internal" href="../reference/states.html#reference-states"><em>Varnish Processing States</em></a> for a defailed graphical overview of the
+and backend requests as well as upon <code class="docutils literal"><span class="pre">vcl.load</span></code> and <code class="docutils literal"><span class="pre">vcl.discard</span></code>.</p>
+<p>See <a class="reference internal" href="../reference/states.html#reference-states"><span class="std std-ref">Varnish Processing States</span></a> for a defailed graphical overview of the
 states and how they relate to core code functions and VCL subroutines.</p>
 <div class="section" id="client-side">
 <h2>client side<a class="headerlink" href="#client-side" title="Permalink to this headline">¶</a></h2>
@@ -68,21 +70,21 @@ include.</p>
 <p>Its purpose is to decide whether or not to serve the request, possibly
 modify it and decide on how to process it further. A backend hint may
 be set as a default for the backend processing side.</p>
-<p>The <cite>vcl_recv</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt> on one
+<p>The <cite>vcl_recv</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code> on one
 of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">hash</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">hash</span></code></dt>
 <dd>Continue processing the object as a potential candidate for
-caching. Passes the control over to <a class="reference internal" href="#vcl-hash"><em>vcl_hash</em></a>.</dd>
-<dt><tt class="docutils literal"><span class="pre">pass</span></tt></dt>
-<dd>Switch to pass mode. Control will eventually pass to <a class="reference internal" href="#vcl-pass"><em>vcl_pass</em></a>.</dd>
-<dt><tt class="docutils literal"><span class="pre">pipe</span></tt></dt>
-<dd>Switch to pipe mode. Control will eventually pass to <a class="reference internal" href="#vcl-pipe"><em>vcl_pipe</em></a>.</dd>
-<dt><tt class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></tt></dt>
-<dd>Transition to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> with <tt class="docutils literal"><span class="pre">resp.status</span></tt> and
-<tt class="docutils literal"><span class="pre">resp.reason</span></tt> being preset to the arguments of <tt class="docutils literal"><span class="pre">synth()</span></tt>.</dd>
-<dt><tt class="docutils literal"><span class="pre">purge</span></tt></dt>
+caching. Passes the control over to <a class="reference internal" href="#vcl-hash"><span class="std std-ref">vcl_hash</span></a>.</dd>
+<dt><code class="docutils literal"><span class="pre">pass</span></code></dt>
+<dd>Switch to pass mode. Control will eventually pass to <a class="reference internal" href="#vcl-pass"><span class="std std-ref">vcl_pass</span></a>.</dd>
+<dt><code class="docutils literal"><span class="pre">pipe</span></code></dt>
+<dd>Switch to pipe mode. Control will eventually pass to <a class="reference internal" href="#vcl-pipe"><span class="std std-ref">vcl_pipe</span></a>.</dd>
+<dt><code class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></code></dt>
+<dd>Transition to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> with <code class="docutils literal"><span class="pre">resp.status</span></code> and
+<code class="docutils literal"><span class="pre">resp.reason</span></code> being preset to the arguments of <code class="docutils literal"><span class="pre">synth()</span></code>.</dd>
+<dt><code class="docutils literal"><span class="pre">purge</span></code></dt>
 <dd>Purge the object and it's variants. Control passes through
 vcl_hash to vcl_purge.</dd>
 </dl>
@@ -96,15 +98,15 @@ is passed on unaltered until either end closes the
 connection. Basically, Varnish will degrade into a simple TCP proxy,
 shuffling bytes back and forth. For a connection in pipe mode, no
 other VCL subroutine will ever get called after <cite>vcl_pipe</cite>.</p>
-<p>The <cite>vcl_pipe</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt> with one
+<p>The <cite>vcl_pipe</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code> with one
 of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">pipe</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">pipe</span></code></dt>
 <dd>Proceed with pipe mode.</dd>
-<dt><tt class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></tt></dt>
-<dd>Transition to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> with <tt class="docutils literal"><span class="pre">resp.status</span></tt> and
-<tt class="docutils literal"><span class="pre">resp.reason</span></tt> being preset to the arguments of <tt class="docutils literal"><span class="pre">synth()</span></tt>.</dd>
+<dt><code class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></code></dt>
+<dd>Transition to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> with <code class="docutils literal"><span class="pre">resp.status</span></code> and
+<code class="docutils literal"><span class="pre">resp.reason</span></code> being preset to the arguments of <code class="docutils literal"><span class="pre">synth()</span></code>.</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -114,19 +116,19 @@ of the following keywords:</p>
 on to the backend, and the backend's response is passed on to the
 client, but is not entered into the cache. Subsequent requests
 submitted over the same client connection are handled normally.</p>
-<p>The <cite>vcl_pass</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt> with one
+<p>The <cite>vcl_pass</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code> with one
 of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">fetch</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">fetch</span></code></dt>
 <dd>Proceed with pass mode - initiate a backend request.</dd>
-<dt><tt class="docutils literal"><span class="pre">restart</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">restart</span></code></dt>
 <dd>Restart the transaction. Increases the restart counter. If the number
 of restarts is higher than <em>max_restarts</em> Varnish emits a guru meditation
 error.</dd>
-<dt><tt class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></tt></dt>
-<dd>Transition to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> with <tt class="docutils literal"><span class="pre">resp.status</span></tt> and
-<tt class="docutils literal"><span class="pre">resp.reason</span></tt> being preset to the arguments of <tt class="docutils literal"><span class="pre">synth()</span></tt>.</dd>
+<dt><code class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></code></dt>
+<dd>Transition to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> with <code class="docutils literal"><span class="pre">resp.status</span></code> and
+<code class="docutils literal"><span class="pre">resp.reason</span></code> being preset to the arguments of <code class="docutils literal"><span class="pre">synth()</span></code>.</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -135,27 +137,27 @@ error.</dd>
 <p>Called when a cache lookup is successful. The object being hit may be
 stale: It can have a zero or negative <cite>ttl</cite> with only <cite>grace</cite> or
 <cite>keep</cite> time left.</p>
-<p>The <cite>vcl_hit</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt>
+<p>The <cite>vcl_hit</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code>
 with one of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">deliver</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">deliver</span></code></dt>
 <dd>Deliver the object. If it is stale, a background fetch to refresh
 it is triggered.</dd>
-<dt><tt class="docutils literal"><span class="pre">miss</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">miss</span></code></dt>
 <dd>Synchronously refresh the object from the backend despite the
-cache hit. Control will eventually pass to <a class="reference internal" href="#vcl-miss"><em>vcl_miss</em></a>.</dd>
-<dt><tt class="docutils literal"><span class="pre">pass</span></tt></dt>
-<dd>Switch to pass mode. Control will eventually pass to <a class="reference internal" href="#vcl-pass"><em>vcl_pass</em></a>.</dd>
-<dt><tt class="docutils literal"><span class="pre">restart</span></tt></dt>
+cache hit. Control will eventually pass to <a class="reference internal" href="#vcl-miss"><span class="std std-ref">vcl_miss</span></a>.</dd>
+<dt><code class="docutils literal"><span class="pre">pass</span></code></dt>
+<dd>Switch to pass mode. Control will eventually pass to <a class="reference internal" href="#vcl-pass"><span class="std std-ref">vcl_pass</span></a>.</dd>
+<dt><code class="docutils literal"><span class="pre">restart</span></code></dt>
 <dd>Restart the transaction. Increases the restart counter. If the number
 of restarts is higher than <em>max_restarts</em> Varnish emits a guru meditation
 error.</dd>
-<dt><tt class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></tt></dt>
-<dd>Transition to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> with <tt class="docutils literal"><span class="pre">resp.status</span></tt> and
-<tt class="docutils literal"><span class="pre">resp.reason</span></tt> being preset to the arguments of <tt class="docutils literal"><span class="pre">synth()</span></tt>.</dd>
-<dt><tt class="docutils literal"><span class="pre">fetch</span></tt> (deprecated)</dt>
-<dd>same as <tt class="docutils literal"><span class="pre">miss</span></tt>. Will get removed in a future version, triggers a
+<dt><code class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></code></dt>
+<dd>Transition to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> with <code class="docutils literal"><span class="pre">resp.status</span></code> and
+<code class="docutils literal"><span class="pre">resp.reason</span></code> being preset to the arguments of <code class="docutils literal"><span class="pre">synth()</span></code>.</dd>
+<dt><code class="docutils literal"><span class="pre">fetch</span></code> (deprecated)</dt>
+<dd>same as <code class="docutils literal"><span class="pre">miss</span></code>. Will get removed in a future version, triggers a
 VCL_Error log message.</dd>
 </dl>
 </div></blockquote>
@@ -163,26 +165,26 @@ VCL_Error log message.</dd>
 <div class="section" id="vcl-miss">
 <span id="id5"></span><h3>vcl_miss<a class="headerlink" href="#vcl-miss" title="Permalink to this headline">¶</a></h3>
 <p>Called after a cache lookup if the requested document was not found in
-the cache or if <a class="reference internal" href="#vcl-hit"><em>vcl_hit</em></a> returned <tt class="docutils literal"><span class="pre">fetch</span></tt>.</p>
+the cache or if <a class="reference internal" href="#vcl-hit"><span class="std std-ref">vcl_hit</span></a> returned <code class="docutils literal"><span class="pre">fetch</span></code>.</p>
 <p>Its purpose is to decide whether or not to attempt to retrieve the
 document from the backend. A backend hint may be set as a default for
 the backend processing side.</p>
-<p>The <cite>vcl_miss</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt> with one
+<p>The <cite>vcl_miss</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code> with one
 of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">fetch</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">fetch</span></code></dt>
 <dd>Retrieve the requested object from the backend. Control will
 eventually pass to <cite>vcl_backend_fetch</cite>.</dd>
-<dt><tt class="docutils literal"><span class="pre">pass</span></tt></dt>
-<dd>Switch to pass mode. Control will eventually pass to <a class="reference internal" href="#vcl-pass"><em>vcl_pass</em></a>.</dd>
-<dt><tt class="docutils literal"><span class="pre">restart</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">pass</span></code></dt>
+<dd>Switch to pass mode. Control will eventually pass to <a class="reference internal" href="#vcl-pass"><span class="std std-ref">vcl_pass</span></a>.</dd>
+<dt><code class="docutils literal"><span class="pre">restart</span></code></dt>
 <dd>Restart the transaction. Increases the restart counter. If the number
 of restarts is higher than <em>max_restarts</em> Varnish emits a guru meditation
 error.</dd>
-<dt><tt class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></tt></dt>
-<dd>Transition to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> with <tt class="docutils literal"><span class="pre">resp.status</span></tt> and
-<tt class="docutils literal"><span class="pre">resp.reason</span></tt> being preset to the arguments of <tt class="docutils literal"><span class="pre">synth()</span></tt>.</dd>
+<dt><code class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></code></dt>
+<dd>Transition to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> with <code class="docutils literal"><span class="pre">resp.status</span></code> and
+<code class="docutils literal"><span class="pre">resp.reason</span></code> being preset to the arguments of <code class="docutils literal"><span class="pre">synth()</span></code>.</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -190,53 +192,53 @@ error.</dd>
 <span id="id6"></span><h3>vcl_hash<a class="headerlink" href="#vcl-hash" title="Permalink to this headline">¶</a></h3>
 <p>Called after <cite>vcl_recv</cite> to create a hash value for the request. This is
 used as a key to look up the object in Varnish.</p>
-<p>The <cite>vcl_hash</cite> subroutine may only terminate with calling <tt class="docutils literal"><span class="pre">return(lookup)</span></tt>:</p>
+<p>The <cite>vcl_hash</cite> subroutine may only terminate with calling <code class="docutils literal"><span class="pre">return(lookup)</span></code>:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">lookup</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">lookup</span></code></dt>
 <dd>Look up the object in cache.
-Control passes to <a class="reference internal" href="#vcl-purge"><em>vcl_purge</em></a> when coming from a <tt class="docutils literal"><span class="pre">purge</span></tt>
+Control passes to <a class="reference internal" href="#vcl-purge"><span class="std std-ref">vcl_purge</span></a> when coming from a <code class="docutils literal"><span class="pre">purge</span></code>
 return in <cite>vcl_recv</cite>.
-Otherwise control passes to <a class="reference internal" href="#vcl-hit"><em>vcl_hit</em></a>, <a class="reference internal" href="#vcl-miss"><em>vcl_miss</em></a> or
-<a class="reference internal" href="#vcl-pass"><em>vcl_pass</em></a> if the cache lookup result was a hit, a miss or hit
-on a hit-for-pass object (object with <tt class="docutils literal"><span class="pre">obj.uncacheable</span> <span class="pre">==</span>
-<span class="pre">true</span></tt>), respectively.</dd>
+Otherwise control passes to <a class="reference internal" href="#vcl-hit"><span class="std std-ref">vcl_hit</span></a>, <a class="reference internal" href="#vcl-miss"><span class="std std-ref">vcl_miss</span></a> or
+<a class="reference internal" href="#vcl-pass"><span class="std std-ref">vcl_pass</span></a> if the cache lookup result was a hit, a miss or hit
+on a hit-for-pass object (object with <code class="docutils literal"><span class="pre">obj.uncacheable</span> <span class="pre">==</span>
+<span class="pre">true</span></code>), respectively.</dd>
 </dl>
 </div></blockquote>
 </div>
 <div class="section" id="vcl-purge">
 <span id="id7"></span><h3>vcl_purge<a class="headerlink" href="#vcl-purge" title="Permalink to this headline">¶</a></h3>
 <p>Called after the purge has been executed and all its variants have been evited.</p>
-<p>The <cite>vcl_purge</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt> with one
+<p>The <cite>vcl_purge</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code> with one
 of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">restart</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">restart</span></code></dt>
 <dd>Restart the transaction. Increases the restart counter. If the number
 of restarts is higher than <em>max_restarts</em> Varnish emits a guru meditation
 error.</dd>
-<dt><tt class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></tt></dt>
-<dd>Transition to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> with <tt class="docutils literal"><span class="pre">resp.status</span></tt> and
-<tt class="docutils literal"><span class="pre">resp.reason</span></tt> being preset to the arguments of <tt class="docutils literal"><span class="pre">synth()</span></tt>.</dd>
+<dt><code class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></code></dt>
+<dd>Transition to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> with <code class="docutils literal"><span class="pre">resp.status</span></code> and
+<code class="docutils literal"><span class="pre">resp.reason</span></code> being preset to the arguments of <code class="docutils literal"><span class="pre">synth()</span></code>.</dd>
 </dl>
 </div></blockquote>
 </div>
 <div class="section" id="vcl-deliver">
 <span id="id8"></span><h3>vcl_deliver<a class="headerlink" href="#vcl-deliver" title="Permalink to this headline">¶</a></h3>
 <p>Called before any object except a <cite>vcl_synth</cite> result is delivered to the client.</p>
-<p>The <cite>vcl_deliver</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt> with one
+<p>The <cite>vcl_deliver</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code> with one
 of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">deliver</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">deliver</span></code></dt>
 <dd>Deliver the object to the client.</dd>
-<dt><tt class="docutils literal"><span class="pre">restart</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">restart</span></code></dt>
 <dd>Restart the transaction. Increases the restart counter. If the number
 of restarts is higher than <em>max_restarts</em> Varnish emits a guru meditation
 error.</dd>
-<dt><tt class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></tt></dt>
-<dd>Transition to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> with <tt class="docutils literal"><span class="pre">resp.status</span></tt> and
-<tt class="docutils literal"><span class="pre">resp.reason</span></tt> being preset to the arguments of <tt class="docutils literal"><span class="pre">synth()</span></tt>.</dd>
+<dt><code class="docutils literal"><span class="pre">synth(status</span> <span class="pre">code,</span> <span class="pre">reason)</span></code></dt>
+<dd>Transition to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> with <code class="docutils literal"><span class="pre">resp.status</span></code> and
+<code class="docutils literal"><span class="pre">resp.reason</span></code> being preset to the arguments of <code class="docutils literal"><span class="pre">synth()</span></code>.</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -244,17 +246,17 @@ error.</dd>
 <span id="id9"></span><h3>vcl_synth<a class="headerlink" href="#vcl-synth" title="Permalink to this headline">¶</a></h3>
 <p>Called to deliver a synthetic object. A synthetic object is generated
 in VCL, not fetched from the backend. Its body may be constructed using
-the <tt class="docutils literal"><span class="pre">synthetic()</span></tt> function.</p>
+the <code class="docutils literal"><span class="pre">synthetic()</span></code> function.</p>
 <p>A <cite>vcl_synth</cite> defined object never enters the cache, contrary to a
-<a class="reference internal" href="#vcl-backend-error"><em>vcl_backend_error</em></a> defined object, which may end up in cache.</p>
-<p>The subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt> with one of the
+<a class="reference internal" href="#vcl-backend-error"><span class="std std-ref">vcl_backend_error</span></a> defined object, which may end up in cache.</p>
+<p>The subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code> with one of the
 following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">deliver</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">deliver</span></code></dt>
 <dd>Directly deliver the object defined by <cite>vcl_synth</cite> to the
 client without calling <cite>vcl_deliver</cite>.</dd>
-<dt><tt class="docutils literal"><span class="pre">restart</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">restart</span></code></dt>
 <dd>Restart the transaction. Increases the restart counter. If the number
 of restarts is higher than <em>max_restarts</em> Varnish emits a guru meditation
 error.</dd>
@@ -269,38 +271,38 @@ error.</dd>
 <p>Called before sending the backend request. In this subroutine you
 typically alter the request before it gets to the backend.</p>
 <p>The <cite>vcl_backend_fetch</cite> subroutine may terminate with calling
-<tt class="docutils literal"><span class="pre">return()</span></tt> with one of the following keywords:</p>
+<code class="docutils literal"><span class="pre">return()</span></code> with one of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">fetch</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">fetch</span></code></dt>
 <dd>Fetch the object from the backend.</dd>
-<dt><tt class="docutils literal"><span class="pre">abandon</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">abandon</span></code></dt>
 <dd>Abandon the backend request. Unless the backend request was a
-background fetch, control is passed to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> on the
-client side with <tt class="docutils literal"><span class="pre">resp.status</span></tt> preset to 503.</dd>
+background fetch, control is passed to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> on the
+client side with <code class="docutils literal"><span class="pre">resp.status</span></code> preset to 503.</dd>
 </dl>
 </div></blockquote>
 <p>Before calling <cite>vcl_backend_fetch</cite>, varnish core prepares the <cite>bereq</cite>
 backend request as follows:</p>
 <ul class="simple">
 <li>Unless the request is a <cite>pass</cite>,<ul>
-<li>set <tt class="docutils literal"><span class="pre">bereq.method</span></tt> to <tt class="docutils literal"><span class="pre">GET</span></tt> and <tt class="docutils literal"><span class="pre">bereq.proto</span></tt> to
-<tt class="docutils literal"><span class="pre">HTTP/1.1</span></tt> and</li>
-<li>set <tt class="docutils literal"><span class="pre">bereq.http.Accept_Encoding</span></tt> to <tt class="docutils literal"><span class="pre">gzip</span></tt> if
-<a class="reference internal" href="../reference/varnishd.html#ref-param-http-gzip-support"><em>http_gzip_support</em></a> is enabled.</li>
+<li>set <code class="docutils literal"><span class="pre">bereq.method</span></code> to <code class="docutils literal"><span class="pre">GET</span></code> and <code class="docutils literal"><span class="pre">bereq.proto</span></code> to
+<code class="docutils literal"><span class="pre">HTTP/1.1</span></code> and</li>
+<li>set <code class="docutils literal"><span class="pre">bereq.http.Accept_Encoding</span></code> to <code class="docutils literal"><span class="pre">gzip</span></code> if
+<a class="reference internal" href="../reference/varnishd.html#ref-param-http-gzip-support"><span class="std std-ref">http_gzip_support</span></a> is enabled.</li>
 </ul>
 </li>
 <li>If there is an existing cache object to be revalidated, set
-<tt class="docutils literal"><span class="pre">bereq.http.If-Modified-Since</span></tt> from its <tt class="docutils literal"><span class="pre">Last-Modified</span></tt> header
-and/or set <tt class="docutils literal"><span class="pre">bereq.http.If-None-Match</span></tt> from its <tt class="docutils literal"><span class="pre">Etag</span></tt> header</li>
-<li>Set <tt class="docutils literal"><span class="pre">bereq.http.X-Varnish</span></tt> to the current transaction id (<cite>vxid</cite>)</li>
+<code class="docutils literal"><span class="pre">bereq.http.If-Modified-Since</span></code> from its <code class="docutils literal"><span class="pre">Last-Modified</span></code> header
+and/or set <code class="docutils literal"><span class="pre">bereq.http.If-None-Match</span></code> from its <code class="docutils literal"><span class="pre">Etag</span></code> header</li>
+<li>Set <code class="docutils literal"><span class="pre">bereq.http.X-Varnish</span></code> to the current transaction id (<cite>vxid</cite>)</li>
 </ul>
 <p>These changes can be undone or modified in <cite>vcl_backend_fetch</cite> before
 the backend request is issued.</p>
-<p>In particular, to cache non-GET requests, <tt class="docutils literal"><span class="pre">req.method</span></tt> needs to be
-saved to a header or variable in <a class="reference internal" href="#vcl-recv"><em>vcl_recv</em></a> and restored to
-<tt class="docutils literal"><span class="pre">bereq.method</span></tt>. Notice that caching non-GET requests typically also
-requires changing the cache key in <a class="reference internal" href="#vcl-hash"><em>vcl_hash</em></a> e.g. by also
+<p>In particular, to cache non-GET requests, <code class="docutils literal"><span class="pre">req.method</span></code> needs to be
+saved to a header or variable in <a class="reference internal" href="#vcl-recv"><span class="std std-ref">vcl_recv</span></a> and restored to
+<code class="docutils literal"><span class="pre">bereq.method</span></code>. Notice that caching non-GET requests typically also
+requires changing the cache key in <a class="reference internal" href="#vcl-hash"><span class="std std-ref">vcl_hash</span></a> e.g. by also
 hashing the request method and/or request body.</p>
 <p>HEAD request can be satisfied from cached GET responses.</p>
 </div>
@@ -308,13 +310,13 @@ hashing the request method and/or request body.</p>
 <span id="id11"></span><h3>vcl_backend_response<a class="headerlink" href="#vcl-backend-response" title="Permalink to this headline">¶</a></h3>
 <p>Called after the response headers have been successfully retrieved from
 the backend.</p>
-<p>For a 304 response, varnish core code amends <tt class="docutils literal"><span class="pre">beresp</span></tt> before calling
+<p>For a 304 response, varnish core code amends <code class="docutils literal"><span class="pre">beresp</span></code> before calling
 <cite>vcl_backend_response</cite>:</p>
 <ul class="simple">
-<li>If the gzip status changed, <tt class="docutils literal"><span class="pre">Content-Encoding</span></tt> is unset and any
-<tt class="docutils literal"><span class="pre">Etag</span></tt> is weakened</li>
+<li>If the gzip status changed, <code class="docutils literal"><span class="pre">Content-Encoding</span></code> is unset and any
+<code class="docutils literal"><span class="pre">Etag</span></code> is weakened</li>
 <li>Any headers not present in the 304 response are copied from the
-existing cache object. <tt class="docutils literal"><span class="pre">Content-Length</span></tt> is copied if present in
+existing cache object. <code class="docutils literal"><span class="pre">Content-Length</span></code> is copied if present in
 the existing cache object and discarded otherwise.</li>
 <li>The status gets set to 200.</li>
 </ul>
@@ -324,22 +326,22 @@ happened.</p>
 conditional requests, so clients may receive 304 responses no matter
 if a backend request was conditional.</p>
 <p>The <cite>vcl_backend_response</cite> subroutine may terminate with calling
-<tt class="docutils literal"><span class="pre">return()</span></tt> with one of the following keywords:</p>
+<code class="docutils literal"><span class="pre">return()</span></code> with one of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">deliver</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">deliver</span></code></dt>
 <dd>For a 304 response, create an updated cache object.
 Otherwise, fetch the object body from the backend and initiate
 delivery to any waiting client requests, possibly in parallel
 (streaming).</dd>
-<dt><tt class="docutils literal"><span class="pre">abandon</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">abandon</span></code></dt>
 <dd>Abandon the backend request. Unless the backend request was a
-background fetch, control is passed to <a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> on the
-client side with <tt class="docutils literal"><span class="pre">resp.status</span></tt> preset to 503.</dd>
-<dt><tt class="docutils literal"><span class="pre">retry</span></tt></dt>
+background fetch, control is passed to <a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> on the
+client side with <code class="docutils literal"><span class="pre">resp.status</span></code> preset to 503.</dd>
+<dt><code class="docutils literal"><span class="pre">retry</span></code></dt>
 <dd>Retry the backend transaction. Increases the <cite>retries</cite> counter.
 If the number of retries is higher than <em>max_retries</em>,
-control will be passed to <a class="reference internal" href="#vcl-backend-error"><em>vcl_backend_error</em></a>.</dd>
+control will be passed to <a class="reference internal" href="#vcl-backend-error"><span class="std std-ref">vcl_backend_error</span></a>.</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -348,19 +350,19 @@ control will be passed to <a class="reference internal" href="#vcl-backend-error
 <p>This subroutine is called if we fail the backend fetch or if
 <em>max_retries</em> has been exceeded.</p>
 <p>A synthetic object is generated in VCL, whose body may be constructed
-using the <tt class="docutils literal"><span class="pre">synthetic()</span></tt> function.</p>
-<p>The <cite>vcl_backend_error</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt>
+using the <code class="docutils literal"><span class="pre">synthetic()</span></code> function.</p>
+<p>The <cite>vcl_backend_error</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code>
 with one of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">deliver</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">deliver</span></code></dt>
 <dd>Deliver and possibly cache the object defined in
 <cite>vcl_backend_error</cite> <strong>as if it was fetched from the backend</strong>, also
 referred to as a &quot;backend synth&quot;.</dd>
-<dt><tt class="docutils literal"><span class="pre">retry</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">retry</span></code></dt>
 <dd>Retry the backend transaction. Increases the <cite>retries</cite> counter.
 If the number of retries is higher than <em>max_retries</em>,
-<a class="reference internal" href="#vcl-synth"><em>vcl_synth</em></a> on the client side is called with <tt class="docutils literal"><span class="pre">resp.status</span></tt>
+<a class="reference internal" href="#vcl-synth"><span class="std std-ref">vcl_synth</span></a> on the client side is called with <code class="docutils literal"><span class="pre">resp.status</span></code>
 preset to 503.</dd>
 </dl>
 </div></blockquote>
@@ -372,13 +374,13 @@ preset to 503.</dd>
 <span id="id13"></span><h3>vcl_init<a class="headerlink" href="#vcl-init" title="Permalink to this headline">¶</a></h3>
 <p>Called when VCL is loaded, before any requests pass through it.
 Typically used to initialize VMODs.</p>
-<p>The <cite>vcl_init</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt>
+<p>The <cite>vcl_init</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code>
 with one of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">ok</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">ok</span></code></dt>
 <dd>Normal return, VCL continues loading.</dd>
-<dt><tt class="docutils literal"><span class="pre">fail</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">fail</span></code></dt>
 <dd>Abort loading of this VCL.</dd>
 </dl>
 </div></blockquote>
@@ -387,11 +389,11 @@ with one of the following keywords:</p>
 <span id="id14"></span><h3>vcl_fini<a class="headerlink" href="#vcl-fini" title="Permalink to this headline">¶</a></h3>
 <p>Called when VCL is discarded only after all requests have exited the VCL.
 Typically used to clean up VMODs.</p>
-<p>The <cite>vcl_fini</cite> subroutine may terminate with calling <tt class="docutils literal"><span class="pre">return()</span></tt>
+<p>The <cite>vcl_fini</cite> subroutine may terminate with calling <code class="docutils literal"><span class="pre">return()</span></code>
 with one of the following keywords:</p>
 <blockquote>
 <div><dl class="docutils">
-<dt><tt class="docutils literal"><span class="pre">ok</span></tt></dt>
+<dt><code class="docutils literal"><span class="pre">ok</span></code></dt>
 <dd>Normal return, VCL will be discarded.</dd>
 </dl>
 </div></blockquote>
@@ -403,7 +405,7 @@ with one of the following keywords:</p>
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
@@ -441,29 +443,28 @@ with one of the following keywords:</p>
   <h4>Next topic</h4>
   <p class="topless"><a href="vcl-variables.html"
                         title="next chapter">Request and response VCL objects</a></p>
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="../_sources/users-guide/vcl-built-in-subs.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/users-guide/vcl-built-in-subs.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -475,14 +476,14 @@ with one of the following keywords:</p>
         <li class="right" >
           <a href="vcl-syntax.html" title="VCL Syntax"
              >previous</a> |</li>
-        <li><a href="../index.html">Varnish version 4.1.7 documentation</a> &raquo;</li>
-          <li><a href="index.html" >The Varnish Users Guide</a> &raquo;</li>
-          <li><a href="vcl.html" >VCL - Varnish Configuration Language</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="vcl.html" >VCL - Varnish Configuration Language</a> &#187;</li> 
       </ul>
     </div>
-    <div class="footer">
-        &copy; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2014, Varnish Software AS.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>
 </html>
