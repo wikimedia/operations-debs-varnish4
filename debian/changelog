@@ -1,3 +1,12 @@
+varnish (4.1.8-1wm1) jessie-wikimedia; urgency=medium
+
+  * New upstream release
+    - Correctly handle bogusly large chunk sizes (VSV00001, DSA 3924-1)
+      https://github.com/varnishcache/varnish-cache/issues/2379
+    - Update in the documentation of timestamps
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Wed, 02 Aug 2017 14:53:27 +0200
+
 varnish (4.1.7-1wm1) jessie-wikimedia; urgency=medium
 
   * New upstream release
