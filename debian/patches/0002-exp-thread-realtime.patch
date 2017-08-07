@@ -1,16 +1,17 @@
 diff --git a/bin/varnishd/cache/cache.h b/bin/varnishd/cache/cache.h
-index c03570389..da9ba22aa 100644
+index ee33de0..e0f0f6d 100644
 --- a/bin/varnishd/cache/cache.h
 +++ b/bin/varnishd/cache/cache.h
-@@ -824,14 +824,15 @@ extern pthread_key_t witness_key;
+@@ -828,7 +828,7 @@ extern pthread_key_t witness_key;
  void Lck__Lock(struct lock *lck, const char *p,  int l);
  void Lck__Unlock(struct lock *lck, const char *p,  int l);
  int Lck__Trylock(struct lock *lck, const char *p,  int l);
 -void Lck__New(struct lock *lck, struct VSC_C_lck *, const char *);
 +void Lck__New(struct lock *lck, struct VSC_C_lck *, const char *, int protocol);
- void Lck__Assert(const struct lock *lck, int held);
+ int Lck__Held(const struct lock *lck);
+ int Lck__Owned(const struct lock *lck);
  
- /* public interface: */
+@@ -836,7 +836,8 @@ int Lck__Owned(const struct lock *lck);
  void Lck_Delete(struct lock *lck);
  int Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double);
  
@@ -21,7 +22,7 @@ index c03570389..da9ba22aa 100644
  #define Lck_Unlock(a) Lck__Unlock(a, __func__, __LINE__)
  #define Lck_Trylock(a) Lck__Trylock(a, __func__, __LINE__)
 diff --git a/bin/varnishd/cache/cache_expire.c b/bin/varnishd/cache/cache_expire.c
-index 5c27d0741..6cd079f6d 100644
+index f0ca523..fc16096 100644
 --- a/bin/varnishd/cache/cache_expire.c
 +++ b/bin/varnishd/cache/cache_expire.c
 @@ -33,6 +33,7 @@
@@ -32,33 +33,34 @@ index 5c27d0741..6cd079f6d 100644
  
  #include "cache.h"
  
-@@ -575,12 +576,25 @@ exp_thread(struct worker *wrk, void *priv)
+@@ -307,6 +308,8 @@ exp_thread(struct worker *wrk, void *priv)
  	struct objcore *oc;
  	double t = 0, tnext = 0;
  	struct exp_priv *ep;
 +	struct sched_param param;
 +	int s;
+ 	unsigned flags = 0;
  
  	CAST_OBJ_NOTNULL(ep, priv, EXP_PRIV_MAGIC);
- 	ep->wrk = wrk;
+@@ -314,6 +317,17 @@ exp_thread(struct worker *wrk, void *priv)
  	VSL_Setup(&ep->vsl, NULL, 0);
  	ep->heap = binheap_new(NULL, object_cmp, object_update);
  	AN(ep->heap);
 +
-+	if (cache_param->exp_thread_rt) {
-+		// Pick a realtime policy scheduling (SCHED_FIFO) and bump prio
-+		param.sched_priority = 1;
-+		s = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-+		if (s != 0) {
-+			perror("pthread_getschedparam");
-+			exit(EXIT_FAILURE);
-+		}
-+	}
++        if (cache_param->exp_thread_rt) {
++                // Pick a realtime policy scheduling (SCHED_FIFO) and bump prio
++                param.sched_priority = 1;
++                s = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
++                if (s != 0) {
++                        perror("pthread_getschedparam");
++                        exit(EXIT_FAILURE);
++                }
++        }
 +
  	while (1) {
  
  		Lck_Lock(&ep->mtx);
-@@ -617,7 +631,12 @@ EXP_Init(void)
+@@ -357,7 +371,12 @@ EXP_Init(void)
  	ALLOC_OBJ(ep, EXP_PRIV_MAGIC);
  	AN(ep);
  
@@ -70,13 +72,13 @@ index 5c27d0741..6cd079f6d 100644
 +	}
 +
  	AZ(pthread_cond_init(&ep->condvar, NULL));
- 	VTAILQ_INIT(&ep->inbox);
+ 	VSTAILQ_INIT(&ep->inbox);
  	AZ(pthread_rwlock_init(&ep->cb_rwl, NULL));
 diff --git a/bin/varnishd/cache/cache_lck.c b/bin/varnishd/cache/cache_lck.c
-index 90190dcea..782d3778f 100644
+index 609971a..d18a0d8 100644
 --- a/bin/varnishd/cache/cache_lck.c
 +++ b/bin/varnishd/cache/cache_lck.c
-@@ -209,7 +209,7 @@ Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double when)
+@@ -214,7 +214,7 @@ Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double when)
  }
  
  void
@@ -85,7 +87,7 @@ index 90190dcea..782d3778f 100644
  {
  	struct ilck *ilck;
  
-@@ -221,6 +221,10 @@ Lck__New(struct lock *lck, struct VSC_C_lck *st, const char *w)
+@@ -226,6 +226,10 @@ Lck__New(struct lock *lck, struct VSC_C_lck *st, const char *w)
  	ilck->w = w;
  	ilck->stat = st;
  	ilck->stat->creat++;
@@ -97,10 +99,10 @@ index 90190dcea..782d3778f 100644
  	lck->priv = ilck;
  }
 diff --git a/include/tbl/params.h b/include/tbl/params.h
-index ab80349a8..33feb8d87 100644
+index a44b625..21a5b49 100644
 --- a/include/tbl/params.h
 +++ b/include/tbl/params.h
-@@ -416,6 +416,34 @@ PARAM(
+@@ -467,6 +467,34 @@ PARAM(
  	/* func */	NULL
  )
  
