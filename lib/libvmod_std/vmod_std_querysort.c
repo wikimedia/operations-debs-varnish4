@@ -30,9 +30,9 @@
 
 #include <stdlib.h>
 
-#include "vrt.h"
-
 #include "cache/cache.h"
+
+#include "vrt.h"
 
 #include "vcc_if.h"
 
@@ -43,7 +43,7 @@ compa(const void *a, const void *b)
 	const char * const *pb = b;
 	const char *a1, *b1;
 
-	for(a1 = pa[0], b1 = pb[0]; a1 < pa[1] && b1 < pb[1]; a1++, b1++)
+	for (a1 = pa[0], b1 = pb[0]; a1 < pa[1] && b1 < pb[1]; a1++, b1++)
 		if (*a1 != *b1)
 			return (*a1 - *b1);
 	return (0);
@@ -56,6 +56,7 @@ vmod_querysort(VRT_CTX, VCL_STRING url)
 	char *p, *r;
 	const char **pp;
 	const char **pe;
+	unsigned u;
 	int np;
 	int i;
 
@@ -78,16 +79,14 @@ vmod_querysort(VRT_CTX, VCL_STRING url)
 	if (r == NULL)
 		return (url);
 
-	(void)WS_Reserve(ctx->ws, 0);
-	/* We trust cache_ws.c to align sensibly */
+	u = WS_ReserveLumps(ctx->ws, sizeof(const char **));
 	pp = (const char**)(void*)(ctx->ws->f);
-	pe = (const char**)(void*)(ctx->ws->e);
-
-	if (pp + 4 > pe) {
+	if (u < 4) {
 		WS_Release(ctx->ws, 0);
 		WS_MarkOverflow(ctx->ws);
 		return (url);
 	}
+	pe = pp + u;
 
 	/* Collect params as pointer pairs */
 	np = 0;
@@ -101,7 +100,7 @@ vmod_querysort(VRT_CTX, VCL_STRING url)
 			}
 			pp[np++] = cq;
 			/* Skip trivially empty params */
-			while(cq[1] == '&')
+			while (cq[1] == '&')
 				cq++;
 			pp[np++] = cq + 1;
 		}

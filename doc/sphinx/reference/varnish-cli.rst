@@ -46,6 +46,7 @@ available. In debug mode (-d) the CLI will be in the foreground, with
 varnishd will connect back to a listening service *pushing* the CLI to
 that service. Please see :ref:`varnishd(1)` for details.
 
+.. _ref_syntax:
 
 Syntax
 ------
@@ -176,107 +177,20 @@ right you should be fine even with complex commands.
 Commands
 --------
 
-help [<command>]
-  Show command/protocol help.
+.. include:: ../include/cli.rst
 
-ping [<timestamp>]
-  Keep connection alive.
+Backend Pattern
+---------------
 
-auth <response>
-  Authenticate.
-
-quit
-  Close connection.
-
-banner
-  Print welcome banner.
-
-status
-  Check status of Varnish cache process.
-
-start
-  Start the Varnish cache process.
-
-stop
-  Stop the Varnish cache process.
-
-vcl.load <configname> <filename> [auto|cold|warm]
-  Compile and load the VCL file under the name provided.
-
-vcl.inline <configname> <quoted_VCLstring> [auto|cold|warm]
-  Compile and load the VCL data under the name provided.
-
-vcl.use <configname>
-  Switch to the named configuration immediately.
-
-vcl.discard <configname>
-  Unload the named configuration (when possible).
-
-vcl.list
-  List all loaded configuration.
-
-vcl.show [-v] <configname>
-  Display the source code for the specified configuration.
-
-vcl.state <configname> <state>
-  Force the state of the specified configuration.
-  State is any of auto, warm or cold values.
-
-param.show [-l] [<param>]
-  Show parameters and their values.
-
-param.set <param> <value>
-  Set parameter value.
-
-panic.show
-  Return the last panic, if any.
-
-panic.clear [-z]
-  Clear the last panic, if any. -z will clear related varnishstat counter(s).
-
-storage.list
-  List storage devices.
-
-backend.list [-p] [<backend_expression>]
-  List backends.
-
-backend.set_health <backend_expression> <state>
-  Set health status on the backends.
-  State is any of auto, healthy or sick values.
-
-ban <field> <operator> <arg> [&& <field> <oper> <arg> ...]
-  Mark obsolete all objects where all the conditions match.
-
-ban.list
-  List the active bans. The output format is:
-
-  * time the ban was issued
-
-  * reference count
-
-  * ``C`` for completed bans (replaced by a newer ban) or ``-``
-
-  * if ``lurker`` debugging is enabled
-
-    * ``R`` for bans on request properties or ``-``
-
-    * ``O`` for bans on object properties or ``-``
-
-    * pointer to the ban object
-
-  * ban specification
-
-Backend Expression
-------------------
-
-A backend expression can be a backend name or a combination of backend
-name, IP address and port in "name(IP address:port)" format. All fields
-are optional. If no exact matching backend is found, partial matching
-will be attempted based on the provided name, IP address and port fields.
+A backend pattern can be a backend name or a combination of a VCL name
+and backend name in "VCL.backend" format.  If the VCL name is omitted,
+the active VCL is assumed.  Partial matching on the backend and VCL
+names is supported using shell-style wilcards, e.g. asterisk (*).
 
 Examples::
 
    backend.list def*
+   backend.list b*.def*
    backend.set_health default sick
    backend.set_health def* healthy
    backend.set_health * auto
@@ -306,20 +220,22 @@ fields.
 VCL Temperature
 ---------------
 
-A VCL program goes through several states related to the different commands: it
-can be loaded, used, and later discarded. You can load several VCL programs and
-switch at any time from one to another. There is only one active VCL, but the
-previous active VCL will be maintained active until all its transactions are
-over.
+A VCL program goes through several states related to the different
+commands: it can be loaded, used, and later discarded. You can load
+several VCL programs and switch at any time from one to another. There
+is only one active VCL, but the previous active VCL will be maintained
+active until all its transactions are over.
 
-Over time, if you often refresh your VCL and keep the previous versions around,
-resource consumption will increase, you can't escape that. However, most of the
-time you want only one to pay the price only for the active VCL and keep older
-VCLs in case you'd need to rollback to a previous version.
+Over time, if you often refresh your VCL and keep the previous
+versions around, resource consumption will increase, you can't escape
+that. However, most of the time you want only one to pay the price only
+for the active VCL and keep older VCLs in case you'd need to rollback
+to a previous version.
 
-The VCL temperature allows you to minimize the footprint of inactive VCLs. Once
-a VCL becomes cold, Varnish will release all the resources that can be be later
-reacquired. You can manually set the temperature of a VCL or let varnish
+The VCL temperature allows you to minimize the footprint of inactive
+VCLs. Once a VCL becomes cold, Varnish will release all the resources
+that can be be later reacquired. You can manually set the temperature
+of a VCL or let varnish
 automatically handle it.
 
 
@@ -333,13 +249,13 @@ One particular magic number to know, is that the line with the status
 code and length field always is exactly 13 characters long, including
 the NL character.
 
-For your reference the sourcefile lib/libvarnish/cli_common.h contains
-the functions Varnish code uses to read and write CLI response.
+The varnishapi library contains functions to implement the basics of
+the CLI protocol, see the `vcli.h` include file.
 
 .. _ref_psk_auth:
 
-How -S/PSK Authentication Works
--------------------------------
+Authentication with -S
+----------------------
 
 If the -S secret-file is given as argument to varnishd, all network
 CLI connections must authenticate, by proving they know the contents
@@ -364,10 +280,13 @@ An authenticated session looks like this::
    Authentication required.
 
    auth 455ce847f0073c7ab3b1465f74507b75d3dc064c1e7de3b71e00de9092fdc89a
-   200 193
+   200 279
    -----------------------------
-   Varnish HTTP accelerator CLI.
+   Varnish Cache CLI 1.0
    -----------------------------
+   Linux,4.4.0-1-amd64,x86_64,-jnone,-smalloc,-smalloc,-hcritbit
+   varnish-trunk revision dc360a4
+
    Type 'help' for command list.
    Type 'quit' to close CLI session.
    Type 'start' to launch worker process.
@@ -417,23 +336,33 @@ secret file, and the challenge string.
 EXAMPLES
 ========
 
-Simple example: All requests where req.url exactly matches the string
-/news are banned from the cache::
+Load a multi-line VCL using shell-style *here document*::
 
-    req.url == "/news"
+    vcl.inline example << EOF
+    vcl 4.0;
 
-Example: Ban all documents where the serving host is "example.com"
-or "www.example.com", and where the Set-Cookie header received from
-the backend contains "USERID=1663"::
+    backend www {
+        .host = "127.0.0.1";
+        .port = "8080";
+    }
+    EOF
 
-    req.http.host ~ "^(?i)(www\.)example.com$" && obj.http.set-cookie ~ "USERID=1663"
+Ban all requests where req.url exactly matches the string /news::
+
+    ban req.url == "/news"
+
+Ban all documents where the serving host is "example.com" or
+"www.example.com", and where the Set-Cookie header received from the
+backend contains "USERID=1663"::
+
+    ban req.http.host ~ "^(?i)(www\\.)example.com$" && obj.http.set-cookie ~ "USERID=1663"
 
 AUTHORS
 =======
 
-This manual page was originally written by Per Buer and later modified by
-Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and Poul-Henning
-Kamp.
+This manual page was originally written by Per Buer and later modified
+by Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and
+Poul-Henning Kamp.
 
 SEE ALSO
 ========

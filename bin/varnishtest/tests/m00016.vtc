@@ -6,7 +6,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import ${vmod_std};
+	import std;
 
 	sub vcl_deliver {
 		set resp.http.x-foo = std.integer(req.http.foo, 0);
@@ -17,6 +17,9 @@ varnish v1 -vcl+backend {
 		    std.real(resp.http.x-foo, 0.0), now), 1.0);
 
 		set resp.http.x-qux = std.real2integer(
+		    std.real(req.http.foo, 2.0), 2);
+
+		set resp.http.x-xyzzy = std.integer(
 		    std.real(req.http.foo, 2.0), 2);
 
 		# Representation of 9e99, which is larger than what fits in the
@@ -31,6 +34,7 @@ client c1 {
 	expect resp.http.x-foo == resp.http.x-bar
 	expect resp.http.x-baz == 1140618699.000
 	expect resp.http.x-qux == 1140618699
+	expect resp.http.x-xyzzy == resp.http.x-qux
 	expect resp.http.x-int-fallback == 2
 } -run
 

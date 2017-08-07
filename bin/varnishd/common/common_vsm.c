@@ -34,14 +34,13 @@
 
 #include "config.h"
 
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "common.h"
-#include "common/params.h"
+#include "common/com_params.h"
 
 #include "vsm_priv.h"
 #include "vmb.h"
@@ -342,11 +341,7 @@ VSM_common_delete(struct vsm_sc **scp)
 	struct vsm_range *vr, *vr2;
 	struct vsm_sc *sc;
 
-	AN(scp);
-	sc =*scp;
-	*scp = NULL;
-
-	CHECK_OBJ_NOTNULL(sc, VSM_SC_MAGIC);
+	TAKE_OBJ_NOTNULL(sc, scp, VSM_SC_MAGIC);
 	VTAILQ_FOREACH_SAFE(vr, &sc->r_free, list, vr2)
 		FREE_OBJ(vr);
 	VTAILQ_FOREACH_SAFE(vr, &sc->r_used, list, vr2)

@@ -29,11 +29,12 @@
  */
 
 #include "config.h"
+
 #include <stddef.h>
+#include "cache.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "cache.h"
 
 #include "vtim.h"
 
@@ -96,7 +97,7 @@ mpl_guard(void *priv)
 {
 	struct mempool *mpl;
 	struct memitem *mi = NULL;
-	double mpl_slp __state_variable__(mpl_slp);
+	double __state_variable__(mpl_slp);
 	double last = 0;
 
 	CAST_OBJ_NOTNULL(mpl, priv, MEMPOOL_MAGIC);
@@ -253,10 +254,7 @@ MPL_Destroy(struct mempool **mpp)
 {
 	struct mempool *mpl;
 
-	AN(mpp);
-	mpl = *mpp;
-	*mpp = NULL;
-	CHECK_OBJ_NOTNULL(mpl, MEMPOOL_MAGIC);
+	TAKE_OBJ_NOTNULL(mpl, mpp, MEMPOOL_MAGIC);
 	Lck_Lock(&mpl->mtx);
 	AZ(mpl->live);
 	mpl->self_destruct = 1;

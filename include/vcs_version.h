@@ -1,11 +1,8 @@
-/* d266ac5c6 */
 /*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Run make to regenerate
- *
+ * Edit and run lib/libvcc/generate.py instead.
  */
-/* d266ac5c6 */
 
-#define VCS_Version "d266ac5c6"
-#define VCS_Branch "4.1"
+#define VCS_Version "05c5ac6b9"
+#define VCS_Branch "5.1"

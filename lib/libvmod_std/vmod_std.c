@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010-2015 Varnish Software AS
+ * Copyright (c) 2010-2017 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -28,24 +28,21 @@
 
 #include "config.h"
 
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #include <netinet/in.h>
 
 #include <ctype.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <syslog.h>
-#include <unistd.h>
 
+#include "cache/cache.h"
+
+#include "vrnd.h"
 #include "vrt.h"
 #include "vtcp.h"
 #include "vsa.h"
 #include "vtim.h"
+#include "vcl.h"
 
-#include "cache/cache.h"
 #include "cache/cache_director.h"
 
 #include "vcc_if.h"
@@ -128,34 +125,34 @@ vmod_random(VRT_CTX, VCL_REAL lo, VCL_REAL hi)
 	double a;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	a = drand48();
+	a = VRND_RandomTestableDouble();
 	a *= hi - lo;
 	a += lo;
 	return (a);
 }
 
 VCL_VOID __match_proto__(td_std_log)
-vmod_log(VRT_CTX, const char *fmt, ...)
+vmod_log(VRT_CTX, const char *s, ...)
 {
+	txt t;
 	unsigned u;
 	va_list ap;
-	txt t;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	va_start(ap, fmt);
-	if (ctx->vsl != NULL) {
-		u = WS_Reserve(ctx->ws, 0);
-		t.b = ctx->ws->f;
-		t.e = VRT_StringList(ctx->ws->f, u, fmt, ap);
-		if (t.e != NULL) {
-			assert(t.e > t.b);
-			t.e--;
-			VSLbt(ctx->vsl, SLT_VCL_Log, t);
-		}
-		WS_Release(ctx->ws, 0);
-	} else
-		VSLv(SLT_VCL_Log, 0, fmt, ap);
+	u = WS_Reserve(ctx->ws, 0);
+	t.b = ctx->ws->f;
+	va_start(ap, s);
+	t.e = VRT_StringList(ctx->ws->f, u, s, ap);
 	va_end(ap);
+	if (t.e != NULL) {
+		assert(t.e > t.b);
+		t.e--;
+		if (ctx->vsl != NULL)
+			VSLbt(ctx->vsl, SLT_VCL_Log, t);
+		else
+			VSL(SLT_VCL_Log, 0, "%s", t.b);
+	}
+	WS_Release(ctx->ws, 0);
 }
 
 VCL_VOID __match_proto__(td_std_syslog)
@@ -166,36 +163,24 @@ vmod_syslog(VRT_CTX, VCL_INT fac, const char *fmt, ...)
 	txt t;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	u = WS_Reserve(ctx->ws, 0);
+	t.b = ctx->ws->f;
 	va_start(ap, fmt);
-	if (ctx->ws != NULL) {
-		u = WS_Reserve(ctx->ws, 0);
-		t.b = ctx->ws->f;
-		t.e = VRT_StringList(ctx->ws->f, u, fmt, ap);
-		if (t.e != NULL)
-			syslog((int)fac, "%s", t.b);
-		WS_Release(ctx->ws, 0);
-	} else
-		vsyslog((int)fac, fmt, ap);
+	t.e = VRT_StringList(ctx->ws->f, u, fmt, ap);
 	va_end(ap);
-}
-
-VCL_BOOL __match_proto__(td_std_file_exists)
-vmod_file_exists(VRT_CTX, VCL_STRING file_name)
-{
-	struct stat st;
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	return (stat(file_name, &st) == 0);
+	if (t.e != NULL)
+		syslog((int)fac, "%s", t.b);
+	WS_Release(ctx->ws, 0);
 }
 
 VCL_VOID __match_proto__(td_std_collect)
-vmod_collect(VRT_CTX, VCL_HEADER hdr)
+vmod_collect(VRT_CTX, VCL_HEADER hdr, VCL_STRING sep)
 {
 	struct http *hp;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	hp = VRT_selecthttp(ctx, hdr->where);
-	http_CollectHdr(hp, hdr->what);
+	http_CollectHdrSep(hp, hdr->what, sep);
 }
 
 VCL_BOOL __match_proto__(td_std_healthy)
@@ -243,18 +228,15 @@ vmod_timestamp(VRT_CTX, VCL_STRING label)
 	}
 }
 
-VCL_VOID __match_proto__(td_std_cache_req_body)
+VCL_BOOL __match_proto__(td_std_cache_req_body)
 vmod_cache_req_body(VRT_CTX, VCL_BYTES size)
 {
-	int result;
-	ssize_t ss;
-
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	if (size < 0)
 		size = 0;
-	ss = (ssize_t)size;
-	result = VRT_CacheReqBody(ctx, ss);
-	VSLb(ctx->vsl, SLT_Debug, "VRT_CacheReqBody(%zd): %d", ss, result);
+	if (VRT_CacheReqBody(ctx, (size_t)size) < 0)
+		return (0);
+	return (1);
 }
 
 VCL_STRING __match_proto__(td_std_strstr)
@@ -273,4 +255,19 @@ vmod_getenv(VRT_CTX, VCL_STRING name)
 	if (name == NULL || *name == '\0')
 		return (NULL);
 	return (getenv(name));
+}
+
+VCL_VOID __match_proto__(td_std_late_100_continue)
+vmod_late_100_continue(VRT_CTX, VCL_BOOL late)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (ctx->method != VCL_MET_RECV) {
+		VSLb(ctx->vsl, SLT_VCL_Error,
+		    "std.late_100_continue() only valid in vcl_recv{}");
+		return;
+	}
+
+	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
+	if (ctx->req->want100cont)
+		ctx->req->late100cont = late;
 }

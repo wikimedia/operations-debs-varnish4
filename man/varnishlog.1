@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishlog [\-a] [\-A] [\-b] [\-c] [\-C] [\-d] [\-D] [\-g <session|request|vxid|raw>] [\-h] [\-i <taglist>] [\-I <[taglist:]regex>] [\-k <num>] [\-L <limit>] [\-n <name>] [\-N <filename>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-v] [\-V] [\-w <filename>] [\-x <taglist>] [\-X <[taglist:]regex>]
+varnishlog [\-a] [\-A] [\-b] [\-c] [\-C] [\-d] [\-D] [\-g <session|request|vxid|raw>] [\-h] [\-i <taglist>] [\-I <[taglist:]regex>] [\-k <num>] [\-L <limit>] [\-n <dir>] [\-N <filename>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-v] [\-V] [\-w <filename>] [\-x <taglist>] [\-X <[taglist:]regex>]
 .SH OPTIONS
 .sp
 The following options are available:
@@ -81,8 +81,8 @@ Process this number of matching log transactions before exiting.
 .BI \-L \ <limit>
 Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 .TP
-.BI \-n \ <name>
-Specify the name of the varnishd instance to get logs from. If \-n is not specified, the host name is used.
+.BI \-n \ <dir>
+Specify the varnishd working directory (also known as instance name) to get logs from. If \-n is not specified, the host name is used.
 .TP
 .BI \-N \ <filename>
 Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.

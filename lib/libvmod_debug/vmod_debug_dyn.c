@@ -29,16 +29,13 @@
 #include "config.h"
 
 #include <netdb.h>
-#include <pthread.h>
 #include <stdlib.h>
 
-#include <sys/socket.h>
-#include <sys/types.h>
+#include "cache/cache.h"
 
 #include "vcl.h"
 #include "vrt.h"
 
-#include "cache/cache.h"
 #include "cache/cache_director.h"
 #include "cache/cache_backend.h"
 
@@ -69,12 +66,12 @@ dyn_dir_init(VRT_CTX, struct vmod_debug_dyn *dyn,
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
 	vrt.port = port;
 	vrt.vcl_name = dyn->vcl_name;
-	vrt.hosthdr = vrt.ipv4_addr;
+	vrt.hosthdr = addr;
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	AZ(getaddrinfo(vrt.ipv4_addr, vrt.port, &hints, &res));
+	AZ(getaddrinfo(addr, port, &hints, &res));
 	XXXAZ(res->ai_next);
 
 	sa = VSA_Malloc(res->ai_addr, res->ai_addrlen);
@@ -121,6 +118,14 @@ vmod_dyn__init(VRT_CTX, struct vmod_debug_dyn **dynp,
 	AZ(*dynp);
 	AN(vcl_name);
 
+	if (*addr == '\0' || *port == '\0') {
+		AN(ctx->handling);
+		AZ(*ctx->handling);
+		VSB_printf(ctx->msg, "Missing dynamic backend address or port");
+		VRT_handling(ctx, VCL_RET_FAIL);
+		return;
+	}
+
 	ALLOC_OBJ(dyn, VMOD_DEBUG_DYN_MAGIC);
 	AN(dyn);
 	REPLACE(dyn->vcl_name, vcl_name);
@@ -138,6 +143,9 @@ vmod_dyn__fini(struct vmod_debug_dyn **dynp)
 	struct vmod_debug_dyn *dyn;
 
 	AN(dynp);
+	if (*dynp == NULL)
+		return; /* failed initialization */
+
 	CAST_OBJ_NOTNULL(dyn, *dynp, VMOD_DEBUG_DYN_MAGIC);
 	/* at this point all backends will be deleted by the vcl */
 	free(dyn->vcl_name);

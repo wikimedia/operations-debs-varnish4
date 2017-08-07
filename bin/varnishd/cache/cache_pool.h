@@ -29,15 +29,17 @@
  * Private include file for the pool aware code.
  */
 
-#include "config.h"
-
 VTAILQ_HEAD(taskhead, pool_task);
+
+struct poolsock;
 
 struct pool {
 	unsigned			magic;
 #define POOL_MAGIC			0x606658fa
 	VTAILQ_ENTRY(pool)		list;
+	VTAILQ_HEAD(,poolsock)		poolsocks;
 
+	int				die;
 	pthread_cond_t			herder_cond;
 	pthread_t			herder_thr;
 
@@ -53,7 +55,6 @@ struct pool {
 	struct dstat			*a_stat;
 	struct dstat			*b_stat;
 
-	struct waitfor			wf;
 	struct mempool			*mpl_req;
 	struct mempool			*mpl_sess;
 	struct waiter			*waiter;
@@ -62,4 +63,5 @@ struct pool {
 void *pool_herder(void*);
 task_func_t pool_stat_summ;
 extern struct lock			pool_mtx;
-void VCA_NewPool(struct pool *pp);
+void VCA_NewPool(struct pool *);
+void VCA_DestroyPool(struct pool *);

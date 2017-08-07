@@ -29,8 +29,6 @@
 
 #include "config.h"
 
-#include <stdio.h>
-
 #include "mgt/mgt.h"
 
 #include "mgt/mgt_param.h"
@@ -46,7 +44,6 @@ struct parspec mgt_parspec[] = {
 #define PARAM(nm, ty, mi, ma, de, un, fl, st, lt, fn)		\
 	{ #nm, tweak_##ty, &mgt_param.nm, mi, ma, st, fl, de, un },
 #include "tbl/params.h"
-#undef PARAM
 
 	{ "cc_command", tweak_string, &mgt_cc_cmd,
 		NULL, NULL,
@@ -56,15 +53,31 @@ struct parspec mgt_parspec[] = {
 		"and %o will be replaced with the output file name.",
 		MUST_RELOAD,
 		VCC_CC , NULL },
-	{ "vcl_dir", tweak_string, &mgt_vcl_dir,
+	{ "vcl_dir", tweak_string, &mgt_vcl_path,
 		NULL, NULL,
-		"Directory (or colon separated list of directories) "
-		"from which relative VCL filenames (vcl.load and "
-		"include) are to be found.",
+		"Old name for vcl_path, use that instead.",
 		0,
 		VARNISH_VCL_DIR,
 		NULL },
-	{ "vmod_dir", tweak_string, &mgt_vmod_dir,
+	{ "vcl_path", tweak_string, &mgt_vcl_path,
+		NULL, NULL,
+		"Directory (or colon separated list of directories) "
+		"from which relative VCL filenames (vcl.load and "
+		"include) are to be found.  By default Varnish searches "
+		"VCL files in both the system configuration and shared "
+		"data directories to allow packages to drop their VCL "
+		"files in a standard location where relative includes "
+		"would work.",
+		0,
+		VARNISH_VCL_DIR,
+		NULL },
+	{ "vmod_dir", tweak_string, &mgt_vmod_path,
+		NULL, NULL,
+		"Old name for vmod_path, use that instead.",
+		0,
+		VARNISH_VMOD_DIR,
+		NULL },
+	{ "vmod_path", tweak_string, &mgt_vmod_path,
 		NULL, NULL,
 		"Directory (or colon separated list of directories) "
 		"where VMODs are to be found.",

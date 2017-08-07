@@ -36,74 +36,34 @@
 #include "tbl/vsc_levels.h"
 #undef VSC_LEVEL_F
 
-#define P(x)			\
-	printf(x "\n")
-#define VSC_LEVEL_F(v,l,e,d)		\
-	printf("%s – %s\n\t%s\n\n", l, e, d);
-#define VSC_F(n, t, l, s, f, v, d, e)	\
-	printf("%s – %s (%s)\n\t%s\n\n", #n, d, VSC_level_##v, e);
+static void
+L(const char *s)
+{
+	printf("\n%s\n", s);
+	for (;*s != '\0'; s++)
+		putchar('=');
+	putchar('\n');
+	putchar('\n');
+}
 
 int main(int argc, char **argv)
 {
 	(void)argc;
 	(void)argv;
-	P("COUNTER LEVELS");
-	P("==============");
-	P("");
+	L("COUNTER LEVELS");
+
+#define VSC_LEVEL_F(v,l,e,d)		\
+	printf("%s – %s\n\t%s\n\n", l, e, d);
+
 #include "tbl/vsc_levels.h"
 
-	P("");
-	P("MAIN COUNTERS (MAIN.*)");
-	P("======================");
-	P("");
-#include "tbl/vsc_f_main.h"
+#define VSC_DO(U,l,t,h) L(h);
 
-	P("MANAGEMENT PROCESS COUNTERS (MGT.*)");
-	P("===================================");
-	P("");
-#define VSC_DO_MGT
-#include "tbl/vsc_fields.h"
-#undef VSC_DO_MGT
+#define VSC_F(n, t, l, s, f, v, d, e)	\
+	printf("%s – %s (%s)\n\t%s\n\n", #n, d, VSC_level_##v, e);
 
-	P("");
-	P("PER MEMORY POOL COUNTERS (MEMPOOL.*)");
-	P("====================================");
-	P("");
-#define VSC_DO_MEMPOOL
-#include "tbl/vsc_fields.h"
-#undef VSC_DO_MEMPOOL
+#define VSC_DONE(U,l,t)
 
-	P("");
-	P("PER MALLOC STORAGE COUNTERS (SMA.*)");
-	P("===================================");
-	P("");
-#define VSC_DO_SMA
-#include "tbl/vsc_fields.h"
-#undef  VSC_DO_SMA
-
-	P("");
-	P("PER FILE STORAGE COUNTERS (SMF.*)");
-	P("=================================");
-	P("");
-#define VSC_DO_SMF
-#include "tbl/vsc_fields.h"
-#undef VSC_DO_SMF
-
-	P("");
-	P("PER BACKEND COUNTERS (VBE.*)");
-	P("============================");
-	P("");
-#define VSC_DO_VBE
-#include "tbl/vsc_fields.h"
-#undef VSC_DO_VBE
-
-	P("");
-	P("LOCK COUNTERS (LCK.*)");
-	P("=====================");
-	P("");
-#define VSC_DO_LCK
-#include "tbl/vsc_fields.h"
-#undef VSC_DO_LCK
-
+#include "tbl/vsc_all.h"
 	return (0);
 }

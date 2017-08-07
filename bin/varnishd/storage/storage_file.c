@@ -31,14 +31,16 @@
 
 #include "config.h"
 
+#include "cache/cache.h"
+
 #include <sys/mman.h>
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
 #include "storage/storage.h"
+#include "storage/storage_simple.h"
 
 #include "vnum.h"
 #include "vfil.h"
@@ -95,6 +97,7 @@ struct smf_sc {
 	int			fd;
 	unsigned		pagesize;
 	uintmax_t		filesize;
+	int			advice;
 	struct smfhead		order;
 	struct smfhead		free[NBUCKET];
 	struct smfhead		used;
@@ -109,13 +112,14 @@ smf_init(struct stevedore *parent, int ac, char * const *av)
 	struct smf_sc *sc;
 	unsigned u;
 	uintmax_t page_size;
+	int advice = MADV_RANDOM;
 
 	AZ(av[ac]);
 
 	size = NULL;
 	page_size = getpagesize();
 
-	if (ac > 3)
+	if (ac > 4)
 		ARGV_ERR("(-sfile) too many arguments\n");
 	if (ac < 1 || *av[0] == '\0')
 		ARGV_ERR("(-sfile) path is mandatory\n");
@@ -128,6 +132,16 @@ smf_init(struct stevedore *parent, int ac, char * const *av)
 		if (r != NULL)
 			ARGV_ERR("(-sfile) granularity \"%s\": %s\n", av[2], r);
 	}
+	if (ac > 3) {
+		if (!strcmp(av[3], "normal"))
+			advice = MADV_NORMAL;
+		else if (!strcmp(av[3], "random"))
+			advice = MADV_RANDOM;
+		else if (!strcmp(av[3], "sequential"))
+			advice = MADV_SEQUENTIAL;
+		else
+			ARGV_ERR("(-s file) invalid advice: \"%s\"", av[3]);
+	}
 
 	AN(fn);
 
@@ -138,11 +152,11 @@ smf_init(struct stevedore *parent, int ac, char * const *av)
 		VTAILQ_INIT(&sc->free[u]);
 	VTAILQ_INIT(&sc->used);
 	sc->pagesize = page_size;
-
+	sc->advice = advice;
 	parent->priv = sc;
 
 	(void)STV_GetFile(fn, &sc->fd, &sc->filename, "-sfile");
-	mgt_child_inherit(sc->fd, "storage_file");
+	MCH_Fd_Inherit(sc->fd, "storage_file");
 	sc->filesize = STV_FileSize(sc->fd, size, &sc->pagesize, "-sfile");
 	if (VFIL_allocate(sc->fd, (off_t)sc->filesize, 0))
 		ARGV_ERR("(-sfile) allocation error: %s\n", strerror(errno));
@@ -306,36 +320,6 @@ free_smf(struct smf *sp)
 }
 
 /*--------------------------------------------------------------------
- * Trim the tail of a range.
- */
-
-static void
-trim_smf(struct smf *sp, size_t bytes)
-{
-	struct smf *sp2;
-	struct smf_sc *sc = sp->sc;
-
-	AN(sp->alloc);
-	assert(bytes > 0);
-	assert(bytes < sp->size);
-	AZ(bytes % sc->pagesize);
-	AZ(sp->size % sc->pagesize);
-	CHECK_OBJ_NOTNULL(sp, SMF_MAGIC);
-	sp2 = malloc(sizeof *sp2);
-	XXXAN(sp2);
-	sc->stats->g_smf++;
-	*sp2 = *sp;
-
-	sp2->size -= bytes;
-	sp->size = bytes;
-	sp2->ptr += bytes;
-	sp2->offset += bytes;
-	VTAILQ_INSERT_AFTER(&sc->order, sp, sp2, order);
-	VTAILQ_INSERT_TAIL(&sc->used, sp2, status);
-	free_smf(sp2);
-}
-
-/*--------------------------------------------------------------------
  * Insert a newly created range as busy, then free it to do any collapses
  */
 
@@ -395,7 +379,7 @@ smf_open_chunk(struct smf_sc *sc, off_t sz, off_t off, off_t *fail, off_t *sum)
 		p = mmap(NULL, sz, PROT_READ|PROT_WRITE,
 		    MAP_NOCORE | MAP_NOSYNC | MAP_SHARED, sc->fd, off);
 		if (p != MAP_FAILED) {
-			(void) madvise(p, sz, MADV_RANDOM);
+			(void)madvise(p, sz, sc->advice);
 			(*sum) += sz;
 			new_smf(sc, p, off, sz);
 			return;
@@ -414,14 +398,15 @@ smf_open_chunk(struct smf_sc *sc, off_t sz, off_t off, off_t *fail, off_t *sum)
 	smf_open_chunk(sc, sz - h, off + h, fail, sum);
 }
 
-static void
-smf_open(const struct stevedore *st)
+static void __match_proto__(storage_open_f)
+smf_open(struct stevedore *st)
 {
 	struct smf_sc *sc;
 	off_t fail = 1 << 30;	/* XXX: where is OFF_T_MAX ? */
 	off_t sum = 0;
 
 	ASSERT_CLI();
+	st->lru = LRU_Alloc();
 	if (lck_smf == NULL)
 		lck_smf = Lck_CreateClass("smf");
 	CAST_OBJ_NOTNULL(sc, st->priv, SMF_SC_MAGIC);
@@ -443,7 +428,7 @@ smf_open(const struct stevedore *st)
 
 /*--------------------------------------------------------------------*/
 
-static struct storage *
+static struct storage * __match_proto__(sml_alloc_f)
 smf_alloc(const struct stevedore *st, size_t size)
 {
 	struct smf *smf;
@@ -451,8 +436,8 @@ smf_alloc(const struct stevedore *st, size_t size)
 
 	CAST_OBJ_NOTNULL(sc, st->priv, SMF_SC_MAGIC);
 	assert(size > 0);
-	size += (sc->pagesize - 1L);
-	size &= ~(sc->pagesize - 1L);
+	size += (sc->pagesize - 1UL);
+	size &= ~(sc->pagesize - 1UL);
 	Lck_Lock(&sc->mtx);
 	sc->stats->c_req++;
 	smf = alloc_smf(sc, size);
@@ -479,40 +464,7 @@ smf_alloc(const struct stevedore *st, size_t size)
 
 /*--------------------------------------------------------------------*/
 
-static void
-smf_trim(struct storage *s, size_t size, int move_ok)
-{
-	struct smf *smf;
-	struct smf_sc *sc;
-
-	CHECK_OBJ_NOTNULL(s, STORAGE_MAGIC);
-	assert(size > 0);
-	assert(size <= s->space);
-	xxxassert(size > 0);	/* XXX: seen */
-	CAST_OBJ_NOTNULL(smf, s->priv, SMF_MAGIC);
-	assert(size <= smf->size);
-
-	if (!move_ok)
-		return;		/* XXX: trim_smf needs fixed */
-
-	sc = smf->sc;
-	size += (sc->pagesize - 1);
-	size &= ~(sc->pagesize - 1);
-	if (smf->size > size) {
-		Lck_Lock(&sc->mtx);
-		sc->stats->c_freed += (smf->size - size);
-		sc->stats->g_bytes -= (smf->size - size);
-		sc->stats->g_space += (smf->size - size);
-		trim_smf(smf, size);
-		assert(smf->size == size);
-		Lck_Unlock(&sc->mtx);
-		s->space = size;
-	}
-}
-
-/*--------------------------------------------------------------------*/
-
-static void __match_proto__(storage_free_f)
+static void __match_proto__(sml_free_f)
 smf_free(struct storage *s)
 {
 	struct smf *smf;
@@ -537,10 +489,11 @@ const struct stevedore smf_stevedore = {
 	.name		=	"file",
 	.init		=	smf_init,
 	.open		=	smf_open,
-	.alloc		=	smf_alloc,
-	.trim		=	smf_trim,
-	.free		=	smf_free,
-	.methods	=	&default_oc_methods,
+	.sml_alloc	=	smf_alloc,
+	.sml_free	=	smf_free,
+	.allocobj	=	SML_allocobj,
+	.panic		=	SML_panic,
+	.methods	=	&SML_methods,
 };
 
 #ifdef INCLUDE_TEST_DRIVER
@@ -595,9 +548,6 @@ main(int argc, char **argv)
 		if (s[i] == NULL) {
 			s[i] = smf_alloc(&smf_stevedore, j);
 			printf("A %10p %12d\n", s[i], j);
-		} else if (j < s[i]->space) {
-			smf_trim(s[i], j);
-			printf("T %10p %12d\n", s[i], j);
 		} else {
 			smf_free(s[i]);
 			printf("D %10p\n", s[i]);

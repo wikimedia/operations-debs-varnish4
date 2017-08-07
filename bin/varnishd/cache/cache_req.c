@@ -32,15 +32,42 @@
 
 #include "config.h"
 
-#include <errno.h>
+#include "cache.h"
+
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache.h"
 #include "cache_pool.h"
+#include "cache_transport.h"
 
 #include "vtim.h"
+
+void
+Req_AcctLogCharge(struct dstat *ds, struct req *req)
+{
+	struct acct_req *a;
+
+	AN(ds);
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+
+	a = &req->acct;
+
+	if (req->vsl->wid && !(req->res_mode & RES_PIPE)) {
+		VSLb(req->vsl, SLT_ReqAcct, "%ju %ju %ju %ju %ju %ju",
+		    (uintmax_t)a->req_hdrbytes,
+		    (uintmax_t)a->req_bodybytes,
+		    (uintmax_t)(a->req_hdrbytes + a->req_bodybytes),
+		    (uintmax_t)a->resp_hdrbytes,
+		    (uintmax_t)a->resp_bodybytes,
+		    (uintmax_t)(a->resp_hdrbytes + a->resp_bodybytes));
+	}
+
+#define ACCT(foo)			\
+	ds->s_##foo += a->foo;		\
+	a->foo = 0;
+#include "tbl/acct_fields_req.h"
+}
 
 /*--------------------------------------------------------------------
  * Alloc/Free a request
@@ -66,6 +93,8 @@ Req_New(const struct worker *wrk, struct sess *sp)
 	req->sp = sp;
 	req->top = req;	// esi overrides
 
+	INIT_OBJ(req->htc, HTTP_CONN_MAGIC);
+
 	e = (char*)req + sz;
 	p = (char*)(req + 1);
 	p = (void*)PRNDUP(p);
@@ -74,17 +103,17 @@ Req_New(const struct worker *wrk, struct sess *sp)
 	nhttp = (uint16_t)cache_param->http_max_hdr;
 	hl = HTTP_estimate(nhttp);
 
-	req->http = HTTP_create(p, nhttp);
+	req->http = HTTP_create(p, nhttp, hl);
 	p += hl;
 	p = (void*)PRNDUP(p);
 	assert(p < e);
 
-	req->http0 = HTTP_create(p, nhttp);
+	req->http0 = HTTP_create(p, nhttp, hl);
 	p += hl;
 	p = (void*)PRNDUP(p);
 	assert(p < e);
 
-	req->resp = HTTP_create(p, nhttp);
+	req->resp = HTTP_create(p, nhttp, hl);
 	p += hl;
 	p = (void*)PRNDUP(p);
 	assert(p < e);
@@ -122,7 +151,6 @@ Req_Release(struct req *req)
 #define ACCT(foo) \
 	AZ(req->acct.foo);
 #include "tbl/acct_fields_req.h"
-#undef ACCT
 
 	AZ(req->vcl);
 	if (req->vsl->wid)
@@ -141,7 +169,7 @@ Req_Release(struct req *req)
 /*----------------------------------------------------------------------
  */
 
-int
+void
 Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req)
 {
 
@@ -168,11 +196,10 @@ Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req)
 
 	/* Charge and log byte counters */
 	if (req->vsl->wid) {
-		CNT_AcctLogCharge(wrk->stats, req);
+		Req_AcctLogCharge(wrk->stats, req);
 		VSL_End(req->vsl);
 	}
 	req->req_bodybytes = 0;
-
 
 	if (!isnan(req->t_prev) && req->t_prev > 0.)
 		sp->t_idle = req->t_prev;
@@ -188,30 +215,18 @@ Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req)
 	req->hash_ignore_busy = 0;
 	req->is_hit = 0;
 
-	if (sp->fd >= 0 && req->doclose != SC_NULL)
-		SES_Close(sp, req->doclose);
-
-	if (sp->fd < 0) {
-		wrk->stats->sess_closed++;
-		AZ(req->vcl);
-		Req_Release(req);
-		SES_Delete(sp, SC_NULL, NAN);
-		return (1);
-	}
-
-	WS_Reset(req->ws, NULL);
-	WS_Reset(wrk->aws, NULL);
-	return (0);
+	WS_Reset(req->ws, 0);
+	WS_Reset(wrk->aws, 0);
 }
 
 /*----------------------------------------------------------------------
  */
 
-void __match_proto__()
+void __match_proto__(vtr_req_fail_f)
 Req_Fail(struct req *req, enum sess_close reason)
 {
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 
-	if (req->sp->fd >= 0)
-		SES_Close(req->sp, reason);
+	AN(req->transport->req_fail);
+	req->transport->req_fail(req, reason);
 }

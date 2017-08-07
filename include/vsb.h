@@ -76,10 +76,14 @@ char		*VSB_data(const struct vsb *);
 ssize_t		 VSB_len(const struct vsb *);
 void		 VSB_delete(struct vsb *);
 void		 VSB_destroy(struct vsb **);
+#define VSB_QUOTE_NONL		1
+#define VSB_QUOTE_JSON		2
+#define VSB_QUOTE_HEX		4
+#define VSB_QUOTE_CSTR		8
+#define VSB_QUOTE_UNSAFE	16
+void		 VSB_quote_pfx(struct vsb *, const char*, const void *,
+		     int len, int how);
 void		 VSB_quote(struct vsb *, const void *, int len, int how);
-#define VSB_QUOTE_NONL	1
-#define VSB_QUOTE_JSON	2
-#define VSB_QUOTE_HEX	4
 void		 VSB_indent(struct vsb *, int);
 #ifdef __cplusplus
 };

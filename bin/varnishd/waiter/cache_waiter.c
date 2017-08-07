@@ -30,13 +30,12 @@
 
 #include "config.h"
 
-#include <errno.h>
+#include "cache/cache.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "binary_heap.h"
-
-#include "cache/cache.h"
 
 #include "waiter/waiter_priv.h"
 #include "waiter/mgt_waiter.h"
@@ -72,10 +71,9 @@ Wait_Call(const struct waiter *w, struct waited *wp,
 {
 	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
 	CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
-	CHECK_OBJ_NOTNULL(wp->waitfor, WAITFOR_MAGIC);
-	AN(wp->waitfor->func);
+	AN(wp->func);
 	assert(wp->idx == BINHEAP_NOIDX);
-	wp->waitfor->func(wp, ev, now);
+	wp->func(wp, ev, now);
 }
 
 /**********************************************************************/
@@ -134,7 +132,8 @@ Wait_Enter(const struct waiter *w, struct waited *wp)
 	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
 	CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
 	assert(wp->fd > 0);			// stdin never comes here
-	CHECK_OBJ_NOTNULL(wp->waitfor, WAITFOR_MAGIC);
+	AN(wp->func);
+	AN(wp->tmo);
 	wp->idx = BINHEAP_NOIDX;
 	return (w->impl->enter(w->priv, wp));
 }
@@ -180,10 +179,7 @@ Waiter_Destroy(struct waiter **wp)
 {
 	struct waiter *w;
 
-	AN(wp);
-	w = *wp;
-	*wp = NULL;
-	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
+	TAKE_OBJ_NOTNULL(w, wp, WAITER_MAGIC);
 
 	AZ(binheap_root(w->heap));
 	AN(w->impl->fini);

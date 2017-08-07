@@ -30,7 +30,7 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -39,11 +39,7 @@
 
 #include "mgt/mgt_param.h"
 #include "vav.h"
-#include "vcli.h"
-#include "vcli_common.h"
-#include "vcli_priv.h"
-
-#include "mgt_cli.h"
+#include "vcli_serve.h"
 
 struct plist {
 	unsigned			magic;
@@ -64,7 +60,7 @@ static const int tab0 = 3;
 
 static const char OBJ_STICKY_TEXT[] =
 	"\n\n"
-	"NB: This parameter is evaluated only when objects are created."
+	"NB: This parameter is evaluated only when objects are created. "
 	"To change it for all objects, restart or ban everything.";
 
 static const char DELAYED_EFFECT_TEXT[] =
@@ -84,7 +80,7 @@ static const char MUST_RELOAD_TEXT[] =
 static const char EXPERIMENTAL_TEXT[] =
 	"\n\n"
 	"NB: We do not know yet if it is a good idea to change "
-	"this parameter, or if the default value is even sensible.  "
+	"this parameter, or if the default value is even sensible. "
 	"Caution is advised, and feedback is most welcome.";
 
 static const char WIZARD_TEXT[] =
@@ -99,6 +95,14 @@ static const char PROTECTED_TEXT[] =
 static const char ONLY_ROOT_TEXT[] =
 	"\n\n"
 	"NB: This parameter only works if varnishd is run as root.";
+
+static const char NOT_IMPLEMENTED_TEXT[] =
+	"This parameter depends on a feature which is not available"
+	" on this platform.";
+
+static const char NOT_IMPLEMENTED_DOC[] =
+	"NB: This parameter depends on a feature which is not available"
+	" on all platforms.";
 
 /*--------------------------------------------------------------------*/
 
@@ -229,7 +233,7 @@ mcf_wrap(struct cli *cli, const char *text)
 
 /*--------------------------------------------------------------------*/
 
-void
+static void __match_proto__(cli_func_t)
 mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 {
 	int n;
@@ -260,19 +264,34 @@ mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 		if (chg && pp->def != NULL && !strcmp(pp->def, VSB_data(vsb)))
 			continue;
 
-		if (lfmt) {
-			VCLI_Out(cli, "%s\n", pp->name);
-			VCLI_Out(cli, "%-*sValue is: ", margin1, " ");
+		if (pp->flags & NOT_IMPLEMENTED) {
+			if (lfmt) {
+				VCLI_Out(cli, "%s\n", pp->name);
+				VCLI_Out(cli, "%-*sNot available", margin1, " ");
+			} else {
+				VCLI_Out(cli, "%-*s-", margin2, pp->name);
+			}
 		} else {
-			VCLI_Out(cli, "%-*s", margin2, pp->name);
+			if (lfmt) {
+				VCLI_Out(cli, "%s\n", pp->name);
+				VCLI_Out(cli, "%-*sValue is: ", margin1, " ");
+			} else {
+				VCLI_Out(cli, "%-*s", margin2, pp->name);
+			}
+
+			VCLI_Out(cli, "%s", VSB_data(vsb));
+			if (pp->units != NULL && *pp->units != '\0')
+				VCLI_Out(cli, " [%s]", pp->units);
+			if (pp->def != NULL && !strcmp(pp->def, VSB_data(vsb)))
+				VCLI_Out(cli, " (default)");
 		}
-		VCLI_Out(cli, "%s", VSB_data(vsb));
-		if (pp->units != NULL && *pp->units != '\0')
-			VCLI_Out(cli, " [%s]", pp->units);
-		if (pp->def != NULL && !strcmp(pp->def, VSB_data(vsb)))
-			VCLI_Out(cli, " (default)");
 		VCLI_Out(cli, "\n");
-		if (lfmt) {
+
+		if (lfmt && pp->flags & NOT_IMPLEMENTED) {
+			VCLI_Out(cli, "\n");
+			mcf_wrap(cli, NOT_IMPLEMENTED_TEXT);
+			VCLI_Out(cli, "\n\n");
+		} else if (lfmt) {
 			if (pp->def != NULL && strcmp(pp->def, VSB_data(vsb)))
 				VCLI_Out(cli, "%-*sDefault is: %s\n",
 				    margin1, "", pp->def);
@@ -307,7 +326,7 @@ mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 		VCLI_SetResult(cli, CLIS_PARAM);
 		VCLI_Out(cli, "Unknown parameter \"%s\".", av[2]);
 	}
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 }
 
 /*--------------------------------------------------------------------
@@ -368,7 +387,7 @@ MCF_ParamSet(struct cli *cli, const char *param, const char *val)
 	if (cli->result != CLIS_OK) {
 		VCLI_Out(cli, "\n(attempting to set param '%s' to '%s')",
 		    pp->name, val);
-	} else if (child_pid >= 0 && pp->flags & MUST_RESTART) {
+	} else if (MCH_Running() && pp->flags & MUST_RESTART) {
 		VCLI_Out(cli,
 		    "\nChange will take effect when child is restarted");
 	} else if (pp->flags & MUST_RELOAD) {
@@ -380,7 +399,7 @@ MCF_ParamSet(struct cli *cli, const char *param, const char *val)
 
 /*--------------------------------------------------------------------*/
 
-void
+static void __match_proto__(cli_func_t)
 mcf_param_set(struct cli *cli, const char * const *av, void *priv)
 {
 
@@ -443,6 +462,14 @@ mcf_wash_param(struct cli *cli, const struct parspec *pp, const char **val,
 	}
 }
 
+/*--------------------------------------------------------------------*/
+
+static struct cli_proto cli_params[] = {
+	{ CLICMD_PARAM_SHOW,		"", mcf_param_show },
+	{ CLICMD_PARAM_SET,		"", mcf_param_set },
+	{ NULL }
+};
+
 /*--------------------------------------------------------------------
  * Wash the min/max/default values, and leave the default set.
  */
@@ -454,11 +481,15 @@ MCF_InitParams(struct cli *cli)
 	struct parspec *pp;
 	struct vsb *vsb;
 
+	VCLS_AddFunc(mgt_cls, MCF_AUTH, cli_params);
+
 	vsb = VSB_new_auto();
 	AN(vsb);
 	VTAILQ_FOREACH(pl, &phead, list) {
 		pp = pl->spec;
 
+		if (pp->flags & NOT_IMPLEMENTED)
+			continue;
 		if (pp->min != NULL)
 			mcf_wash_param(cli, pp, &pp->min, "minimum", vsb);
 		if (pp->max != NULL)
@@ -466,7 +497,7 @@ MCF_InitParams(struct cli *cli)
 		AN(pp->def);
 		mcf_wash_param(cli, pp, &pp->def, "default", vsb);
 	}
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 }
 
 /*--------------------------------------------------------------------*/
@@ -483,38 +514,35 @@ MCF_CollectParams(void)
 /*--------------------------------------------------------------------*/
 
 void
-MCF_SetDefault(const char *param, const char *new_def)
+MCF_ParamConf(enum mcf_which_e which, const char *param, const char *fmt, ...)
 {
 	struct parspec *pp;
+	struct vsb *vsb;
+	va_list ap;
 
 	pp = mcf_findpar(param);
 	AN(pp);
-	pp->def = new_def;
-	AN(pp->def);
-}
-
-void
-MCF_SetMinimum(const char *param, const char *new_min)
-{
-	struct parspec *pp;
-
-	AN(new_min);
-	pp = mcf_findpar(param);
-	AN(pp);
-	pp->min = new_min;
-	AN(pp->min);
-}
-
-void
-MCF_SetMaximum(const char *param, const char *new_max)
-{
-	struct parspec *pp;
-
-	AN(new_max);
-	pp = mcf_findpar(param);
-	AN(pp);
-	pp->max = new_max;
-	AN(pp->max);
+	vsb = VSB_new_auto();
+	AN(vsb);
+	va_start(ap, fmt);
+	VSB_vprintf(vsb, fmt, ap);
+	va_end(ap);
+	AZ(VSB_finish(vsb));
+	switch (which) {
+	case MCF_DEFAULT:
+		pp->def = strdup(VSB_data(vsb));
+		AN(pp->def);
+		break;
+	case MCF_MINIMUM:
+		pp->min = strdup(VSB_data(vsb));
+		AN(pp->min);
+		break;
+	case MCF_MAXIMUM:
+		pp->max = strdup(VSB_data(vsb));
+		AN(pp->max);
+		break;
+	}
+	VSB_delete(vsb);
 }
 
 /*--------------------------------------------------------------------*/
@@ -528,7 +556,7 @@ MCF_DumpRstParam(void)
 	int j;
 
 	printf("\n.. The following is the autogenerated "
-	    "output from varnishd -x dumprstparam\n\n");
+	    "output from varnishd -x parameter\n\n");
 	VTAILQ_FOREACH(pl, &phead, list) {
 		pp = pl->spec;
 		printf(".. _ref_param_%s:\n\n", pp->name);
@@ -536,6 +564,10 @@ MCF_DumpRstParam(void)
 		for (j = 0; j < strlen(pp->name); j++)
 			printf("~");
 		printf("\n");
+
+		if (pp->flags && pp->flags & NOT_IMPLEMENTED)
+			printf("\n%s\n\n", NOT_IMPLEMENTED_DOC);
+
 		if (pp->units != NULL && *pp->units != '\0')
 			printf("\t* Units: %s\n", pp->units);
 		printf("\t* Default: %s\n", pp->def);
@@ -551,6 +583,7 @@ MCF_DumpRstParam(void)
 		if (pp->flags) {
 			printf("\t* Flags: ");
 			q = "";
+
 			if (pp->flags & DELAYED_EFFECT) {
 				printf("%sdelayed", q);
 				q = ", ";

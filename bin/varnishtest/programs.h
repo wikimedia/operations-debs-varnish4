@@ -27,9 +27,12 @@
  *
  */
 
-VTC_PROG(varnishd)
 VTC_PROG(varnishadm)
-VTC_PROG(varnishstat)
+VTC_PROG(varnishd)
 VTC_PROG(varnishhist)
 VTC_PROG(varnishlog)
 VTC_PROG(varnishncsa)
+VTC_PROG(varnishstat)
+VTC_PROG(varnishtest)
+VTC_PROG(varnishtop)
+#undef VTC_PROG

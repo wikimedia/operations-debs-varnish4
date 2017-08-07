@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>What&#39;s new in Varnish 4.1 &#8212; Varnish version 4.1.8 documentation</title>
+    <title>What&#39;s new / Upgrading &#8212; Varnish version 5.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.8',
+        VERSION:     '5.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,9 +25,9 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
-    <link rel="next" title="Changes in Varnish 4.1" href="changes.html" />
-    <link rel="prev" title="vsl-query" href="../reference/vsl-query.html" /> 
+    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
+    <link rel="next" title="Changes in Varnish 5.1" href="changes-5.1.html" />
+    <link rel="prev" title="VTC" href="../reference/vtc.html" /> 
   </head>
   <body role="document">
     <div class="related" role="navigation" aria-label="related navigation">
@@ -37,12 +37,12 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="changes.html" title="Changes in Varnish 4.1"
+          <a href="changes-5.1.html" title="Changes in Varnish 5.1"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="../reference/vsl-query.html" title="vsl-query"
+          <a href="../reference/vtc.html" title="VTC"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -51,41 +51,115 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="what-s-new-in-varnish-4-1">
-<span id="whats-new-index"></span><h1>What's new in Varnish 4.1<a class="headerlink" href="#what-s-new-in-varnish-4-1" title="Permalink to this headline">¶</a></h1>
-<p>This section describes the changes that have been made for Varnish 4.1.</p>
-<p>The first subsection describes overarching changes that have gone into
-Varnish 4.0, while the second subsection describes changes you need to make to
-your current configuration if you come from Varnish 3.x.</p>
-<p>The text also considers changes in behaviour that you need to be aware of and
-take into consideration when upgrading.</p>
+  <div class="section" id="what-s-new-upgrading">
+<span id="whats-new-index"></span><h1>What's new / Upgrading<a class="headerlink" href="#what-s-new-upgrading" title="Permalink to this headline">¶</a></h1>
+<p>This section describes the changes and improvements between different
+versions of Varnish, and what upgrading between the different versions
+entail.</p>
+<div class="section" id="varnish-5-1">
+<h2>Varnish 5.1<a class="headerlink" href="#varnish-5-1" title="Permalink to this headline">¶</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="changes.html">Changes in Varnish 4.1</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#proactive-security-features">Proactive security features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#warm-and-cold-vcl-configurations">Warm and cold VCL configurations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#proxy-protocol-support">PROXY protocol support</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#vmod-backends">VMOD backends</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#backend-connection-timeout">Backend connection timeout</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#protocol-support">Protocol support</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#more-modules-available">More modules available</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#passing-data-between-esi-requests">Passing data between ESI requests</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changes.html#other-noteworthy-small-changes">Other noteworthy small changes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="upgrading.html">Upgrading to Varnish 4.1</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="upgrading.html#changes-to-vcl">Changes to VCL</a></li>
-<li class="toctree-l2"><a class="reference internal" href="upgrading.html#management-interface">Management interface</a></li>
-<li class="toctree-l2"><a class="reference internal" href="upgrading.html#runtime-users-and-groups">Runtime users and groups</a></li>
-<li class="toctree-l2"><a class="reference internal" href="upgrading.html#changes-to-parameters">Changes to parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes-5.1.html">Changes in Varnish 5.1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#startup-cli-command-file">Startup CLI command file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#universal-vcl-return-fail">Universal VCL return(fail)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#progress-on-http-2-support">Progress on HTTP/2 support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#hit-for-pass-has-returned">Hit-For-Pass has returned</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#not-modified-responses-after-a-pass">304 Not Modified responses after a pass</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#vxid-in-vsl-queries">VXID in VSL queries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#project-tool-improvements">Project tool improvements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.1.html#news-for-authors-of-vmods-and-varnish-api-client-applications">News for authors of VMODs and Varnish API client applications</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="upgrade-4.0.html">Upgrading to Varnish 4.0</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="upgrade-4.0.html#changes-to-vcl">Changes to VCL</a></li>
-<li class="toctree-l2"><a class="reference internal" href="upgrade-4.0.html#changes-to-existing-parameters">Changes to existing parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="upgrade-4.0.html#new-parameters-since-3-0">New parameters since 3.0</a></li>
-<li class="toctree-l2"><a class="reference internal" href="upgrade-4.0.html#other-changes">Other changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="upgrading-5.1.html">Upgrading to Varnish 5.1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.1.html#varnishd-command-line-options">varnishd command-line options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.1.html#varnishd-parameters">varnishd parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.1.html#changes-to-vcl">Changes to VCL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.1.html#other-changes">Other changes</a></li>
 </ul>
 </li>
 </ul>
+</div>
+</div>
+<div class="section" id="varnish-5-0">
+<h2>Varnish 5.0<a class="headerlink" href="#varnish-5-0" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="relnote-5.0.html">Varnish 5.0 Release Note</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="relnote-5.0.html#how-to-get-varnish-5-0">How to get Varnish 5.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relnote-5.0.html#reasons-to-upgrade-to-varnish-5-0">Reasons to upgrade to Varnish 5.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relnote-5.0.html#reasons-not-to-upgrade-to-varnish-5-0">Reasons not to upgrade to Varnish 5.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relnote-5.0.html#next-release">Next release</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relnote-5.0.html#the-obligatory-thank-you-speech">The obligatory thank-you speech</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relnote-5.0.html#we-need-more-money">We need more money</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relnote-5.0.html#we-also-need-more-manpower">We also need more manpower</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="changes-5.0.html">Changes in Varnish 5.0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#separate-vcl-files-and-vcl-labels">Separate VCL files and VCL labels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#very-experimental-http-2-support">Very Experimental HTTP/2 support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#the-shard-director">The Shard Director</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#hit-for-pass-is-now-actually-hit-for-miss">Hit-For-Pass is now actually Hit-For-Miss</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#ban-lurker-improvements">Ban Lurker Improvements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#request-body-sent-always-cacheable-post">Request Body sent always / &quot;cacheable POST&quot;</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#esi-and-backend-request-coalescing-waitinglist-improvement">ESI and Backend Request Coalescing (&quot;waitinglist&quot;) Improvement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#backend-proxy-protocol-requests">Backend PROXY protocol requests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#default-vcl-search-path">Default VCL search path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#devicedetect-vcl">devicedetect.vcl</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#varnishtest">varnishtest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#misc">misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-5.0.html#news-for-vmod-authors">News for VMOD authors</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="upgrading-5.0.html">Upgrading to Varnish 5.0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.0.html#changes-to-vcl">Changes to VCL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.0.html#management-interface">Management interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.0.html#changes-to-parameters">Changes to parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-5.0.html#other-changes">Other changes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="varnish-4-1">
+<h2>Varnish 4.1<a class="headerlink" href="#varnish-4-1" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="changes-4.1.html">Changes in Varnish 4.1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#proactive-security-features">Proactive security features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#warm-and-cold-vcl-configurations">Warm and cold VCL configurations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#proxy-protocol-support">PROXY protocol support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#vmod-backends">VMOD backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#backend-connection-timeout">Backend connection timeout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#protocol-support">Protocol support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#more-modules-available">More modules available</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#passing-data-between-esi-requests">Passing data between ESI requests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes-4.1.html#other-noteworthy-small-changes">Other noteworthy small changes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="upgrading-4.1.html">Upgrading to Varnish 4.1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.1.html#changes-to-vcl">Changes to VCL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.1.html#management-interface">Management interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.1.html#runtime-users-and-groups">Runtime users and groups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.1.html#changes-to-parameters">Changes to parameters</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="varnish-4-0">
+<h2>Varnish 4.0<a class="headerlink" href="#varnish-4-0" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="upgrading-4.0.html">Upgrading to Varnish 4.0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.0.html#changes-to-vcl">Changes to VCL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.0.html#changes-to-existing-parameters">Changes to existing parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.0.html#new-parameters-since-3-0">New parameters since 3.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrading-4.0.html#other-changes">Other changes</a></li>
+</ul>
+</li>
+</ul>
+</div>
 </div>
 </div>
 
@@ -95,12 +169,23 @@ take into consideration when upgrading.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">What's new / Upgrading</a><ul>
+<li><a class="reference internal" href="#varnish-5-1">Varnish 5.1</a></li>
+<li><a class="reference internal" href="#varnish-5-0">Varnish 5.0</a></li>
+<li><a class="reference internal" href="#varnish-4-1">Varnish 4.1</a></li>
+<li><a class="reference internal" href="#varnish-4-0">Varnish 4.0</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
-  <p class="topless"><a href="../reference/vsl-query.html"
-                        title="previous chapter">vsl-query</a></p>
+  <p class="topless"><a href="../reference/vtc.html"
+                        title="previous chapter">VTC</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="changes.html"
-                        title="next chapter">Changes in Varnish 4.1</a></p>
+  <p class="topless"><a href="changes-5.1.html"
+                        title="next chapter">Changes in Varnish 5.1</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -129,12 +214,12 @@ take into consideration when upgrading.</p>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="changes.html" title="Changes in Varnish 4.1"
+          <a href="changes-5.1.html" title="Changes in Varnish 5.1"
              >next</a> |</li>
         <li class="right" >
-          <a href="../reference/vsl-query.html" title="vsl-query"
+          <a href="../reference/vtc.html" title="VTC"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

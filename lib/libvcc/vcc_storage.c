@@ -60,34 +60,15 @@
 #include <string.h>
 
 #include "vcc_compile.h"
-
-#define PFX "storage."
+#include "libvcc.h"		// VCC_Stevedore() proto
 
 /*--------------------------------------------------------------------
  *
  */
 
-static struct var *
-vcc_Stv_mkvar(struct vcc *tl, const struct token *t, enum var_type fmt)
-{
-	struct var *v;
-
-	v = TlAlloc(tl, sizeof *v);
-	AN(v);
-
-	v->name = TlDupTok(tl, t);
-	v->r_methods = 0;
-#define VCL_MET_MAC(l,u,t,b)	v->r_methods |= VCL_MET_##u;
-#include "tbl/vcl_returns.h"
-#undef VCL_MET_MAC
-	v->fmt = fmt;
-
-	return (v);
-}
-
 static struct stvars {
 	const char	*name;
-	enum var_type	fmt;
+	vcc_type_t	fmt;
 } stvars[] = {
 #define VRTSTVVAR(nm, vtype, ctype, dval)	{ #nm, vtype },
 #include "tbl/vrt_stv_var.h"
@@ -95,54 +76,31 @@ static struct stvars {
 	{ NULL,			BOOL }
 };
 
-struct symbol *
-vcc_Stv_Wildcard(struct vcc *tl, const struct token *t,
-    const struct symbol *wcsym)
+void
+vcc_stevedore(struct vcc *vcc, const char *stv_name)
 {
-	const char *p, *q;
-	struct var *v = NULL;
 	struct symbol *sym;
 	struct stvars *sv;
-	char stv[1024];
 	char buf[1024];
 
-	(void)wcsym;
-	assert((t->e - t->b) > strlen(PFX));
-	AZ(memcmp(t->b, PFX, strlen(PFX)));
-
-	p = t->b + strlen(PFX);
-	for (q = p; q < t->e && *q != '.'; q++)
-		continue;
-	bprintf(stv, "%.*s", (int)(q - p), p);
-
-	if (q == t->e) {
-		v = vcc_Stv_mkvar(tl, t, BOOL);
-		bprintf(buf, "VRT_Stv(\"%s\")", stv);
-		v->rname = TlDup(tl, buf);
-	} else {
-		assert(*q  == '.');
-		q++;
-		for(sv = stvars; sv->name != NULL; sv++) {
-			if (strncmp(q, sv->name, t->e - q))
-				continue;
-			if (sv->name[t->e - q] != '\0')
-				continue;
-			v = vcc_Stv_mkvar(tl, t, sv->fmt);
-			bprintf(buf, "VRT_Stv_%s(\"%s\")", sv->name, stv);
-			v->rname = TlDup(tl, buf);
-			break;
-		}
-	}
-
-	if (v == NULL)
-		return (NULL);
-
-	sym = VCC_AddSymbolTok(tl, t, SYM_VAR);
+	CHECK_OBJ_NOTNULL(vcc, VCC_MAGIC);
+	bprintf(buf, "storage.%s", stv_name);
+	sym = VCC_Symbol(vcc, NULL, buf, NULL, SYM_VAR, 1);
 	AN(sym);
-	sym->var = v;
-	sym->fmt = v->fmt;
+	sym->fmt = STEVEDORE;
 	sym->eval = vcc_Eval_Var;
-	sym->r_methods = v->r_methods;
+	bprintf(buf, "VRT_stevedore(\"%s\")", stv_name);
+	sym->rname = TlDup(vcc, buf);
+	sym->r_methods = ~0;
 
-	return (sym);
+	for (sv = stvars; sv->name != NULL; sv++) {
+		bprintf(buf, "storage.%s.%s", stv_name, sv->name);
+		sym = VCC_Symbol(vcc, NULL, buf, NULL, SYM_VAR, 1);
+		AN(sym);
+		sym->fmt = sv->fmt;
+		sym->eval = vcc_Eval_Var;
+		bprintf(buf, "VRT_Stv_%s(\"%s\")", sv->name, stv_name);
+		sym->rname = TlDup(vcc, buf);
+		sym->r_methods = ~0;
+	}
 }

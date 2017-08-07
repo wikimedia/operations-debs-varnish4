@@ -44,8 +44,9 @@ This document focuses on the syntax of the VCL language. For a full
 description of syntax and semantics, with ample examples, please see
 the online documentation at \fI\%https://www.varnish\-cache.org/docs/\fP .
 .sp
-Starting with Varnish 4.0, each VCL file must start by declaring its version
-with a special "vcl 4.0;" marker at the top of the file.
+Starting with Varnish 4.0, each VCL file must start by declaring its
+version with \fBvcl\fP \fI<major>.<minor>\fP\fB;\fP marker at the top of
+the file.  See more about this under Versioning below.
 .SS Operators
 .sp
 The following operators are available in VCL:
@@ -53,45 +54,35 @@ The following operators are available in VCL:
 .INDENT 3.5
 .INDENT 0.0
 .TP
-.B =
+.B \fB=\fP
 Assignment operator.
-.UNINDENT
-.INDENT 0.0
 .TP
-.B ==
+.B \fB==\fP
 Comparison.
-.UNINDENT
-.INDENT 0.0
 .TP
-.B ~
+.B \fB~\fP
 Match. Can either be used with regular expressions or ACLs.
-.UNINDENT
-.INDENT 0.0
 .TP
-.B !
+.B \fB!\fP
 Negation.
-.UNINDENT
-.INDENT 0.0
 .TP
-.B &&
+.B \fB&&\fP
 Logical and.
-.UNINDENT
-.INDENT 0.0
 .TP
-.B ||
+.B \fB||\fP
 Logical or.
 .UNINDENT
 .UNINDENT
 .UNINDENT
 .SS Conditionals
 .sp
-VCL has \fIif\fP and \fIelse\fP statements. Nested logic can be implemented
-with the \fIelseif\fP statement (\fIelsif\fP/\fIelif\fP/\fIelse if\fP are equivalent).
+VCL has \fBif\fP and \fBelse\fP statements. Nested logic can be
+implemented with the \fBelseif\fP statement (\fBelsif\fP/\fBelif\fP/\fBelse if\fP are equivalent).
 .sp
 Note that there are no loops or iterators of any kind in VCL.
-.SS Strings, booleans, time, duration and integers
+.SS Strings, booleans, time, duration, integers and real numbers
 .sp
-These are the data types in Varnish. You can \fIset\fP or \fIunset\fP these.
+These are the data types in Varnish. You can \fBset\fP or \fBunset\fP these.
 .sp
 Example:
 .INDENT 0.0
@@ -107,45 +98,56 @@ unset req.http.Range;
 .UNINDENT
 .SS Strings
 .sp
-Basic strings are enclosed in double quotes (" ... "), and may not contain
-newlines. Long strings are enclosed in {" ... "}. They may contain any
-character including single double quotes ("), newline and other control
-characters except for the NUL (0x00) character.
+Basic strings are enclosed in double quotes \fB"\fP\fI\&...\fP\fB"\fP, and
+may not contain newlines. Long strings are enclosed in
+\fB{"\fP\fI\&...\fP\fB"}\fP\&. They may contain any character including single
+double quotes \fB"\fP, newline and other control characters except for the
+\fINUL\fP (0x00) character.
 .SS Booleans
 .sp
-Booleans can be either \fItrue\fP or \fIfalse\fP\&.
+Booleans can be either \fBtrue\fP or \fBfalse\fP\&.  In addition, in a boolean
+context some data types will evaluate to \fBtrue\fP or \fBfalse\fP depending on
+their value.
+.sp
+String types will evaluate to \fBfalse\fP if they are empty; backend types
+will evalute to \fBfalse\fP if they don\(aqt have a backend assigned; integer
+types will evaluate to \fBfalse\fP if their value is zero; duration types
+will evaluate to \fBfalse\fP if their value is equal or less than zero.
 .SS Time
 .sp
-VCL has time. The function \fInow\fP returns a time. A duration can be
-added to a time to make another time. In string context they return a
-formatted string.
+VCL has time. A duration can be added to a time to make another time.
+In string context they return a formatted string in RFC1123 format,
+e.g. \fBSun, 06 Nov 1994 08:49:37 GMT\fP\&.
+.sp
+The keyword \fBnow\fP returns a time representing the current time in seconds
+since the Epoch.
 .SS Durations
 .sp
-Durations are defined by a number and a designation. The number can be a real
-so 1.5w is allowed.
+Durations are defined by a number followed by a unit. The number can
+include a fractional part, e.g. \fB1.5s\fP\&. The supported units are:
 .INDENT 0.0
 .INDENT 3.5
 .INDENT 0.0
 .TP
-.B ms
+.B \fBms\fP
 milliseconds
 .TP
-.B s
+.B \fBs\fP
 seconds
 .TP
-.B m
+.B \fBm\fP
 minutes
 .TP
-.B h
+.B \fBh\fP
 hours
 .TP
-.B d
+.B \fBd\fP
 days
 .TP
-.B w
+.B \fBw\fP
 weeks
 .TP
-.B y
+.B \fBy\fP
 years
 .UNINDENT
 .UNINDENT
@@ -193,7 +195,7 @@ include "foo.vcl";
 .UNINDENT
 .SS Import statement
 .sp
-The \fIimport\fP statement is used to load Varnish Modules (VMODs.)
+The \fBimport\fP statement is used to load Varnish Modules (VMODs.)
 .sp
 Example:
 .INDENT 0.0
@@ -211,8 +213,9 @@ sub vcl_recv {
 .UNINDENT
 .SS Comments
 .sp
-Single lines of VCL can be commented out using // or #. Multi\-line blocks can
-be commented out with /* block /*.
+Single lines of VCL can be commented out using \fB//\fP or
+\fB#\fP\&. Multi\-line blocks can be commented out with
+\fB/*\fP\fIblock\fP\fB*/\fP\&.
 .sp
 Example:
 .INDENT 0.0
@@ -234,7 +237,7 @@ sub vcl_recv {
 .SS Backend definition
 .sp
 A backend declaration creates and initialises a named backend object. A
-declaration start with the keyword \fIbackend\fP followed by the name of the
+declaration start with the keyword \fBbackend\fP followed by the name of the
 backend. The actual declaration is in curly brackets, in a key/value fashion.:
 .INDENT 0.0
 .INDENT 3.5
@@ -249,36 +252,41 @@ backend name {
 .UNINDENT
 .UNINDENT
 .sp
-The only mandatory attribute is \fIhost\fP\&. The attributes will inherit
+The only mandatory attribute is \fB\&.host\fP\&. The attributes will inherit
 their defaults from the global parameters. The following attributes
 are available:
 .INDENT 0.0
 .INDENT 3.5
 .INDENT 0.0
 .TP
-.B host (mandatory)
+.B \fB\&.host\fP \fI(mandatory)\fP
 The host to be used. IP address or a hostname that resolves to a
 single IP address.
 .TP
-.B port
+.B \fB\&.port\fP
 The port on the backend that Varnish should connect to.
 .TP
-.B host_header
-A host header to add.
+.B \fB\&.host_header\fP
+A host header to add to probes and regular backend requests if they have no
+such header.
 .TP
-.B connect_timeout
+.B \fB\&.connect_timeout\fP
 Timeout for connections.
 .TP
-.B first_byte_timeout
+.B \fB\&.first_byte_timeout\fP
 Timeout for first byte.
 .TP
-.B between_bytes_timeout
+.B \fB\&.between_bytes_timeout\fP
 Timeout between bytes.
 .TP
-.B probe
+.B \fB\&.probe\fP
 Attach a probe to the backend. See \fI\%Probes\fP
 .TP
-.B max_connections
+.B \fB\&.proxy_header\fP
+The PROXY protocol version Varnish should use when connecting to
+this backend. Allowed values are \fB1\fP and \fB2\fP\&.
+.TP
+.B \fB\&.max_connections\fP
 Maximum number of open connections towards this backend. If
 Varnish reaches the maximum Varnish it will start failing
 connections.
@@ -305,7 +313,7 @@ probe name {
 .UNINDENT
 .UNINDENT
 .sp
-The probe named \fIdefault\fP is special and will be used for all backends
+The probe named \fBdefault\fP is special and will be used for all backends
 which do not explicitly reference a probe.
 .sp
 There are no mandatory options. These are the options you can set:
@@ -313,36 +321,36 @@ There are no mandatory options. These are the options you can set:
 .INDENT 3.5
 .INDENT 0.0
 .TP
-.B url
-The URL to query. Defaults to "/".
+.B \fB\&.url\fP
+The URL to query. Defaults to \fB/\fP\&.
 .TP
-.B request
-Specify a full HTTP request using multiple strings. .request will
-have \er\en automatically inserted after every string. If
-specified, .request will take precedence over .url.
+.B \fB\&.request\fP
+Specify a full HTTP request using multiple strings. \fB\&.request\fP will
+have \fB\er\en\fP automatically inserted after every string. If
+specified, \fB\&.request\fP will take precedence over \fB\&.url\fP\&.
 .TP
-.B expected_response
-The expected HTTP response code. Defaults to 200.
+.B \fB\&.expected_response\fP
+The expected HTTP response code. Defaults to \fB200\fP\&.
 .TP
-.B timeout
-The timeout for the probe. Default is 2s.
+.B \fB\&.timeout\fP
+The timeout for the probe. Default is \fB2s\fP\&.
 .TP
-.B interval
-How often the probe is run. Default is 5s.
+.B \fB\&.interval\fP
+How often the probe is run. Default is \fB5s\fP\&.
 .TP
-.B initial
-How many of the polls in .window are considered good when Varnish
-starts. Defaults to the value of threshold \- 1. In this case, the
+.B \fB\&.initial\fP
+How many of the polls in \fB\&.window\fP are considered good when Varnish
+starts. Defaults to the value of \fB\&.threshold\fP \- 1. In this case, the
 backend starts as sick and requires one single poll to be
 considered healthy.
 .TP
-.B window
+.B \fB\&.window\fP
 How many of the latest polls we examine to determine backend health.
-Defaults to 8.
+Defaults to \fB8\fP\&.
 .TP
-.B threshold
+.B \fB\&.threshold\fP
 How many of the polls in .window must have succeeded for us to
-consider the backend healthy. Defaults to 3.
+consider the backend healthy. Defaults to \fB3\fP\&.
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -386,7 +394,7 @@ if (client.ip ~ localnetwork) {
 .UNINDENT
 .SS VCL objects
 .sp
-A VCL object can be instantiated with the \fInew\fP keyword:
+A VCL object can be instantiated with the \fBnew\fP keyword:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -401,7 +409,7 @@ sub vcl_init {
 .UNINDENT
 .UNINDENT
 .sp
-This is only available in vcl_init.
+This is only available in \fBvcl_init\fP\&.
 .SS Subroutines
 .sp
 A subroutine is used to group code for legibility or reusability:
@@ -421,10 +429,11 @@ sub pipe_if_local {
 .UNINDENT
 .sp
 Subroutines in VCL do not take arguments, nor do they return
-values. The built in subroutines all have names beginning with vcl_,
+values. The built in subroutines all have names beginning with \fBvcl_\fP,
 which is reserved.
 .sp
-To call a subroutine, use the call keyword followed by the subroutine\(aqs name:
+To call a subroutine, use the \fBcall\fP keyword followed by the
+subroutine\(aqs name:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -439,11 +448,11 @@ sub vcl_recv {
 .UNINDENT
 .SS Return statements
 .sp
-The ongoing vcl_* subroutine execution ends when a return(\fIaction\fP) statement
-is made.
+The ongoing \fBvcl_*\fP subroutine execution ends when a
+\fBreturn(\fP\fI<action>\fP\fB)\fP statement is made.
 .sp
-The \fIaction\fP specifies how execution should proceed. The context defines
-which actions are available.
+The \fI<action>\fP specifies how execution should proceed. The context
+defines which actions are available.
 .SS Multiple subroutines
 .sp
 If multiple subroutines with the name of one of the built\-in ones are defined,
@@ -479,6 +488,11 @@ Readable from: vcl_pipe, backend
 Writable from: vcl_pipe, backend
 .sp
 This is the backend or director we attempt to fetch from.
+When set to a director, reading this variable returns
+an actual backend if the director has resolved immediately,
+or the director otherwise.
+When used in string context, returns the name of the director
+or backend, respectively.
 .UNINDENT
 .UNINDENT
 .sp
@@ -493,6 +507,17 @@ Writable from: backend
 .sp
 The time in seconds to wait between each received byte from the
 backend.  Not available in pipe mode.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.body
+.INDENT 0.0
+.INDENT 3.5
+Type: BODY
+.sp
+Writable from: vcl_backend_fetch
+.sp
+The request body.
 .UNINDENT
 .UNINDENT
 .sp
@@ -581,8 +606,8 @@ Type: BOOL
 Readable from: backend
 .sp
 Indicates whether this request is uncacheable due
-to a pass in the client side or a hit on an existing
-uncacheable object (aka hit\-for\-pass).
+to a pass in the client side or a hit on an hit\-for\-pass
+object.
 .UNINDENT
 .UNINDENT
 .sp
@@ -643,6 +668,7 @@ Readable from: vcl_backend_response, vcl_backend_error
 This is the backend we fetched from.  If bereq.backend
 was set to a director, this will be the backend selected
 by the director.
+When used in string context, returns its name.
 .UNINDENT
 .UNINDENT
 .sp
@@ -665,6 +691,18 @@ Type: STRING
 Readable from: vcl_backend_response, vcl_backend_error
 .sp
 Name of the backend this response was fetched from.
+Same as beresp.backend.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.body
+.INDENT 0.0
+.INDENT 3.5
+Type: BODY
+.sp
+Writable from: vcl_backend_error
+.sp
+The response body.
 .UNINDENT
 .UNINDENT
 .sp
@@ -811,6 +849,22 @@ Readable from: vcl_backend_response, vcl_backend_error
 Writable from: vcl_backend_response, vcl_backend_error
 .sp
 The HTTP status code returned by the server.
+.sp
+Status codes >1000 can be set for vcl\-internal
+purposes and will be taken modulo 1000 on delivery.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.storage
+.INDENT 0.0
+.INDENT 3.5
+Type: STEVEDORE
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+The storage backend to use to save this object.
 .UNINDENT
 .UNINDENT
 .sp
@@ -823,8 +877,9 @@ Readable from: vcl_backend_response, vcl_backend_error
 .sp
 Writable from: vcl_backend_response, vcl_backend_error
 .sp
-Hint to Varnish that you want to save this object to a
-particular storage backend.
+Deprecated. Hint to Varnish that you want to
+save this object to a particular storage backend.
+Use beresp.storage instead.
 .UNINDENT
 .UNINDENT
 .sp
@@ -853,7 +908,7 @@ Writable from: vcl_backend_response, vcl_backend_error
 Inherited from bereq.uncacheable, see there.
 .sp
 Setting this variable makes the object uncacheable, which may
-get stored as a hit\-for\-pass object in the cache.
+get stored as a hit\-for\-miss object in the cache.
 .sp
 Clearing the variable has no effect and will log the warning
 "Ignoring attempt to reset beresp.uncacheable".
@@ -884,7 +939,8 @@ Readable from: client
 Writable from: client
 .sp
 Identification of the client, used to load balance
-in the client director.
+in the client director. Defaults to the client\(aqs IP
+address.
 .UNINDENT
 .UNINDENT
 .sp
@@ -893,7 +949,7 @@ client.ip
 .INDENT 3.5
 Type: IP
 .sp
-Readable from: client
+Readable from: client, backend
 .sp
 The client\(aqs IP address.
 .UNINDENT
@@ -905,7 +961,7 @@ local.ip
 .INDENT 3.5
 Type: IP
 .sp
-Readable from: client
+Readable from: client, backend
 .sp
 The IP address of the local end of the TCP connection.
 .UNINDENT
@@ -930,7 +986,7 @@ obj.age
 .INDENT 3.5
 Type: DURATION
 .sp
-Readable from: vcl_hit
+Readable from: vcl_hit, vcl_deliver
 .sp
 The age of the object.
 .UNINDENT
@@ -941,7 +997,7 @@ obj.grace
 .INDENT 3.5
 Type: DURATION
 .sp
-Readable from: vcl_hit
+Readable from: vcl_hit, vcl_deliver
 .sp
 The object\(aqs remaining grace period in seconds.
 .UNINDENT
@@ -975,7 +1031,7 @@ obj.keep
 .INDENT 3.5
 Type: DURATION
 .sp
-Readable from: vcl_hit
+Readable from: vcl_hit, vcl_deliver
 .sp
 The object\(aqs remaining keep period in seconds.
 .UNINDENT
@@ -988,7 +1044,7 @@ Type: STRING
 .sp
 Readable from: vcl_hit
 .sp
-The HTTP protocol version used when the object was retrieved.
+The HTTP protocol version stored with the object.
 .UNINDENT
 .UNINDENT
 .sp
@@ -999,7 +1055,7 @@ Type: STRING
 .sp
 Readable from: vcl_hit
 .sp
-The HTTP status message returned by the server.
+The HTTP reason phrase stored with the object.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1010,7 +1066,7 @@ Type: INT
 .sp
 Readable from: vcl_hit
 .sp
-The HTTP status code returned by the server.
+The HTTP status code stored with the object.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1019,7 +1075,7 @@ obj.ttl
 .INDENT 3.5
 Type: DURATION
 .sp
-Readable from: vcl_hit
+Readable from: vcl_hit, vcl_deliver
 .sp
 The object\(aqs remaining time to live, in seconds.
 .UNINDENT
@@ -1032,7 +1088,8 @@ Type: BOOL
 .sp
 Readable from: vcl_deliver
 .sp
-Whether the object is uncacheable (pass or hit\-for\-pass).
+Whether the object is uncacheable (pass, hit\-for\-pass or
+hit\-for\-miss).
 .UNINDENT
 .UNINDENT
 .SS remote
@@ -1042,7 +1099,7 @@ remote.ip
 .INDENT 3.5
 Type: IP
 .sp
-Readable from: client
+Readable from: client, backend
 .sp
 The IP address of the other end of the TCP connection.
 This can either be the clients IP, or the outgoing IP
@@ -1072,6 +1129,11 @@ Readable from: client
 Writable from: client
 .sp
 Set bereq.backend to this if we attempt to fetch.
+When set to a director, reading this variable returns
+an actual backend if the director has resolved immediately,
+or the director otherwise.
+When used in string context, returns the name of the director
+or backend, respectively.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1193,6 +1255,19 @@ A count of how many times this request has been restarted.
 .UNINDENT
 .UNINDENT
 .sp
+req.storage
+.INDENT 0.0
+.INDENT 3.5
+Type: STEVEDORE
+.sp
+Readable from: vcl_recv
+.sp
+Writable from: vcl_recv
+.sp
+The storage backend to use to save this request body.
+.UNINDENT
+.UNINDENT
+.sp
 req.ttl
 .INDENT 0.0
 .INDENT 3.5
@@ -1201,6 +1276,15 @@ Type: DURATION
 Readable from: client
 .sp
 Writable from: client
+.sp
+Upper limit on the object age for cache lookups to return hit.
+.sp
+Usage of req.ttl should be replaced with a check on
+obj.ttl in vcl_hit, returning miss when needed, but
+this currently hits bug #1799, so an additional
+workaround is required.
+.sp
+Deprecated and scheduled for removal with varnish release 7.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1292,6 +1376,17 @@ The entire response HTTP data structure.
 .UNINDENT
 .UNINDENT
 .sp
+resp.body
+.INDENT 0.0
+.INDENT 3.5
+Type: BODY
+.sp
+Writable from: vcl_synth
+.sp
+The response body.
+.UNINDENT
+.UNINDENT
+.sp
 resp.http.
 .INDENT 0.0
 .INDENT 3.5
@@ -1356,6 +1451,10 @@ The HTTP status code that will be returned.
 .sp
 Assigning a HTTP standardized code to resp.status will also
 set resp.reason to the corresponding status message.
+.sp
+resp.status 200 will get changed into 304 by core code after
+a return(deliver) from vcl_deliver for conditional requests
+to cached content if validation succeeds.
 .UNINDENT
 .UNINDENT
 .SS server
@@ -1390,7 +1489,7 @@ server.ip
 .INDENT 3.5
 Type: IP
 .sp
-Readable from: client
+Readable from: client, backend
 .sp
 The IP address of the socket on which the client
 connection was received.
@@ -1436,43 +1535,117 @@ current stevedores.
 .SS Functions
 .sp
 The following built\-in functions are available:
+.SS ban(STRING)
 .INDENT 0.0
-.TP
-.B ban(expression)
-Invalidates all objects in cache that match the expression with the
+.INDENT 3.5
+Invalidates all objects in cache that match the given expression with the
 ban mechanism.
-.TP
-.B hash_data(input)
-Adds an input to the hash input. In the built\-in VCL hash_data()
-is called on the host and URL of the \fIrequest\fP\&. Available in vcl_hash.
-.TP
-.B rollback()
-Restore \fIreq\fP HTTP headers to their original state. This function is
-deprecated.  Use std.rollback() instead.
-.TP
-.B synthetic(STRING)
-Prepare a synthetic response body containing the STRING. Available in
-vcl_synth and vcl_backend_error.
+.sp
+The format of \fISTRING\fP is:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<field> <operator> <arg> [&& <field> <oper> <arg> ...]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.IP \(bu 2
+\fI<field>\fP:
+.INDENT 2.0
+.IP \(bu 2
+\fBreq.url\fP: The request url
+.IP \(bu 2
+\fBreq.http.*\fP: Any request header
+.IP \(bu 2
+\fBobj.status\fP: The cache object status
+.IP \(bu 2
+\fBobj.http.*\fP: Any cache object header
+.UNINDENT
+.IP \(bu 2
+\fI<operator>\fP:
+.INDENT 2.0
+.IP \(bu 2
+\fB==\fP: \fI<field>\fP and \fI<arg>\fP are equal strings (case sensitive)
+.IP \(bu 2
+\fB!=\fP: \fI<field>\fP and \fI<arg>\fP are unequal strings (case sensitive)
+.IP \(bu 2
+\fB~\fP: \fI<field>\fP matches the regular expression \fI<arg>\fP
+.IP \(bu 2
+\fB!~\fP:\fI<field>\fP does not match the regular expression \fI<arg>\fP
+.UNINDENT
+.IP \(bu 2
+\fI<arg>\fP: Either a literal string or a regular expression. Note
+that \fI<arg>\fP does not use any of the string delimiters like \fB"\fP
+or \fB{"\fP\fI\&...\fP\fB"}\fP used elsewhere in varnish. To match
+against strings containing whitespace, regular expressions
+containing \fB\es\fP can be used.
+.UNINDENT
+.sp
+Expressions can be chained using the \fIand\fP operator \fB&&\fP\&. For \fIor\fP
+semantics, use several bans.
+.UNINDENT
+.UNINDENT
+.SS hash_data(input)
+.INDENT 0.0
+.INDENT 3.5
+Adds an input to the hash input. In the built\-in VCL \fBhash_data()\fP
+is called on the host and URL of the request. Available in \fBvcl_hash\fP\&.
+.UNINDENT
+.UNINDENT
+.SS synthetic(STRING)
+.INDENT 0.0
+.INDENT 3.5
+Prepare a synthetic response body containing the \fISTRING\fP\&. Available in
+\fBvcl_synth\fP and \fBvcl_backend_error\fP\&.
+.UNINDENT
 .UNINDENT
 .\" list above comes from struct action_table[] in vcc_action.c.
 .
+.SS regsub(str, regex, sub)
 .INDENT 0.0
-.TP
-.B regsub(str, regex, sub)
-Returns a copy of str with the first occurrence of the regular
-expression regex replaced with sub. Within sub, \e0 (which can
-also be spelled \e&) is replaced with the entire matched string,
-and \en is replaced with the contents of subgroup n in the
-matched string.
-.TP
-.B regsuball(str, regex, sub)
-As regsub() but this replaces all occurrences.
+.INDENT 3.5
+Returns a copy of \fIstr\fP with the first occurrence of the regular
+expression \fIregex\fP replaced with \fIsub\fP\&. Within \fIsub\fP, \fB\e0\fP (which
+can also be spelled \fB\e&\fP) is replaced with the entire matched
+string, and \fB\e\fP\fIn\fP is replaced with the contents of subgroup \fIn\fP
+in the matched string.
+.UNINDENT
+.UNINDENT
+.SS regsuball(str, regex, sub)
+.INDENT 0.0
+.INDENT 3.5
+As \fBregsub()\fP, but this replaces all occurrences.
+.UNINDENT
 .UNINDENT
 .\" regsub* is in vcc_expr.c
 .
 .sp
 For converting or casting VCL values between data types use the functions
 available in the std VMOD.
+.SH VERSIONING
+.sp
+Multiple versions of the VCL syntax can coexist within certain
+constraints.
+.sp
+The VCL syntax version at the start of VCL file specified with \fB\-f\fP
+sets the hard limit that cannot be exceeded anywhere, and it selects
+the appropriate version of the builtin VCL.
+.sp
+That means that you can never include \fBvcl 9.1;\fP from \fBvcl 8.7;\fP,
+but the opposite \fImay\fP be possible, to the extent the compiler
+supports it.
+.sp
+Files pulled in via \fBinclude\fP do not need to have a
+\fBvcl\fP \fIX.Y\fP\fB;\fP but it may be a good idea to do it anyway, to
+not have surprises in the future.  The syntax version set in an
+included file only applies to that file and any files it includes \-
+unless these set their own VCL syntax version.
+.sp
+The version of Varnish this file belongs to supports syntax 4.0 only.
 .SH EXAMPLES
 .sp
 For examples, please see the online documentation.

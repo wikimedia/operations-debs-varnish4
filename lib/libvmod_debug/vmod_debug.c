@@ -29,7 +29,6 @@
 #include "config.h"
 
 #include <errno.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -47,7 +46,7 @@ struct priv_vcl {
 	unsigned		magic;
 #define PRIV_VCL_MAGIC		0x8E62FA9D
 	char			*foo;
-	uintptr_t		exp_cb;
+	uintptr_t		obj_cb;
 	struct vcl		*vcl;
 	struct vclref		*vclref;
 };
@@ -68,17 +67,18 @@ vmod_panic(VRT_CTX, const char *str, ...)
 }
 
 VCL_STRING __match_proto__(td_debug_author)
-vmod_author(VRT_CTX, VCL_ENUM id)
+vmod_author(VRT_CTX, VCL_ENUM person, VCL_ENUM someone)
 {
+	(void)someone;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (!strcmp(id, "phk"))
+	if (!strcmp(person, "phk"))
 		return ("Poul-Henning");
-	if (!strcmp(id, "des"))
+	if (!strcmp(person, "des"))
 		return ("Dag-Erling");
-	if (!strcmp(id, "kristian"))
+	if (!strcmp(person, "kristian"))
 		return ("Kristian");
-	if (!strcmp(id, "mithrandir"))
+	if (!strcmp(person, "mithrandir"))
 		return ("Tollef");
 	WRONG("Illegal VMOD enum");
 }
@@ -101,9 +101,19 @@ vmod_test_priv_task(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (priv->priv == NULL) {
+	if (s == NULL || *s == '\0') {
+		return priv->priv;
+	} else if (priv->priv == NULL) {
 		priv->priv = strdup(s);
 		priv->free = free;
+	} else {
+		char *n = realloc(priv->priv,
+		    strlen(priv->priv) + strlen(s) + 2);
+		if (n == NULL)
+			return NULL;
+		strcat(n, " ");
+		strcat(n, s);
+		priv->priv = n;
 	}
 	return (priv->priv);
 }
@@ -158,7 +168,7 @@ vmod_blob2hex(VRT_CTX, VCL_BLOB b)
 	p = s;
 	q = b->priv;
 	for (i = 0; i < b->len; i++) {
-		sprintf(p, "%02x", *q);
+		assert(snprintf(p, 3, "%02x", *q) == 2);
 		p += 2;
 		q += 1;
 	}
@@ -168,6 +178,14 @@ vmod_blob2hex(VRT_CTX, VCL_BLOB b)
 
 VCL_BACKEND
 vmod_no_backend(VRT_CTX)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	return (NULL);
+}
+
+VCL_STEVEDORE __match_proto__(td_debug_no_stevedore)
+vmod_no_stevedore(VRT_CTX)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -186,11 +204,11 @@ vmod_rot52(VRT_CTX, VCL_HTTP hp)
 
 VCL_STRING
 vmod_argtest(VRT_CTX, VCL_STRING one, VCL_REAL two, VCL_STRING three,
-    VCL_STRING comma)
+    VCL_STRING comma, VCL_INT four)
 {
 	char buf[100];
 
-	bprintf(buf, "%s %g %s %s", one, two, three, comma);
+	bprintf(buf, "%s %g %s %s %ld", one, two, three, comma, four);
 	return (WS_Copy(ctx->ws, buf, -1));
 }
 
@@ -201,8 +219,8 @@ vmod_vre_limit(VRT_CTX)
 	return (cache_param->vre_limits.match);
 }
 
-static void __match_proto__(exp_callback_f)
-exp_cb(struct worker *wrk, struct objcore *oc, enum exp_event_e ev, void *priv)
+static void __match_proto__(obj_event_f)
+obj_cb(struct worker *wrk, void *priv, struct objcore *oc, unsigned event)
 {
 	const struct priv_vcl *priv_vcl;
 	const char *what;
@@ -210,35 +228,35 @@ exp_cb(struct worker *wrk, struct objcore *oc, enum exp_event_e ev, void *priv)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	CAST_OBJ_NOTNULL(priv_vcl, priv, PRIV_VCL_MAGIC);
-	switch (ev) {
-	case EXP_INSERT: what = "insert"; break;
-	case EXP_INJECT: what = "inject"; break;
-	case EXP_REMOVE: what = "remove"; break;
-	default: WRONG("Wrong exp_event");
+	switch (event) {
+	case OEV_INSERT: what = "insert"; break;
+	case OEV_EXPIRE: what = "expire"; break;
+	default: WRONG("Wrong object event");
 	}
-	VSL(SLT_Debug, 0, "exp_cb: event %s 0x%jx", what,
+
+	/* We cannot trust %p to be 0x... format as expected by m00021.vtc */
+	VSL(SLT_Debug, 0, "Object Event: %s 0x%jx", what,
 	    (intmax_t)(uintptr_t)oc);
 }
 
 VCL_VOID __match_proto__()
-vmod_register_exp_callback(VRT_CTX, struct vmod_priv *priv)
+vmod_register_obj_events(VRT_CTX, struct vmod_priv *priv)
 {
 	struct priv_vcl *priv_vcl;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CAST_OBJ_NOTNULL(priv_vcl, priv->priv, PRIV_VCL_MAGIC);
-	AZ(priv_vcl->exp_cb);
-	priv_vcl->exp_cb = EXP_Register_Callback(exp_cb, priv_vcl);
-	VSL(SLT_Debug, 0, "exp_cb: registered");
+	AZ(priv_vcl->obj_cb);
+	priv_vcl->obj_cb = ObjSubscribeEvents(obj_cb, priv_vcl,
+		OEV_INSERT|OEV_EXPIRE);
+	VSL(SLT_Debug, 0, "Subscribed to Object Events");
 }
 
 VCL_VOID __match_proto__()
-vmod_init_fail(VRT_CTX)
+vmod_fail(VRT_CTX)
 {
 
-	AN(ctx->msg);
-	VSB_printf(ctx->msg, "Planned failure in vcl_init{}");
-	VRT_handling(ctx, VCL_RET_FAIL);
+	VRT_fail(ctx, "Forced failure");
 }
 
 static void __match_proto__(vmod_priv_free_f)
@@ -249,9 +267,9 @@ priv_vcl_free(void *priv)
 	CAST_OBJ_NOTNULL(priv_vcl, priv, PRIV_VCL_MAGIC);
 	AN(priv_vcl->foo);
 	free(priv_vcl->foo);
-	if (priv_vcl->exp_cb != 0) {
-		EXP_Deregister_Callback(&priv_vcl->exp_cb);
-		VSL(SLT_Debug, 0, "exp_cb: deregistered");
+	if (priv_vcl->obj_cb != 0) {
+		ObjUnsubscribeEvents(&priv_vcl->obj_cb);
+		VSL(SLT_Debug, 0, "Unsubscribed from Object Events");
 	}
 	AZ(priv_vcl->vcl);
 	AZ(priv_vcl->vclref);
@@ -392,6 +410,10 @@ vmod_workspace_allocate(VRT_CTX, VCL_ENUM which, VCL_INT size)
 	WS_Assert(ws);
 	AZ(ws->r);
 
+	if (size < 0) {
+		size += WS_Reserve(ws, 0);
+		WS_Release(ws, 0);
+	}
 	s = WS_Alloc(ws, size);
 	if (!s)
 		return;
@@ -402,14 +424,17 @@ VCL_INT
 vmod_workspace_free(VRT_CTX, VCL_ENUM which)
 {
 	struct ws *ws;
+	unsigned u;
+
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 
 	ws = wsfind(ctx, which);
 
 	WS_Assert(ws);
-	AZ(ws->r);
+	u = WS_Reserve(ws, 0);
+	WS_Release(ws, 0);
 
-	return (pdiff(ws->f, ws->e));
+	return (u);
 }
 
 VCL_BOOL
@@ -424,7 +449,7 @@ vmod_workspace_overflowed(VRT_CTX, VCL_ENUM which)
 	return (WS_Overflowed(ws));
 }
 
-static char *debug_ws_snap;
+static uintptr_t debug_ws_snap;
 
 void
 vmod_workspace_snap(VRT_CTX, VCL_ENUM which)
@@ -503,7 +528,7 @@ vmod_barrier_sync(VRT_CTX, VCL_STRING addr)
 
 	sz = read(sock, buf, sizeof buf);
 	i = errno;
-	AZ(close(sock));
+	closefd(&sock);
 	if (sz == 0)
 		return (1);
 	if (sz < 0)
@@ -522,4 +547,28 @@ vmod_test_probe(VRT_CTX, VCL_PROBE probe, VCL_PROBE same)
 	CHECK_OBJ_NOTNULL(probe, VRT_BACKEND_PROBE_MAGIC);
 	CHECK_OBJ_ORNULL(same, VRT_BACKEND_PROBE_MAGIC);
 	AZ(same == NULL || probe == same);
+}
+
+VCL_INT
+vmod_typesize(VRT_CTX, VCL_STRING s)
+{
+	int i = 0;
+	const char *p;
+
+	(void)ctx;
+	for (p = s; *p; p++) {
+		switch (*p) {
+		case 'p':	i += sizeof(void *); break;
+		case 'i':	i += sizeof(int); break;
+		case 'd':	i += sizeof(double); break;
+		case 'f':	i += sizeof(float); break;
+		case 'l':	i += sizeof(long); break;
+		case 's':	i += sizeof(short); break;
+		case 'z':	i += sizeof(size_t); break;
+		case 'o':	i += sizeof(off_t); break;
+		case 'j':	i += sizeof(intmax_t); break;
+		default:	return(-1);
+		}
+	}
+	return (i);
 }

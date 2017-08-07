@@ -30,9 +30,9 @@
 
 #include "config.h"
 
-#include <stdio.h>
-
 #include "cache.h"
+
+#include <stdio.h>
 
 void
 WS_Assert(const struct ws *ws)
@@ -59,6 +59,20 @@ WS_Assert(const struct ws *ws)
 	assert(*ws->e == 0x15);
 }
 
+int
+WS_Inside(const struct ws *ws, const void *bb, const void *ee)
+{
+	const char *b = bb;
+	const char *e = ee;
+
+	WS_Assert(ws);
+	if (b < ws->s || b >= ws->e)
+		return (0);
+	if (e != NULL && (e < b || e > ws->e))
+		return (0);
+	return (1);
+}
+
 void
 WS_Assert_Allocated(const struct ws *ws, const void *ptr, ssize_t len)
 {
@@ -67,7 +81,7 @@ WS_Assert_Allocated(const struct ws *ws, const void *ptr, ssize_t len)
 	WS_Assert(ws);
 	if (len < 0)
 		len = strlen(p) + 1;
-	assert(p >= ws->s && (p + len) <= ws->f);
+	assert(p >= ws->s && (p + len) < ws->f);
 }
 
 /*
@@ -116,10 +130,12 @@ ws_ClearOverflow(struct ws *ws)
  */
 
 void
-WS_Reset(struct ws *ws, char *p)
+WS_Reset(struct ws *ws, uintptr_t pp)
 {
+	char *p;
 
 	WS_Assert(ws);
+	p = (char *)pp;
 	DSL(DBG_WORKSPACE, 0, "WS_Reset(%p, %p)", ws, p);
 	assert(ws->r == NULL);
 	if (p == NULL)
@@ -186,8 +202,6 @@ WS_Printf(struct ws *ws, const char *fmt, ...)
 	va_list ap;
 	char *p;
 
-	WS_Assert(ws);
-	assert(ws->r == NULL);
 	u = WS_Reserve(ws, 0);
 	p = ws->f;
 	va_start(ap, fmt);
@@ -203,14 +217,14 @@ WS_Printf(struct ws *ws, const char *fmt, ...)
 	return (p);
 }
 
-char *
+uintptr_t
 WS_Snapshot(struct ws *ws)
 {
 
 	WS_Assert(ws);
 	assert(ws->r == NULL);
 	DSL(DBG_WORKSPACE, 0, "WS_Snapshot(%p) = %p", ws, ws->f);
-	return (ws->f);
+	return (ws->f == ws->s ? 0 : (uintptr_t)ws->f);
 }
 
 unsigned
@@ -225,12 +239,25 @@ WS_Reserve(struct ws *ws, unsigned bytes)
 	if (bytes != 0 && bytes < b2)
 		b2 = PRNDUP(bytes);
 
-	xxxassert(ws->f + b2 <= ws->e);
+	if (ws->f + b2 > ws->e) {
+		WS_MarkOverflow(ws);
+		return (0);
+	}
 	ws->r = ws->f + b2;
 	DSL(DBG_WORKSPACE, 0, "WS_Reserve(%p, %u/%u) = %u",
 	    ws, b2, bytes, pdiff(ws->f, ws->r));
 	WS_Assert(ws);
 	return (pdiff(ws->f, ws->r));
+}
+
+unsigned
+WS_ReserveLumps(struct ws *ws, size_t sz)
+{
+	unsigned u;
+
+	u = WS_Reserve(ws, 0);
+	u /= sz;
+	return (u);
 }
 
 void

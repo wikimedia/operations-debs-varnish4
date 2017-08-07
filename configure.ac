@@ -1,8 +1,8 @@
 AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2006 Verdens Gang AS
-Copyright (c) 2006-2016 Varnish Software])
+Copyright (c) 2006-2017 Varnish Software])
 AC_REVISION([$Id$])
-AC_INIT([Varnish], [4.1.8], [varnish-dev@varnish-cache.org])
+AC_INIT([Varnish], [5.1.3], [varnish-dev@varnish-cache.org])
 AC_CONFIG_SRCDIR(include/miniobj.h)
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -10,7 +10,10 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_USE_SYSTEM_EXTENSIONS
 
 # save command line CFLAGS for use in VCC_CC (to pass through things like -m64)
+# and make distcheck configure
 OCFLAGS="$CFLAGS"
+EXTCFLAGS="$CFLAGS"
+AC_SUBST(EXTCFLAGS)
 
 AC_CANONICAL_SYSTEM
 AC_LANG(C)
@@ -25,23 +28,6 @@ AC_PROG_LIBTOOL
 AC_GNU_SOURCE
 AC_PROG_CC
 AC_PROG_CC_STDC
-if test "x$ac_cv_prog_cc_c99" = "xno" || test "x$ac_cv_prog_cc_c99" = "x"; then
-# We might be on RHEL5 with a git checkout and so broken
-# autoconf. Check if CC is gcc and if it bails when given -std=gnu99.
-# If not, use that.  Yuck.
-  if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
-     CC="$CC -std=gnu99"
-     AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([],[[
-return 0;
-    ]])],
-    [],
-    [AC_MSG_ERROR([Could not find a C99 compatible compiler])])
-  else
-    AC_MSG_ERROR([Could not find a C99 compatible compiler])
-  fi
-fi
-AC_PROG_CPP
 
 AX_PTHREAD(,[AC_MSG_ERROR([Could not configure pthreads support])])
 
@@ -50,7 +36,6 @@ CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 CC="$PTHREAD_CC"
 
 AC_PROG_INSTALL
-AC_PROG_MAKE_SET
 
 AC_ARG_WITH([rst2man],
   AS_HELP_STRING([--with-rst2man=PATH], [Location of rst2man (auto)]),
@@ -78,45 +63,28 @@ AC_ARG_WITH([dot],
   [AC_CHECK_PROGS(DOT, [dot], [no])
    if test "x$DOT" = "xno"; then
      AC_MSG_WARN(
-       [dot not found - can't generate graphviz output for documentation.])
+       [dot not found - build will fail if svg files are out of date.])
    fi])
 AM_CONDITIONAL(HAVE_DOT,[test "x$DOT" != "xno"])
 
-# Checks for libraries.
-save_LIBS="${LIBS}"
-LIBS=""
-AC_CHECK_LIB(rt, clock_gettime)
-RT_LIBS="${LIBS}"
-LIBS="${save_LIBS}"
-AC_SUBST(RT_LIBS)
+# Check for python.
+_VARNISH_CHECK_PYTHON
 
-save_LIBS="${LIBS}"
-LIBS=""
-AC_CHECK_LIB(dl, dlopen)
-DL_LIBS="${LIBS}"
-LIBS="${save_LIBS}"
-AC_SUBST(DL_LIBS)
+# Check for libraries.
+_VARNISH_SEARCH_LIBS(pthread, pthread_create, [thr pthread c_r])
+_VARNISH_CHECK_LIB(rt, clock_gettime)
+_VARNISH_CHECK_LIB(dl, dlopen)
+_VARNISH_CHECK_LIB(socket, socket)
+_VARNISH_CHECK_LIB(nsl, getaddrinfo)
+
+AC_SUBST(NET_LIBS, "${SOCKET_LIBS} ${NSL_LIBS}")
 
 AX_WITH_CURSES
 if test "x$ax_cv_curses" != xyes; then
    AC_MSG_ERROR([requires an X/Open-compatible Curses library])
 fi
 
-save_LIBS="${LIBS}"
-LIBS=""
-AC_SEARCH_LIBS(pthread_create, [thr pthread c_r])
-PTHREAD_LIBS="${LIBS}"
-LIBS="${save_LIBS}"
-AC_SUBST(PTHREAD_LIBS)
-
-save_LIBS="${LIBS}"
-LIBS=""
-AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(nsl, getaddrinfo)
-NET_LIBS="${LIBS}"
-LIBS="${save_LIBS}"
-AC_SUBST(NET_LIBS)
-
+# XXX: This _may_ be for OS/X
 AC_CHECK_LIBM
 AC_SUBST(LIBM)
 
@@ -215,55 +183,28 @@ AC_CHECK_HEADERS([edit/readline/readline.h],
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_HEADER_SYS_WAIT
-AC_HEADER_TIME
-AC_CHECK_HEADERS([sys/param.h])
-AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([sys/endian.h])
 AC_CHECK_HEADERS([sys/filio.h])
 AC_CHECK_HEADERS([sys/mount.h], [], [], [#include <sys/param.h>])
-AC_CHECK_HEADERS([sys/socket.h])
+AC_CHECK_HEADERS([sys/personality.h])
 AC_CHECK_HEADERS([sys/statvfs.h])
 AC_CHECK_HEADERS([sys/vfs.h])
 AC_CHECK_HEADERS([endian.h])
-AC_CHECK_HEADERS([execinfo.h])
-AC_CHECK_HEADERS([netinet/in.h])
 AC_CHECK_HEADERS([pthread_np.h], [], [], [#include <pthread.h>])
-AC_CHECK_HEADERS([stddef.h])
-AC_CHECK_HEADERS([stdlib.h])
-AC_CHECK_HEADERS([unistd.h])
 AC_CHECK_HEADERS([priv.h])
-
-# Checks for typedefs, structures, and compiler characteristics.
-AC_C_CONST
-AC_CHECK_MEMBERS([struct sockaddr.sa_len],,,[
-#include <sys/types.h>
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-])
 
 # Checks for library functions.
 _VARNISH_CHECK_EXPLICIT_BZERO
-AC_TYPE_SIGNAL
-AC_TYPE_SIZE_T
-AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([strerror])
-AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([dladdr])
-AC_CHECK_FUNCS([socket])
-AC_CHECK_FUNCS([explicit_bzero])
 AC_CHECK_FUNCS([nanosleep])
 AC_CHECK_FUNCS([setppriv])
 AC_CHECK_FUNCS([fallocate])
 AC_CHECK_FUNCS([closefrom])
-AC_CHECK_FUNCS([vsyslog])
 
 save_LIBS="${LIBS}"
 LIBS="${PTHREAD_LIBS}"
 AC_CHECK_FUNCS([pthread_set_name_np])
+AC_CHECK_FUNCS([pthread_setname_np])
 AC_CHECK_FUNCS([pthread_mutex_isowned_np])
-AC_CHECK_FUNCS([pthread_timedjoin_np])
 LIBS="${save_LIBS}"
 
 # Support for visibility attribute
@@ -290,6 +231,39 @@ if test "$ac_cv_have_viz" = no; then
 fi
 CFLAGS="${save_CFLAGS}"
 
+SAN_CFLAGS=
+SAN_LDFLAGS=
+UBSAN_CFLAGS=
+UBSAN_LDFLAGS=
+AC_ARG_ENABLE(ubsan,
+	AS_HELP_STRING([--enable-ubsan],[enable undefined behavior sanitizer (default is NO)]),
+	UBSAN_FLAGS="-fsanitize=undefined")
+
+TSAN_CFLAGS=
+TSAN_LDFLAGS=
+AC_ARG_ENABLE(tsan,
+	AS_HELP_STRING([--enable-tsan],[enable thread sanitizer (default is NO)]),
+	TSAN_FLAGS="-fsanitize=thread")
+
+ASAN_CFLAGS=
+ASAN_LDFLAGS=
+AC_ARG_ENABLE(asan,
+	AS_HELP_STRING([--enable-asan],[enable address sanitizer (default is NO)]),
+	ASAN_FLAGS="-fsanitize=address")
+
+MSAN_CFLAGS=
+MSAN_LDFLAGS=
+AC_ARG_ENABLE(msan,
+	AS_HELP_STRING([--enable-msan],[enable memory sanitizer (default is NO)]),
+	MSAN_FLAGS="-fsanitize=memory")
+
+if test "x$UBSAN_FLAGS$TSAN_FLAGS$ASAN_FLAGS$MSAN_FLAGS" != "x"; then
+	SAN_CFLAGS="${UBSAN_FLAGS} ${TSAN_FLAGS} ${ASAN_FLAGS} ${MSAN_FLAGS} -fPIC -fPIE -fno-omit-frame-pointer"
+	SAN_LDFLAGS="${UBSAN_FLAGS} ${TSAN_FLAGS} ${ASAN_FLAGS} ${MSAN_FLAGS} -pie"
+fi
+AC_SUBST(SAN_CFLAGS)
+AC_SUBST(SAN_LDFLAGS)
+
 # Use jemalloc on Linux
 JEMALLOC_LDADD=
 AC_ARG_WITH([jemalloc],
@@ -309,25 +283,10 @@ case $target in
 esac
 AC_SUBST(JEMALLOC_LDADD)
 
-# Userland slab allocator, available only on Solaris
-case $target in
-*-*-solaris*)
-	AC_CHECK_HEADERS([umem.h])
-	if test "$ac_cv_have_umem_h" = yes; then
-		save_LIBS="${LIBS}"
-		LIBS=""
-		AC_CHECK_LIB(umem, umem_alloc)
-		LIBUMEM="${LIBS}"
-		LIBS="${save_LIBS}"
-	fi
-	;;
-esac
-AC_SUBST(LIBUMEM)
-
-# These functions are provided by libcompat on platforms where they
-# are not available
 AC_CHECK_FUNCS([setproctitle])
-AC_SEARCH_LIBS(backtrace, [execinfo],[AC_DEFINE([HAVE_BACKTRACE],[1],[Define to 1 if the backtrace function exists])])
+AC_SEARCH_LIBS(backtrace, [execinfo], [], [
+   AC_MSG_ERROR([Could not find backtrace() support])
+])
 # white lie - we don't actually test it
 AC_MSG_CHECKING([whether daemon() works])
 case $target in
@@ -340,6 +299,7 @@ case $target in
 	AC_CHECK_FUNCS([daemon])
 	;;
 esac
+AM_CONDITIONAL(HAVE_DAEMON, [test "x$ac_cv_func_daemon" != "xno"])
 
 AC_SYS_LARGEFILE
 
@@ -389,10 +349,6 @@ else
 fi
 
 AM_MISSING_HAS_RUN
-AC_CHECK_PROGS(PYTHON, [python3 python3.1 python3.2 python2.7 python2.6 python2.5 python2 python], "no")
-if test "x$PYTHON" = "xno"; then
-  AC_MSG_ERROR([Python is needed to build Varnish, please install python.])
-fi
 
 AC_CHECK_DECL([SO_ACCEPTFILTER],
     AC_DEFINE(HAVE_ACCEPT_FILTERS,1,[Define to 1 if you have accept filters]),
@@ -424,14 +380,17 @@ AC_CACHE_CHECK([whether SO_RCVTIMEO works],
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <errno.h>
     ]],[[
-int sd = socket(AF_INET, SOCK_STREAM, 0);
+int s = socket(AF_INET, SOCK_STREAM, 0);
 struct timeval tv = { 1, 0 };
-if (setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv) == 0) {
-    socklen_t l = sizeof tv;
-    if (getsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, &l) == 0) {
-        return (l != sizeof tv);
-    }
+if (s < 0 && errno == EPROTONOSUPPORT)
+  s = socket(AF_INET6, SOCK_STREAM, 0);
+if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv) == 0) {
+  socklen_t l = sizeof tv;
+  if (getsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, &l) == 0) {
+    return (l != sizeof tv);
+  }
 }
 return 1;
     ]])],
@@ -452,14 +411,17 @@ AC_CACHE_CHECK([whether SO_SNDTIMEO works],
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <errno.h>
     ]],[[
-int sd = socket(AF_INET, SOCK_STREAM, 0);
+int s = socket(AF_INET, SOCK_STREAM, 0);
 struct timeval tv = { 1, 0 };
-if (setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv) == 0) {
-    socklen_t l = sizeof tv;
-    if (getsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, &l) == 0) {
-        return (l != sizeof tv);
-    }
+if (s < 0 && errno == EPROTONOSUPPORT)
+  s = socket(AF_INET6, SOCK_STREAM, 0);
+if (setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv) == 0) {
+  socklen_t l = sizeof tv;
+  if (getsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, &l) == 0) {
+    return (l != sizeof tv);
+  }
 }
 return 1;
     ]])],
@@ -483,15 +445,16 @@ AC_CACHE_CHECK([for TCP_KEEP(CNT|IDLE|INTVL) socket options],
   [ac_cv_have_tcp_keep],
   [AC_RUN_IFELSE(
     [AC_LANG_PROGRAM([[
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <errno.h>
     ]],[[
 int s = socket(AF_INET, SOCK_STREAM, 0);
-int i;
-i = 5;
+int i = 5;
+if (s < 0 && errno == EPROTONOSUPPORT)
+  s = socket(AF_INET6, SOCK_STREAM, 0);
 if (setsockopt(s, IPPROTO_TCP, TCP_KEEPCNT, &i, sizeof i))
   return (1);
 if (setsockopt(s, IPPROTO_TCP, TCP_KEEPIDLE, &i, sizeof i))
@@ -515,15 +478,16 @@ AC_CACHE_CHECK([for TCP_FASTOPEN socket option],
   [ac_cv_have_tcp_fastopen],
   [AC_RUN_IFELSE(
     [AC_LANG_PROGRAM([[
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <errno.h>
     ]],[[
 int s = socket(AF_INET, SOCK_STREAM, 0);
-int i;
-i = 5;
+int i = 5;
+if (s < 0 && errno == EPROTONOSUPPORT)
+  s = socket(AF_INET6, SOCK_STREAM, 0);
 if (setsockopt(s, SOL_TCP, TCP_FASTOPEN, &i, sizeof i))
   return (1);
 return (0);
@@ -541,8 +505,8 @@ VARNISH_STATE_DIR='${localstatedir}/varnish'
 AC_SUBST(VARNISH_STATE_DIR)
 
 # Default configuration directory.
-varnishconfdir='${sysconfdir}/varnish'
-AC_SUBST(varnishconfdir)
+pkgsysconfdir='${sysconfdir}/varnish'
+AC_SUBST(pkgsysconfdir)
 
 # Check for linker script support
 gl_LD_VERSION_SCRIPT
@@ -556,8 +520,27 @@ gl_LD_VERSION_SCRIPT
 # The reason for -Wno-error=unused-result is a glibc/gcc interaction
 # idiocy where write is marked as warn_unused_result, causing build
 # failures.
-CFLAGS="${CFLAGS} -Wall -Werror"
-OCFLAGS="${OCFLAGS} -Wall -Werror"
+
+AX_CHECK_COMPILE_FLAG([-Wall],
+     [CFLAGS="${CFLAGS} -Wall"
+      OCFLAGS="${OCFLAGS} -Wall"])
+
+AC_CHECK_DECL([__SUNPRO_C], [SUNCC="yes"], [SUNCC="no"])
+
+if test "$SUNCC" = "yes" ; then
+    SUNCC_CFLAGS=" \
+	-errwarn=%all,no%E_EMPTY_TRANSLATION_UNIT \
+	-errtags=yes \
+	"
+    AX_CHECK_COMPILE_FLAG([${SUNCC_CFLAGS}],
+	[CFLAGS="${CFLAGS} ${SUNCC_CFLAGS}"
+	 OCFLAGS="${OCFLAGS} ${SUNCC_CFLAGS}"])
+else
+    AX_CHECK_COMPILE_FLAG([-Werror],
+	[CFLAGS="${CFLAGS} -Werror"
+	 OCFLAGS="${OCFLAGS} -Werror"])
+fi
+
 AX_CHECK_COMPILE_FLAG([-Werror=unused-result],
     [CFLAGS="${CFLAGS} -Wno-error=unused-result"
      OCFLAGS="${OCFLAGS} -Wno-error=unused-result"],
@@ -615,7 +598,7 @@ AC_ARG_ENABLE(developer-warnings,
 	[],
 	[enable_developer_warnings=no])
 
-if test "x$enable_developer_warnings" != "xno"; then
+if test "x$SUNCC" != "xyes" && test "x$enable_developer_warnings" != "xno"; then
 	# compiler flags not available on gcc3
 	AX_CHECK_COMPILE_FLAG([-Wno-pointer-sign],
 		[DEVELOPER_CFLAGS="${DEVELOPER_CFLAGS} -Wno-pointer-sign"], [], [])
@@ -634,17 +617,33 @@ if test "x$enable_developer_warnings" != "xno"; then
 	OCFLAGS="${OCFLAGS} ${DEVELOPER_CFLAGS}"
 fi
 
+# gcc on solaris needs -fstack-protector when calling gcc in linker
+# mode but libtool does not pass it on, so we need to trick it
+# specifically
+case $CFLAGS in
+  *-fstack-protector*)
+    case $target in
+      *-*-solaris*)
+	case $CC in
+	  gcc*)
+	    AM_LT_LDFLAGS="${AM_LT_LDFLAGS} -Wc,-fstack-protector"
+	    ;;
+	esac
+	;;
+    esac
+    ;;
+esac
+
 # --enable-debugging-symbols
 AC_ARG_ENABLE(debugging-symbols,
 	AS_HELP_STRING([--enable-debugging-symbols],[enable debugging symbols (default is NO)]),
-	CFLAGS="${CFLAGS} -O0 -g -fno-inline")
+	if test "x$SUNCC" = "xyes" ; then
+		CFLAGS="${CFLAGS} -O0 -g"
+	else
+		CFLAGS="${CFLAGS} -O0 -g -fno-inline"
+	fi)
 
 AC_SUBST(AM_LT_LDFLAGS)
-
-# --enable-tests
-AC_ARG_ENABLE(tests,
-	AS_HELP_STRING([--enable-tests],[build test programs (default is NO)]))
-AM_CONDITIONAL([ENABLE_TESTS], [test x$enable_tests = xyes])
 
 # Command line for compiling VCL code.  I wish there were a simple way
 # to figure this out dynamically without introducing a run-time
@@ -661,7 +660,7 @@ else
 			break
 			;;
 		*cc)
-			VCC_CC="$PTHREAD_CC $OCFLAGS $PTHREAD_CFLAGS -Kpic -G -o %o %s"
+			VCC_CC="$PTHREAD_CC $OCFLAGS -errwarn=%all,no%E_STATEMENT_NOT_REACHED $PTHREAD_CFLAGS -Kpic -G -o %o %s"
 			;;
 		esac
 		;;
@@ -704,8 +703,6 @@ AC_CONFIG_FILES([
     lib/Makefile
     lib/libvarnish/Makefile
     lib/libvarnishapi/Makefile
-    lib/libvarnishtools/Makefile
-    lib/libvarnishcompat/Makefile
     lib/libvcc/Makefile
     lib/libvgz/Makefile
     lib/libvmod_debug/Makefile

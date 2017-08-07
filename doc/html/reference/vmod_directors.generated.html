@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>vmod_directors &#8212; Varnish version 4.1.8 documentation</title>
+    <title>vmod_directors &#8212; Varnish version 5.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.8',
+        VERSION:     '5.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="Writing a Director" href="directors.html" />
     <link rel="prev" title="vmod_std" href="vmod_std.generated.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="vmod_std.generated.html" title="vmod_std"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -72,9 +72,9 @@
 <div class="section" id="description">
 <h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
 <p><cite>vmod_directors</cite> enables backend load balancing in Varnish.</p>
-<p>The module implements a set of basic load balancing techniques, and
-also serves as an example on how one could extend the load balancing
-capabilities of Varnish.</p>
+<p>The module implements load balancing techniques, and also serves as an
+example on how one could extend the load balancing capabilities of
+Varnish.</p>
 <p>To enable load balancing you must import this vmod (directors).</p>
 <p>Then you define your backends. Once you have the backends declared you
 can add them to a director. This happens in executed VCL code. If you
@@ -95,26 +95,38 @@ add more backends to a director when a certain URL is called.</p>
 <div class="section" id="contents">
 <h3>CONTENTS<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li><a class="reference internal" href="#obj-fallback"><span class="std std-ref">Object fallback</span></a></li>
-<li><a class="reference internal" href="#func-fallback-add-backend"><span class="std std-ref">VOID fallback.add_backend(BACKEND)</span></a></li>
-<li><a class="reference internal" href="#func-fallback-backend"><span class="std std-ref">BACKEND fallback.backend()</span></a></li>
-<li><a class="reference internal" href="#func-fallback-remove-backend"><span class="std std-ref">VOID fallback.remove_backend(BACKEND)</span></a></li>
-<li><a class="reference internal" href="#obj-hash"><span class="std std-ref">Object hash</span></a></li>
-<li><a class="reference internal" href="#func-hash-add-backend"><span class="std std-ref">VOID hash.add_backend(BACKEND, REAL)</span></a></li>
-<li><a class="reference internal" href="#func-hash-backend"><span class="std std-ref">BACKEND hash.backend(STRING_LIST)</span></a></li>
-<li><a class="reference internal" href="#func-hash-remove-backend"><span class="std std-ref">VOID hash.remove_backend(BACKEND)</span></a></li>
-<li><a class="reference internal" href="#obj-random"><span class="std std-ref">Object random</span></a></li>
-<li><a class="reference internal" href="#func-random-add-backend"><span class="std std-ref">VOID random.add_backend(BACKEND, REAL)</span></a></li>
-<li><a class="reference internal" href="#func-random-backend"><span class="std std-ref">BACKEND random.backend()</span></a></li>
-<li><a class="reference internal" href="#func-random-remove-backend"><span class="std std-ref">VOID random.remove_backend(BACKEND)</span></a></li>
-<li><a class="reference internal" href="#obj-round-robin"><span class="std std-ref">Object round_robin</span></a></li>
-<li><a class="reference internal" href="#func-round-robin-add-backend"><span class="std std-ref">VOID round_robin.add_backend(BACKEND)</span></a></li>
-<li><a class="reference internal" href="#func-round-robin-backend"><span class="std std-ref">BACKEND round_robin.backend()</span></a></li>
-<li><a class="reference internal" href="#func-round-robin-remove-backend"><span class="std std-ref">VOID round_robin.remove_backend(BACKEND)</span></a></li>
+<li><a class="reference internal" href="#obj-fallback"><span class="std std-ref">fallback</span></a></li>
+<li><a class="reference internal" href="#func-fallback-add-backend"><span class="std std-ref">fallback.add_backend</span></a></li>
+<li><a class="reference internal" href="#func-fallback-backend"><span class="std std-ref">fallback.backend</span></a></li>
+<li><a class="reference internal" href="#func-fallback-remove-backend"><span class="std std-ref">fallback.remove_backend</span></a></li>
+<li><a class="reference internal" href="#obj-hash"><span class="std std-ref">hash</span></a></li>
+<li><a class="reference internal" href="#func-hash-add-backend"><span class="std std-ref">hash.add_backend</span></a></li>
+<li><a class="reference internal" href="#func-hash-backend"><span class="std std-ref">hash.backend</span></a></li>
+<li><a class="reference internal" href="#func-hash-remove-backend"><span class="std std-ref">hash.remove_backend</span></a></li>
+<li><a class="reference internal" href="#obj-random"><span class="std std-ref">random</span></a></li>
+<li><a class="reference internal" href="#func-random-add-backend"><span class="std std-ref">random.add_backend</span></a></li>
+<li><a class="reference internal" href="#func-random-backend"><span class="std std-ref">random.backend</span></a></li>
+<li><a class="reference internal" href="#func-random-remove-backend"><span class="std std-ref">random.remove_backend</span></a></li>
+<li><a class="reference internal" href="#obj-round-robin"><span class="std std-ref">round_robin</span></a></li>
+<li><a class="reference internal" href="#func-round-robin-add-backend"><span class="std std-ref">round_robin.add_backend</span></a></li>
+<li><a class="reference internal" href="#func-round-robin-backend"><span class="std std-ref">round_robin.backend</span></a></li>
+<li><a class="reference internal" href="#func-round-robin-remove-backend"><span class="std std-ref">round_robin.remove_backend</span></a></li>
+<li><a class="reference internal" href="#obj-shard"><span class="std std-ref">shard</span></a></li>
+<li><a class="reference internal" href="#func-shard-add-backend"><span class="std std-ref">shard.add_backend</span></a></li>
+<li><a class="reference internal" href="#func-shard-backend"><span class="std std-ref">shard.backend</span></a></li>
+<li><a class="reference internal" href="#func-shard-clear"><span class="std std-ref">shard.clear</span></a></li>
+<li><a class="reference internal" href="#func-shard-debug"><span class="std std-ref">shard.debug</span></a></li>
+<li><a class="reference internal" href="#func-shard-key"><span class="std std-ref">shard.key</span></a></li>
+<li><a class="reference internal" href="#func-shard-reconfigure"><span class="std std-ref">shard.reconfigure</span></a></li>
+<li><a class="reference internal" href="#func-shard-remove-backend"><span class="std std-ref">shard.remove_backend</span></a></li>
+<li><a class="reference internal" href="#func-shard-set-rampup"><span class="std std-ref">shard.set_rampup</span></a></li>
+<li><a class="reference internal" href="#func-shard-set-warmup"><span class="std std-ref">shard.set_warmup</span></a></li>
 </ul>
+<div class="section" id="round-robin">
+<span id="obj-round-robin"></span><h4>round_robin<a class="headerlink" href="#round-robin" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">new</span> <span class="n">OBJ</span> <span class="o">=</span> <span class="n">round_robin</span><span class="p">()</span>
+</pre></div>
 </div>
-<div class="section" id="object-round-robin">
-<span id="obj-round-robin"></span><h3>Object round_robin<a class="headerlink" href="#object-round-robin" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
 <dt>Description</dt>
 <dd><p class="first">Create a round robin director.</p>
@@ -123,11 +135,13 @@ add more backends to a director when a certain URL is called.</p>
 <dt>Example</dt>
 <dd>new vdir = directors.round_robin();</dd>
 </dl>
-<div class="section" id="void-round-robin-add-backend-backend">
-<span id="func-round-robin-add-backend"></span><h4>VOID round_robin.add_backend(BACKEND)<a class="headerlink" href="#void-round-robin-add-backend-backend" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="round-robin-add-backend">
+<span id="func-round-robin-add-backend"></span><h4>round_robin.add_backend<a class="headerlink" href="#round-robin-add-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">round_robin</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID round_robin.add_backend(BACKEND)</dd>
 <dt>Description</dt>
 <dd>Add a backend to the round-robin director.</dd>
 <dt>Example</dt>
@@ -135,11 +149,12 @@ add more backends to a director when a certain URL is called.</p>
 vdir.add_backend(backend2);</dd>
 </dl>
 </div>
-<div class="section" id="void-round-robin-remove-backend-backend">
-<span id="func-round-robin-remove-backend"></span><h4>VOID round_robin.remove_backend(BACKEND)<a class="headerlink" href="#void-round-robin-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="round-robin-remove-backend">
+<span id="func-round-robin-remove-backend"></span><h4>round_robin.remove_backend<a class="headerlink" href="#round-robin-remove-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">round_robin</span><span class="o">.</span><span class="n">remove_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID round_robin.remove_backend(BACKEND)</dd>
 <dt>Description</dt>
 <dd>Remove a backend from the round-robin director.</dd>
 <dt>Example</dt>
@@ -147,34 +162,42 @@ vdir.add_backend(backend2);</dd>
 vdir.remove_backend(backend2);</dd>
 </dl>
 </div>
-<div class="section" id="backend-round-robin-backend">
-<span id="func-round-robin-backend"></span><h4>BACKEND round_robin.backend()<a class="headerlink" href="#backend-round-robin-backend" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="round-robin-backend">
+<span id="func-round-robin-backend"></span><h4>round_robin.backend<a class="headerlink" href="#round-robin-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BACKEND</span> <span class="n">round_robin</span><span class="o">.</span><span class="n">backend</span><span class="p">()</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>BACKEND round_robin.backend()</dd>
 <dt>Description</dt>
 <dd>Pick a backend from the director.</dd>
 <dt>Example</dt>
 <dd>set req.backend_hint = vdir.backend();</dd>
 </dl>
 </div>
+<div class="section" id="fallback">
+<span id="obj-fallback"></span><h4>fallback<a class="headerlink" href="#fallback" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">new</span> <span class="n">OBJ</span> <span class="o">=</span> <span class="n">fallback</span><span class="p">(</span><span class="n">BOOL</span> <span class="n">sticky</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
 </div>
-<div class="section" id="object-fallback">
-<span id="obj-fallback"></span><h3>Object fallback<a class="headerlink" href="#object-fallback" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
 <dt>Description</dt>
 <dd><p class="first">Create a fallback director.</p>
-<p class="last">A fallback director will try each of the added backends in turn,
+<p>A fallback director will try each of the added backends in turn,
 and return the first one that is healthy.</p>
+<p class="last">If <code class="docutils literal"><span class="pre">sticky</span></code> is set to true, the director will keep using the healthy
+backend, even if a higher-priority backend becomes available. Once the
+whole backend list is exhausted, it'll start over at the beginning.</p>
 </dd>
 <dt>Example</dt>
 <dd>new vdir = directors.fallback();</dd>
 </dl>
-<div class="section" id="void-fallback-add-backend-backend">
-<span id="func-fallback-add-backend"></span><h4>VOID fallback.add_backend(BACKEND)<a class="headerlink" href="#void-fallback-add-backend-backend" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="fallback-add-backend">
+<span id="func-fallback-add-backend"></span><h4>fallback.add_backend<a class="headerlink" href="#fallback-add-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">fallback</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID fallback.add_backend(BACKEND)</dd>
 <dt>Description</dt>
 <dd><p class="first">Add a backend to the director.</p>
 <p class="last">Note that the order in which this is done matters for the fallback
@@ -185,11 +208,12 @@ director.</p>
 vdir.add_backend(backend2);</dd>
 </dl>
 </div>
-<div class="section" id="void-fallback-remove-backend-backend">
-<span id="func-fallback-remove-backend"></span><h4>VOID fallback.remove_backend(BACKEND)<a class="headerlink" href="#void-fallback-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="fallback-remove-backend">
+<span id="func-fallback-remove-backend"></span><h4>fallback.remove_backend<a class="headerlink" href="#fallback-remove-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">fallback</span><span class="o">.</span><span class="n">remove_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID fallback.remove_backend(BACKEND)</dd>
 <dt>Description</dt>
 <dd>Remove a backend from the director.</dd>
 <dt>Example</dt>
@@ -197,34 +221,41 @@ vdir.add_backend(backend2);</dd>
 vdir.remove_backend(backend2);</dd>
 </dl>
 </div>
-<div class="section" id="backend-fallback-backend">
-<span id="func-fallback-backend"></span><h4>BACKEND fallback.backend()<a class="headerlink" href="#backend-fallback-backend" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="fallback-backend">
+<span id="func-fallback-backend"></span><h4>fallback.backend<a class="headerlink" href="#fallback-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BACKEND</span> <span class="n">fallback</span><span class="o">.</span><span class="n">backend</span><span class="p">()</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>BACKEND fallback.backend()</dd>
 <dt>Description</dt>
 <dd>Pick a backend from the director.</dd>
 <dt>Example</dt>
 <dd>set req.backend_hint = vdir.backend();</dd>
 </dl>
 </div>
+<div class="section" id="random">
+<span id="obj-random"></span><h4>random<a class="headerlink" href="#random" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">new</span> <span class="n">OBJ</span> <span class="o">=</span> <span class="n">random</span><span class="p">()</span>
+</pre></div>
 </div>
-<div class="section" id="object-random">
-<span id="obj-random"></span><h3>Object random<a class="headerlink" href="#object-random" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
 <dt>Description</dt>
 <dd><p class="first">Create a random backend director.</p>
 <p class="last">The random director distributes load over the backends using
-a weighted random probability distribution.</p>
+a weighted random probability distribution.
+The &quot;testable&quot; random generator in varnishd is used, which
+enables deterministic tests to be run (See: d00004.vtc).</p>
 </dd>
 <dt>Example</dt>
 <dd>new vdir = directors.random();</dd>
 </dl>
-<div class="section" id="void-random-add-backend-backend-real">
-<span id="func-random-add-backend"></span><h4>VOID random.add_backend(BACKEND, REAL)<a class="headerlink" href="#void-random-add-backend-backend-real" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="random-add-backend">
+<span id="func-random-add-backend"></span><h4>random.add_backend<a class="headerlink" href="#random-add-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">random</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">,</span> <span class="n">REAL</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID random.add_backend(BACKEND, REAL)</dd>
 <dt>Description</dt>
 <dd><p class="first">Add a backend to the director with a given weight.</p>
 <p class="last">Each backend backend will receive approximately
@@ -237,11 +268,12 @@ vdir.add_backend(backend1, 10.0);
 vdir.add_backend(backend2, 5.0);</dd>
 </dl>
 </div>
-<div class="section" id="void-random-remove-backend-backend">
-<span id="func-random-remove-backend"></span><h4>VOID random.remove_backend(BACKEND)<a class="headerlink" href="#void-random-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="random-remove-backend">
+<span id="func-random-remove-backend"></span><h4>random.remove_backend<a class="headerlink" href="#random-remove-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">random</span><span class="o">.</span><span class="n">remove_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID random.remove_backend(BACKEND)</dd>
 <dt>Description</dt>
 <dd>Remove a backend from the director.</dd>
 <dt>Example</dt>
@@ -249,20 +281,23 @@ vdir.add_backend(backend2, 5.0);</dd>
 vdir.remove_backend(backend2);</dd>
 </dl>
 </div>
-<div class="section" id="backend-random-backend">
-<span id="func-random-backend"></span><h4>BACKEND random.backend()<a class="headerlink" href="#backend-random-backend" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="random-backend">
+<span id="func-random-backend"></span><h4>random.backend<a class="headerlink" href="#random-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BACKEND</span> <span class="n">random</span><span class="o">.</span><span class="n">backend</span><span class="p">()</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>BACKEND random.backend()</dd>
 <dt>Description</dt>
 <dd>Pick a backend from the director.</dd>
 <dt>Example</dt>
 <dd>set req.backend_hint = vdir.backend();</dd>
 </dl>
 </div>
+<div class="section" id="hash">
+<span id="obj-hash"></span><h4>hash<a class="headerlink" href="#hash" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">new</span> <span class="n">OBJ</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">()</span>
+</pre></div>
 </div>
-<div class="section" id="object-hash">
-<span id="obj-hash"></span><h3>Object hash<a class="headerlink" href="#object-hash" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
 <dt>Description</dt>
 <dd><p class="first">Create a hashing backend director.</p>
@@ -274,11 +309,13 @@ sticky sessions.</p>
 <dt>Example</dt>
 <dd>new vdir = directors.hash();</dd>
 </dl>
-<div class="section" id="void-hash-add-backend-backend-real">
-<span id="func-hash-add-backend"></span><h4>VOID hash.add_backend(BACKEND, REAL)<a class="headerlink" href="#void-hash-add-backend-backend-real" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="hash-add-backend">
+<span id="func-hash-add-backend"></span><h4>hash.add_backend<a class="headerlink" href="#hash-add-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="nb">hash</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">,</span> <span class="n">REAL</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID hash.add_backend(BACKEND, REAL)</dd>
 <dt>Description</dt>
 <dd><p class="first">Add a backend to the director with a certain weight.</p>
 <p class="last">Weight is used as in the random director. Recommended value is
@@ -289,11 +326,12 @@ sticky sessions.</p>
 vdir.add_backend(backend2, 1.0);</dd>
 </dl>
 </div>
-<div class="section" id="void-hash-remove-backend-backend">
-<span id="func-hash-remove-backend"></span><h4>VOID hash.remove_backend(BACKEND)<a class="headerlink" href="#void-hash-remove-backend-backend" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="hash-remove-backend">
+<span id="func-hash-remove-backend"></span><h4>hash.remove_backend<a class="headerlink" href="#hash-remove-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="nb">hash</span><span class="o">.</span><span class="n">remove_backend</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>VOID hash.remove_backend(BACKEND)</dd>
 <dt>Description</dt>
 <dd>Remove a backend from the director.</dd>
 <dt>Example</dt>
@@ -301,11 +339,12 @@ vdir.add_backend(backend2, 1.0);</dd>
 vdir.remove_backend(backend2);</dd>
 </dl>
 </div>
-<div class="section" id="backend-hash-backend-string-list">
-<span id="func-hash-backend"></span><h4>BACKEND hash.backend(STRING_LIST)<a class="headerlink" href="#backend-hash-backend-string-list" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="hash-backend">
+<span id="func-hash-backend"></span><h4>hash.backend<a class="headerlink" href="#hash-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BACKEND</span> <span class="nb">hash</span><span class="o">.</span><span class="n">backend</span><span class="p">(</span><span class="n">STRING</span><span class="p">)</span>
+</pre></div>
+</div>
 <dl class="docutils">
-<dt>Prototype</dt>
-<dd>BACKEND hash.backend(STRING_LIST)</dd>
 <dt>Description</dt>
 <dd><p class="first">Pick a backend from the backend director.</p>
 <p class="last">Use the string or list of strings provided to pick the backend.</p>
@@ -315,14 +354,328 @@ vdir.remove_backend(backend2);</dd>
 set req.backend_hint = vdir.backend(req.http.cookie);</dd>
 </dl>
 </div>
+<div class="section" id="shard">
+<span id="obj-shard"></span><h4>shard<a class="headerlink" href="#shard" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">new</span> <span class="n">OBJ</span> <span class="o">=</span> <span class="n">shard</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Create a shard director.</p>
+<p>Note that the shard director needs to be configured using at least one
+<code class="docutils literal"><span class="pre">shard.add_backend()</span></code> call(s) <strong>followed by a</strong>
+<code class="docutils literal"><span class="pre">shard.reconfigure()</span></code> <strong>call</strong> before it can hand out backends.</p>
+<div class="section" id="introduction">
+<h5>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h5>
+<p>The shard director selects backends by a key, which can be provided
+directly or derived from strings. For the same key, the shard director
+will always return the same backend, unless the backend configuration
+or health state changes. Conversely, for differing keys, the shard
+director will likely choose different backends. In the default
+configuration, unhealthy backends are not selected.</p>
+<p>The shard director resembles the hash director, but its main advantage
+is that, when the backend configuration or health states change, the
+association of keys to backends remains as stable as possible.</p>
+<p>In addition, the rampup and warmup features can help to further
+improve user-perceived response times.</p>
+</div>
+<div class="section" id="sharding">
+<h5>Sharding<a class="headerlink" href="#sharding" title="Permalink to this headline">¶</a></h5>
+<p>This basic technique allows for numerous applications like optimizing
+backend server cache efficiency, Varnish clustering or persisting
+sessions to servers without keeping any state, and, in particular,
+without the need to synchronize state between nodes of a cluster of
+Varnish servers:</p>
+<ul>
+<li><p class="first">Many applications use caches for data objects, so, in a cluster of
+application servers, requesting similar objects from the same server
+may help to optimize efficiency of such caches.</p>
+<p>For example, sharding by URL or some <cite>id</cite> component of the url has
+been shown to drastically improve the efficiency of many content
+management systems.</p>
+</li>
+<li><p class="first">As special case of the previous example, in clusters of Varnish
+servers without additional request distribution logic, each cache
+will need store all hot objects, so the effective cache size is
+approximately the smallest cache size of any server in the cluster.</p>
+<p>Sharding allows to segregate objects within the cluster such that
+each object is only cached on one of the servers (or on one primary
+and one backup, on a primary for long and others for short
+etc...). Effectively, this will lead to a cache size in the order of
+the sum of all individual caches, with the potential to drastically
+increase efficiency (scales by the number of servers).</p>
+</li>
+<li><p class="first">Another application is to implement persistence of backend requests,
+such that all requests sharing a certain criterion (such as an IP
+address or session ID) get forwarded to the same backend server.</p>
+</li>
+</ul>
+<p>When used with clusters of varnish servers, the shard director will,
+if otherwise configured equally, make the same decision on all
+servers. In other words, requests sharing a common criterion used as
+the shard key will be balanced onto the same backend server(s) no
+matter which Varnish server handles the request.</p>
+<p>The drawbacks are:</p>
+<ul class="simple">
+<li>the distribution of requests depends on the number of requests per
+key and the uniformity of the distribution of key values. In short,
+while this technique may lead to much better efficiency overall, it
+may also lead to less good load balancing for specific cases.</li>
+<li>When a backend server becomes unavailable, every persistence
+technique has to reselect a new backend server, but this technique
+will also switch back to the preferred server once it becomes
+healthy again, so when used for persistence, it is generally less
+stable compared to stateful techniques (which would continue to use
+a selected server for as long as possible (or dictated by a TTL)).</li>
+</ul>
+</div>
+<div class="section" id="method">
+<h5>Method<a class="headerlink" href="#method" title="Permalink to this headline">¶</a></h5>
+<p>When <code class="docutils literal"><span class="pre">.reconfigure()</span></code> is called, a consistent hashing circular data
+structure gets built from hash values of &quot;ident%d&quot; (default ident
+being the backend name) for each backend and for a running number from
+1 to n (n is the number of <cite>replicas</cite>). Hashing creates the seemingly
+random order for placement of backends on the consistent hashing ring.</p>
+<p>When <code class="docutils literal"><span class="pre">.backend()</span></code> is called, a load balancing key gets generated
+unless provided. The smallest hash value in the circle is looked up
+that is larger than the key (searching clockwise and wrapping around
+as necessary). The backend for this hash value is the preferred
+backend for the given key.</p>
+<p>If a healthy backend is requested, the search is continued linearly on
+the ring as long as backends found are unhealthy or all backends have
+been checked. The order of these &quot;alternative backends&quot; on the ring
+is likely to differ for different keys. Alternative backends can also
+be selected explicitly.</p>
+<p>On consistent hashing see:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://www8.org/w8-papers/2a-webserver/caching/paper2.html">http://www8.org/w8-papers/2a-webserver/caching/paper2.html</a></li>
+<li><a class="reference external" href="http://www.audioscrobbler.net/development/ketama/">http://www.audioscrobbler.net/development/ketama/</a></li>
+<li>svn://svn.audioscrobbler.net/misc/ketama</li>
+<li><a class="reference external" href="http://en.wikipedia.org/wiki/Consistent_hashing">http://en.wikipedia.org/wiki/Consistent_hashing</a></li>
+</ul>
+</div>
+<div class="section" id="error-reporting">
+<h5>Error Reporting<a class="headerlink" href="#error-reporting" title="Permalink to this headline">¶</a></h5>
+<p>Failing methods should report errors to VSL with the Error tag, so
+when configuring the shard director, you are advised to check:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnishlog</span> <span class="o">-</span><span class="n">I</span> <span class="n">Error</span><span class="p">:</span><span class="o">^</span><span class="n">shard</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="shard-set-warmup">
+<span id="func-shard-set-warmup"></span><h4>shard.set_warmup<a class="headerlink" href="#shard-set-warmup" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">shard</span><span class="o">.</span><span class="n">set_warmup</span><span class="p">(</span><span class="n">REAL</span> <span class="n">probability</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Set the default warmup probability. See the <cite>warmup</cite> parameter of
+<code class="docutils literal"><span class="pre">shard.backend()</span></code>.</p>
+<p>Default: 0.0 (no warmup)</p>
+</div>
+<div class="section" id="shard-set-rampup">
+<span id="func-shard-set-rampup"></span><h4>shard.set_rampup<a class="headerlink" href="#shard-set-rampup" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">shard</span><span class="o">.</span><span class="n">set_rampup</span><span class="p">(</span><span class="n">DURATION</span> <span class="n">duration</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Set the default rampup duration. See <cite>rampup</cite> parameter of
+<cite>shard.backend()</cite>.</p>
+<p>Default: 0s (no rampup)</p>
+</div>
+<div class="section" id="shard-add-backend">
+<span id="func-shard-add-backend"></span><h4>shard.add_backend<a class="headerlink" href="#shard-add-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BOOL</span> <span class="n">shard</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">PRIV_TASK</span><span class="p">,</span> <span class="n">BACKEND</span> <span class="n">backend</span><span class="p">,</span> <span class="n">STRING</span> <span class="n">ident</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">DURATION</span> <span class="n">rampup</span><span class="o">=</span><span class="mi">973279260</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Add a backend <cite>backend</cite> to the director.</p>
+<p><cite>ident</cite>: Optionally specify an identification string for this backend,
+which will be hashed by <cite>shard.reconfigure()</cite> to construct the
+consistent hashing ring. The identification string defaults to the
+backend name.</p>
+<p><cite>ident</cite> allows to add multiple instances of the same backend.</p>
+<p><cite>rampup</cite>: Optionally specify a specific rampup time for this
+backend. The magic default value of <cite>973279260s</cite> instructs the shard
+director to use the default rampup time (see <a class="reference internal" href="#func-shard-set-rampup"><span class="std std-ref">shard.set_rampup</span></a>).</p>
+<p>NOTE: Backend changes need to be finalized with <cite>shard.reconfigure()</cite>
+and are only supported on one shard director at a time.</p>
+</div>
+<div class="section" id="shard-remove-backend">
+<span id="func-shard-remove-backend"></span><h4>shard.remove_backend<a class="headerlink" href="#shard-remove-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BOOL</span> <span class="n">shard</span><span class="o">.</span><span class="n">remove_backend</span><span class="p">(</span><span class="n">PRIV_TASK</span><span class="p">,</span> <span class="n">BACKEND</span> <span class="n">backend</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">STRING</span> <span class="n">ident</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Remove backend(s) from the director. Either <cite>backend</cite> or <cite>ident</cite> must
+be specified. <cite>ident</cite> removes a specific instance. If <cite>backend</cite> is
+given without <cite>ident</cite>, all instances of this backend are removed.</p>
+<p>NOTE: Backend changes need to be finalized with <cite>shard.reconfigure()</cite>
+and are only supported on one shard director at a time.</p>
+</div>
+<div class="section" id="shard-clear">
+<span id="func-shard-clear"></span><h4>shard.clear<a class="headerlink" href="#shard-clear" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BOOL</span> <span class="n">shard</span><span class="o">.</span><span class="n">clear</span><span class="p">(</span><span class="n">PRIV_TASK</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Remove all backends from the director.</p>
+<p>NOTE: Backend changes need to be finalized with <cite>shard.reconfigure()</cite>
+and are only supported on one shard director at a time.</p>
+</div>
+<div class="section" id="shard-reconfigure">
+<span id="func-shard-reconfigure"></span><h4>shard.reconfigure<a class="headerlink" href="#shard-reconfigure" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BOOL</span> <span class="n">shard</span><span class="o">.</span><span class="n">reconfigure</span><span class="p">(</span><span class="n">PRIV_TASK</span><span class="p">,</span> <span class="n">INT</span> <span class="n">replicas</span><span class="o">=</span><span class="mi">67</span><span class="p">,</span> <span class="n">ENUM</span> <span class="p">{</span><span class="n">CRC32</span><span class="p">,</span><span class="n">SHA256</span><span class="p">,</span><span class="n">RS</span><span class="p">}</span> <span class="n">alg</span><span class="o">=</span><span class="s2">&quot;SHA256&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Reconfigure the consistent hashing ring to reflect backend changes.</p>
+<p>This method must be called at least once before the director can be
+used.</p>
+</div>
+<div class="section" id="shard-key">
+<span id="func-shard-key"></span><h4>shard.key<a class="headerlink" href="#shard-key" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">INT</span> <span class="n">shard</span><span class="o">.</span><span class="n">key</span><span class="p">(</span><span class="n">STRING</span> <span class="n">string</span><span class="p">,</span> <span class="n">ENUM</span> <span class="p">{</span><span class="n">CRC32</span><span class="p">,</span><span class="n">SHA256</span><span class="p">,</span><span class="n">RS</span><span class="p">}</span> <span class="n">alg</span><span class="o">=</span><span class="s2">&quot;SHA256&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Utility method to generate a sharding key for use with the
+<code class="docutils literal"><span class="pre">shard.backend()</span></code> method by hashing <cite>string</cite> with hash algorithm
+<cite>alg</cite>.</p>
+</div>
+<div class="section" id="shard-backend">
+<span id="func-shard-backend"></span><h4>shard.backend<a class="headerlink" href="#shard-backend" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">BACKEND</span> <span class="n">shard</span><span class="o">.</span><span class="n">backend</span><span class="p">(</span><span class="n">ENUM</span> <span class="p">{</span><span class="n">HASH</span><span class="p">,</span><span class="n">URL</span><span class="p">,</span><span class="n">KEY</span><span class="p">,</span><span class="n">BLOB</span><span class="p">}</span> <span class="n">by</span><span class="o">=</span><span class="s2">&quot;HASH&quot;</span><span class="p">,</span> <span class="n">INT</span> <span class="n">key</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">BLOB</span> <span class="n">key_blob</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">INT</span> <span class="n">alt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">REAL</span> <span class="n">warmup</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">BOOL</span> <span class="n">rampup</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ENUM</span> <span class="p">{</span><span class="n">CHOSEN</span><span class="p">,</span><span class="n">IGNORE</span><span class="p">,</span><span class="n">ALL</span><span class="p">}</span> <span class="n">healthy</span><span class="o">=</span><span class="s2">&quot;CHOSEN&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Lookup a backend on the consistent hashing ring.</p>
+<p>This documentation uses the notion of an order of backends for a
+particular shard key. This order is deterministic but seemingly random
+as determined by the consistent hashing algorithm and is likely to
+differ for different keys, depending on the number of backends and the
+number of replicas. In particular, the backend order referred to here
+is _not_ the order given when backends are added.</p>
+<ul>
+<li><p class="first"><cite>by</cite> how to determine the sharding key</p>
+<p>default: <cite>HASH</cite></p>
+<ul>
+<li><p class="first"><cite>HASH</cite>:</p>
+<ul class="simple">
+<li>when called in backend context: Use the varnish hash value as
+set by <cite>vcl_hash</cite></li>
+<li>when called in client content: hash <cite>req.url</cite></li>
+</ul>
+</li>
+<li><p class="first"><cite>URL</cite>: hash req.url / bereq.url</p>
+</li>
+<li><p class="first"><cite>KEY</cite>: use the <cite>key</cite> argument</p>
+</li>
+<li><p class="first"><cite>BLOB</cite>: use the <cite>key_blob</cite> argument</p>
+</li>
+<li><p class="first"><cite>key</cite> lookup key with <cite>by=KEY</cite></p>
+<p>the <cite>shard.key()</cite> function may come handy to generate a sharding
+key from custom strings.</p>
+</li>
+<li><p class="first"><cite>key_blob</cite> lookup key with <cite>by=BLOB</cite></p>
+<p>Currently, this uses the first 4 bytes from the given blob in
+network byte order (big endian), left-padded with zeros for blobs
+smaller than 4 bytes.</p>
+</li>
+</ul>
+</li>
+<li><p class="first"><cite>alt</cite> alternative backend selection</p>
+<p>default: <cite>0</cite></p>
+<p>Select the <cite>alt</cite>-th alternative backend for the given <cite>key</cite>.</p>
+<p>This is particularly useful for retries / restarts due to backend
+errors: By setting <cite>alt=req.restarts</cite> or <cite>alt=bereq.retries</cite> with
+healthy=ALL, another server gets selected.</p>
+<p>The rampup and warmup features are only active for <cite>alt==0</cite></p>
+</li>
+<li><p class="first"><cite>rampup</cite> slow start for servers which just went healthy</p>
+<p>default: <cite>true</cite></p>
+<p>If <cite>alt==0</cite> and the chosen backend is in its rampup period, with a
+probability proportional to the fraction of time since the backup
+became healthy to the rampup period, return the next alternative
+backend, unless this is also in its rampup period.</p>
+<p>The default rampup interval can be set per shard director using the
+<cite>set_rampup()</cite> method or specifically per backend with the
+<cite>set_backend()</cite> method.</p>
+</li>
+<li><p class="first"><cite>warmup</cite> probabilistic alternative server selection</p>
+<p>possible values: -1, 0..1</p>
+<p>default: <cite>-1</cite></p>
+<p><cite>-1</cite>: use the warmup probability from the director definition</p>
+<p>Only used for <cite>alt==0</cite>: Sets the ratio of requests (0.0 to 1.0) that
+goes to the next alternate backend to warm it up when the preferred
+backend is healthy. Not active if any of the preferred or
+alternative backend are in rampup.</p>
+<p><cite>warmup=0.5</cite> is a convenient way to spread the load for each key
+over two backends under normal operating conditions.</p>
+</li>
+<li><p class="first"><cite>healthy</cite></p>
+<p>default: <cite>CHOSEN</cite></p>
+<ul>
+<li><p class="first">CHOSEN: Return a healthy backend if possible.</p>
+<p>For <cite>alt==0</cite>, return the first healthy backend or none.</p>
+<p>For <cite>alt &gt; 0</cite>, ignore the health state of backends skipped for
+alternative backend selection, then return the next healthy
+backend. If this does not exist, return the last healthy backend
+of those skipped or none.</p>
+</li>
+<li><p class="first">IGNORE: Completely ignore backend health state</p>
+<p>Just return the first or <cite>alt</cite>-th alternative backend, ignoring
+health state. Ignore <cite>rampup</cite> and <cite>warmup</cite>.</p>
+</li>
+<li><p class="first">ALL: Check health state also for alternative backend selection</p>
+<p>For <cite>alt &gt; 0</cite>, return the <cite>alt</cite>-th alternative backend of all
+those healthy, the last healthy backend found or none.</p>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="shard-debug">
+<span id="func-shard-debug"></span><h4>shard.debug<a class="headerlink" href="#shard-debug" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VOID</span> <span class="n">shard</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">INT</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><cite>intentionally undocumented</cite></p>
+</div>
+</div>
+<div class="section" id="acknowledgements">
+<h3>ACKNOWLEDGEMENTS<a class="headerlink" href="#acknowledgements" title="Permalink to this headline">¶</a></h3>
+<p>Development of a previous version of the shard director was partly sponsored
+by Deutsche Telekom AG - Products &amp; Innovation.</p>
+<p>Development of this version of the shard director was partly sponsored
+by BILD GmbH &amp; Co KG.</p>
 </div>
 <div class="section" id="copyright">
 <h3>COPYRIGHT<a class="headerlink" href="#copyright" title="Permalink to this headline">¶</a></h3>
-<p>This document is licensed under the same licence as Varnish
-itself. See LICENCE for details.</p>
-<ul class="simple">
-<li>Copyright (c) 2013-2015 Varnish Software AS</li>
-</ul>
+<div class="highlight-default"><div class="highlight"><pre><span></span>This document is licensed under the same licence as Varnish
+itself. See LICENCE for details.
+
+Copyright (c) 2013-2015 Varnish Software AS
+Copyright 2009-2016 UPLEX - Nils Goroll Systemoptimierung
+All rights reserved.
+
+Authors: Poul-Henning Kamp &lt;phk@FreeBSD.org&gt;
+         Julian Wiesener &lt;jw@uplex.de&gt;
+         Nils Goroll &lt;slink@uplex.de&gt;
+         Geoffrey Simmons &lt;geoff@uplex.de&gt;
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS&#39;&#39; AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+</pre></div>
+</div>
 </div>
 </div>
 </div>
@@ -339,31 +692,42 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#varnish-directors-module">Varnish Directors Module</a><ul>
 <li><a class="reference internal" href="#synopsis">SYNOPSIS</a></li>
 <li><a class="reference internal" href="#description">DESCRIPTION</a></li>
-<li><a class="reference internal" href="#contents">CONTENTS</a></li>
-<li><a class="reference internal" href="#object-round-robin">Object round_robin</a><ul>
-<li><a class="reference internal" href="#void-round-robin-add-backend-backend">VOID round_robin.add_backend(BACKEND)</a></li>
-<li><a class="reference internal" href="#void-round-robin-remove-backend-backend">VOID round_robin.remove_backend(BACKEND)</a></li>
-<li><a class="reference internal" href="#backend-round-robin-backend">BACKEND round_robin.backend()</a></li>
+<li><a class="reference internal" href="#contents">CONTENTS</a><ul>
+<li><a class="reference internal" href="#round-robin">round_robin</a></li>
+<li><a class="reference internal" href="#round-robin-add-backend">round_robin.add_backend</a></li>
+<li><a class="reference internal" href="#round-robin-remove-backend">round_robin.remove_backend</a></li>
+<li><a class="reference internal" href="#round-robin-backend">round_robin.backend</a></li>
+<li><a class="reference internal" href="#fallback">fallback</a></li>
+<li><a class="reference internal" href="#fallback-add-backend">fallback.add_backend</a></li>
+<li><a class="reference internal" href="#fallback-remove-backend">fallback.remove_backend</a></li>
+<li><a class="reference internal" href="#fallback-backend">fallback.backend</a></li>
+<li><a class="reference internal" href="#random">random</a></li>
+<li><a class="reference internal" href="#random-add-backend">random.add_backend</a></li>
+<li><a class="reference internal" href="#random-remove-backend">random.remove_backend</a></li>
+<li><a class="reference internal" href="#random-backend">random.backend</a></li>
+<li><a class="reference internal" href="#hash">hash</a></li>
+<li><a class="reference internal" href="#hash-add-backend">hash.add_backend</a></li>
+<li><a class="reference internal" href="#hash-remove-backend">hash.remove_backend</a></li>
+<li><a class="reference internal" href="#hash-backend">hash.backend</a></li>
+<li><a class="reference internal" href="#shard">shard</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#sharding">Sharding</a></li>
+<li><a class="reference internal" href="#method">Method</a></li>
+<li><a class="reference internal" href="#error-reporting">Error Reporting</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#object-fallback">Object fallback</a><ul>
-<li><a class="reference internal" href="#void-fallback-add-backend-backend">VOID fallback.add_backend(BACKEND)</a></li>
-<li><a class="reference internal" href="#void-fallback-remove-backend-backend">VOID fallback.remove_backend(BACKEND)</a></li>
-<li><a class="reference internal" href="#backend-fallback-backend">BACKEND fallback.backend()</a></li>
+<li><a class="reference internal" href="#shard-set-warmup">shard.set_warmup</a></li>
+<li><a class="reference internal" href="#shard-set-rampup">shard.set_rampup</a></li>
+<li><a class="reference internal" href="#shard-add-backend">shard.add_backend</a></li>
+<li><a class="reference internal" href="#shard-remove-backend">shard.remove_backend</a></li>
+<li><a class="reference internal" href="#shard-clear">shard.clear</a></li>
+<li><a class="reference internal" href="#shard-reconfigure">shard.reconfigure</a></li>
+<li><a class="reference internal" href="#shard-key">shard.key</a></li>
+<li><a class="reference internal" href="#shard-backend">shard.backend</a></li>
+<li><a class="reference internal" href="#shard-debug">shard.debug</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#object-random">Object random</a><ul>
-<li><a class="reference internal" href="#void-random-add-backend-backend-real">VOID random.add_backend(BACKEND, REAL)</a></li>
-<li><a class="reference internal" href="#void-random-remove-backend-backend">VOID random.remove_backend(BACKEND)</a></li>
-<li><a class="reference internal" href="#backend-random-backend">BACKEND random.backend()</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#object-hash">Object hash</a><ul>
-<li><a class="reference internal" href="#void-hash-add-backend-backend-real">VOID hash.add_backend(BACKEND, REAL)</a></li>
-<li><a class="reference internal" href="#void-hash-remove-backend-backend">VOID hash.remove_backend(BACKEND)</a></li>
-<li><a class="reference internal" href="#backend-hash-backend-string-list">BACKEND hash.backend(STRING_LIST)</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#acknowledgements">ACKNOWLEDGEMENTS</a></li>
 <li><a class="reference internal" href="#copyright">COPYRIGHT</a></li>
 </ul>
 </li>
@@ -410,7 +774,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="vmod_std.generated.html" title="vmod_std"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

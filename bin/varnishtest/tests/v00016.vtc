@@ -2,6 +2,8 @@ varnishtest "Various VCL compiler coverage tests"
 
 shell "true > ${tmpdir}/_varnishtest_empty_file"
 
+feature dns
+
 varnish v1 -vcl {
 	backend b { .host = "127.0.0.1"; }
 	include "${tmpdir}/_varnishtest_empty_file" ;
@@ -19,16 +21,6 @@ varnish v1 -errvcl {include not followed by string constant.} {
 	include <<
 }
 
-varnish v1 -vcl {
-	backend b { .host = "127.0.0.1"; }
-	sub vcl_recv {
-		if (req.url == "foo") {
-		} elsif (req.url == "bar") {
-		} elseif (req.url == "baz") {
-		}
-	}
-}
-
 varnish v1 -errvcl {include not followed by string constant.} {
 	/* token test */
 	error lookup hash pipe pass fetch deliver discard keep restart
@@ -38,49 +30,9 @@ varnish v1 -errvcl {include not followed by string constant.} {
 	{ } ( ) * + - / % > < = ; ! & . | ~ ,
 }
 
-varnish v1 -vcl {
-
-	backend b { .host = "127.0.0.1"; }
-
-	/* Test string regexp matching and "else if" */
-	sub vcl_recv {
-		if ((req.url ~ "foobar")) {
-			return(pass);
-		} else if (req.url ~ "snafu") {
-			return(pipe);
-		} else {
-			return(pass);
-		}
-	}
-}
-
-
-varnish v1 -vcl {
-
-	backend b { .host = "127.0.0.1"; }
-
-	/* test time and backend comparison */
-	sub vcl_backend_response {
-		if (beresp.ttl > 1d) {
-			set beresp.ttl = 1d;
-		}
-		if (bereq.backend == b) {
-			set beresp.ttl = 1d;
-		} else if (bereq.backend != b) {
-			set beresp.ttl = 1h;
-		}
-	}
-
-}
-
 varnish v1 -errvcl {Unknown time unit 'k'.  Legal are 'ms', 's', 'm', 'h', 'd', 'w' and 'y'} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_backend_response { set beresp.ttl = 1. k; }
-}
-
-varnish v1 -errvcl {Expression has type DURATION, expected BOOL} {
-	backend b { .host = "127.0.0.1"; }
-	sub vcl_backend_response { if (beresp.ttl *= 2) { } }
 }
 
 varnish v1 -errvcl {Operator > not possible on BACKEND} {
@@ -92,11 +44,6 @@ varnish v1 -errvcl {Operator > not possible on BACKEND} {
 varnish v1 -errvcl {Symbol not found: 'req.hash' (expected type BOOL):} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_hash { if (req.hash != "foo") { } }
-}
-
-varnish v1 -vcl {
-	backend b { .host = "127.0.0.1"; }
-	sub vcl_hash { if (2 == 3) { } }
 }
 
 varnish v1 -errvcl {Symbol not found: 'foo.bar'} {
@@ -119,11 +66,25 @@ varnish v1 -errvcl {'bereq.between_bytes_timeout': cannot be set} {
 	}
 }
 
-varnish v1 -errvcl {Backend not found: 'c'} {
+varnish v1 -errvcl {Symbol not found: 'c' (expected type BACKEND):} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_backend_response {
 		if (beresp.backend == c) {
 			set beresp.ttl = 1h;
 		}
+	}
+}
+
+varnish v1 -errvcl {Regexp compilation error:} {
+	backend b { .host = "127.0.0.1"; }
+	sub vcl_recv {
+		if (req.url ~ "[a") {}
+	}
+}
+
+varnish v1 -errvcl {resolves to too many addresses} {
+	backend b { .host = "127.0.0.1"; }
+	sub vcl_recv {
+		if (remote.ip == "varnish-cache.org") {}
 	}
 }

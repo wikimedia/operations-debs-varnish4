@@ -54,20 +54,15 @@ enum wait_event {
 
 typedef void waiter_handle_f(struct waited *, enum wait_event, double now);
 
-struct waitfor {
-	unsigned		magic;
-#define WAITFOR_MAGIC		0x16b79246
-	waiter_handle_f		*func;
-	volatile double		*tmo;
-};
-
 struct waited {
 	unsigned		magic;
 #define WAITED_MAGIC		0x1743992d
 	int			fd;
 	unsigned		idx;
-	void			*ptr;
-	const struct waitfor	*waitfor;
+	void			*priv1;
+	uintptr_t		priv2;
+	waiter_handle_f		*func;
+	volatile double		*tmo;
 	double			idle;
 };
 

@@ -34,19 +34,19 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
 #include "mgt/mgt.h"
+#include "storage/storage.h"
 
 #include "libvcc.h"
-#include "vcli.h"
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 #include "vfil.h"
 #include "vsub.h"
+#include "vav.h"
 #include "vtim.h"
 
 struct vcc_priv {
@@ -60,13 +60,12 @@ struct vcc_priv {
 };
 
 char *mgt_cc_cmd;
-const char *mgt_vcl_dir;
-const char *mgt_vmod_dir;
+const char *mgt_vcl_path;
+const char *mgt_vmod_path;
 unsigned mgt_vcc_err_unref;
 unsigned mgt_vcc_allow_inline_c;
 unsigned mgt_vcc_unsafe_path;
 
-static struct vcp *vcp;
 
 #define VGC_SRC		"vgc.c"
 #define VGC_LIB		"vgc.so"
@@ -77,6 +76,12 @@ static const char * const builtin_vcl =
 #include "builtin_vcl.h"
     ""	;
 
+void
+mgt_DumpBuiltin(void)
+{
+	printf("%s\n", builtin_vcl);
+}
+
 /*--------------------------------------------------------------------
  * Invoke system VCC compiler in a sub-process
  */
@@ -84,28 +89,34 @@ static const char * const builtin_vcl =
 static void __match_proto__(vsub_func_f)
 run_vcc(void *priv)
 {
-	char *csrc;
-	struct vsb *sb;
+	struct vsb *csrc;
+	struct vsb *sb = NULL;
 	struct vcc_priv *vp;
 	int fd, i, l;
+	struct vcc *vcc;
+	struct stevedore *stv;
 
 	VJ_subproc(JAIL_SUBPROC_VCC);
 	CAST_OBJ_NOTNULL(vp, priv, VCC_PRIV_MAGIC);
 
 	AZ(chdir(vp->dir));
 
-	sb = VSB_new_auto();
-	XXXAN(sb);
-	VCP_VCL_dir(vcp, mgt_vcl_dir);
-	VCP_VMOD_dir(vcp, mgt_vmod_dir);
-	VCP_Err_Unref(vcp, mgt_vcc_err_unref);
-	VCP_Allow_InlineC(vcp, mgt_vcc_allow_inline_c);
-	VCP_Unsafe_Path(vcp, mgt_vcc_unsafe_path);
-	csrc = VCC_Compile(vcp, sb, vp->vclsrc, vp->vclsrcfile);
+	vcc = VCC_New();
+	AN(vcc);
+	VCC_Builtin_VCL(vcc, builtin_vcl);
+	VCC_VCL_path(vcc, mgt_vcl_path);
+	VCC_VMOD_path(vcc, mgt_vmod_path);
+	VCC_Err_Unref(vcc, mgt_vcc_err_unref);
+	VCC_Allow_InlineC(vcc, mgt_vcc_allow_inline_c);
+	VCC_Unsafe_Path(vcc, mgt_vcc_unsafe_path);
+	STV_Foreach(stv)
+		VCC_Predef(vcc, "VCL_STEVEDORE", stv->ident);
+	mgt_vcl_export_labels(vcc);
+	csrc = VCC_Compile(vcc, &sb, vp->vclsrc, vp->vclsrcfile);
 	AZ(VSB_finish(sb));
 	if (VSB_len(sb))
 		printf("%s", VSB_data(sb));
-	VSB_delete(sb);
+	VSB_destroy(&sb);
 	if (csrc == NULL)
 		exit(2);
 
@@ -114,14 +125,14 @@ run_vcc(void *priv)
 		fprintf(stderr, "VCC cannot open %s", vp->csrcfile);
 		exit(2);
 	}
-	l = strlen(csrc);
-	i = write(fd, csrc, l);
+	l = VSB_len(csrc);
+	i = write(fd, VSB_data(csrc), l);
 	if (i != l) {
 		fprintf(stderr, "VCC cannot write %s", vp->csrcfile);
 		exit(2);
 	}
-	AZ(close(fd));
-	free(csrc);
+	closefd(&fd);
+	VSB_destroy(&csrc);
 	exit(0);
 }
 
@@ -174,7 +185,7 @@ run_cc(void *priv)
 
 	(void)umask(027);
 	(void)execl("/bin/sh", "/bin/sh", "-c", VSB_data(sb), (char*)0);
-	VSB_delete(sb);				// For flexelint
+	VSB_destroy(&sb);				// For flexelint
 }
 
 /*--------------------------------------------------------------------
@@ -211,7 +222,7 @@ mgt_vcc_touchfile(const char *fn, struct vsb *sb)
 		if (geteuid() == 0)
 			VSB_printf(sb, "Failed to change owner on %s: %s\n",
 			    fn, strerror(errno));
-	AZ(close(i));
+	closefd(&i);
 	return (0);
 }
 
@@ -252,12 +263,16 @@ mgt_vcc_compile(struct vcc_priv *vp, struct vsb *sb, int C_flag)
 /*--------------------------------------------------------------------*/
 
 char *
-mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
-    const char *vclsrcfile, int C_flag)
+mgt_VccCompile(struct cli *cli, struct vclprog *vcl, const char *vclname,
+    const char *vclsrc, const char *vclsrcfile, int C_flag)
 {
 	struct vcc_priv vp;
 	struct vsb *sb;
 	unsigned status;
+	char buf[1024];
+	FILE *fcs;
+	char **av;
+	int ac;
 
 	AN(cli);
 
@@ -298,7 +313,7 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 	 * count, and when it finally runs, it trashes the second 'foo' because
 	 * dlopen(3) decided they were really the same thing.
 	 *
-	 * The Best way to reproduce ths is to have regexps in the VCL.
+	 * The Best way to reproduce this is to have regexps in the VCL.
 	 */
 	VSB_printf(sb, "vcl_%s.%.9f", vclname, VTIM_real());
 	AZ(VSB_finish(sb));
@@ -331,12 +346,11 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 	AZ(VSB_finish(sb));
 	if (VSB_len(sb) > 0)
 		VCLI_Out(cli, "%s", VSB_data(sb));
-	VSB_delete(sb);
-
-	(void)unlink(vp.csrcfile);
-	free(vp.csrcfile);
+	VSB_destroy(&sb);
 
 	if (status || C_flag) {
+		(void)unlink(vp.csrcfile);
+		free(vp.csrcfile);
 		(void)unlink(vp.libfile);
 		free(vp.libfile);
 		(void)rmdir(vp.dir);
@@ -348,20 +362,33 @@ mgt_VccCompile(struct cli *cli, const char *vclname, const char *vclsrc,
 		return (NULL);
 	}
 
+	fcs = fopen(vp.csrcfile, "r");
+	AN(fcs);
+	while (1) {
+		AN(fgets(buf, sizeof buf, fcs));
+		if (memcmp(buf, VCC_INFO_PREFIX, strlen(VCC_INFO_PREFIX)))
+			break;
+		av = VAV_Parse(buf, &ac, 0);
+		AN(av);
+		AZ(av[0]);
+		AZ(strcmp(av[1], "/*"));
+		AZ(strcmp(av[ac-1], "*/"));
+		if (!strcmp(av[3], "VCL"))
+			mgt_vcl_depends(vcl, av[4]);
+		else if (!strcmp(av[3], "VMOD"))
+			mgt_vcl_vmod(vcl, av[4], av[5]);
+		else
+			WRONG("Wrong VCCINFO");
+		VAV_Free(av);
+	}
+	AZ(fclose(fcs));
+
+	(void)unlink(vp.csrcfile);
+	free(vp.csrcfile);
+
 	free(vp.dir);
 
 	VCLI_Out(cli, "VCL compiled.\n");
 
 	return (vp.libfile);
-}
-
-/*--------------------------------------------------------------------*/
-
-void
-mgt_vcc_init(void)
-{
-
-	vcp = VCP_New();
-	AN(vcp);
-	VCP_Builtin_VCL(vcp, builtin_vcl);
 }

@@ -1,8 +1,9 @@
 /*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Edit and run generate.py instead
+ * Edit and run lib/libvcc/generate.py instead.
  */
+
 #define	CNUM 128
 #define	CSRC 129
 #define	CSTR 130

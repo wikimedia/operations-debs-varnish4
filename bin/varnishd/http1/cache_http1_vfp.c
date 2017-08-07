@@ -73,7 +73,7 @@ v1f_read(const struct vfp_ctx *vc, struct http_conn *htc, void *d, ssize_t len)
 			htc->pipeline_b = htc->pipeline_e = NULL;
 	}
 	if (len > 0) {
-		i = read(htc->fd, p, len);
+		i = read(*htc->rfd, p, len);
 		if (i < 0) {
 			// XXX: VTCP_Assert(i); // but also: EAGAIN
 			VSLb(vc->wrk->vsl, SLT_FetchError,
@@ -96,7 +96,6 @@ v1f_pull_chunked(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr,
     ssize_t *lp)
 {
 	struct http_conn *htc;
-	int i;
 	char buf[20];		/* XXX: 20 is arbitrary */
 	char *q;
 	unsigned u;
@@ -109,8 +108,6 @@ v1f_pull_chunked(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr,
 	AN(ptr);
 	AN(lp);
 
-	AN(ptr);
-	AN(lp);
 	l = *lp;
 	*lp = 0;
 	if (vfe->priv2 == -1) {
@@ -140,7 +137,7 @@ v1f_pull_chunked(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr,
 			return (VFP_Error(vc, "chunked header too long"));
 
 		/* Skip trailing white space */
-		while(vct_islws(buf[u]) && buf[u] != '\n') {
+		while (vct_islws(buf[u]) && buf[u] != '\n') {
 			lr = v1f_read(vc, htc, buf + u, 1);
 			if (lr <= 0)
 				return (VFP_Error(vc, "chunked read err"));
@@ -173,8 +170,7 @@ v1f_pull_chunked(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr,
 		return (VFP_OK);
 	}
 	AZ(vfe->priv2);
-	i = v1f_read(vc, htc, buf, 1);
-	if (i <= 0)
+	if (v1f_read(vc, htc, buf, 1) <= 0)
 		return (VFP_Error(vc, "chunked read err"));
 	if (buf[0] == '\r' && v1f_read(vc, htc, buf, 1) <= 0)
 		return (VFP_Error(vc, "chunked read err"));
@@ -268,7 +264,7 @@ V1F_Setup_Fetch(struct vfp_ctx *vfc, struct http_conn *htc)
 	CHECK_OBJ_NOTNULL(vfc, VFP_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
 
-	switch(htc->body_status) {
+	switch (htc->body_status) {
 	case BS_EOF:
 		assert(htc->content_length == -1);
 		vfe = VFP_Push(vfc, &v1f_eof, 0);

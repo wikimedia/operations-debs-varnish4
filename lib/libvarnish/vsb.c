@@ -37,7 +37,7 @@ __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
 #include <string.h>
 
 #include "vdef.h"
-#include "vas.h"
+#include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
 #include "vsb.h"
 
 #define	KASSERT(e, m)		assert(e)
@@ -355,11 +355,11 @@ VSB_vprintf(struct vsb *s, const char *fmt, va_list ap)
 		va_copy(ap_copy, ap);
 		len = vsnprintf(&s->s_buf[s->s_len], VSB_FREESPACE(s) + 1,
 		    fmt, ap_copy);
+		va_end(ap_copy);
 		if (len < 0) {
 			s->s_error = errno;
 			return (-1);
 		}
-		va_end(ap_copy);
 	} while (len > VSB_FREESPACE(s) &&
 	    VSB_extend(s, len - VSB_FREESPACE(s)) == 0);
 
@@ -500,16 +500,25 @@ VSB_destroy(struct vsb **s)
  * Quote a string
  */
 void
-VSB_quote(struct vsb *s, const void *v, int len, int how)
+VSB_quote_pfx(struct vsb *s, const char *pfx, const void *v, int len, int how)
 {
 	const char *p;
 	const char *q;
 	int quote = 0;
+	int nl = 0;
 	const unsigned char *u, *w;
 
 	assert(v != NULL);
 	if (len == -1)
 		len = strlen(v);
+
+	if (len == 0 && (how & VSB_QUOTE_CSTR)) {
+		VSB_printf(s, "%s\"\"", pfx);
+		return;
+	} else if (len == 0)
+		return;
+
+	VSB_cat(s, pfx);
 
 	if (how & VSB_QUOTE_HEX) {
 		u = v;
@@ -533,26 +542,45 @@ VSB_quote(struct vsb *s, const void *v, int len, int how)
 			break;
 		}
 	}
-	if (!quote) {
+	if (!quote && !(how & (VSB_QUOTE_JSON|VSB_QUOTE_CSTR))) {
 		(void)VSB_bcat(s, p, len);
+		if ((how & (VSB_QUOTE_UNSAFE|VSB_QUOTE_NONL))
+		    && p[len-1] != '\n')
+			(void)VSB_putc(s, '\n');
 		return;
 	}
-	(void)VSB_putc(s, '"');
+
+	if (how & VSB_QUOTE_CSTR)
+		(void)VSB_putc(s, '"');
+
 	for (q = p; q < p + len; q++) {
+		if (nl)
+			VSB_cat(s, pfx);
+		nl = 0;
 		switch (*q) {
+		case '?':
+			if (how & VSB_QUOTE_CSTR)
+				(void)VSB_putc(s, '\\');
+			(void)VSB_putc(s, *q);
+			break;
 		case ' ':
 			(void)VSB_putc(s, *q);
 			break;
 		case '\\':
 		case '"':
-			(void)VSB_putc(s, '\\');
+			if (!(how & VSB_QUOTE_UNSAFE))
+				(void)VSB_putc(s, '\\');
 			(void)VSB_putc(s, *q);
 			break;
 		case '\n':
-			if (how & VSB_QUOTE_NONL)
-				(void)VSB_cat(s, "\n");
-			else
-				(void)VSB_cat(s, "\\n");
+			if (how & VSB_QUOTE_CSTR) {
+				(void)VSB_printf(s, "\\n\"\n%s\t\"", pfx);
+			} else if (how & (VSB_QUOTE_NONL|VSB_QUOTE_UNSAFE)) {
+				(void)VSB_printf(s, "\n");
+				nl = 1;
+			} else {
+				(void)VSB_printf(s, "\\n");
+			}
 			break;
 		case '\r':
 			(void)VSB_cat(s, "\\r");
@@ -561,6 +589,7 @@ VSB_quote(struct vsb *s, const void *v, int len, int how)
 			(void)VSB_cat(s, "\\t");
 			break;
 		default:
+			/* XXX: Implement VSB_QUOTE_JSON */
 			if (isgraph(*q))
 				(void)VSB_putc(s, *q);
 			else
@@ -568,7 +597,16 @@ VSB_quote(struct vsb *s, const void *v, int len, int how)
 			break;
 		}
 	}
-	(void)VSB_putc(s, '"');
+	if (how & VSB_QUOTE_CSTR)
+		(void)VSB_putc(s, '"');
+	if ((how & (VSB_QUOTE_NONL|VSB_QUOTE_UNSAFE)) && !nl)
+		(void)VSB_putc(s, '\n');
+}
+
+void
+VSB_quote(struct vsb *s, const void *v, int len, int how)
+{
+	VSB_quote_pfx(s, "", v, len, how);
 }
 
 /*

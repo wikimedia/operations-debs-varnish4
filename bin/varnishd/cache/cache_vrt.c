@@ -54,11 +54,11 @@ VRT_synth(VRT_CTX, unsigned code, const char *reason)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-	if (code < 100 || code > 999)
+	if (code < 100)
 		code = 503;
 	ctx->req->err_code = (uint16_t)code;
-	ctx->req->err_reason =
-	    reason ? reason : http_Status2Reason(ctx->req->err_code);
+	ctx->req->err_reason = reason ? reason
+	    : http_Status2Reason(ctx->req->err_code % 1000, NULL);
 }
 
 /*--------------------------------------------------------------------*/
@@ -83,6 +83,26 @@ VRT_acl_match(VRT_CTX, VCL_ACL acl, VCL_IP ip)
 	CHECK_OBJ_NOTNULL(acl, VRT_ACL_MAGIC);
 	assert(VSA_Sane(ip));
 	return (acl->match(ctx, ip));
+}
+
+void
+VRT_hit_for_pass(VRT_CTX, VCL_DURATION d)
+{
+	struct objcore *oc;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (ctx->bo == NULL) {
+		VSLb(ctx->vsl, SLT_Error,
+		    "Note: Ignoring DURATION argument to return(pass);");
+		return;
+	}
+	CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
+	oc = ctx->bo->fetch_objcore;
+	oc->ttl = d;
+	oc->grace = 0.0;
+	oc->keep = 0.0;
+	VSLb(ctx->vsl, SLT_TTL, "HFP %.0f %.0f %.0f %.0f",
+	    oc->ttl, oc->grace, oc->keep, oc->t_origin);
 }
 
 /*--------------------------------------------------------------------*/
@@ -252,8 +272,30 @@ VRT_handling(VRT_CTX, unsigned hand)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	assert(hand > 0);
 	assert(hand < VCL_RET_MAX);
+	// XXX:NOTYET assert(*ctx->handling == 0);
 	*ctx->handling = hand;
+}
+
+/*--------------------------------------------------------------------*/
+
+void
+VRT_fail(VRT_CTX, const char *fmt, ...)
+{
+	va_list ap;
+
+	assert(ctx->vsl != NULL || ctx->msg != NULL);
+	AZ(strchr(fmt, '\n'));
+	va_start(ap, fmt);
+	if (ctx->vsl != NULL)
+		VSLbv(ctx->vsl, SLT_VCL_Error, fmt, ap);
+	else {
+		VSB_vprintf(ctx->msg, fmt, ap);
+		VSB_putc(ctx->msg, '\n');
+	}
+	va_end(ap);
+	VRT_handling(ctx, VCL_RET_FAIL);
 }
 
 /*--------------------------------------------------------------------
@@ -290,9 +332,8 @@ VRT_hashdata(VRT_CTX, const char *str, ...)
 double
 VRT_r_now(VRT_CTX)
 {
-
-	(void)ctx;
-	return (VTIM_real());
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	return (ctx->now);
 }
 
 /*--------------------------------------------------------------------*/
@@ -416,11 +457,7 @@ VRT_ban_string(VRT_CTX, const char *str)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	AN(ctx->vsl);
-
-	if (str == NULL) {
-		VSLb(ctx->vsl, SLT_VCL_Error, "ban(): Null argument");
-		return;
-	}
+	AN(str);
 
 	bp = BAN_Build();
 	if (bp == NULL) {
@@ -479,14 +516,8 @@ VRT_ban_string(VRT_CTX, const char *str)
 	VAV_Free(av);
 }
 
-/*--------------------------------------------------------------------
- *
- * XXX this really should be ssize_t VRT_CacheReqBody(VRT_CTX, size_t)
- * - change with next VRT major bump
- */
-
-int
-VRT_CacheReqBody(VRT_CTX, long long maxsize)
+VCL_BYTES
+VRT_CacheReqBody(VRT_CTX, VCL_BYTES maxsize)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -510,10 +541,7 @@ VRT_purge(VRT_CTX, double ttl, double grace, double keep)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req->wrk, WORKER_MAGIC);
-	if (ctx->method == VCL_MET_HIT)
-		HSH_Purge(ctx->req->wrk, ctx->req->objcore->objhead,
-		    ttl, grace, keep);
-	else if (ctx->method == VCL_MET_MISS)
+	if (ctx->method == VCL_MET_HIT || ctx->method == VCL_MET_MISS)
 		HSH_Purge(ctx->req->wrk, ctx->req->objcore->objhead,
 		    ttl, grace, keep);
 }
@@ -535,4 +563,12 @@ VRT_memmove(void *dst, const void *src, unsigned len)
 {
 
 	(void)memmove(dst, src, len);
+}
+
+int
+VRT_ipcmp(const struct suckaddr *sua1, const struct suckaddr *sua2)
+{
+	if (sua1 == NULL || sua2 == NULL)
+		return(1);
+	return (VSA_Compare_IP(sua1, sua2));
 }

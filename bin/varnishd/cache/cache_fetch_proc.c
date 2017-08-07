@@ -33,8 +33,7 @@
 
 #include "cache.h"
 #include "cache_filter.h"
-
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 
 static unsigned fetchfrag;
 
@@ -72,7 +71,6 @@ VFP_GetStorage(struct vfp_ctx *vc, ssize_t *sz, uint8_t **ptr)
 {
 	ssize_t l;
 
-
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
 	AN(sz);
 	assert(*sz >= 0);
@@ -92,6 +90,14 @@ VFP_GetStorage(struct vfp_ctx *vc, ssize_t *sz, uint8_t **ptr)
 	assert(*sz > 0);
 	AN(*ptr);
 	return (VFP_OK);
+}
+
+void
+VFP_Extend(const struct vfp_ctx *vc, ssize_t sz)
+{
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+
+	ObjExtend(vc->wrk, vc->oc, sz);
 }
 
 /**********************************************************************
@@ -114,7 +120,7 @@ VFP_Close(struct vfp_ctx *vc)
 	struct vfp_entry *vfe;
 
 	VTAILQ_FOREACH(vfe, &vc->vfp, list) {
-		if(vfe->vfp->fini != NULL)
+		if (vfe->vfp->fini != NULL)
 			vfe->vfp->fini(vc, vfe);
 		VSLb(vc->wrk->vsl, SLT_VfpAcct, "%s %ju %ju", vfe->vfp->name,
 		    (uintmax_t)vfe->calls, (uintmax_t)vfe->bytes_out);
@@ -226,8 +232,7 @@ debug_fragfetch(struct cli *cli, const char * const *av, void *priv)
 }
 
 static struct cli_proto debug_cmds[] = {
-	{ "debug.fragfetch", "debug.fragfetch",
-		"\tEnable fetch fragmentation.", 1, 1, "d", debug_fragfetch },
+	{ CLICMD_DEBUG_FRAGFETCH,		"d", debug_fragfetch },
 	{ NULL }
 };
 

@@ -29,16 +29,14 @@
 
 #include "config.h"
 
-#include <sys/types.h>
-#include <sys/socket.h>
+#include "cache/cache.h"
 
 #include <netinet/in.h>
 
 #include <netdb.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include "../cache/cache.h"
+#include "cache/cache_transport.h"
 
 #include "vend.h"
 #include "vsa.h"
@@ -149,8 +147,7 @@ vpx_proto1(const struct worker *wrk, struct req *req)
 
 	VSL(SLT_Proxy, req->sp->vxid, "1 %s %s %s %s",
 	    fld[1], fld[3], fld[2], fld[4]);
-	req->htc->pipeline_b = q;
-	WS_Reset(req->htc->ws, NULL);
+	HTC_RxPipeline(req->htc, q);
 	return (0);
 }
 
@@ -184,8 +181,7 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 	assert(req->htc->rxbuf_e - req->htc->rxbuf_b >= 16L);
 	l = vbe16dec(req->htc->rxbuf_b + 14);
 	assert(req->htc->rxbuf_e - req->htc->rxbuf_b >= 16L + l);
-	req->htc->pipeline_b = req->htc->rxbuf_b + 16L + l;
-	WS_Reset(req->ws, NULL);
+	HTC_RxPipeline(req->htc, req->htc->rxbuf_b + 16L + l);
 	p = (const void *)req->htc->rxbuf_b;
 
 	/* Version @12 top half */
@@ -196,7 +192,7 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 	}
 
 	/* Command @12 bottom half */
-	switch(p[12] & 0x0f) {
+	switch (p[12] & 0x0f) {
 	case 0x0:
 		/* Local connection from proxy, ignore addresses */
 		return (0);
@@ -210,7 +206,7 @@ vpx_proto2(const struct worker *wrk, struct req *req)
 	}
 
 	/* Address family & protocol @13 */
-	switch(p[13]) {
+	switch (p[13]) {
 	case 0x00:
 		/* UNSPEC|UNSPEC, ignore proxy header */
 		VSL(SLT_ProxyGarbage, req->sp->vxid,
@@ -300,8 +296,9 @@ vpx_complete(struct http_conn *htc)
 	char *p, *q;
 
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
-	AZ(htc->pipeline_b);
-	AZ(htc->pipeline_e);
+
+	assert(htc->rxbuf_e >= htc->rxbuf_b);
+	assert(htc->rxbuf_e <= htc->ws->r);
 
 	l = htc->rxbuf_e - htc->rxbuf_b;
 	p = htc->rxbuf_b;
@@ -314,6 +311,8 @@ vpx_complete(struct http_conn *htc)
 		if (j == 0)
 			return (HTC_S_JUNK);
 		if (j == 1 && i == sizeof vpx1_sig) {
+			assert (htc->rxbuf_e < htc->ws->r);
+			*htc->rxbuf_e = '\0';
 			q = strchr(p + i, '\n');
 			if (q != NULL && (q - htc->rxbuf_b) > 107)
 				return (HTC_S_OVERFLOW);
@@ -333,8 +332,8 @@ vpx_complete(struct http_conn *htc)
 	return (HTC_S_MORE);
 }
 
-void __match_proto__(task_func_t)
-VPX_Proto_Sess(struct worker *wrk, void *priv)
+static void __match_proto__(task_func_t)
+vpx_new_session(struct worker *wrk, void *arg)
 {
 	struct req *req;
 	struct sess *sp;
@@ -343,16 +342,18 @@ VPX_Proto_Sess(struct worker *wrk, void *priv)
 	int i;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CAST_OBJ_NOTNULL(req, priv, REQ_MAGIC);
+	CAST_OBJ_NOTNULL(req, arg, REQ_MAGIC);
 	sp = req->sp;
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 
 	/* Per specification */
 	assert(sizeof vpx1_sig == 5);
 	assert(sizeof vpx2_sig == 12);
 
-	hs = SES_RxStuff(req->htc, vpx_complete,
-	    NULL, NULL, NAN, sp->t_idle + cache_param->timeout_idle);
-	XXXAZ(req->htc->ws->r);
+	HTC_RxInit(req->htc, req->ws);
+	hs = HTC_RxStuff(req->htc, vpx_complete,
+	    NULL, NULL, NAN, sp->t_idle + cache_param->timeout_idle,
+	    1024);			// XXX ?
 	if (hs != HTC_S_COMPLETE) {
 		Req_Release(req);
 		SES_Delete(sp, SC_RX_JUNK, NAN);
@@ -372,12 +373,106 @@ VPX_Proto_Sess(struct worker *wrk, void *priv)
 		return;
 	}
 
-	if (req->htc->rxbuf_e ==  req->htc->pipeline_b)
-		req->htc->pipeline_b = NULL;
-	else
-		req->htc->pipeline_e = req->htc->rxbuf_e;
-	SES_RxReInit(req->htc);
-	req->sp->sess_step = S_STP_H1NEWREQ;
-	wrk->task.func = SES_Proto_Req;
-	wrk->task.priv = req;
+	SES_SetTransport(wrk, sp, req, &HTTP1_transport);
+}
+
+struct transport PROXY_transport = {
+	.name =			"PROXY",
+	.magic =		TRANSPORT_MAGIC,
+	.new_session =		vpx_new_session,
+};
+
+static void
+vpx_enc_addr(struct vsb *vsb, int proto, const struct suckaddr *s)
+{
+	const struct sockaddr_in *sin4;
+	const struct sockaddr_in6 *sin6;
+	socklen_t sl;
+
+	if (proto == PF_INET6) {
+		sin6 = VSA_Get_Sockaddr(s, &sl);	//lint !e826
+		AN(sin6);
+		assert(sl >= sizeof *sin6);
+		VSB_bcat(vsb, &sin6->sin6_addr, sizeof(sin6->sin6_addr));
+	} else {
+		sin4 = VSA_Get_Sockaddr(s, &sl);	//lint !e826
+		AN(sin4);
+		assert(sl >= sizeof *sin4);
+		VSB_bcat(vsb, &sin4->sin_addr, sizeof(sin4->sin_addr));
+	}
+}
+
+static void
+vpx_enc_port(struct vsb *vsb, const struct suckaddr *s)
+{
+	uint8_t b[2];
+
+	vbe16enc(b, (uint16_t)VSA_Port(s));
+	VSB_bcat(vsb, b, sizeof(b));
+}
+
+void
+VPX_Send_Proxy(int fd, int version, const struct sess *sp)
+{
+	struct vsb *vsb, *vsb2;
+	const char *p1, *p2;
+	struct suckaddr *sac, *sas;
+	char ha[VTCP_ADDRBUFSIZE];
+	char pa[VTCP_PORTBUFSIZE];
+	int proto;
+
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
+	assert(version == 1 || version == 2);
+	vsb = VSB_new_auto();
+	AN(vsb);
+
+	AZ(SES_Get_server_addr(sp, &sas));
+	AN(sas);
+	proto = VSA_Get_Proto(sas);
+	assert(proto == PF_INET6 || proto == PF_INET);
+
+	if (version == 1) {
+		VSB_bcat(vsb, vpx1_sig, sizeof(vpx1_sig));
+		p1 = SES_Get_String_Attr(sp, SA_CLIENT_IP);
+		AN(p1);
+		p2 = SES_Get_String_Attr(sp, SA_CLIENT_PORT);
+		AN(p2);
+		VTCP_name(sas, ha, sizeof ha, pa, sizeof pa);
+		if (proto == PF_INET6)
+			VSB_printf(vsb, " TCP6 ");
+		else if (proto == PF_INET)
+			VSB_printf(vsb, " TCP4 ");
+		VSB_printf(vsb, "%s %s %s %s\r\n", p1, ha, p2, pa);
+	} else if (version == 2) {
+		AZ(SES_Get_client_addr(sp, &sac));
+		AN(sac);
+
+		VSB_bcat(vsb, vpx2_sig, sizeof(vpx2_sig));
+		VSB_putc(vsb, 0x21);
+		if (proto == PF_INET6) {
+			VSB_putc(vsb, 0x21);
+			VSB_putc(vsb, 0x00);
+			VSB_putc(vsb, 0x24);
+		} else if (proto == PF_INET) {
+			VSB_putc(vsb, 0x11);
+			VSB_putc(vsb, 0x00);
+			VSB_putc(vsb, 0x0c);
+		}
+		vpx_enc_addr(vsb, proto, sac);
+		vpx_enc_addr(vsb, proto, sas);
+		vpx_enc_port(vsb, sac);
+		vpx_enc_port(vsb, sas);
+	} else
+		WRONG("Wrong proxy version");
+
+	AZ(VSB_finish(vsb));
+	(void)write(fd, VSB_data(vsb), VSB_len(vsb));
+	vsb2 = VSB_new_auto();
+	AN(vsb2);
+	VSB_quote(vsb2, VSB_data(vsb), VSB_len(vsb),
+	    version == 2 ? VSB_QUOTE_HEX : 0);
+	AZ(VSB_finish(vsb2));
+	VSL(SLT_Debug, 999, "PROXY_HDR %s", VSB_data(vsb2));
+	VSB_delete(vsb);
+	VSB_delete(vsb2);
 }

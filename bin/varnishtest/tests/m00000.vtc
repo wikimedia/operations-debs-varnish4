@@ -7,8 +7,12 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import ${vmod_std};
-	import ${vmod_debug};
+	import std;
+	import debug;
+
+	sub vcl_init {
+		new obj = debug.obj();
+	}
 
 	sub vcl_recv {
 		debug.rot52(req);
@@ -20,7 +24,9 @@ varnish v1 -vcl+backend {
 		set resp.http.who = debug.author(phk);
 		debug.test_priv_call();
 		debug.test_priv_vcl();
-		std.log("VCL initiated log");
+		obj.test_priv_call();
+		obj.test_priv_vcl();
+		std.log("VCL" + " initiated " + "log");
 		std.syslog(8 + 7, "Somebody runs varnishtest");
 		debug.rot52(resp);
 	}
@@ -36,15 +42,36 @@ client c1 {
 	expect resp.http.encrypted == "ROT52"
 } -run
 
+logexpect l1 -v v1 -g raw -d 1 {
+	expect * 1001 VCL_call		{^DELIVER}
+	expect 0 =    RespUnset	{^foo: bAr}
+	expect 0 =    RespHeader	{^foo: BAR}
+	expect 0 =    RespUnset	{^bar: fOo}
+	expect 0 =    RespHeader	{^bar: foo}
+	expect 0 =    RespHeader	{^who: Poul-Henning}
+	expect 0 =    VCL_Log		{^VCL initiated log}
+	expect 0 =    RespHeader	{^Encrypted: ROT52}
+	expect 0 =    VCL_return	{^deliver}
+} -start
+
+logexpect l1 -wait
+
 varnish v1 -errvcl {Wrong enum value.  Expected one of:} {
-	import ${vmod_debug};
+	import debug;
 	sub vcl_deliver {
-		set resp.http.who = debug.author(jfk);
+		set resp.http.who = debug.author(ENUM);
+	}
+}
+
+varnish v1 -errvcl {Wrong enum value.  Expected one of:} {
+	import debug;
+	sub vcl_deliver {
+		set resp.http.who = debug.author(slink);
 	}
 }
 
 varnish v1 -errvcl {Wrong argument type.  Expected REAL.  Got STRING.} {
-	import ${vmod_std};
+	import std;
 	sub vcl_deliver {
 		set resp.http.who = std.random("foo", "bar");
 	}

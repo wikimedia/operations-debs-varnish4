@@ -6,7 +6,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import ${vmod_std};
+	import std;
 
 	sub vcl_deliver {
 		set resp.http.foo0 = std.ip("8.8.8.*", client.ip);
@@ -19,10 +19,12 @@ varnish v1 -vcl+backend {
 } -start
 
 client c1 {
+	# Allow for DNS trouble with bogos domains
+	timeout 60
 	txreq
 	rxresp
-	expect resp.http.foo0 == "127.0.0.1"
-	expect resp.http.foo1 == "127.0.0.1"
+	expect resp.http.foo0 == "${localhost}"
+	expect resp.http.foo1 == "${localhost}"
 	expect resp.http.foo2 == "127.0.0.2"
 	expect resp.http.foo3 == "1.2.3.5"
 	expect resp.http.foo4 == "2001:db8::"

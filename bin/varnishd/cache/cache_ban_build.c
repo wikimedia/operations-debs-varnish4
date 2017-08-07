@@ -58,7 +58,6 @@ static const struct pvar {
 } pvars[] = {
 #define PVAR(a, b, c)	{ (a), (b), (c) },
 #include "tbl/ban_vars.h"
-#undef PVAR
 	{ 0, 0, 0}
 };
 
@@ -91,7 +90,7 @@ BAN_Abandon(struct ban_proto *bp)
 {
 
 	CHECK_OBJ_NOTNULL(bp, BAN_PROTO_MAGIC);
-	VSB_delete(bp->vsb);
+	VSB_destroy(&bp->vsb);
 	FREE_OBJ(bp);
 }
 
@@ -101,9 +100,8 @@ BAN_Abandon(struct ban_proto *bp)
 static void
 ban_add_lump(const struct ban_proto *bp, const void *p, uint32_t len)
 {
-	uint8_t buf[sizeof len];
+	uint8_t buf[PRNDUP(sizeof len)] = { 0xff };
 
-	buf[0] = 0xff;
 	while (VSB_len(bp->vsb) & PALGN)
 		VSB_putc(bp->vsb, buf[0]);
 	vbe32enc(buf, len);
@@ -130,7 +128,7 @@ ban_error(struct ban_proto *bp, const char *fmt, ...)
 			/* Record the error message in the vsb */
 			VSB_clear(bp->vsb);
 			va_start(ap, fmt);
-			(void)VSB_vprintf(bp->vsb, fmt, ap);
+			VSB_vprintf(bp->vsb, fmt, ap);
 			va_end(ap);
 			AZ(VSB_finish(bp->vsb));
 			bp->err = VSB_data(bp->vsb);
@@ -306,7 +304,7 @@ BAN_Commit(struct ban_proto *bp)
 		VSC_C_main->bans_req++;
 
 	if (bi != NULL)
-		ban_info(BI_NEW, b->spec, ln);	/* Notify stevedores */
+		ban_info_new(b->spec, ln);	/* Notify stevedores */
 
 	if (cache_param->ban_dups) {
 		/* Hunt down duplicates, and mark them as completed */

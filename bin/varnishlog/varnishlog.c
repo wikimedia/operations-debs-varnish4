@@ -52,7 +52,7 @@
 
 static const char progname[] = "varnishlog";
 
-struct log {
+static struct log {
 	/* Options */
 	int		a_opt;
 	int		A_opt;
@@ -62,14 +62,14 @@ struct log {
 	FILE		*fo;
 } LOG;
 
-static void
+static void __attribute__((__noreturn__))
 usage(int status)
 {
 	const char **opt;
 	fprintf(stderr, "Usage: %s <options>\n\n", progname);
 	fprintf(stderr, "Options:\n");
-	for (opt = vopt_usage; *opt != NULL; opt += 2)
-		fprintf(stderr, "  %-25s %s\n", *opt, *(opt + 1));
+	for (opt = vopt_spec.vopt_usage; *opt != NULL; opt += 2)
+		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
 	exit(status);
 }
 
@@ -83,7 +83,7 @@ openout(int append)
 	else
 		LOG.fo = VSL_WriteOpen(VUT.vsl, LOG.w_arg, append, 0);
 	if (LOG.fo == NULL)
-		VUT_Error(2, "Can't open output file (%s)",
+		VUT_Error(2, "Cannot open output file (%s)",
 		    LOG.A_opt ? strerror(errno) : VSL_Error(VUT.vsl));
 	VUT.dispatch_priv = LOG.fo;
 }
@@ -121,10 +121,10 @@ main(int argc, char * const *argv)
 {
 	int opt;
 
+	VUT_Init(progname, argc, argv, &vopt_spec);
 	memset(&LOG, 0, sizeof LOG);
-	VUT_Init(progname);
 
-	while ((opt = getopt(argc, argv, vopt_optstring)) != -1) {
+	while ((opt = getopt(argc, argv, vopt_spec.vopt_optstring)) != -1) {
 		switch (opt) {
 		case 'a':
 			/* Append to file */
@@ -137,7 +137,6 @@ main(int argc, char * const *argv)
 		case 'h':
 			/* Usage help */
 			usage(0);
-			break;
 		case 'w':
 			/* Write to file */
 			REPLACE(LOG.w_arg, optarg);

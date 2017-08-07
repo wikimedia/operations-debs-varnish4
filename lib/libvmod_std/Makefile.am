@@ -13,7 +13,11 @@ vmodtool = $(top_srcdir)/lib/libvcc/vmodtool.py
 vmodtoolargs = --strict
 vmod_LTLIBRARIES = libvmod_std.la
 
-libvmod_std_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared
+libvmod_std_la_CFLAGS = \
+	@SAN_CFLAGS@
+
+libvmod_std_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared \
+	@SAN_LDFLAGS@
 
 libvmod_std_la_SOURCES = \
 	vmod_std.c \
@@ -28,7 +32,9 @@ nodist_libvmod_std_la_SOURCES = \
 # BUILT_SOURCES is only a hack and dependency tracking does not help for the first build
 $(libvmod_std_la_OBJECTS): vcc_if.h
 
-vcc_if.c vcc_if.h vmod_std.rst vmod_std.man.rst: $(vmodtool) $(vmod_srcdir)/vmod.vcc
+vcc_if.h vmod_std.rst vmod_std.man.rst: vcc_if.c
+
+vcc_if.c: $(vmodtool) $(vmod_srcdir)/vmod.vcc
 	@PYTHON@ $(vmodtool) $(vmodtoolargs) $(vmod_srcdir)/vmod.vcc
 
 EXTRA_DIST = vmod.vcc

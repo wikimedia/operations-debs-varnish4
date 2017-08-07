@@ -37,16 +37,8 @@
 #include "waiter/mgt_waiter.h"
 
 static const struct choice waiter_choice[] = {
-    #if defined(HAVE_KQUEUE)
-	{ "kqueue",	&waiter_kqueue },
-    #endif
-    #if defined(HAVE_PORT_CREATE)
-	{ "ports",	&waiter_ports },
-    #endif
-    #if defined(HAVE_EPOLL_CTL)
-	{ "epoll",	&waiter_epoll },
-    #endif
-	{ "poll",	&waiter_poll },
+#define WAITER(nm) { #nm, &waiter_##nm },
+#include "tbl/waiters.h"
 	{ NULL,		NULL}
 };
 
@@ -59,7 +51,7 @@ Wait_config(const char *arg)
 	ASSERT_MGT();
 
 	if (arg != NULL)
-		waiter = pick(waiter_choice, arg, "waiter");
+		waiter = MGT_Pick(waiter_choice, arg, "waiter");
 	else
 		waiter = waiter_choice[0].ptr;
 }

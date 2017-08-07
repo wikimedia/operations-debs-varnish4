@@ -30,6 +30,11 @@
 # Generate various .c and .h files for the VCL compiler and the interfaces
 # for it.
 
+from __future__ import print_function
+
+import subprocess
+import os
+
 #######################################################################
 # These are our tokens
 
@@ -38,7 +43,9 @@
 # which hopefully makes for better error messages.
 # XXX: does it actually do that ?
 
+import copy
 import sys
+from os.path import join
 
 srcroot = "../.."
 buildroot = "../.."
@@ -77,46 +84,45 @@ tokens = {
 #######################################################################
 # Our methods and actions
 
-returns =(
-
+returns = (
 	###############################################################
 	# Client side
 
 	('recv',
 		"C",
-		('synth', 'pass', 'pipe', 'hash', 'purge',)
+		('fail', 'synth', 'pass', 'pipe', 'hash', 'purge', 'vcl')
 	),
 	('pipe',
 		"C",
-		('synth', 'pipe',)
+		('fail', 'synth', 'pipe',)
 	),
 	('pass',
 		"C",
-		('synth', 'restart', 'fetch',)
+		('fail', 'synth', 'restart', 'fetch',)
 	),
 	('hash',
 		"C",
-		('lookup',)
+		('fail', 'lookup',)
 	),
 	('purge',
 		"C",
-		('synth', 'restart',)
+		('fail', 'synth', 'restart',)
 	),
 	('miss',
 		"C",
-		('synth', 'restart', 'pass', 'fetch',)
+		('fail', 'synth', 'restart', 'pass', 'fetch',)
 	),
 	('hit',
 		"C",
-		('synth', 'restart', 'pass', 'fetch', 'miss', 'deliver',)
+		('fail', 'synth', 'restart', 'pass', 'miss', 'deliver',)
 	),
 	('deliver',
 		"C",
-		('synth', 'restart', 'deliver',)
+		('fail', 'synth', 'restart', 'deliver',)
 	),
 	('synth',
 		"C",
-		('restart', 'deliver',)
+		('fail', 'restart', 'deliver',)
 	),
 
 	###############################################################
@@ -124,15 +130,15 @@ returns =(
 
 	('backend_fetch',
 		"B",
-		('fetch', 'abandon')
+		('fail', 'fetch', 'abandon')
 	),
 	('backend_response',
 		"B",
-		('deliver', 'retry', 'abandon')
+		('fail', 'deliver', 'retry', 'abandon', 'pass')
 	),
 	('backend_error',
 		"B",
-		('deliver', 'retry', 'abandon')
+		('fail', 'deliver', 'retry', 'abandon')
 	),
 
 	###############################################################
@@ -159,8 +165,8 @@ returns =(
 sp_variables = [
 	('remote.ip',
 		'IP',
-		( 'client',),
-		( ), """
+		('both',),
+		(), """
 		The IP address of the other end of the TCP connection.
 		This can either be the clients IP, or the outgoing IP
 		of a proxy server.
@@ -168,45 +174,46 @@ sp_variables = [
 	),
 	('client.ip',
 		'IP',
-		( 'client',),
-		( ), """
+		('both',),
+		(), """
 		The client's IP address.
 		"""
 	),
 	('client.identity',
 		'STRING',
-		( 'client',),
-		( 'client',), """
+		('client',),
+		('client',), """
 		Identification of the client, used to load balance
-		in the client director.
+		in the client director. Defaults to the client's IP
+		address.
 		"""
 	),
 	('local.ip',
 		'IP',
-		( 'client',),
-		( ), """
+		('both',),
+		(), """
 		The IP address of the local end of the TCP connection.
 		"""
 	),
 	('server.ip',
 		'IP',
-		( 'client',),
-		( ), """
+		('both',),
+		(), """
 		The IP address of the socket on which the client
 		connection was received.
 		"""
 	),
 	('server.hostname',
 		'STRING',
-		( 'all',),
-		( ), """
+		('all',),
+		(), """
 		The host name of the server.
 		"""
 	),
 	('server.identity',
 		'STRING',
-		( 'all',),
-		( ), """
+		('all',),
+		(), """
 		The identity of the server, as set by the -i
 		parameter.  If the -i parameter is not passed to varnishd,
 		server.identity will be set to the name of the instance, as
@@ -215,70 +222,85 @@ sp_variables = [
 	),
 	('req',
 		'HTTP',
-		( 'client',),
-		( ), """
+		('client',),
+		(), """
 		The entire request HTTP data structure
 		"""
 	),
 	('req.method',
 		'STRING',
-		( 'client',),
-		( 'client',), """
+		('client',),
+		('client',), """
 		The request type (e.g. "GET", "HEAD").
 		"""
 	),
 	('req.url',
 		'STRING',
-		( 'client',),
-		( 'client',), """
+		('client',),
+		('client',), """
 		The requested URL.
 		"""
 	),
 	('req.proto',
 		'STRING',
-		( 'client',),
-		( 'client',), """
+		('client',),
+		('client',), """
 		The HTTP protocol version used by the client.
 		"""
 	),
 	('req.http.',
 		'HEADER',
-		( 'client',),
-		( 'client',), """
+		('client',),
+		('client',), """
 		The corresponding HTTP header.
 		"""
 	),
 	('req.restarts',
 		'INT',
-		( 'client',),
-		( ), """
+		('client',),
+		(), """
 		A count of how many times this request has been restarted.
+		"""
+	),
+	('req.storage',
+		'STEVEDORE',
+		('recv',),
+		('recv',), """
+		The storage backend to use to save this request body.
 		"""
 	),
 	('req.esi_level',
 		'INT',
-		( 'client',),
-		( ), """
+		('client',),
+		(), """
 		A count of how many levels of ESI requests we're currently at.
 		"""
 	),
 	('req.ttl',
 		'DURATION',
-		( 'client',),
-		( 'client',), """
+		('client',),
+		('client',), """
+		Upper limit on the object age for cache lookups to return hit.
+
+		Usage of req.ttl should be replaced with a check on
+		obj.ttl in vcl_hit, returning miss when needed, but
+		this currently hits bug #1799, so an additional
+		workaround is required.
+
+		Deprecated and scheduled for removal with varnish release 7.
 		"""
 	),
 	('req.xid',
 		'STRING',
-		( 'client',),
-		( ), """
+		('client',),
+		(), """
 		Unique ID of this request.
 		"""
 	),
 	('req.esi',
 		'BOOL',
-		( 'client',),
-		( 'client',), """
+		('client',),
+		('client',), """
 		Boolean. Set to false to disable ESI processing
 		regardless of any value in beresp.do_esi. Defaults
 		to true. This variable is subject to change in
@@ -287,22 +309,27 @@ sp_variables = [
 	),
 	('req.can_gzip',
 		'BOOL',
-		( 'client',),
-		( ), """
+		('client',),
+		(), """
 		Does the client accept the gzip transfer encoding.
 		"""
 	),
 	('req.backend_hint',
 		'BACKEND',
-		( 'client', ),
-		( 'client',), """
+		('client', ),
+		('client',), """
 		Set bereq.backend to this if we attempt to fetch.
+		When set to a director, reading this variable returns
+		an actual backend if the director has resolved immediately,
+		or the director otherwise.
+		When used in string context, returns the name of the director
+		or backend, respectively.
 		"""
 	),
 	('req.hash_ignore_busy',
 		'BOOL',
-		( 'recv',),
-		( 'recv',), """
+		('recv',),
+		('recv',), """
 		Ignore any busy object during cache lookup. You
 		would want to do this if you have two server looking
 		up content from each other to avoid potential deadlocks.
@@ -310,8 +337,8 @@ sp_variables = [
 	),
 	('req.hash_always_miss',
 		'BOOL',
-		( 'recv',),
-		( 'recv',), """
+		('recv',),
+		('recv',), """
 		Force a cache miss for this request. If set to true
 		Varnish will disregard any existing objects and
 		always (re)fetch from the backend.
@@ -319,7 +346,7 @@ sp_variables = [
 	),
 	('req_top.method',
 		'STRING',
-		( 'client',),
+		('client',),
 		(), """
 		The request method of the top-level request in a tree
 		of ESI requests. (e.g. "GET", "HEAD").
@@ -328,7 +355,7 @@ sp_variables = [
 	),
 	('req_top.url',
 		'STRING',
-		( 'client',),
+		('client',),
 		(), """
 		The requested URL of the top-level request in a tree
 		of ESI requests.
@@ -337,7 +364,7 @@ sp_variables = [
 	),
 	('req_top.http.',
 		'HEADER',
-		( 'client',),
+		('client',),
 		(), """
 		HTTP headers of the top-level request in a tree of ESI requests.
 		Identical to req.http. in non-ESI requests.
@@ -345,7 +372,7 @@ sp_variables = [
 	),
 	('req_top.proto',
 		'STRING',
-		( 'client',),
+		('client',),
 		(), """
 		HTTP protocol version of the top-level request in a tree of
 		ESI requests.
@@ -354,131 +381,153 @@ sp_variables = [
 	),
 	('bereq',
 		'HTTP',
-		( 'backend',),
-		( ), """
+		('backend',),
+		(), """
 		The entire backend request HTTP data structure
 		"""
 	),
 	('bereq.xid',
 		'STRING',
-		( 'backend',),
-		( ), """
+		('backend',),
+		(), """
 		Unique ID of this request.
 		"""
 	),
 	('bereq.retries',
 		'INT',
-		( 'backend',),
-		( ), """
+		('backend',),
+		(), """
 		A count of how many times this request has been retried.
 		"""
 	),
 	('bereq.backend',
 		'BACKEND',
-		( 'pipe', 'backend', ),
-		( 'pipe', 'backend', ), """
+		('pipe', 'backend', ),
+		('pipe', 'backend', ), """
 		This is the backend or director we attempt to fetch from.
+		When set to a director, reading this variable returns
+		an actual backend if the director has resolved immediately,
+		or the director otherwise.
+		When used in string context, returns the name of the director
+		or backend, respectively.
+		"""
+	),
+	('bereq.body',
+		'BODY',
+		(),
+		('backend_fetch',), """
+		The request body.
 		"""
 	),
 	('bereq.method',
 		'STRING',
-		( 'pipe', 'backend', ),
-		( 'pipe', 'backend', ), """
+		('pipe', 'backend', ),
+		('pipe', 'backend', ), """
 		The request type (e.g. "GET", "HEAD").
 		"""
 	),
 	('bereq.url',
 		'STRING',
-		( 'pipe', 'backend', ),
-		( 'pipe', 'backend', ), """
+		('pipe', 'backend', ),
+		('pipe', 'backend', ), """
 		The requested URL.
 		"""
 	),
 	('bereq.proto',
 		'STRING',
-		( 'pipe', 'backend', ),
-		( 'pipe', 'backend', ), """
+		('pipe', 'backend', ),
+		('pipe', 'backend', ), """
 		The HTTP protocol version used to talk to the server.
 		"""
 	),
 	('bereq.http.',
 		'HEADER',
-		( 'pipe', 'backend', ),
-		( 'pipe', 'backend', ), """
+		('pipe', 'backend', ),
+		('pipe', 'backend', ), """
 		The corresponding HTTP header.
 		"""
 	),
 	('bereq.uncacheable',
 		'BOOL',
-		( 'backend', ),
-		( ), """
+		('backend', ),
+		(), """
 		Indicates whether this request is uncacheable due
-		to a pass in the client side or a hit on an existing
-		uncacheable object (aka hit-for-pass).
+		to a pass in the client side or a hit on an hit-for-pass
+		object.
 		"""
 	),
 	('bereq.connect_timeout',
 		'DURATION',
-		( 'pipe', 'backend', ),
-		( 'pipe', 'backend', ), """
+		('pipe', 'backend', ),
+		('pipe', 'backend', ), """
 		The time in seconds to wait for a backend connection.
 		"""
 	),
 	('bereq.first_byte_timeout',
 		'DURATION',
-		( 'backend', ),
-		( 'backend', ), """
+		('backend', ),
+		('backend', ), """
 		The time in seconds to wait for the first byte from
 		the backend.  Not available in pipe mode.
 		"""
 	),
 	('bereq.between_bytes_timeout',
 		'DURATION',
-		( 'backend', ),
-		( 'backend', ), """
+		('backend', ),
+		('backend', ), """
 		The time in seconds to wait between each received byte from the
 		backend.  Not available in pipe mode.
 		"""
 	),
 	('beresp',
 		'HTTP',
-		( 'backend_response', 'backend_error'),
-		( ), """
+		('backend_response', 'backend_error'),
+		(), """
 		The entire backend response HTTP data structure
+		"""
+	),
+	('beresp.body',
+		'BODY',
+		(),
+		('backend_error',), """
+		The response body.
 		"""
 	),
 	('beresp.proto',
 		'STRING',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		The HTTP protocol version used the backend replied with.
 		"""
 	),
 	('beresp.status',
 		'INT',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		The HTTP status code returned by the server.
+
+		Status codes >1000 can be set for vcl-internal
+		purposes and will be taken modulo 1000 on delivery.
 		"""
 	),
 	('beresp.reason',
 		'STRING',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		The HTTP status message returned by the server.
 		"""
 	),
 	('beresp.http.',
 		'HEADER',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		The corresponding HTTP header.
 		"""
 	),
 	('beresp.do_esi',
 		'BOOL',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		Boolean. ESI-process the object after fetching it.
 		Defaults to false. Set it to true to parse the
 		object for ESI directives. Will only be honored if
@@ -497,8 +546,8 @@ sp_variables = [
 	),
 	('beresp.do_gzip',
 		'BOOL',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		Boolean. Gzip the object before storing it. Defaults
 		to false. When http_gzip_support is on Varnish will
 		request already compressed content from the backend
@@ -507,16 +556,16 @@ sp_variables = [
 	),
 	('beresp.do_gunzip',
 		'BOOL',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		Boolean. Unzip the object before storing it in the
 		cache.  Defaults to false.
 		"""
 	),
 	('beresp.was_304',
 		'BOOL',
-		( 'backend_response', 'backend_error'),
-		( ), """
+		('backend_response', 'backend_error'),
+		(), """
 		Boolean. If this is a successful 304 response to a
 		backend conditional request refreshing an existing
 		cache object.
@@ -524,12 +573,12 @@ sp_variables = [
 	),
 	('beresp.uncacheable',
 		'BOOL',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		Inherited from bereq.uncacheable, see there.
 
 		Setting this variable makes the object uncacheable, which may
-		get stored as a hit-for-pass object in the cache.
+		get stored as a hit-for-miss object in the cache.
 
 		Clearing the variable has no effect and will log the warning
 		"Ignoring attempt to reset beresp.uncacheable".
@@ -537,29 +586,29 @@ sp_variables = [
 	),
 	('beresp.ttl',
 		'DURATION',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		The object's remaining time to live, in seconds.
 		"""
 	),
 	('beresp.age',
 		'DURATION',
-		( 'backend_response', 'backend_error'),
-		( ), """
+		('backend_response', 'backend_error'),
+		(), """
 		The age of the object.
 		"""
 	),
 	('beresp.grace',
 		'DURATION',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		Set to a period to enable grace.
 		"""
 	),
 	('beresp.keep',
 		'DURATION',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
 		Set to a period to enable conditional backend requests.
 
 		The keep time is cache lifetime in addition to the ttl.
@@ -571,156 +620,178 @@ sp_variables = [
 	),
 	('beresp.backend',
 		'BACKEND',
-		( 'backend_response', 'backend_error'),
-		( ), """
+		('backend_response', 'backend_error'),
+		(), """
 		This is the backend we fetched from.  If bereq.backend
 		was set to a director, this will be the backend selected
 		by the director.
+		When used in string context, returns its name.
 		"""
 	),
 	('beresp.backend.name',
 		'STRING',
-		( 'backend_response', 'backend_error'),
-		( ), """
+		('backend_response', 'backend_error'),
+		(), """
 		Name of the backend this response was fetched from.
+		Same as beresp.backend.
 		"""
 	),
 	('beresp.backend.ip',
 		'IP',
-		( 'backend_response', ),
-		( ), """
+		('backend_response',),
+		(), """
 		IP of the backend this response was fetched from.
+		"""
+	),
+	('beresp.storage',
+		'STEVEDORE',
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
+		The storage backend to use to save this object.
 		"""
 	),
 	('beresp.storage_hint',
 		'STRING',
-		( 'backend_response', 'backend_error'),
-		( 'backend_response', 'backend_error'), """
-		Hint to Varnish that you want to save this object to a
-		particular storage backend.
+		('backend_response', 'backend_error'),
+		('backend_response', 'backend_error'), """
+		Deprecated. Hint to Varnish that you want to
+		save this object to a particular storage backend.
+		Use beresp.storage instead.
 		"""
 	),
 	('obj.proto',
 		'STRING',
-		( 'hit', ),
-		( ), """
-		The HTTP protocol version used when the object was retrieved.
+		('hit',),
+		(), """
+		The HTTP protocol version stored with the object.
 		"""
 	),
 	('obj.status',
 		'INT',
-		( 'hit',),
-		( ), """
-		The HTTP status code returned by the server.
+		('hit',),
+		(), """
+		The HTTP status code stored with the object.
 		"""
 	),
 	('obj.reason',
 		'STRING',
-		( 'hit',),
-		( ), """
-		The HTTP status message returned by the server.
+		('hit',),
+		(), """
+		The HTTP reason phrase stored with the object.
 		"""
 	),
 	('obj.hits',
 		'INT',
-		( 'hit', 'deliver',),
-		( ), """
+		('hit', 'deliver'),
+		(), """
 		The count of cache-hits on this object. A value of 0 indicates a
 		cache miss.
 		"""
 	),
 	('obj.http.',
 		'HEADER',
-		( 'hit', ),
-		( ), """
+		('hit',),
+		(), """
 		The corresponding HTTP header.
 		"""
 	),
 	('obj.ttl',
 		'DURATION',
-		( 'hit', ),
-		( ), """
+		('hit', 'deliver'),
+		(), """
 		The object's remaining time to live, in seconds.
 		"""
 	),
 	('obj.age',
 		'DURATION',
-		( 'hit', ),
-		( ), """
+		('hit', 'deliver'),
+		(), """
 		The age of the object.
 		"""
 	),
 	('obj.grace',
 		'DURATION',
-		( 'hit', ),
-		( ), """
+		('hit', 'deliver'),
+		(), """
 		The object's remaining grace period in seconds.
 		"""
 	),
 	('obj.keep',
 		'DURATION',
-		( 'hit', ),
-		( ), """
+		('hit', 'deliver'),
+		(), """
 		The object's remaining keep period in seconds.
 		"""
 	),
 	('obj.uncacheable',
 		'BOOL',
-		( 'deliver', ),
-		( ), """
-		Whether the object is uncacheable (pass or hit-for-pass).
+		('deliver',),
+		(), """
+		Whether the object is uncacheable (pass, hit-for-pass or
+		hit-for-miss).
 		"""
 	),
 	('resp',
 		'HTTP',
-		( 'deliver', 'synth'),
-		( ), """
+		('deliver', 'synth'),
+		(), """
 		The entire response HTTP data structure.
+		"""
+	),
+	('resp.body',
+		'BODY',
+		(),
+		('synth',), """
+		The response body.
 		"""
 	),
 	('resp.proto',
 		'STRING',
-		( 'deliver', 'synth', ),
-		( 'deliver', 'synth', ), """
+		('deliver', 'synth'),
+		('deliver', 'synth'), """
 		The HTTP protocol version to use for the response.
 		"""
 	),
 	('resp.status',
 		'INT',
-		( 'deliver', 'synth', ),
-		( 'deliver', 'synth', ), """
+		('deliver', 'synth'),
+		('deliver', 'synth'), """
 		The HTTP status code that will be returned.
 
 		Assigning a HTTP standardized code to resp.status will also
 		set resp.reason to the corresponding status message.
+
+		resp.status 200 will get changed into 304 by core code after
+		a return(deliver) from vcl_deliver for conditional requests
+		to cached content if validation succeeds.
 		"""
 	),
 	('resp.reason',
 		'STRING',
-		( 'deliver', 'synth', ),
-		( 'deliver', 'synth', ), """
+		('deliver', 'synth'),
+		('deliver', 'synth'), """
 		The HTTP status message that will be returned.
 		"""
 	),
 	('resp.http.',
 		'HEADER',
-		( 'deliver', 'synth', ),
-		( 'deliver', 'synth', ), """
+		('deliver', 'synth'),
+		('deliver', 'synth'), """
 		The corresponding HTTP header.
 		"""
 	),
 	('resp.is_streaming',
 		'BOOL',
-		( 'deliver', 'synth', ),
-		( ), """
+		('deliver', 'synth'),
+		(), """
 		Returns true when the response will be streamed
 		from the backend.
 		"""
 	),
 	('now',
 		'TIME',
-		( 'all',),
-		( ), """
+		('all',),
+		(), """
 		The current time, in seconds since the epoch. When
 		used in string context it returns a formatted string.
 		"""
@@ -728,8 +799,7 @@ sp_variables = [
 ]
 
 # Backwards compatibility:
-aliases = [
-]
+aliases = []
 
 stv_variables = (
 	('free_space',	'BYTES',	"0.", 'storage.<name>.free_space', """
@@ -753,10 +823,10 @@ vcltypes = {
 	'STRING_LIST':	"void*",
 }
 
-fi = open(srcroot + "/include/vrt.h")
+fi = open(join(srcroot, "include/vrt.h"))
 
 for i in fi:
-	j = i.split();
+	j = i.split()
 	if len(j) < 3:
 		continue
 	if j[0] != "typedef":
@@ -775,25 +845,21 @@ fi.close()
 # Nothing is easily configurable below this line.
 #######################################################################
 
-import sys
-import copy
 
 #######################################################################
-# Emit a function to recognize tokens in a string
-
 def emit_vcl_fixed_token(fo, tokens):
-
+	"Emit a function to recognize tokens in a string"
 	recog = list()
 	emit = dict()
 	for i in tokens:
 		j = tokens[i]
-		if (j != None):
+		if j is not None:
 			recog.append(j)
 			emit[j] = i
 
 	recog.sort()
 	rrecog = copy.copy(recog)
-	rrecog.sort(key = lambda x: -len(x))
+	rrecog.sort(key=lambda x: -len(x))
 
 	fo.write("""
 #define M1()\tdo {*q = p + 1; return (p[0]); } while (0)
@@ -841,34 +907,34 @@ vcl_fixed_token(const char *p, const char **q)
 			fo.write("\t\treturn (0);\n")
 	fo.write("\tdefault:\n\t\treturn (0);\n\t}\n}\n")
 
-#######################################################################
-# Emit the vcl_tnames (token->string) conversion array
 
+#######################################################################
 def emit_vcl_tnames(fo, tokens):
+	"Emit the vcl_tnames (token->string) conversion array"
 	fo.write("\nconst char * const vcl_tnames[256] = {\n")
 	l = list(tokens.keys())
 	l.sort()
 	for i in l:
 		j = tokens[i]
-		if j == None:
+		if j is None:
 			j = i
 		if i[0] == "'":
 			j = i
 		fo.write("\t[%s] = \"%s\",\n" % (i, j))
 	fo.write("};\n")
 
-#######################################################################
-# Read a C-source file and spit out code that outputs it with VSB_cat()
 
+#######################################################################
 def emit_file(fo, fd, bn):
-	fn = fd + "/" + bn
+	"Read a C-source file and spit out code that outputs it with VSB_cat()"
+	fn = join(fd, bn)
 
 	fi = open(fn)
 	fc = fi.read()
 	fi.close()
 
 	w = 66		# Width of lines, after white space prefix
-	maxlen = 10240	# Max length of string literal
+	maxlen = 10240  # Max length of string literal
 
 	x = 0
 	l = 0
@@ -905,7 +971,7 @@ def emit_file(fo, fd, bn):
 		l += len(d)
 		if l > maxlen:
 			fo.write("\");\n")
-			l = 0;
+			l = 0
 			x = 0
 		if x > w - 3:
 			fo.write("\"\n")
@@ -918,35 +984,41 @@ def emit_file(fo, fd, bn):
 
 #######################################################################
 
+
 def polish_tokens(tokens):
-	# Expand single char tokens
+	"Expand single char tokens"
 	st = tokens[None]
 	del tokens[None]
-
 	for i in st:
 		tokens["'" + i + "'"] = i
-#######################################################################
 
+
+#######################################################################
 def file_header(fo):
 	fo.write("""/*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Edit and run generate.py instead
+ * Edit and run lib/libvcc/generate.py instead.
  */
+
 """)
+
+def lint_start(fo):
+	fo.write('/*lint -save -e525 -e539 */\n\n')
+
+def lint_end(fo):
+	fo.write('\n/*lint -restore */\n')
 
 #######################################################################
 
 polish_tokens(tokens)
 
-fo = open(buildroot + "/lib/libvcc/vcc_token_defs.h", "w")
+fo = open(join(buildroot, "lib/libvcc/vcc_token_defs.h"), "w")
 
 file_header(fo)
 
 j = 128
-l = list(tokens.keys())
-l.sort()
-for i in l:
+for i in sorted(tokens.keys()):
 	if i[0] == "'":
 		continue
 	fo.write("#define\t%s %d\n" % (i, j))
@@ -973,25 +1045,23 @@ for i in returns:
 
 #######################################################################
 
-fo = open(buildroot + "/include/tbl/vcl_returns.h", "w")
+fo = open(join(buildroot, "include/tbl/vcl_returns.h"), "w")
 
 file_header(fo)
 
-fo.write("\n/*lint -save -e525 -e539 */\n")
+lint_start(fo)
 
-fo.write("\n#ifdef VCL_RET_MAC\n")
-l = list(rets.keys())
-l.sort()
-ll = list(returns)
-ll.sort()
-for i in l:
+fo.write("#ifdef VCL_RET_MAC\n")
+ll = sorted(returns)
+for i in sorted(rets.keys()):
 	fo.write("VCL_RET_MAC(%s, %s" % (i.lower(), i.upper()))
-	s=",\n\t"
+	s = ",\n\t"
 	for j in ll:
 		if i in j[2]:
 			fo.write("%sVCL_MET_%s" % (s, j[0].upper()))
 			s = " |\n\t"
-	fo.write("\n)\n")
+	fo.write("\n)\n\n")
+fo.write("#undef VCL_RET_MAC\n")
 fo.write("#endif\n")
 
 fo.write("\n#ifdef VCL_MET_MAC\n")
@@ -999,19 +1069,18 @@ for i in ll:
 	fo.write("VCL_MET_MAC(%s, %s, %s," %
 	    (i[0].lower(), i[0].upper(), i[1]))
 	p = " (\n\t"
-	lll = list(i[2])
-	lll.sort()
-	for j in lll:
+	for j in sorted(i[2]):
 		fo.write("%s(1U << VCL_RET_%s)" % (p, j.upper()))
 		p = " |\n\t"
-	fo.write("\n))\n")
+	fo.write(")\n)\n\n")
+fo.write("#undef VCL_MET_MAC\n")
 fo.write("#endif\n")
-fo.write("\n/*lint -restore */\n")
+lint_end(fo)
 fo.close()
 
 #######################################################################
 
-fo = open(buildroot + "/include/vcl.h", "w")
+fo = open(join(buildroot, "include/vcl.h"), "w")
 
 file_header(fo)
 
@@ -1027,7 +1096,6 @@ struct worker;
 enum vcl_event_e {
 	VCL_EVENT_LOAD,
 	VCL_EVENT_WARM,
-	VCL_EVENT_USE,
 	VCL_EVENT_COLD,
 	VCL_EVENT_DISCARD,
 };
@@ -1035,8 +1103,9 @@ enum vcl_event_e {
 typedef int vcl_event_f(VRT_CTX, enum vcl_event_e);
 typedef int vcl_init_f(VRT_CTX);
 typedef void vcl_fini_f(VRT_CTX);
-typedef int vcl_func_f(VRT_CTX);
+typedef void vcl_func_f(VRT_CTX);
 """)
+
 
 def tbl40(a, b):
 	while len(a.expandtabs()) < 40:
@@ -1046,9 +1115,7 @@ def tbl40(a, b):
 fo.write("\n/* VCL Methods */\n")
 n = 1
 for i in returns:
-	fo.write(
-	    tbl40("#define VCL_MET_%s" % i[0].upper(), "(1U << %d)\n" % n)
-	)
+	fo.write(tbl40("#define VCL_MET_%s" % i[0].upper(), "(1U << %d)\n" % n))
 	n += 1
 
 fo.write("\n" + tbl40("#define VCL_MET_MAX", "%d\n" % n))
@@ -1056,10 +1123,8 @@ fo.write("\n" + tbl40("#define VCL_MET_MASK", "0x%x\n" % ((1 << n) - 1)))
 
 
 fo.write("\n/* VCL Returns */\n")
-n = 0
-l = list(rets.keys())
-l.sort()
-for i in l:
+n = 1
+for i in sorted(rets.keys()):
 	fo.write(tbl40("#define VCL_RET_%s" % i.upper(), "%d\n" % n))
 	n += 1
 
@@ -1086,13 +1151,11 @@ struct VCL_conf {
 for i in returns:
 	fo.write("\tvcl_func_f\t*" + i[0] + "_func;\n")
 
-fo.write("""
-};
-""")
-
+fo.write("\n};\n")
 fo.close()
 
 #######################################################################
+
 
 def restrict(fo, spec):
 	d = dict()
@@ -1134,10 +1197,10 @@ def restrict(fo, spec):
 
 #######################################################################
 
-fh = open(buildroot + "/include/vrt_obj.h", "w")
+fh = open(join(buildroot, "include/vrt_obj.h"), "w")
 file_header(fh)
 
-fo = open(buildroot + "/lib/libvcc/vcc_obj.c", "w")
+fo = open(join(buildroot, "lib/libvcc/vcc_obj.c"), "w")
 file_header(fo)
 
 fo.write("""
@@ -1150,13 +1213,14 @@ fo.write("""
 const struct var vcc_vars[] = {
 """)
 
+
 def one_var(nm, spec):
 	fh.write("\n")
 	typ = spec[1]
 	cnam = i[0].replace(".", "_")
 	ctyp = vcltypes[typ]
 
-	fo.write("\t{ \"%s\", %s, %d,\n" % (nm, typ, len(nm)))
+	fo.write("\t{ \"%s\", %s,\n" % (nm, typ))
 
 	if len(spec[2]) == 0:
 		fo.write('\t    NULL,\t/* No reads allowed */\n')
@@ -1167,8 +1231,7 @@ def one_var(nm, spec):
 	else:
 		fo.write('\t    "VRT_r_%s(ctx)",\n' % cnam)
 		if nm == i[0]:
-			fh.write("VCL_" + typ +
-			    " VRT_r_%s(VRT_CTX);\n" % cnam )
+			fh.write("VCL_" + typ + " VRT_r_%s(VRT_CTX);\n" % cnam)
 	restrict(fo, spec[2])
 
 	if len(spec[3]) == 0:
@@ -1180,9 +1243,8 @@ def one_var(nm, spec):
 	else:
 		fo.write('\t    "VRT_l_%s(ctx, ",\n' % cnam)
 		if nm == i[0]:
-			fh.write(
-			    "void VRT_l_%s(VRT_CTX, " % cnam)
-			if typ != "STRING":
+			fh.write("void VRT_l_%s(VRT_CTX, " % cnam)
+			if typ != "STRING" and typ != "BODY":
 				fh.write("VCL_" + typ + ");\n")
 			else:
 				fh.write(ctyp + ", ...);\n")
@@ -1199,9 +1261,8 @@ for i in sp_variables:
 		if j[1] == i[0]:
 			one_var(j[0], i)
 
-fo.write("\t{ NULL }\n};\n")
+fo.write("\t{ NULL }\n};\n\n")
 
-fh.write("\n")
 for i in stv_variables:
 	fh.write(vcltypes[i[1]] + " VRT_Stv_" + i[0] + "(const char *);\n")
 
@@ -1210,7 +1271,7 @@ fh.close()
 
 #######################################################################
 
-fo = open(buildroot + "/lib/libvcc/vcc_fixed_token.c", "w")
+fo = open(join(buildroot, "lib/libvcc/vcc_fixed_token.c"), "w")
 
 file_header(fo)
 fo.write("""
@@ -1237,74 +1298,44 @@ emit_file(fo, buildroot, "include/vcl.h")
 emit_file(fo, srcroot, "include/vrt.h")
 emit_file(fo, buildroot, "include/vrt_obj.h")
 
-fo.write("""
-}
-""")
-
+fo.write("\n}\n")
 fo.close()
 
 #######################################################################
-ft = open(buildroot + "/include/tbl/vcc_types.h", "w")
+ft = open(join(buildroot, "include/tbl/vcc_types.h"), "w")
 file_header(ft)
 
-ft.write("/*lint -save -e525 -e539 */\n")
+lint_start(ft)
 
-i = list(vcltypes.keys())
-i.sort()
-for j in i:
-	ft.write("VCC_TYPE(" + j + ")\n")
-ft.write("/*lint -restore */\n")
+for vcltype in sorted(vcltypes.keys()):
+	ft.write("VCC_TYPE(" + vcltype + ")\n")
+ft.write("#undef VCC_TYPE\n")
+lint_end(ft)
 ft.close()
 
 #######################################################################
 
-fo = open(buildroot + "/include/tbl/vrt_stv_var.h", "w")
+fo = open(join(buildroot, "include/tbl/vrt_stv_var.h"), "w")
 
 file_header(fo)
+lint_start(fo)
 
-fo.write("""
-#ifndef VRTSTVTYPE
-#define VRTSTVTYPE(ct)
-#define VRTSTVTYPEX
-#endif
-#ifndef VRTSTVVAR
-#define VRTSTVVAR(nm, vtype, ctype, dval)
-#define VRTSTVVARX
-#endif
-""")
-
-x=dict()
 for i in stv_variables:
 	ct = vcltypes[i[1]]
-	if not ct in x:
-		fo.write("VRTSTVTYPE(" + ct + ")\n")
-		x[ct] = 1
 	fo.write("VRTSTVVAR(" + i[0] + ",\t" + i[1] + ",\t")
 	fo.write(ct + ",\t" + i[2] + ")")
 	fo.write("\n")
 
-fo.write("""
-#ifdef VRTSTVTYPEX
-#undef VRTSTVTYPEX
-#undef VRTSTVTYPE
-#endif
-#ifdef VRTSTVVARX
-#undef VRTSTVVARX
-#undef VRTSTVVAR
-#endif
-""")
-
-fo.close
+fo.write("#undef VRTSTVVAR\n")
+lint_end(fo)
+fo.close()
 
 #######################################################################
 
-fp_vclvar = open(buildroot + "/doc/sphinx/include/vcl_var.rst", "w")
+fp_vclvar = open(join(buildroot, "doc/sphinx/include/vcl_var.rst"), "w")
 
-l = list()
-for i in sp_variables:
-	l.append(i)
+l = sorted(sp_variables)
 
-l.sort()
 
 def rst_where(fo, h, l):
 	ll = list()
@@ -1329,7 +1360,7 @@ def rst_where(fo, h, l):
 		s = ", "
 	fo.write("\n\n")
 
-hdr=""
+hdr = ""
 for i in l:
 	j = i[0].split(".")
 	if j[0] != hdr:
@@ -1343,9 +1374,9 @@ for i in l:
 	for j in i[4].split("\n"):
 		fp_vclvar.write("\t%s\n" % j.strip())
 
-hdr="storage"
-fp_vclvar.write("\n" + hdr + "\n");
-fp_vclvar.write("~" * len(hdr) + "\n");
+hdr = "storage"
+fp_vclvar.write("\n" + hdr + "\n")
+fp_vclvar.write("~" * len(hdr) + "\n")
 for i in stv_variables:
 	fp_vclvar.write("\n" + i[3] + "\n\n")
 	fp_vclvar.write("\tType: " + i[1] + "\n\n")
@@ -1353,5 +1384,45 @@ for i in stv_variables:
 	for j in i[4].split("\n"):
 		fp_vclvar.write("\t%s\n" % j.strip())
 
-
 fp_vclvar.close()
+
+#######################################################################
+
+if os.path.isdir(os.path.join(srcroot, ".git")):
+	v = subprocess.check_output([
+		"git --git-dir=" + os.path.join(srcroot, ".git") +
+		" show -s --pretty=format:%h"
+	], shell=True, universal_newlines=True)
+	v = v.strip()
+	b = subprocess.check_output([
+		"git --git-dir=" + os.path.join(srcroot, ".git") +
+		" rev-parse --abbrev-ref HEAD"
+	], shell=True, universal_newlines=True)
+	b = b.strip()
+else:
+	b = "NOGIT"
+	v = "NOGIT"
+
+vcsfn = os.path.join(srcroot, "include", "vcs_version.h")
+
+try:
+	i = open(vcsfn).readline()
+except IOError:
+	i = ""
+
+if i != "/* " + v + " */":
+	fo = open(vcsfn, "w")
+	file_header(fo)
+	fo.write('#define VCS_Version "%s"\n' % v)
+	fo.write('#define VCS_Branch "%s"\n' % b)
+	fo.close()
+
+	for i in open(os.path.join(buildroot, "Makefile")):
+		if i[:14] == "PACKAGE_STRING":
+			break
+	i = i.split("=")[1].strip()
+
+	fo = open(os.path.join(srcroot, "include", "vmod_abi.h"), "w")
+	file_header(fo)
+	fo.write('#define VMOD_ABI_Version "%s %s"\n' % (i, v))
+	fo.close()

@@ -33,6 +33,7 @@
 #include "cache_director.h"
 #include "cache_filter.h"
 #include "hash/hash_slinger.h"
+#include "storage/storage.h"
 #include "vcl.h"
 #include "vtim.h"
 
@@ -46,26 +47,30 @@ static int
 vbf_allocobj(struct busyobj *bo, unsigned l)
 {
 	struct objcore *oc;
-	const char *storage_hint;
+	const struct stevedore *stv;
 	double lifetime;
 
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	oc = bo->fetch_objcore;
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 
-	lifetime = oc->exp.ttl + oc->exp.grace + oc->exp.keep;
+	lifetime = oc->ttl + oc->grace + oc->keep;
 
 	if (bo->uncacheable || lifetime < cache_param->shortlived)
-		storage_hint = TRANSIENT_STORAGE;
+		stv = stv_transient;
 	else
-		storage_hint = bo->storage_hint;
+		stv = bo->storage;
 
+	bo->storage = NULL;
 	bo->storage_hint = NULL;
 
-	if (STV_NewObject(bo->fetch_objcore, bo->wrk, storage_hint, l))
+	if (stv == NULL)
+		return (0);
+
+	if (STV_NewObject(bo->wrk, bo->fetch_objcore, stv, l))
 		return (1);
 
-	if (storage_hint != NULL && !strcmp(storage_hint, TRANSIENT_STORAGE))
+	if (stv == stv_transient)
 		return (0);
 
 	/*
@@ -73,12 +78,11 @@ vbf_allocobj(struct busyobj *bo, unsigned l)
 	 * on Transient storage.
 	 */
 
-	if (oc->exp.ttl > cache_param->shortlived)
-		oc->exp.ttl = cache_param->shortlived;
-	oc->exp.grace = 0.0;
-	oc->exp.keep = 0.0;
-	return (STV_NewObject(bo->fetch_objcore, bo->wrk,
-	    TRANSIENT_STORAGE, l));
+	if (oc->ttl > cache_param->shortlived)
+		oc->ttl = cache_param->shortlived;
+	oc->grace = 0.0;
+	oc->keep = 0.0;
+	return (STV_NewObject(bo->wrk, bo->fetch_objcore, stv_transient, l));
 }
 
 /*--------------------------------------------------------------------
@@ -129,9 +133,9 @@ vbf_beresp2obj(struct busyobj *bo)
 		return (-1);
 
 	if (vary != NULL) {
-		b = ObjSetattr(bo->wrk, bo->fetch_objcore, OA_VARY, varyl,
-		    VSB_data(vary));
-		VSB_delete(vary);
+		AN(ObjSetAttr(bo->wrk, bo->fetch_objcore, OA_VARY, varyl,
+			VSB_data(vary)));
+		VSB_destroy(&vary);
 	}
 
 	AZ(ObjSetU32(bo->wrk, bo->fetch_objcore, OA_VXID, VXID(bo->vsl->wid)));
@@ -140,7 +144,7 @@ vbf_beresp2obj(struct busyobj *bo)
 	bo->beresp->logtag = SLT_ObjMethod;
 
 	/* Filter into object */
-	bp = ObjSetattr(bo->wrk, bo->fetch_objcore, OA_HEADERS, l2, NULL);
+	bp = ObjSetAttr(bo->wrk, bo->fetch_objcore, OA_HEADERS, l2, NULL);
 	AN(bp);
 	HTTP_Encode(bo->beresp, bp, l2,
 	    bo->uncacheable ? HTTPH_A_PASS : HTTPH_A_INS);
@@ -150,7 +154,7 @@ vbf_beresp2obj(struct busyobj *bo)
 		    VTIM_parse(b)));
 	else
 		AZ(ObjSetDouble(bo->wrk, bo->fetch_objcore, OA_LASTMODIFIED,
-		    floor(bo->fetch_objcore->exp.t_origin)));
+		    floor(bo->fetch_objcore->t_origin)));
 
 	return (0);
 }
@@ -160,7 +164,7 @@ vbf_beresp2obj(struct busyobj *bo)
  */
 
 static enum fetch_step
-vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
+vbf_stp_mkbereq(struct worker *wrk, struct busyobj *bo)
 {
 	const char *q;
 
@@ -168,7 +172,8 @@ vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_NOTNULL(bo->req, REQ_MAGIC);
 
-	assert(bo->state == BOS_INVALID);
+	assert(bo->fetch_objcore->boc->state == BOS_INVALID);
+	AZ(bo->storage);
 	AZ(bo->storage_hint);
 
 	HTTP_Setup(bo->bereq0, bo->ws, bo->vsl, SLT_BereqMethod);
@@ -180,14 +185,17 @@ vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
 		http_ForceField(bo->bereq0, HTTP_HDR_PROTO, "HTTP/1.1");
 		if (cache_param->http_gzip_support)
 			http_ForceHeader(bo->bereq0, H_Accept_Encoding, "gzip");
-		AN(bo->req);
-		bo->req = NULL;
-		http_CopyHome(bo->bereq0);
-	} else
+	} else {
 		AZ(bo->stale_oc);
+		if (bo->bereq0->protover > 11)
+			http_ForceField(bo->bereq0, HTTP_HDR_PROTO, "HTTP/1.1");
+	}
+	http_CopyHome(bo->bereq0);
 
 	if (bo->stale_oc != NULL &&
-	    ObjCheckFlag(bo->wrk, bo->stale_oc, OF_IMSCAND)) {
+	    ObjCheckFlag(bo->wrk, bo->stale_oc, OF_IMSCAND) &&
+	    (bo->stale_oc->boc != NULL || ObjGetLen(wrk, bo->stale_oc) != 0)) {
+		AZ(bo->stale_oc->flags & OC_F_PASS);
 		q = HTTP_GetHdrPack(bo->wrk, bo->stale_oc, H_Last_Modified);
 		if (q != NULL)
 			http_PrintfHeader(bo->bereq0,
@@ -202,7 +210,10 @@ vbf_stp_mkbereq(const struct worker *wrk, struct busyobj *bo)
 	bo->ws_bo = WS_Snapshot(bo->ws);
 	HTTP_Copy(bo->bereq, bo->bereq0);
 
-	VBO_setstate(bo, BOS_REQ_DONE);
+	if (bo->req->req_body_status == REQ_BODY_NONE) {
+		bo->req = NULL;
+		ObjSetState(bo->wrk, bo->fetch_objcore, BOS_REQ_DONE);
+	}
 	return (F_STP_STARTFETCH);
 }
 
@@ -221,7 +232,7 @@ vbf_stp_retry(struct worker *wrk, struct busyobj *bo)
 	vfc = bo->vfc;
 	CHECK_OBJ_NOTNULL(vfc, VFP_CTX_MAGIC);
 
-	assert(bo->state == BOS_REQ_DONE);
+	assert(bo->fetch_objcore->boc->state <= BOS_REQ_DONE);
 
 	VSLb_ts_busyobj(bo, "Retry", W_TIM_real(wrk));
 
@@ -229,6 +240,7 @@ vbf_stp_retry(struct worker *wrk, struct busyobj *bo)
 	assert(bo->director_state == DIR_S_NULL);
 
 	/* reset other bo attributes - See VBO_GetBusyObj */
+	bo->storage = NULL;
 	bo->storage_hint = NULL;
 	bo->do_esi = 0;
 	bo->do_stream = 1;
@@ -257,12 +269,10 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
+	AZ(bo->storage);
 	AZ(bo->storage_hint);
 
-	if (bo->do_pass)
-		AN(bo->req);
-	else
-		AZ(bo->req);
+	bo->storage = STV_next();
 
 	if (bo->retries > 0)
 		http_Unset(bo->bereq, "\012X-Varnish:");
@@ -272,14 +282,14 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	VCL_backend_fetch_method(bo->vcl, wrk, NULL, bo, NULL);
 
 	bo->uncacheable = bo->do_pass;
-	if (wrk->handling == VCL_RET_ABANDON)
+	if (wrk->handling == VCL_RET_ABANDON || wrk->handling == VCL_RET_FAIL)
 		return (F_STP_FAIL);
 
 	assert (wrk->handling == VCL_RET_FETCH);
 
 	HTTP_Setup(bo->beresp, bo->ws, bo->vsl, SLT_BerespMethod);
 
-	assert(bo->state <= BOS_REQ_DONE);
+	assert(bo->fetch_objcore->boc->state <= BOS_REQ_DONE);
 
 	AZ(bo->htc);
 	i = VDI_GetHdr(wrk, bo);
@@ -379,15 +389,21 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 		return (F_STP_ERROR);
 	}
 
-	/*
-	 * What does RFC2616 think about TTL ?
-	 */
-	EXP_Clr(&bo->fetch_objcore->exp);
-	RFC2616_Ttl(bo, now);
-
-	/* private objects have negative TTL */
-	if (bo->fetch_objcore->flags & OC_F_PRIVATE)
-		bo->fetch_objcore->exp.ttl = -1.;
+	if (bo->fetch_objcore->flags & OC_F_PRIVATE) {
+		/* private objects have negative TTL */
+		bo->fetch_objcore->t_origin = now;
+		bo->fetch_objcore->ttl = -1.;
+		bo->fetch_objcore->grace = 0;
+		bo->fetch_objcore->keep = 0;
+	} else {
+		/* What does RFC2616 think about TTL ? */
+		RFC2616_Ttl(bo, now,
+		    &bo->fetch_objcore->t_origin,
+		    &bo->fetch_objcore->ttl,
+		    &bo->fetch_objcore->grace,
+		    &bo->fetch_objcore->keep
+		    );
+	}
 
 	AZ(bo->do_esi);
 	AZ(bo->was_304);
@@ -428,7 +444,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 
 	VCL_backend_response_method(bo->vcl, wrk, NULL, bo, NULL);
 
-	if (wrk->handling == VCL_RET_ABANDON) {
+	if (wrk->handling == VCL_RET_ABANDON || wrk->handling == VCL_RET_FAIL) {
 		bo->htc->doclose = SC_RESP_CLOSE;
 		VDI_Finish(bo->wrk, bo);
 		return (F_STP_FAIL);
@@ -449,10 +465,19 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 		return (F_STP_ERROR);
 	}
 
-	assert(bo->state == BOS_REQ_DONE);
+	assert(bo->fetch_objcore->boc->state <= BOS_REQ_DONE);
+	if (bo->fetch_objcore->boc->state != BOS_REQ_DONE) {
+		bo->req = NULL;
+		ObjSetState(wrk, bo->fetch_objcore, BOS_REQ_DONE);
+	}
 
 	if (bo->do_esi)
 		bo->do_stream = 0;
+	if (wrk->handling == VCL_RET_PASS) {
+		bo->fetch_objcore->flags |= OC_F_HFP;
+		bo->uncacheable = 1;
+		wrk->handling = VCL_RET_DELIVER;
+	}
 	if (bo->do_pass || bo->uncacheable)
 		bo->fetch_objcore->flags |= OC_F_PASS;
 
@@ -464,8 +489,8 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 /*--------------------------------------------------------------------
  */
 
-static void
-vbf_fetch_body_helper(struct busyobj *bo)
+static enum fetch_step
+vbf_stp_fetchbody(struct worker *wrk, struct busyobj *bo)
 {
 	ssize_t l;
 	uint8_t *ptr;
@@ -484,14 +509,14 @@ vbf_fetch_body_helper(struct busyobj *bo)
 		est = 0;
 
 	do {
-		if (bo->abandon) {
+		if (vfc->oc->flags & OC_F_ABANDON) {
 			/*
 			 * A pass object and delivery was terminated
 			 * We don't fail the fetch, in order for hit-for-pass
 			 * objects to be created.
 			 */
 			AN(vfc->oc->flags & OC_F_PASS);
-			VSLb(vfc->wrk->vsl, SLT_FetchError,
+			VSLb(wrk->vsl, SLT_FetchError,
 			    "Pass delivery abandoned");
 			vfps = VFP_END;
 			bo->htc->doclose = SC_RX_BODY;
@@ -509,7 +534,7 @@ vbf_fetch_body_helper(struct busyobj *bo)
 		vfps = VFP_Suck(vfc, ptr, &l);
 		if (l > 0 && vfps != VFP_ERROR) {
 			bo->acct.beresp_bodybytes += l;
-			VBO_extend(bo, l);
+			VFP_Extend(vfc, l);
 			if (est >= l)
 				est -= l;
 			else
@@ -517,14 +542,22 @@ vbf_fetch_body_helper(struct busyobj *bo)
 		}
 	} while (vfps == VFP_OK);
 
-	if (vfps == VFP_ERROR) {
-		AN(vfc->failed);
+	if (vfc->failed) {
 		(void)VFP_Error(vfc, "Fetch pipeline failed to process");
 		bo->htc->doclose = SC_RX_BODY;
+		VDI_Finish(wrk, bo);
+		if (!bo->do_stream) {
+			assert(bo->fetch_objcore->boc->state < BOS_STREAM);
+			// XXX: doclose = ?
+			return (F_STP_ERROR);
+		} else {
+			wrk->stats->fetch_failed++;
+			return (F_STP_FAIL);
+		}
 	}
 
-	if (!bo->do_stream)
-		ObjTrimStore(bo->wrk, vfc->oc);
+	ObjTrimStore(wrk, vfc->oc);
+	return (F_STP_FETCHEND);
 }
 
 /*--------------------------------------------------------------------
@@ -620,6 +653,8 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	if (bo->htc->body_status == BS_NONE)
 		bo->do_stream = 0;
 
+	bo->fetch_objcore->boc->len_so_far = 0;
+
 	if (VFP_Open(bo->vfc)) {
 		(void)VFP_Error(bo->vfc, "Fetch pipeline failed to open");
 		bo->htc->doclose = SC_RX_BODY;
@@ -653,20 +688,21 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	if (bo->htc->body_status != BS_NONE &&
 	    VDI_GetBody(bo->wrk, bo) != 0) {
 		(void)VFP_Error(bo->vfc,
-		    "GetBody failed - backend_workspace overflow?");
+		    "GetBody failed - workspace_backend overflow?");
 		VFP_Close(bo->vfc);
 		bo->htc->doclose = SC_OVERLOAD;
 		VDI_Finish(bo->wrk, bo);
 		return (F_STP_ERROR);
 	}
 
-	assert(bo->refcount >= 1);
+	assert(bo->fetch_objcore->boc->refcount >= 1);
 
-	assert(bo->state == BOS_REQ_DONE);
+	assert(bo->fetch_objcore->boc->state == BOS_REQ_DONE);
 
 	if (bo->do_stream) {
+		ObjSetState(wrk, bo->fetch_objcore, BOS_PREP_STREAM);
 		HSH_Unbusy(wrk, bo->fetch_objcore);
-		VBO_setstate(bo, BOS_STREAM);
+		ObjSetState(wrk, bo->fetch_objcore, BOS_STREAM);
 	}
 
 	VSLb(bo->vsl, SLT_Fetch_Body, "%u %s %s",
@@ -675,27 +711,26 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 
 	if (bo->htc->body_status != BS_NONE) {
 		assert(bo->htc->body_status != BS_ERROR);
-		vbf_fetch_body_helper(bo);
+		return (F_STP_FETCHBODY);
 	}
+	AZ(bo->vfc->failed);
+	return (F_STP_FETCHEND);
+}
 
+static enum fetch_step
+vbf_stp_fetchend(struct worker *wrk, struct busyobj *bo)
+{
+
+	AZ(bo->vfc->failed);
 	VFP_Close(bo->vfc);
 
-	if (bo->vfc->failed) {
-		VDI_Finish(bo->wrk, bo);
-		if (!bo->do_stream) {
-			assert(bo->state < BOS_STREAM);
-			// XXX: doclose = ?
-			return (F_STP_ERROR);
-		} else {
-			wrk->stats->fetch_failed++;
-			return (F_STP_FAIL);
-		}
-	}
+	AZ(ObjSetU64(wrk, bo->fetch_objcore, OA_LEN,
+	    bo->fetch_objcore->boc->len_so_far));
 
 	if (bo->do_stream)
-		assert(bo->state == BOS_STREAM);
+		assert(bo->fetch_objcore->boc->state == BOS_STREAM);
 	else {
-		assert(bo->state == BOS_REQ_DONE);
+		assert(bo->fetch_objcore->boc->state == BOS_REQ_DONE);
 		HSH_Unbusy(wrk, bo->fetch_objcore);
 	}
 
@@ -703,31 +738,51 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	   give predictable backend reuse behavior for varnishtest */
 	VDI_Finish(bo->wrk, bo);
 
-	VBO_setstate(bo, BOS_FINISHED);
+	ObjSetState(wrk, bo->fetch_objcore, BOS_FINISHED);
 	VSLb_ts_busyobj(bo, "BerespBody", W_TIM_real(wrk));
 	if (bo->stale_oc != NULL)
-		EXP_Rearm(bo->stale_oc, bo->stale_oc->exp.t_origin, 0, 0, 0);
+		HSH_Kill(bo->stale_oc);
 	return (F_STP_DONE);
 }
 
 /*--------------------------------------------------------------------
  */
 
+static int
+vbf_objiterator(void *priv, int flush, const void *ptr, ssize_t len)
+{
+	struct busyobj *bo;
+	ssize_t l;
+	const uint8_t *ps = ptr;
+	uint8_t *pd;
+
+	(void)flush;
+	CAST_OBJ_NOTNULL(bo, priv, BUSYOBJ_MAGIC);
+
+	while (len > 0) {
+		l = len;
+		if (VFP_GetStorage(bo->vfc, &l, &pd) != VFP_OK)
+			return (1);
+		if (len < l)
+			l = len;
+		memcpy(pd, ps, l);
+		VFP_Extend(bo->vfc, l);
+		ps += l;
+		len -= l;
+	}
+	return (0);
+}
+
 static enum fetch_step
 vbf_stp_condfetch(struct worker *wrk, struct busyobj *bo)
 {
-	void *oi;
-	void *sp;
-	ssize_t sl, al, l;
-	uint8_t *ptr;
-	enum objiter_status ois;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
 	AZ(vbf_beresp2obj(bo));
 
-	if (ObjGetattr(bo->wrk, bo->stale_oc, OA_ESIDATA, NULL) != NULL)
+	if (ObjHasAttr(bo->wrk, bo->stale_oc, OA_ESIDATA))
 		AZ(ObjCopyAttr(bo->wrk, bo->fetch_objcore, bo->stale_oc,
 		    OA_ESIDATA));
 
@@ -735,31 +790,14 @@ vbf_stp_condfetch(struct worker *wrk, struct busyobj *bo)
 	AZ(ObjCopyAttr(bo->wrk, bo->fetch_objcore, bo->stale_oc, OA_GZIPBITS));
 
 	if (bo->do_stream) {
+		ObjSetState(wrk, bo->fetch_objcore, BOS_PREP_STREAM);
 		HSH_Unbusy(wrk, bo->fetch_objcore);
-		VBO_setstate(bo, BOS_STREAM);
+		ObjSetState(wrk, bo->fetch_objcore, BOS_STREAM);
 	}
 
-	al = 0;
-	oi = ObjIterBegin(wrk, bo->stale_oc);
-	do {
-		ois = ObjIter(bo->stale_oc, oi, &sp, &sl);
-		if (ois == OIS_ERROR)
-			(void)VFP_Error(bo->vfc, "Template object failed");
-		while (sl > 0) {
-			l = ObjGetLen(bo->wrk, bo->stale_oc) - al;
-			assert(l > 0);
-			if (VFP_GetStorage(bo->vfc, &l, &ptr) != VFP_OK)
-				break;
-			if (sl < l)
-				l = sl;
-			memcpy(ptr, sp, l);
-			VBO_extend(bo, l);
-			al += l;
-			sp = (char *)sp + l;
-			sl -= l;
-		}
-	} while (!bo->vfc->failed && (ois == OIS_DATA || ois == OIS_STREAM));
-	ObjIterEnd(bo->stale_oc, &oi);
+	if (ObjIterate(wrk, bo->stale_oc, bo, vbf_objiterator, 0))
+		(void)VFP_Error(bo->vfc, "Template object failed");
+
 	if (bo->stale_oc->flags & OC_F_FAILED)
 		(void)VFP_Error(bo->vfc, "Template object failed");
 	if (bo->vfc->failed) {
@@ -767,20 +805,7 @@ vbf_stp_condfetch(struct worker *wrk, struct busyobj *bo)
 		wrk->stats->fetch_failed++;
 		return (F_STP_FAIL);
 	}
-
-	if (!bo->do_stream)
-		HSH_Unbusy(wrk, bo->fetch_objcore);
-
-	assert(ObjGetLen(bo->wrk, bo->fetch_objcore) == al);
-	EXP_Rearm(bo->stale_oc, bo->stale_oc->exp.t_origin, 0, 0, 0);
-
-	/* Recycle the backend connection before setting BOS_FINISHED to
-	   give predictable backend reuse behavior for varnishtest */
-	VDI_Finish(bo->wrk, bo);
-
-	VBO_setstate(bo, BOS_FINISHED);
-	VSLb_ts_busyobj(bo, "BerespBody", W_TIM_real(wrk));
-	return (F_STP_DONE);
+	return (F_STP_FETCHEND);
 }
 
 /*--------------------------------------------------------------------
@@ -806,7 +831,7 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	now = W_TIM_real(wrk);
 	VSLb_ts_busyobj(bo, "Error", now);
 
-	if(bo->fetch_objcore->stobj->stevedore != NULL)
+	if (bo->fetch_objcore->stobj->stevedore != NULL)
 		ObjFreeObj(bo->wrk, bo->fetch_objcore);
 
 	// XXX: reset all beresp flags ?
@@ -816,7 +841,8 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	http_TimeHeader(bo->beresp, "Date: ", now);
 	http_SetHeader(bo->beresp, "Server: Varnish");
 
-	if (bo->fetch_objcore->objhead->waitinglist != NULL) {
+	bo->fetch_objcore->t_origin = now;
+	if (!VTAILQ_EMPTY(&bo->fetch_objcore->objhead->waitinglist)) {
 		/*
 		 * If there is a waitinglist, it means that there is no
 		 * grace-able object, so cache the error return for a
@@ -824,13 +850,13 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 		 * each objcore on the waiting list sequentially attempt
 		 * to fetch from the backend.
 		 */
-		bo->fetch_objcore->exp.t_origin = now;
-		bo->fetch_objcore->exp.ttl = 1;
-		bo->fetch_objcore->exp.grace = 5;
-		bo->fetch_objcore->exp.keep = 5;
+		bo->fetch_objcore->ttl = 1;
+		bo->fetch_objcore->grace = 5;
+		bo->fetch_objcore->keep = 5;
 	} else {
-		EXP_Clr(&bo->fetch_objcore->exp);
-		bo->fetch_objcore->exp.t_origin = now;
+		bo->fetch_objcore->ttl = 0;
+		bo->fetch_objcore->grace = 0;
+		bo->fetch_objcore->keep = 0;
 	}
 
 	synth_body = VSB_new_auto();
@@ -840,13 +866,13 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 
 	AZ(VSB_finish(synth_body));
 
-	if (wrk->handling == VCL_RET_ABANDON) {
-		VSB_delete(synth_body);
+	if (wrk->handling == VCL_RET_ABANDON || wrk->handling == VCL_RET_FAIL) {
+		VSB_destroy(&synth_body);
 		return (F_STP_FAIL);
 	}
 
 	if (wrk->handling == VCL_RET_RETRY) {
-		VSB_delete(synth_body);
+		VSB_destroy(&synth_body);
 		if (bo->retries++ < cache_param->max_retries)
 			return (F_STP_RETRY);
 		VSLb(bo->vsl, SLT_VCL_Error, "Too many retries, failing");
@@ -863,7 +889,7 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 
 	if (vbf_beresp2obj(bo)) {
 		(void)VFP_Error(bo->vfc, "Could not get storage");
-		VSB_delete(synth_body);
+		VSB_destroy(&synth_body);
 		return (F_STP_FAIL);
 	}
 
@@ -874,14 +900,14 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 		if (VFP_GetStorage(bo->vfc, &l, &ptr) != VFP_OK)
 			break;
 		memcpy(ptr, VSB_data(synth_body) + o, l);
-		VBO_extend(bo, l);
+		VFP_Extend(bo->vfc, l);
 		ll -= l;
 		o += l;
 	}
-	VSB_delete(synth_body);
-
+	AZ(ObjSetU64(wrk, bo->fetch_objcore, OA_LEN, o));
+	VSB_destroy(&synth_body);
 	HSH_Unbusy(wrk, bo->fetch_objcore);
-	VBO_setstate(bo, BOS_FINISHED);
+	ObjSetState(wrk, bo->fetch_objcore, BOS_FINISHED);
 	return (F_STP_DONE);
 }
 
@@ -889,21 +915,17 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
  */
 
 static enum fetch_step
-vbf_stp_fail(struct worker *wrk, struct busyobj *bo)
+vbf_stp_fail(struct worker *wrk, const struct busyobj *bo)
 {
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_NOTNULL(bo->fetch_objcore, OBJCORE_MAGIC);
 
-	assert(bo->state < BOS_FINISHED);
+	assert(bo->fetch_objcore->boc->state < BOS_FINISHED);
 	HSH_Fail(bo->fetch_objcore);
-	if (bo->fetch_objcore->exp_flags & OC_EF_EXP) {
-		/* Already unbusied - expire it */
-		AN(bo->fetch_objcore);
-		EXP_Rearm(bo->fetch_objcore,
-		    bo->fetch_objcore->exp.t_origin, 0, 0, 0);
-	}
-	VBO_setstate(bo, BOS_FAILED);
+	if (!(bo->fetch_objcore->flags & OC_F_BUSY))
+		HSH_Kill(bo->fetch_objcore);
+	ObjSetState(wrk, bo->fetch_objcore, BOS_FAILED);
 	return (F_STP_DONE);
 }
 
@@ -914,7 +936,7 @@ static enum fetch_step
 vbf_stp_done(void)
 {
 	WRONG("Just plain wrong");
-	NEEDLESS_RETURN(F_STP_DONE);
+	NEEDLESS(return(F_STP_DONE));
 }
 
 static void __match_proto__(task_func_t)
@@ -942,20 +964,19 @@ vbf_fetch_thread(struct worker *wrk, void *priv)
 		CHECK_OBJ_NOTNULL(bo->stale_oc, OBJCORE_MAGIC);
 		/* We don't want the oc/stevedore ops in fetching thread */
 		if (!ObjCheckFlag(wrk, bo->stale_oc, OF_IMSCAND))
-			(void)HSH_DerefObjCore(wrk, &bo->stale_oc);
+			(void)HSH_DerefObjCore(wrk, &bo->stale_oc, 0);
 	}
 #endif
 
 	while (stp != F_STP_DONE) {
 		CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-		assert(bo->refcount >= 1);
-		switch(stp) {
+		assert(bo->fetch_objcore->boc->refcount >= 1);
+		switch (stp) {
 #define FETCH_STEP(l, U, arg)						\
 		case F_STP_##U:						\
 			stp = vbf_stp_##l arg;				\
 			break;
 #include "tbl/steps.h"
-#undef FETCH_STEP
 		default:
 			WRONG("Illegal fetch_step");
 		}
@@ -966,19 +987,20 @@ vbf_fetch_thread(struct worker *wrk, void *priv)
 	http_Teardown(bo->bereq);
 	http_Teardown(bo->beresp);
 
-	if (bo->state == BOS_FINISHED) {
+	if (bo->fetch_objcore->boc->state == BOS_FINISHED) {
 		AZ(bo->fetch_objcore->flags & OC_F_FAILED);
-		HSH_Complete(bo->fetch_objcore);
 		VSLb(bo->vsl, SLT_Length, "%ju",
 		    (uintmax_t)ObjGetLen(bo->wrk, bo->fetch_objcore));
 	}
-	AZ(bo->fetch_objcore->busyobj);
+	// AZ(bo->fetch_objcore->boc);	// XXX
 
 	if (bo->stale_oc != NULL)
-		(void)HSH_DerefObjCore(wrk, &bo->stale_oc);
+		(void)HSH_DerefObjCore(wrk, &bo->stale_oc, 0);
 
 	wrk->vsl = NULL;
-	VBO_DerefBusyObj(wrk, &bo);
+	HSH_DerefBoc(wrk, bo->fetch_objcore);
+	SES_Rel(bo->sp);
+	VBO_ReleaseBusyObj(wrk, &bo);
 	THR_SetBusyobj(NULL);
 }
 
@@ -989,7 +1011,8 @@ void
 VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
     struct objcore *oldoc, enum vbf_fetch_mode_e mode)
 {
-	struct busyobj *bo, *bo_fetch;
+	struct boc *boc;
+	struct busyobj *bo;
 	const char *how;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
@@ -999,7 +1022,7 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 	CHECK_OBJ_ORNULL(oldoc, OBJCORE_MAGIC);
 
 
-	switch(mode) {
+	switch (mode) {
 	case VBF_PASS:		how = "pass"; break;
 	case VBF_NORMAL:	how = "fetch"; break;
 	case VBF_BACKGROUND:	how = "bgfetch"; break;
@@ -1008,26 +1031,27 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 
 	bo = VBO_GetBusyObj(wrk, req);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+
+	boc = HSH_RefBoc(oc);
+	CHECK_OBJ_NOTNULL(boc, BOC_MAGIC);
+
 	VSLb(bo->vsl, SLT_Begin, "bereq %u %s", VXID(req->vsl->wid), how);
 	VSLb(req->vsl, SLT_Link, "bereq %u %s", VXID(bo->vsl->wid), how);
 
 	THR_SetBusyobj(bo);
 
-	bo_fetch = bo;
-	bo->refcount = 2;
-
-	oc->busyobj = bo;
+	bo->sp = req->sp;
+	SES_Ref(bo->sp);
 
 	AN(bo->vcl);
 
 	if (mode == VBF_PASS)
 		bo->do_pass = 1;
 
-	bo->vary = req->vary_b;
+	oc->boc->vary = req->vary_b;
 	req->vary_b = NULL;
 
-	if (mode != VBF_BACKGROUND)
-		HSH_Ref(oc);
+	HSH_Ref(oc);
 	AZ(bo->fetch_objcore);
 	bo->fetch_objcore = oc;
 
@@ -1041,30 +1065,36 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 	AZ(bo->req);
 	bo->req = req;
 
-	bo->fetch_task.priv = bo_fetch;
+	bo->fetch_task.priv = bo;
 	bo->fetch_task.func = vbf_fetch_thread;
 
 	if (Pool_Task(wrk->pool, &bo->fetch_task, TASK_QUEUE_BO)) {
 		wrk->stats->fetch_no_thread++;
 		(void)vbf_stp_fail(req->wrk, bo);
 		if (bo->stale_oc != NULL)
-			(void)HSH_DerefObjCore(wrk, &bo->stale_oc);
-		VBO_DerefBusyObj(wrk, &bo_fetch);
+			(void)HSH_DerefObjCore(wrk, &bo->stale_oc, 0);
+		HSH_DerefBoc(wrk, oc);
+		SES_Rel(bo->sp);
+		VBO_ReleaseBusyObj(wrk, &bo);
 	} else {
-		bo_fetch = NULL; /* ref transferred to fetch thread */
+		bo = NULL; /* ref transferred to fetch thread */
 		if (mode == VBF_BACKGROUND) {
-			VBO_waitstate(bo, BOS_REQ_DONE);
+			ObjWaitState(oc, BOS_REQ_DONE);
+			VRB_Ignore(req);
 		} else {
-			VBO_waitstate(bo, BOS_STREAM);
-			if (bo->state == BOS_FAILED) {
+			ObjWaitState(oc, BOS_STREAM);
+			if (oc->boc->state == BOS_FAILED) {
 				AN((oc->flags & OC_F_FAILED));
 			} else {
-				AZ(bo->fetch_objcore->flags & OC_F_BUSY);
+				AZ(oc->flags & OC_F_BUSY);
 			}
 		}
 	}
-	AZ(bo_fetch);
+	AZ(bo);
 	VSLb_ts_req(req, "Fetch", W_TIM_real(wrk));
-	VBO_DerefBusyObj(wrk, &bo);
+	assert(oc->boc == boc);
+	HSH_DerefBoc(wrk, oc);
+	if (mode == VBF_BACKGROUND)
+		(void)HSH_DerefObjCore(wrk, &oc, HSH_RUSH_POLICY);
 	THR_SetBusyobj(NULL);
 }

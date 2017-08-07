@@ -1,3 +1,4 @@
+
 COUNTER LEVELS
 ==============
 
@@ -24,7 +25,7 @@ sess_drop – Sessions dropped (INFO)
 	Count of sessions silently dropped due to lack of worker thread.
 
 sess_fail – Session accept failures (INFO)
-	Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like file descriptors.
+	Count of failures to accept TCP connection. Either the client changed its mind, or the kernel ran out of some resource like file descriptors.
 
 client_req_400 – Client requests received, subject to 400 errors (INFO)
 	400 means we couldn't make sense of the request, it was malformed in some drastic way.
@@ -36,13 +37,16 @@ client_req – Good client requests received (INFO)
 	The count of parseable client requests seen.
 
 cache_hit – Cache hits (INFO)
-	Count of cache hits.   A cache hit indicates that an object has been delivered to a  client without fetching it from a backend server.
+	Count of cache hits.  A cache hit indicates that an object has been delivered to a client without fetching it from a backend server.
 
-cache_hitpass – Cache hits for pass (INFO)
-	Count of hits for pass  A cache hit for pass indicates that Varnish is going to  pass the request to the backend and this decision has been   cached in it self. This counts how many times the cached   decision is being used.
+cache_hitpass – Cache hits for pass. (INFO)
+	Count of hits for pass. A cache hit for pass indicates that Varnish is going to pass the request to the backend and this decision has been cached in it self. This counts how many times the cached decision is being used.
+
+cache_hitmiss – Cache hits for miss. (INFO)
+	Count of hits for miss. A cache hit for miss indicates that Varnish is going to proceed as for a cache miss without request coalescing, and this decision has been cached. This counts how many times the cached decision is being used.
 
 cache_miss – Cache misses (INFO)
-	Count of misses  A cache miss indicates the object was fetched from the  backend before delivering it to the client.
+	Count of misses. A cache miss indicates the object was fetched from the backend before delivering it to the client.
 
 backend_conn – Backend conn. success (INFO)
 	How many backend connections have successfully been established.
@@ -57,10 +61,10 @@ backend_fail – Backend conn. failures (INFO)
 	
 
 backend_reuse – Backend conn. reuses (INFO)
-	Count of backend connection reuses  This counter is increased whenever we reuse a recycled connection.
+	Count of backend connection reuses. This counter is increased whenever we reuse a recycled connection.
 
 backend_recycle – Backend conn. recycles (INFO)
-	Count of backend connection recycles  This counter is increased whenever we have a keep-alive  connection that is put back into the pool of connections.  It has not yet been used, but it might be, unless the backend  closes it.
+	Count of backend connection recycles. This counter is increased whenever we have a keep-alive connection that is put back into the pool of connections. It has not yet been used, but it might be, unless the backend closes it.
 
 backend_retry – Backend conn. retry (INFO)
 	
@@ -99,13 +103,13 @@ fetch_no_thread – Fetch failed (no thread) (INFO)
 	beresp fetch failed, no thread available.
 
 pools – Number of thread pools (INFO)
-	Number of thread pools.  See also parameter thread_pools.  NB: Presently pools cannot be removed once created.
+	Number of thread pools. See also parameter thread_pools. NB: Presently pools cannot be removed once created.
 
 threads – Total number of threads (INFO)
-	Number of threads in all pools.  See also parameters thread_pools, thread_pool_min and thread_pool_max.
+	Number of threads in all pools. See also parameters thread_pools, thread_pool_min and thread_pool_max.
 
 threads_limited – Threads hit max (INFO)
-	Number of times more threads were needed, but limit was reached in a thread pool.  See also parameter thread_pool_max.
+	Number of times more threads were needed, but limit was reached in a thread pool. See also parameter thread_pool_max.
 
 threads_created – Threads created (INFO)
 	Total number of threads created in all pools.
@@ -114,40 +118,37 @@ threads_destroyed – Threads destroyed (INFO)
 	Total number of threads destroyed in all pools.
 
 threads_failed – Thread creation failed (INFO)
-	Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also parameter thread_fail_delay.
+	Number of times creating a thread failed. See VSL::Debug for diagnostics. See also parameter thread_fail_delay.
 
 thread_queue_len – Length of session queue (INFO)
-	Length of session queue waiting for threads.  NB: Only updates once per second.  See also parameter thread_queue_limit.
+	Length of session queue waiting for threads. NB: Only updates once per second. See also parameter thread_queue_limit.
 
 busy_sleep – Number of requests sent to sleep on busy objhdr (INFO)
 	Number of requests sent to sleep without a worker thread because they found a busy object.
 
 busy_wakeup – Number of requests woken after sleep on busy objhdr (INFO)
-	Number of requests taken of the busy object sleep list and and rescheduled.
+	Number of requests taken off the busy object sleep list and rescheduled.
 
 busy_killed – Number of requests killed after sleep on busy objhdr (INFO)
 	Number of requests killed from the busy object sleep list due to lack of resources.
 
 sess_queued – Sessions queued for thread (INFO)
-	Number of times session was queued waiting for a thread.  See also parameter thread_queue_limit.
+	Number of times session was queued waiting for a thread. See also parameter thread_queue_limit.
 
 sess_dropped – Sessions dropped for thread (INFO)
 	Number of times session was dropped because the queue were too long already. See also parameter thread_queue_limit.
 
 n_object – object structs made (INFO)
-	Number of object structs made
+	Approximate number of HTTP objects (headers + body, if present) in the cache.
 
 n_vampireobject – unresurrected objects (DIAG)
 	Number of unresurrected objects
 
 n_objectcore – objectcore structs made (INFO)
-	Number of objectcore structs made
+	Approximate number of object metadata elements in the cache. Each object needs an objectcore, extra objectcores are for hit-for-miss, hit-for-pass and busy objects.
 
 n_objecthead – objecthead structs made (INFO)
-	Number of objecthead structs made
-
-n_waitinglist – waitinglist structs made (DEBUG)
-	Number of waitinglist structs made
+	Approximate number of different hash entries in the cache.
 
 n_backend – Number of backends (INFO)
 	Number of backends known to us.
@@ -260,6 +261,12 @@ sc_pipe_overflow – Session Err PIPE_OVERFLOW (DIAG)
 sc_range_short – Session Err RANGE_SHORT (DIAG)
 	Number of session closes with Error RANGE_SHORT (Insufficient data for range)
 
+sc_req_http20 – Session Err REQ_HTTP20 (DIAG)
+	Number of session closes with Error REQ_HTTP20 (HTTP2 not accepted)
+
+sc_vcl_failure – Session Err VCL_FAILURE (DIAG)
+	Number of session closes with Error VCL_FAILURE (VCL failure)
+
 shm_records – SHM records (DIAG)
 	
 
@@ -286,6 +293,9 @@ n_vcl_avail – Number of VCLs available (DIAG)
 
 n_vcl_discard – Number of discarded VCLs (DIAG)
 	
+
+vcl_fail – VCL failures (INFO)
+	Count of failures which prevented VCL from completing.
 
 bans – Count of bans (INFO)
 	Number of all bans in system, including bans superseded by newer bans and bans already checked by the ban-lurker.
@@ -315,13 +325,16 @@ bans_lurker_tested – Bans tested against objects (lurker) (DIAG)
 	Count of how many bans and objects have been tested against each other by the ban-lurker.
 
 bans_tests_tested – Ban tests tested against objects (lookup) (DIAG)
-	Count of how many tests and objects have been tested against each other during lookup.  'ban req.url == foo && req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'
+	Count of how many tests and objects have been tested against each other during lookup. 'ban req.url == foo && req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'
 
 bans_lurker_tests_tested – Ban tests tested against objects (lurker) (DIAG)
-	Count of how many tests and objects have been tested against each other by the ban-lurker.  'ban req.url == foo && req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'
+	Count of how many tests and objects have been tested against each other by the ban-lurker. 'ban req.url == foo && req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'
 
 bans_lurker_obj_killed – Objects killed by bans (lurker) (DIAG)
-	Number of objects killed by ban-lurker.
+	Number of objects killed by the ban-lurker.
+
+bans_lurker_obj_killed_cutoff – Objects killed by bans for cutoff (lurker) (DIAG)
+	Number of objects killed by the ban-lurker to keep the number of bans below ban_cutoff.
 
 bans_dups – Bans superseded by other bans (DIAG)
 	Count of bans replaced by later identical bans.
@@ -371,6 +384,9 @@ n_gzip – Gzip operations (INFO)
 n_gunzip – Gunzip operations (INFO)
 	
 
+n_test_gunzip – Test gunzip operations (INFO)
+	Those operations occur when Varnish receives a compressed object from a backend. They are done to verify the gzip stream while it's inserted in storage.
+
 vsm_free – Free VSM space (DIAG)
 	Number of bytes free in the shared memory used to communicate with tools like varnishstat, varnishlog etc.
 
@@ -385,6 +401,7 @@ vsm_overflow – Overflow VSM space (DIAG)
 
 vsm_overflowed – Overflowed VSM space (DIAG)
 	Total number of bytes which did not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. If this counter is not zero, consider increasing the runtime variable vsm_space.
+
 
 MANAGEMENT PROCESS COUNTERS (MGT.*)
 ===================================
@@ -411,8 +428,8 @@ child_panic – Child process panic (DIAG)
 	Number of times the management process has caught a child panic
 
 
-PER MEMORY POOL COUNTERS (MEMPOOL.*)
-====================================
+MEMORY POOL COUNTERS (MEMPOOL.*)
+================================
 
 live – In use (DEBUG)
 	
@@ -448,8 +465,8 @@ randry – Pool ran dry (DEBUG)
 	
 
 
-PER MALLOC STORAGE COUNTERS (SMA.*)
-===================================
+MALLOC STORAGE COUNTERS (SMA.*)
+===============================
 
 c_req – Allocator requests (INFO)
 	Number of times the storage has been asked to provide a storage segment.
@@ -473,8 +490,8 @@ g_space – Bytes available (INFO)
 	Number of bytes left in the storage.
 
 
-PER FILE STORAGE COUNTERS (SMF.*)
-=================================
+FILE STORAGE COUNTERS (SMF.*)
+=============================
 
 c_req – Allocator requests (INFO)
 	Number of times the storage has been asked to provide a storage segment.
@@ -507,8 +524,8 @@ g_smf_large – N large free smf (INFO)
 	
 
 
-PER BACKEND COUNTERS (VBE.*)
-============================
+BACKEND COUNTERS (VBE.*)
+========================
 
 happy – Happy health probes (INFO)
 	

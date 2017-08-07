@@ -47,22 +47,22 @@ digraph cache_req_fsm {
 	fini:ok -> ok
 	*/
 
-	acceptor [
-		  shape=hexagon
-		  label="Request received"
-	]
-	ESI_REQ [ shape=hexagon ]
+	acceptor [shape=hexagon label="Request received"]
+	label_select [shape=hexagon label="Label selected"]
+	ESI_REQ [shape=hexagon label="ESI request"]
 	RESTART [shape=plaintext]
 
 	ESI_REQ -> recv
 	SYNTH [shape=plaintext]
+	LABEL [shape=plaintext]
 	acceptor -> recv [style=bold]
+	label_select -> recv [style=bold]
 
 	subgraph xcluster_deliver {
 		/* cnt_deliver() */
 		deliver [
 			 shape=record
-			 label="{cnt_deliver:|Filter obj.-\>resp.|{vcl_deliver\{\}|{req.*|resp.*}}|{restart|<deliver>deliver|<synth>synth}}"
+			 label="{cnt_deliver:|Filter obj.-\>resp.|{vcl_deliver\{\}|{req.*|resp.*}}|{<restart>restart|<deliver>deliver|<synth>synth}}"
 		]
 
 		deliver:deliver:s -> V1D_Deliver [style=bold,color=green]
@@ -187,7 +187,7 @@ digraph cache_req_fsm {
 	subgraph xcluster_recv {
 		recv [
 		      shape=record
-		      label="{cnt_recv:|{vcl_recv\{\}|req.*}|{<hash>hash|<purge>purge|<pass>pass|<pipe>pipe|<synth>synth}}"
+		      label="{cnt_recv:|{vcl_recv\{\}|req.*}|{<hash>hash|<purge>purge|<pass>pass|<pipe>pipe|<synth>synth|<vcl>vcl}}"
 		      ]
 		recv:hash -> hash [style=bold,color=green]
 		hash [
@@ -195,11 +195,17 @@ digraph cache_req_fsm {
 		      label="{cnt_recv:|{vcl_hash\{\}|req.*}|{<lookup>lookup}}"
 		      ]
 	}
-	recv:pipe -> pipe [style=bold,color=orange]
-	recv:pass -> pass [style=bold,color=red]
+	recv:pipe -> hash [style=bold,color=orange]
+	recv:pass -> hash [style=bold,color=red]
 	hash:lookup:w -> lookup [style=bold,color=green]
 	hash:lookup:s -> purge:top:n [style=bold,color=purple]
+	hash:lookup:s -> pass [style=bold,color=red]
+	hash:lookup:e -> pipe [style=bold,color=orange]
+
 	recv:purge:s -> hash [style=bold,color=purple]
+
+	recv:vcl:s -> vcl_label
+	vcl_label [label="LABEL",shape=plaintext]
 
 	/* cnt_purge */
 	subgraph xcluster_purge {

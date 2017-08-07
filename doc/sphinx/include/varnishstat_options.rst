@@ -4,7 +4,7 @@
 
 -f <glob>
 
-	Field inclusion glob. Use backslash to escape characters. If the argument starts with '^' it is used as an exclusive glob. Multiple -f arguments may be given. Inclusive globs are accumulative and are run before exclusive ones.
+	Field inclusion glob. Use backslash to escape characters. If the argument starts with '^' it is used as an exclusion glob. Multiple -f arguments may be given, and they will be applied in order.
 
 -h
 
@@ -21,6 +21,10 @@
 -n <dir>
 
 	Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.
+
+-N <filename>
+
+	Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
 
 -t <seconds|off>
 

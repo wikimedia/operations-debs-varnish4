@@ -79,12 +79,12 @@ v1d_error(struct req *req, const char *msg)
  */
 
 void __match_proto__(vtr_deliver_f)
-V1D_Deliver(struct req *req, struct busyobj *bo, int sendbody)
+V1D_Deliver(struct req *req, struct boc *boc, int sendbody)
 {
-	enum objiter_status ois;
+	int err = 0;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-	CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_ORNULL(boc, BOC_MAGIC);
 	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
 
 	if (sendbody) {
@@ -99,9 +99,9 @@ V1D_Deliver(struct req *req, struct busyobj *bo, int sendbody)
 		}
 	}
 
-	VSLb(req->vsl, SLT_Debug, "RES_MODE %x", req->res_mode);
-
-	if (req->doclose) {
+	if (!req->doclose && http_HdrIs(req->resp, H_Connection, "close")) {
+		req->doclose = SC_RESP_CLOSE;
+	} else if (req->doclose) {
 		if (!http_HdrIs(req->resp, H_Connection, "close")) {
 			http_Unset(req->resp, H_Connection);
 			http_SetHeader(req->resp, "Connection: close");
@@ -110,7 +110,7 @@ V1D_Deliver(struct req *req, struct busyobj *bo, int sendbody)
 		http_SetHeader(req->resp, "Connection: keep-alive");
 
 	if (sendbody && req->resp_len != 0)
-		VDP_push(req, v1d_bytes, NULL, 1);
+		VDP_push(req, v1d_bytes, NULL, 1, "V1B");
 
 	AZ(req->wrk->v1l);
 	V1L_Reserve(req->wrk, req->ws, &req->sp->fd, req->vsl, req->t_prev);
@@ -125,17 +125,16 @@ V1D_Deliver(struct req *req, struct busyobj *bo, int sendbody)
 	if (DO_DEBUG(DBG_FLUSH_HEAD))
 		(void)V1L_Flush(req->wrk);
 
-	ois = OIS_DONE;
 	if (sendbody && req->resp_len != 0) {
 		if (req->res_mode & RES_CHUNKED)
 			V1L_Chunked(req->wrk);
-		ois = VDP_DeliverObj(req);
-		if (ois == OIS_DONE && (req->res_mode & RES_CHUNKED))
+		err = VDP_DeliverObj(req);
+		if (!err && (req->res_mode & RES_CHUNKED))
 			V1L_EndChunk(req->wrk);
 	}
 
-	if ((V1L_FlushRelease(req->wrk) || ois != OIS_DONE) && req->sp->fd >= 0)
-		SES_Close(req->sp, SC_REM_CLOSE);
+	if ((V1L_FlushRelease(req->wrk) || err) && req->sp->fd >= 0)
+		Req_Fail(req, SC_REM_CLOSE);
 	AZ(req->wrk->v1l);
 	VDP_close(req);
 }

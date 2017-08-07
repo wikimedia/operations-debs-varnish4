@@ -1,24 +1,32 @@
 /*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Edit and run generate.py instead
+ * Edit and run lib/libvcc/generate.py instead.
  */
+
 /*lint -save -e525 -e539 */
+
 VCC_TYPE(ACL)
 VCC_TYPE(BACKEND)
 VCC_TYPE(BLOB)
+VCC_TYPE(BODY)
 VCC_TYPE(BOOL)
 VCC_TYPE(BYTES)
 VCC_TYPE(DURATION)
 VCC_TYPE(ENUM)
 VCC_TYPE(HEADER)
 VCC_TYPE(HTTP)
+VCC_TYPE(INSTANCE)
 VCC_TYPE(INT)
 VCC_TYPE(IP)
 VCC_TYPE(PROBE)
 VCC_TYPE(REAL)
+VCC_TYPE(STEVEDORE)
 VCC_TYPE(STRING)
 VCC_TYPE(STRING_LIST)
 VCC_TYPE(TIME)
+VCC_TYPE(VCL)
 VCC_TYPE(VOID)
+#undef VCC_TYPE
+
 /*lint -restore */

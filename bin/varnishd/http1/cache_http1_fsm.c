@@ -33,35 +33,244 @@
 
 #include "config.h"
 
+#include "cache/cache.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
+#include "cache/cache_filter.h"
+#include "cache/cache_transport.h"
 #include "cache_http1.h"
 #include "hash/hash_slinger.h"
 
 #include "vtcp.h"
 
-static const struct transport http1_transport = {
-	.magic = TRANSPORT_MAGIC,
-	.deliver = V1D_Deliver,
+static const char H1NEWREQ[] = "HTTP1::NewReq";
+static const char H1PROC[] = "HTTP1::Proc";
+static const char H1BUSY[] = "HTTP1::Busy";
+static const char H1CLEANUP[] = "HTTP1::Cleanup";
+
+static void HTTP1_Session(struct worker *, struct req *);
+
+static void
+http1_setstate(const struct sess *sp, const char *s)
+{
+	uintptr_t p;
+
+	p = (uintptr_t)s;
+	AZ(SES_Set_xport_priv(sp, &p));
+}
+
+static const char *
+http1_getstate(const struct sess *sp)
+{
+	uintptr_t *p;
+
+	AZ(SES_Get_xport_priv(sp, &p));
+	return (const char *)*p;
+}
+
+/*--------------------------------------------------------------------
+ * Call protocol for this request
+ */
+
+static void __match_proto__(task_func_t)
+http1_req(struct worker *wrk, void *arg)
+{
+	struct req *req;
+
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CAST_OBJ_NOTNULL(req, arg, REQ_MAGIC);
+
+	THR_SetRequest(req);
+	req->transport = &HTTP1_transport;
+	AZ(wrk->aws->r);
+	HTTP1_Session(wrk, req);
+	AZ(wrk->v1l);
+	WS_Assert(wrk->aws);
+	THR_SetRequest(NULL);
+}
+
+/*--------------------------------------------------------------------
+ * Call protocol for this session (new or from waiter)
+ *
+ * When sessions are rescheduled from the waiter, a struct pool_task
+ * is put on the reserved session workspace (for reasons of memory
+ * conservation).  This reservation is released as the first thing.
+ * The acceptor and any other code which schedules this function
+ * must obey this calling convention with a dummy reservation.
+ */
+
+static void __match_proto__(task_func_t)
+http1_new_session(struct worker *wrk, void *arg)
+{
+	struct sess *sp;
+	struct req *req;
+	uintptr_t *u;
+
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CAST_OBJ_NOTNULL(req, arg, REQ_MAGIC);
+	sp = req->sp;
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
+
+	HTC_RxInit(req->htc, req->ws);
+	SES_Reserve_xport_priv(sp, &u);
+	http1_setstate(sp, H1NEWREQ);
+	wrk->task.func = http1_req;
+	wrk->task.priv = req;
+}
+
+static void __match_proto__(task_func_t)
+http1_unwait(struct worker *wrk, void *arg)
+{
+	struct sess *sp;
+	struct req *req;
+
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CAST_OBJ_NOTNULL(sp, arg, SESS_MAGIC);
+	WS_Release(sp->ws, 0);
+	req = Req_New(wrk, sp);
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	req->htc->rfd = &sp->fd;
+	HTC_RxInit(req->htc, req->ws);
+	http1_setstate(sp, H1NEWREQ);
+	wrk->task.func = http1_req;
+	wrk->task.priv = req;
+}
+
+static void __match_proto__(vtr_req_body_t)
+http1_req_body(struct req *req)
+{
+
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	switch (req->htc->body_status) {
+	case BS_EOF:
+	case BS_LENGTH:
+	case BS_CHUNKED:
+		if (V1F_Setup_Fetch(req->vfc, req->htc) != 0)
+			req->req_body_status = REQ_BODY_FAIL;
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+http1_sess_panic(struct vsb *vsb, const struct sess *sp)
+{
+
+	VSB_printf(vsb, "state = %s\n", http1_getstate(sp));
+}
+
+static void
+http1_req_panic(struct vsb *vsb, const struct req *req)
+{
+
+	VSB_printf(vsb, "state = %s\n", http1_getstate(req->sp));
+}
+
+static void __match_proto__(vtr_req_fail_f)
+http1_req_fail(struct req *req, enum sess_close reason)
+{
+	assert(reason > 0);
+	assert(req->sp->fd != 0);
+	if (req->sp->fd > 0)
+		SES_Close(req->sp, reason);
+}
+
+static void __match_proto__(vtr_reembark_f)
+http1_reembark(struct worker *wrk, struct req *req)
+{
+	struct sess *sp;
+
+	sp = req->sp;
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
+
+	http1_setstate(sp, H1BUSY);
+
+	if (!SES_Reschedule_Req(req))
+		return;
+
+	/* Couldn't schedule, ditch */
+	wrk->stats->busy_wakeup--;
+	wrk->stats->busy_killed++;
+	AN (req->vcl);
+	VCL_Rel(&req->vcl);
+	Req_AcctLogCharge(wrk->stats, req);
+	Req_Release(req);
+	SES_Delete(sp, SC_OVERLOAD, NAN);
+	DSL(DBG_WAITINGLIST, req->vsl->wid, "kill from waiting list");
+	usleep(10000);
+}
+
+static int __match_proto__(vtr_minimal_response_f)
+http1_minimal_response(struct req *req, uint16_t status)
+{
+	size_t wl, l;
+	char buf[80];
+	const char *reason;
+
+	assert(status >= 100);
+	assert(status < 1000);
+
+	reason = http_Status2Reason(status, NULL);
+
+	l = snprintf(buf, sizeof(buf),
+	    "HTTP/1.1 %03d %s\r\n\r\n", status, reason);
+	assert (l < sizeof(buf));
+
+	VSLb(req->vsl, SLT_RespProtocol, "HTTP/1.1");
+	VSLb(req->vsl, SLT_RespStatus, "%03d", status);
+	VSLb(req->vsl, SLT_RespReason, "%s", reason);
+
+	if (status >= 400)
+		req->err_code = status;
+	wl = write(req->sp->fd, buf, l);
+
+	if (wl > 0)
+		req->acct.resp_hdrbytes += wl;
+	if (wl != l) {
+		VTCP_Assert(1);
+		if (!req->doclose)
+			req->doclose = SC_REM_CLOSE;
+		return (-1);
+	}
+	return (0);
+}
+
+struct transport HTTP1_transport = {
+	.name =			"HTTP/1",
+	.magic =		TRANSPORT_MAGIC,
+	.deliver =		V1D_Deliver,
+	.minimal_response =	http1_minimal_response,
+	.new_session =		http1_new_session,
+	.reembark =		http1_reembark,
+	.req_body =		http1_req_body,
+	.req_fail =		http1_req_fail,
+	.req_panic =		http1_req_panic,
+	.sess_panic =		http1_sess_panic,
+	.unwait =		http1_unwait,
 };
 
 /*----------------------------------------------------------------------
  */
 
+static inline void
+http1_abort(struct req *req, uint16_t status)
+{
+	AN(req->doclose);
+	assert(status >= 400);
+	(void)http1_minimal_response(req, status);
+}
+
 static int
 http1_dissect(struct worker *wrk, struct req *req)
 {
-	const char *r_100 = "HTTP/1.1 100 Continue\r\n\r\n";
-	const char *r_400 = "HTTP/1.1 400 Bad Request\r\n\r\n";
-	const char *r_417 = "HTTP/1.1 417 Expectation Failed\r\n\r\n";
-	const char *p;
-	ssize_t r;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	CHECK_OBJ_NOTNULL(req->transport, TRANSPORT_MAGIC);
 
 	/* Allocate a new vxid now that we know we'll need it. */
 	AZ(req->vsl->wid);
@@ -89,64 +298,52 @@ http1_dissect(struct worker *wrk, struct req *req)
 		    (int)(req->htc->rxbuf_e - req->htc->rxbuf_b),
 		    req->htc->rxbuf_b);
 		wrk->stats->client_req_400++;
-		r = write(req->sp->fd, r_400, strlen(r_400));
-		if (r > 0)
-			req->acct.resp_hdrbytes += r;
 		req->doclose = SC_RX_JUNK;
+		http1_abort(req, 400);
 		return (-1);
 	}
 
 	assert (req->req_body_status == REQ_BODY_INIT);
 
-	if (req->htc->body_status == BS_CHUNKED) {
+	switch (req->htc->body_status) {
+	case BS_CHUNKED:
 		req->req_body_status = REQ_BODY_WITHOUT_LEN;
-	} else if (req->htc->body_status == BS_LENGTH) {
+		break;
+	case BS_LENGTH:
 		req->req_body_status = REQ_BODY_WITH_LEN;
-	} else if (req->htc->body_status == BS_NONE) {
+		break;
+	case BS_NONE:
 		req->req_body_status = REQ_BODY_NONE;
-	} else if (req->htc->body_status == BS_EOF) {
+		break;
+	case BS_EOF:
 		req->req_body_status = REQ_BODY_WITHOUT_LEN;
-	} else {
-		WRONG("Unknown req.body_length situation");
+		break;
+	default:
+		WRONG("Unknown req_body_status situation");
 	}
+	return (0);
+}
 
-	if (http_GetHdr(req->http, H_Expect, &p)) {
-		if (strcasecmp(p, "100-continue")) {
-			wrk->stats->client_req_417++;
-			req->err_code = 417;
-			r = write(req->sp->fd, r_417, strlen(r_417));
-			if (r > 0)
-				req->acct.resp_hdrbytes += r;
-			req->doclose = SC_RX_JUNK;
-			return (-1);
-		}
-		r = write(req->sp->fd, r_100, strlen(r_100));
-		if (r > 0)
-			req->acct.resp_hdrbytes += r;
-		if (r != strlen(r_100)) {
-			req->doclose = SC_REM_CLOSE;
-			return (-1);
-		}
-		http_Unset(req->http, H_Expect);
+/*----------------------------------------------------------------------
+ */
+
+static int
+http1_req_cleanup(struct sess *sp, struct worker *wrk, struct req *req)
+{
+	AZ(wrk->aws->r);
+	AZ(req->ws->r);
+	Req_Cleanup(sp, wrk, req);
+
+	if (sp->fd >= 0 && req->doclose != SC_NULL)
+		SES_Close(sp, req->doclose);
+
+	if (sp->fd < 0) {
+		wrk->stats->sess_closed++;
+		AZ(req->vcl);
+		Req_Release(req);
+		SES_Delete(sp, SC_NULL, NAN);
+		return (1);
 	}
-
-	wrk->stats->client_req++;
-	wrk->stats->s_req++;
-
-	AZ(req->err_code);
-	req->ws_req = WS_Snapshot(req->ws);
-
-	req->doclose = http_DoConnection(req->http);
-	if (req->doclose == SC_RX_BAD) {
-		r = write(req->sp->fd, r_400, strlen(r_400));
-		if (r > 0)
-			req->acct.resp_hdrbytes += r;
-		return (-1);
-	}
-
-	assert(req->req_body_status != REQ_BODY_INIT);
-
-	HTTP_Copy(req->http0, req->http);	// For ESI & restart
 
 	return (0);
 }
@@ -154,11 +351,12 @@ http1_dissect(struct worker *wrk, struct req *req)
 /*----------------------------------------------------------------------
  */
 
-void
+static void
 HTTP1_Session(struct worker *wrk, struct req *req)
 {
 	enum htc_status_e hs;
 	struct sess *sp;
+	const char *st;
 	int i;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
@@ -172,45 +370,41 @@ HTTP1_Session(struct worker *wrk, struct req *req)
 	 * or waiter, but we'd rather do the syscall in the worker thread.
 	 * On systems which return errors for ioctl, we close early
 	 */
-	if (sp->sess_step == S_STP_H1NEWREQ && VTCP_blocking(sp->fd)) {
+	if (http1_getstate(sp) == H1NEWREQ && VTCP_blocking(sp->fd)) {
+		AN(req->htc->ws->r);
 		if (errno == ECONNRESET)
 			SES_Close(sp, SC_REM_CLOSE);
 		else
 			SES_Close(sp, SC_TX_ERROR);
-		AN(Req_Cleanup(sp, wrk, req));
+		WS_Release(req->htc->ws, 0);
+		AN(http1_req_cleanup(sp, wrk, req));
 		return;
 	}
 
+	req->transport = &HTTP1_transport;
+
 	while (1) {
-		switch (sp->sess_step) {
-		case S_STP_H1NEWSESS:
-			if (VTCP_blocking(sp->fd)) {
-				if (errno == ECONNRESET)
-					SES_Close(sp, SC_REM_CLOSE);
-				else
-					SES_Close(sp, SC_TX_ERROR);
-				AN(Req_Cleanup(sp, wrk, req));
-				return;
-			}
-			sp->sess_step = S_STP_H1NEWREQ;
-			break;
-		case S_STP_H1NEWREQ:
+		st = http1_getstate(sp);
+		if (st == H1NEWREQ) {
+			CHECK_OBJ_NOTNULL(req->transport, TRANSPORT_MAGIC);
 			assert(isnan(req->t_prev));
 			assert(isnan(req->t_req));
 			AZ(req->vcl);
 			AZ(req->esi_level);
+			AN(req->htc->ws->r);
 
-			hs = SES_RxStuff(req->htc, HTTP1_Complete,
+			hs = HTC_RxStuff(req->htc, HTTP1_Complete,
 			    &req->t_first, &req->t_req,
 			    sp->t_idle + cache_param->timeout_linger,
-			    sp->t_idle + cache_param->timeout_idle);
-			XXXAZ(req->htc->ws->r);
+			    sp->t_idle + cache_param->timeout_idle,
+			    cache_param->http_req_size);
+			AZ(req->htc->ws->r);
 			if (hs < HTC_S_EMPTY) {
 				req->acct.req_hdrbytes +=
 				    req->htc->rxbuf_e - req->htc->rxbuf_b;
-				CNT_AcctLogCharge(wrk->stats, req);
+				Req_AcctLogCharge(wrk->stats, req);
 				Req_Release(req);
-				switch(hs) {
+				switch (hs) {
 				case HTC_S_CLOSE:
 					SES_Delete(sp, SC_REM_CLOSE, NAN);
 					return;
@@ -230,57 +424,88 @@ HTTP1_Session(struct worker *wrk, struct req *req)
 			if (hs == HTC_S_IDLE) {
 				wrk->stats->sess_herd++;
 				Req_Release(req);
-				SES_Wait(sp);
+				SES_Wait(sp, &HTTP1_transport);
 				return;
 			}
 			if (hs != HTC_S_COMPLETE)
 				WRONG("htc_status (nonbad)");
 
+			if (H2_prism_complete(req->htc) == HTC_S_COMPLETE) {
+				if (!FEATURE(FEATURE_HTTP2)) {
+					SES_Close(req->sp, SC_REQ_HTTP20);
+					AZ(req->ws->r);
+					AZ(wrk->aws->r);
+					http1_setstate(sp, H1CLEANUP);
+					continue;
+				}
+				http1_setstate(sp, NULL);
+				H2_PU_Sess(wrk, sp, req);
+				return;
+			}
+
 			i = http1_dissect(wrk, req);
 			req->acct.req_hdrbytes +=
 			    req->htc->rxbuf_e - req->htc->rxbuf_b;
 			if (i) {
+				assert(req->doclose > 0);
 				SES_Close(req->sp, req->doclose);
-				sp->sess_step = S_STP_H1CLEANUP;
-				break;
+				AZ(req->ws->r);
+				AZ(wrk->aws->r);
+				http1_setstate(sp, H1CLEANUP);
+				continue;
 			}
-			req->req_step = R_STP_RECV;
-			sp->sess_step = S_STP_H1PROC;
-			break;
-		case S_STP_H1PROC:
-			req->transport = &http1_transport;
-			req->task.func = SES_Proto_Req;
-			req->task.priv = req;
-			if (req->hash_objhead && VTCP_check_hup(sp->fd)) {
-				/* Return from waitinglist and the remote
-				   has left. */
+			if (http_HdrIs(req->http, H_Upgrade, "h2c")) {
+				if (!FEATURE(FEATURE_HTTP2)) {
+					VSLb(req->vsl, SLT_Debug,
+					    "H2 upgrade attempt");
+				} else if (req->htc->body_status != BS_NONE) {
+					VSLb(req->vsl, SLT_Debug,
+					    "H2 upgrade attempt has body");
+				} else {
+					http1_setstate(sp, NULL);
+					req->err_code = 2;
+					H2_OU_Sess(wrk, sp, req);
+					return;
+				}
+			}
+			req->req_step = R_STP_TRANSPORT;
+			http1_setstate(sp, H1PROC);
+		} else if (st == H1BUSY) {
+			CHECK_OBJ_NOTNULL(req->transport, TRANSPORT_MAGIC);
+			/*
+			 * Return from waitinglist.
+			 * Check to see if the remote has left.
+			 */
+			if (VTCP_check_hup(sp->fd)) {
+				AN(req->ws->r);
+				WS_Release(req->ws, 0);
+				AN(req->hash_objhead);
 				(void)HSH_DerefObjHead(wrk, &req->hash_objhead);
 				AZ(req->hash_objhead);
 				SES_Close(sp, SC_REM_CLOSE);
-				AN(Req_Cleanup(sp, wrk, req));
+				AN(http1_req_cleanup(sp, wrk, req));
 				return;
 			}
-			if (CNT_Request(wrk, req) == REQ_FSM_DISEMBARK) {
-				/* Have been placed on waitinglist. Any
-				   changes to req and sp are unsafe. */
+			http1_setstate(sp, H1PROC);
+		} else if (st == H1PROC) {
+			req->task.func = http1_req;
+			req->task.priv = req;
+			if (CNT_Request(wrk, req) == REQ_FSM_DISEMBARK)
 				return;
-			}
-			req->transport = NULL;
 			req->task.func = NULL;
 			req->task.priv = NULL;
-			sp->sess_step = S_STP_H1CLEANUP;
-			break;
-		case S_STP_H1CLEANUP:
-			if (Req_Cleanup(sp, wrk, req))
+			AZ(req->ws->r);
+			AZ(wrk->aws->r);
+			http1_setstate(sp, H1CLEANUP);
+		} else if (st == H1CLEANUP) {
+			if (http1_req_cleanup(sp, wrk, req))
 				return;
-			SES_RxReInit(req->htc);
+			HTC_RxInit(req->htc, req->ws);
 			if (req->htc->rxbuf_e != req->htc->rxbuf_b)
 				wrk->stats->sess_readahead++;
-			sp->sess_step = S_STP_H1NEWREQ;
-			break;
-		default:
+			http1_setstate(sp, H1NEWREQ);
+		} else {
 			WRONG("Wrong H1 session state");
 		}
-
 	}
 }

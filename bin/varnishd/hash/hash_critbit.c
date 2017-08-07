@@ -37,7 +37,6 @@
 #include "cache/cache.h"
 
 #include "hash/hash_slinger.h"
-#include "vcli_priv.h"
 #include "vmb.h"
 #include "vtim.h"
 
@@ -211,7 +210,7 @@ hcb_insert(struct worker *wrk, struct hcb_root *root, const uint8_t *digest,
 		return (oh2);
 	}
 
-	while(hcb_is_y(pp)) {
+	while (hcb_is_y(pp)) {
 		y = hcb_l_y(pp);
 		CHECK_OBJ_NOTNULL(y, HCB_Y_MAGIC);
 		assert(y->ptr < DIGEST_LEN);
@@ -254,7 +253,7 @@ hcb_insert(struct worker *wrk, struct hcb_root *root, const uint8_t *digest,
 	p = &root->origo;
 	AN(*p);
 
-	while(hcb_is_y(*p)) {
+	while (hcb_is_y(*p)) {
 		y = hcb_l_y(*p);
 		CHECK_OBJ_NOTNULL(y, HCB_Y_MAGIC);
 		assert(y->critbit != y2->critbit);
@@ -288,7 +287,7 @@ hcb_delete(struct hcb_root *r, struct objhead *oh)
 	assert(hcb_is_y(*p));
 
 	y = NULL;
-	while(1) {
+	while (1) {
 		assert(hcb_is_y(*p));
 		y = hcb_l_y(*p);
 		assert(y->ptr < DIGEST_LEN);
@@ -302,50 +301,6 @@ hcb_delete(struct hcb_root *r, struct objhead *oh)
 		p = &y->leaf[s];
 	}
 }
-
-/*--------------------------------------------------------------------*/
-
-static void
-dumptree(struct cli *cli, uintptr_t p, int indent)
-{
-	int i;
-	const struct objhead *oh;
-	const struct hcb_y *y;
-
-	if (p == 0)
-		return;
-	if (hcb_is_node(p)) {
-		oh = hcb_l_node(p);
-		VCLI_Out(cli, "%*.*sN %d r%u <%02x%02x%02x...>\n",
-		    indent, indent, "", indent / 2, oh->refcnt,
-		    oh->digest[0], oh->digest[1], oh->digest[2]);
-		return;
-	}
-	assert(hcb_is_y(p));
-	y = hcb_l_y(p);
-	VCLI_Out(cli, "%*.*sY c %u p %u b %02x i %d\n",
-	    indent, indent, "",
-	    y->critbit, y->ptr, y->bitmask, indent / 2);
-	indent += 2;
-	for (i = 0; i < 2; i++)
-		dumptree(cli, y->leaf[i], indent);
-}
-
-static void
-hcb_dump(struct cli *cli, const char * const *av, void *priv)
-{
-
-	(void)priv;
-	(void)av;
-	VCLI_Out(cli, "HCB dump:\n");
-	dumptree(cli, hcb_root.origo, 0);
-	VCLI_Out(cli, "Coollist:\n");
-}
-
-static struct cli_proto hcb_cmds[] = {
-	{ "hcb.dump", "hcb.dump", "\tDump HCB tree.", 0, 0, "d", hcb_dump },
-	{ NULL }
-};
 
 /*--------------------------------------------------------------------*/
 
@@ -372,7 +327,7 @@ hcb_cleaner(struct worker *wrk, void *priv)
 		Pool_Sumstat(wrk);
 		VTIM_sleep(cache_param->critbit_cooloff);
 	}
-	NEEDLESS_RETURN(NULL);
+	NEEDLESS(return NULL);
 }
 
 /*--------------------------------------------------------------------*/
@@ -384,7 +339,6 @@ hcb_start(void)
 	pthread_t tp;
 
 	(void)oh;
-	CLI_AddFuncs(hcb_cmds);
 	Lck_New(&hcb_mtx, lck_hcb);
 	WRK_BgThread(&tp, "hcb-cleaner", hcb_cleaner, NULL);
 	memset(&hcb_root, 0, sizeof hcb_root);
@@ -404,8 +358,6 @@ hcb_deref(struct objhead *oh)
 		hcb_delete(&hcb_root, oh);
 		VTAILQ_INSERT_TAIL(&cool_h, oh, hoh_list);
 		Lck_Unlock(&hcb_mtx);
-		assert(VTAILQ_EMPTY(&oh->objcs));
-		AZ(oh->waitinglist);
 	}
 	Lck_Unlock(&oh->mtx);
 #ifdef PHK

@@ -40,55 +40,122 @@
 #include <string.h>
 
 #include "vtc.h"
+#include "vtc_http.h"
 
 #include "vct.h"
+#include "vfil.h"
 #include "vgz.h"
 #include "vnum.h"
 #include "vre.h"
 #include "vtcp.h"
+#include "hpack.h"
 
-#define MAX_HDR		50
+static const struct cmds http_cmds[];
 
-struct http {
-	unsigned		magic;
-#define HTTP_MAGIC		0x2f02169c
-	int			fd;
-	int			*sfd;
-	int			timeout;
-	struct vtclog		*vl;
-
-	struct vsb		*vsb;
-
-	int			nrxbuf;
-	char			*rxbuf;
-	char			*rem_ip;
-	char			*rem_port;
-	int			prxbuf;
-	char			*body;
-	unsigned		bodyl;
-	char			bodylen[20];
-	char			chunklen[20];
-
-	char			*req[MAX_HDR];
-	char			*resp[MAX_HDR];
-
-	int			gziplevel;
-	int			gzipresidual;
-
-	int			fatal;
-};
+/* SECTION: client-server client/server
+ *
+ * Client and server threads are fake HTTP entities used to test your Varnish
+ * and VCL. They take any number of arguments, and the one that are not
+ * recognized, assuming they don't start with '-', are treated as
+ * specifications, laying out the actions to undertake::
+ *
+ *         client cNAME [...]
+ *         server sNAME [...]
+ *
+ * Clients and server are identified by a string that's the first argument,
+ * clients' names start with 'c' and servers' names start with 's'.
+ *
+ * As the client and server commands share a good deal of arguments and
+ * specification actions, they are grouped in this single section, specific
+ * items will be explicitly marked as such.
+ *
+ * SECTION: client-server.macros Macros and automatic behaviour
+ *
+ * To make things easier in the general case, clients will connect by default
+ * to the first Varnish server declared and the -vcl+backend switch of the
+ * ``varnish`` command will add all the declared servers as backends.
+ *
+ * Be careful though, servers will by default listen to the 127.0.0.1 IP and
+ * will pick a random port, and publish 3 macros: sNAME_addr, sNAME_port and
+ * sNAME_sock, but only once they are started. For varnishtest to
+ * create the vcl with the correct values, the server must be started when you
+ * use -vcl+backend.
+ *
+ * SECTION: client-server.args Arguments
+ *
+ * \-start
+ *        Start the thread in background, processing the last given
+ *        specification.
+ *
+ * \-wait
+ *        Block until the thread finishes.
+ *
+ * \-run (client only)
+ *        Equivalent to "-start -wait".
+ *
+ * \-repeat NUMBER
+ *        Instead of processing the specification only once, do it NUMBER times.
+ *
+ * \-break (server only)
+ *        Stop the server.
+ *
+ * \-listen STRING (server only)
+ *        Dictate the listening socket for the server. STRING is of the form
+ *        "IP PORT".
+ *
+ * \-connect STRING (client only)
+ *        Indicate the server to connect to. STRING is also of the form
+ *        "IP PORT".
+ *
+ * \-dispatch (server only, s0 only)
+ *        Normally, to keep things simple, server threads only handle one
+ *        connection at a time, but the -dispatch switch allows to accept
+ *        any number of connection and handle them following the given spec.
+ *
+ *        However, -dispatch is only allowed for the server name "s0".
+ *
+ * \-proxy1 STRING (client only)
+ *        Use the PROXY protocol version 1 for this connection. STRING
+ *        is of the form "CLIENTIP:PORT SERVERIP:PORT".
+ *
+ * \-proxy2 STRING (client only)
+ *        Use the PROXY protocol version 2 for this connection. STRING
+ *        is of the form "CLIENTIP:PORT SERVERIP:PORT".
+ *
+ * SECTION: client-server.spec Specification
+ *
+ * It's a string, either double-quoted "like this", but most of the time
+ * enclosed in curly brackets, allowing multilining. Write a command per line in
+ * it, empty line are ignored, and long line can be wrapped by using a
+ * backslash. For example::
+ *
+ *     client c1 {
+ *         txreq -url /foo \
+ *               -hdr "bar: baz"
+ *
+ *         rxresp
+ *     } -run
+ */
 
 #define ONLY_CLIENT(hp, av)						\
 	do {								\
+		if (hp->h2)						\
+			vtc_fatal(hp->vl,				\
+			    "\"%s\" only possible before H/2 upgrade",	\
+					av[0]);				\
 		if (hp->sfd != NULL)					\
-			vtc_log(hp->vl, 0,				\
+			vtc_fatal(hp->vl,				\
 			    "\"%s\" only possible in client", av[0]);	\
 	} while (0)
 
 #define ONLY_SERVER(hp, av)						\
 	do {								\
+		if (hp->h2)						\
+			vtc_fatal(hp->vl,				\
+			    "\"%s\" only possible before H/2 upgrade",	\
+					av[0]);				\
 		if (hp->sfd == NULL)					\
-			vtc_log(hp->vl, 0,				\
+			vtc_fatal(hp->vl,				\
 			    "\"%s\" only possible in server", av[0]);	\
 	} while (0)
 
@@ -100,7 +167,7 @@ static const char * const nl = "\r\n";
  * Generate a synthetic body
  */
 
-static char *
+char *
 synth_body(const char *len, int rnd)
 {
 	int i, j, k, l;
@@ -191,8 +258,40 @@ http_count_header(char * const *hh, const char *hdr)
 	return (r);
 }
 
-/**********************************************************************
- * Expect
+/* SECTION: client-server.spec.expect
+ *
+ * expect STRING1 OP STRING2
+ *         Test if "STRING1 OP STRING2" is true, and if not, fails the test.
+ *         OP can be ==, <, <=, >, >= when STRING1 and STRING2 represent numbers
+ *         in which case it's an order operator. If STRING1 and STRING2 are
+ *         meant as strings OP is a matching operator, either == (exact match)
+ *         or ~ (regex match).
+ *
+ *         varnishtet will first try to resolve STRING1 and STRING2 by looking
+ *         if they have special meanings, in which case, the resolved value is
+ *         use for the test. Note that this value can be a string representing a
+ *         number, allowing for tests such as::
+ *
+ *                 expect req.http.x-num > 2
+ *
+ *         Here's the list of recognized strings, most should be obvious as they
+ *         either match VCL logic, or the txreq/txresp options:
+ *
+ *         - remote.ip
+ *         - remote.port
+ *         - req.method
+ *         - req.url
+ *         - req.proto
+ *         - resp.proto
+ *         - resp.status
+ *         - resp.reason
+ *         - resp.chunklen
+ *         - req.bodylen
+ *         - req.body
+ *         - resp.bodylen
+ *         - resp.body
+ *         - req.http.NAME
+ *         - resp.http.NAME
  */
 
 static const char *
@@ -213,12 +312,14 @@ cmd_var_resolve(struct http *hp, char *spec)
 		return(hp->resp[0]);
 	if (!strcmp(spec, "resp.status"))
 		return(hp->resp[1]);
-	if (!strcmp(spec, "resp.msg"))
+	if (!strcmp(spec, "resp.reason"))
 		return(hp->resp[2]);
 	if (!strcmp(spec, "resp.chunklen"))
 		return(hp->chunklen);
 	if (!strcmp(spec, "req.bodylen"))
 		return(hp->bodylen);
+	if (!strcmp(spec, "req.body"))
+		return(hp->body != NULL ? hp->body : spec);
 	if (!strcmp(spec, "resp.bodylen"))
 		return(hp->bodylen);
 	if (!strcmp(spec, "resp.body"))
@@ -229,6 +330,11 @@ cmd_var_resolve(struct http *hp, char *spec)
 	} else if (!strncmp(spec, "resp.http.", 10)) {
 		hh = hp->resp;
 		hdr = spec + 10;
+	} else if (!strcmp(spec, "h2.state")) {
+		if (hp->h2)
+			return ("true");
+		else
+			return ("false");
 	} else
 		return (spec);
 	hdr = http_find_header(hh, hdr);
@@ -267,7 +373,7 @@ cmd_http_expect(CMD_ARGS)
 	if (!strcmp(cmp, "~") || !strcmp(cmp, "!~")) {
 		vre = VRE_compile(crhs, 0, &error, &erroroffset);
 		if (vre == NULL)
-			vtc_log(hp->vl, 0, "REGEXP error: %s (@%d) (%s)",
+			vtc_fatal(hp->vl, "REGEXP error: %s (@%d) (%s)",
 			    error, erroroffset, crhs);
 		i = VRE_exec(vre, clhs, strlen(clhs), 0, 0, NULL, 0, 0);
 		retval = (i >= 0 && *cmp == '~') || (i < 0 && *cmp == '!');
@@ -290,7 +396,7 @@ cmd_http_expect(CMD_ARGS)
 	}
 
 	if (retval == -1)
-		vtc_log(hp->vl, 0,
+		vtc_fatal(hp->vl,
 		    "EXPECT %s (%s) %s %s (%s) test not implemented",
 		    av[0], clhs, av[1], av[2], crhs);
 	else
@@ -313,7 +419,7 @@ cmd_http_expect_pattern(CMD_ARGS)
 	AZ(av[0]);
 	for (p = hp->body; *p != '\0'; p++) {
 		if (*p != t)
-			vtc_log(hp->vl, 0,
+			vtc_fatal(hp->vl,
 			    "EXPECT PATTERN FAIL @%zd should 0x%02x is 0x%02x",
 			    p - hp->body, t, *p);
 		t += 1;
@@ -395,7 +501,7 @@ http_splitheader(struct http *hp, int req)
 	assert(*p == '\0');
 
 	for (n = 0; n < 3 || hh[n] != NULL; n++) {
-		sprintf(buf, "http[%2d] ", n);
+		bprintf(buf, "http[%2d] ", n);
 		vtc_dump(hp->vl, 4, buf, hh[n], -1);
 	}
 }
@@ -418,14 +524,18 @@ http_rxchar(struct http *hp, int n, int eof)
 		i = poll(pfd, 1, hp->timeout);
 		if (i < 0 && errno == EINTR)
 			continue;
-		if (i == 0)
+		if (i == 0) {
 			vtc_log(hp->vl, hp->fatal,
 			    "HTTP rx timeout (fd:%d %u ms)",
 			    hp->fd, hp->timeout);
-		if (i < 0)
+			continue;
+		}
+		if (i < 0) {
 			vtc_log(hp->vl, hp->fatal,
 			    "HTTP rx failed (fd:%d poll: %s)",
 			    hp->fd, strerror(errno));
+			continue;
+		}
 		assert(i > 0);
 		assert(hp->prxbuf + n < hp->nrxbuf);
 		i = read(hp->fd, hp->rxbuf + hp->prxbuf, n);
@@ -435,14 +545,18 @@ http_rxchar(struct http *hp, int n, int eof)
 			    hp->fd, pfd[0].revents, n, i);
 		if (i == 0 && eof)
 			return (i);
-		if (i == 0)
+		if (i == 0) {
 			vtc_log(hp->vl, hp->fatal,
-			    "HTTP rx EOF (fd:%d read: %s)",
-			    hp->fd, strerror(errno));
-		if (i < 0)
+			    "HTTP rx EOF (fd:%d read: %s) %d",
+			    hp->fd, strerror(errno), n);
+			return (-1);
+		}
+		if (i < 0) {
 			vtc_log(hp->vl, hp->fatal,
 			    "HTTP rx failed (fd:%d read: %s)",
 			    hp->fd, strerror(errno));
+			return (-1);
+		}
 		hp->prxbuf += i;
 		hp->rxbuf[hp->prxbuf] = '\0';
 		n -= i;
@@ -457,9 +571,10 @@ http_rxchunk(struct http *hp)
 	int l, i;
 
 	l = hp->prxbuf;
-	do
-		(void)http_rxchar(hp, 1, 0);
-	while (hp->rxbuf[hp->prxbuf - 1] != '\n');
+	do {
+		if (http_rxchar(hp, 1, 0) < 0)
+			return (-1);
+	} while (hp->rxbuf[hp->prxbuf - 1] != '\n');
 	vtc_dump(hp->vl, 4, "len", hp->rxbuf + l, -1);
 	i = strtoul(hp->rxbuf + l, &q, 16);
 	bprintf(hp->chunklen, "%d", i);
@@ -467,25 +582,31 @@ http_rxchunk(struct http *hp)
 		(*q != '\0' && !vct_islws(*q))) {
 		vtc_log(hp->vl, hp->fatal, "chunked fail %02x @ %td",
 		    *q, q - (hp->rxbuf + l));
+		return (-1);
 	}
 	assert(q != hp->rxbuf + l);
 	assert(*q == '\0' || vct_islws(*q));
 	hp->prxbuf = l;
 	if (i > 0) {
-		(void)http_rxchar(hp, i, 0);
-		vtc_dump(hp->vl, 4, "chunk",
-		    hp->rxbuf + l, i);
+		if (http_rxchar(hp, i, 0) < 0)
+			return (-1);
+		vtc_dump(hp->vl, 4, "chunk", hp->rxbuf + l, i);
 	}
 	l = hp->prxbuf;
-	(void)http_rxchar(hp, 2, 0);
-	if(!vct_iscrlf(hp->rxbuf + l))
+	if (http_rxchar(hp, 2, 0) < 0)
+		return (-1);
+	if (!vct_iscrlf(hp->rxbuf + l)) {
 		vtc_log(hp->vl, hp->fatal,
 		    "Wrong chunk tail[0] = %02x",
 		    hp->rxbuf[l] & 0xff);
-	if(!vct_iscrlf(hp->rxbuf + l + 1))
+		return (-1);
+	}
+	if (!vct_iscrlf(hp->rxbuf + l + 1)) {
 		vtc_log(hp->vl, hp->fatal,
 		    "Wrong chunk tail[1] = %02x",
 		    hp->rxbuf[l + 1] & 0xff);
+		return (-1);
+	}
 	hp->prxbuf = l;
 	hp->rxbuf[l] = '\0';
 	return (i);
@@ -501,22 +622,22 @@ http_swallow_body(struct http *hp, char * const *hh, int body)
 	char *p;
 	int i, l, ll;
 
-	hp->body = hp->rxbuf + hp->prxbuf;
 	ll = 0;
 	p = http_find_header(hh, "transfer-encoding");
 	if (p != NULL && !strcasecmp(p, "chunked")) {
-		while (http_rxchunk(hp) != 0)
+		while (http_rxchunk(hp) > 0)
 			continue;
 		vtc_dump(hp->vl, 4, "body", hp->body, ll);
 		ll = hp->rxbuf + hp->prxbuf - hp->body;
 		hp->bodyl = ll;
-		sprintf(hp->bodylen, "%d", ll);
+		bprintf(hp->bodylen, "%d", ll);
 		return;
 	}
 	p = http_find_header(hh, "content-length");
 	if (p != NULL) {
 		l = strtoul(p, NULL, 10);
-		(void)http_rxchar(hp, l, 0);
+		if (http_rxchar(hp, l, 0) < 0)
+			return;
 		vtc_dump(hp->vl, 4, "body", hp->body, l);
 		hp->bodyl = l;
 		bprintf(hp->bodylen, "%d", l);
@@ -525,12 +646,14 @@ http_swallow_body(struct http *hp, char * const *hh, int body)
 	if (body) {
 		do  {
 			i = http_rxchar(hp, 1, 1);
+			if (i < 0)
+				return;
 			ll += i;
 		} while (i > 0);
 		vtc_dump(hp->vl, 4, "rxeof", hp->body, ll);
 	}
 	hp->bodyl = ll;
-	sprintf(hp->bodylen, "%d", ll);
+	bprintf(hp->bodylen, "%d", ll);
 }
 
 /**********************************************************************
@@ -563,13 +686,15 @@ http_rxhdr(struct http *hp)
 	}
 	vtc_dump(hp->vl, 4, "rxhdr", hp->rxbuf, -1);
 	vtc_log(hp->vl, 4, "rxhdrlen = %zd", strlen(hp->rxbuf));
+	hp->body = hp->rxbuf + hp->prxbuf;
 }
 
-
-/**********************************************************************
- * Receive a response
+/* SECTION: client-server.spec.rxresp
+ *
+ * rxresp [-no_obj] (client only)
+ *         Receive and parse a response's headers and body. If -no_obj is present, only get
+ *         the headers.
  */
-
 static void
 cmd_http_rxresp(CMD_ARGS)
 {
@@ -583,16 +708,16 @@ cmd_http_rxresp(CMD_ARGS)
 	AZ(strcmp(av[0], "rxresp"));
 	av++;
 
-	for(; *av != NULL; av++)
+	for (; *av != NULL; av++)
 		if (!strcmp(*av, "-no_obj"))
 			has_obj = 0;
 		else
-			vtc_log(hp->vl, 0,
+			vtc_fatal(hp->vl,
 			    "Unknown http rxresp spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 0);
 	if (http_count_header(hp->resp, "Content-Length") > 1)
-		vtc_log(hp->vl, 0,
+		vtc_fatal(hp->vl,
 		    "Multiple Content-Length headers.\n");
 	if (!has_obj)
 		return;
@@ -603,6 +728,11 @@ cmd_http_rxresp(CMD_ARGS)
 	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 }
 
+/* SECTION: client-server.spec.rxresphdrs
+ *
+ * rxresphdrs (client only)
+ *         Receive and parse a response's headers.
+ */
 static void
 cmd_http_rxresphdrs(CMD_ARGS)
 {
@@ -615,12 +745,12 @@ cmd_http_rxresphdrs(CMD_ARGS)
 	AZ(strcmp(av[0], "rxresphdrs"));
 	av++;
 
-	for(; *av != NULL; av++)
-		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
+	for (; *av != NULL; av++)
+		vtc_fatal(hp->vl, "Unknown http rxresp spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 0);
 	if (http_count_header(hp->resp, "Content-Length") > 1)
-		vtc_log(hp->vl, 0,
+		vtc_fatal(hp->vl,
 		    "Multiple Content-Length headers.\n");
 }
 
@@ -629,13 +759,10 @@ cmd_http_rxresphdrs(CMD_ARGS)
  * Ungzip rx'ed body
  */
 
-#define TRUST_ME(ptr)   ((void*)(uintptr_t)(ptr))
-
 #define OVERHEAD 64L
 
-
 static void
-cmd_http_gunzip_body(CMD_ARGS)
+cmd_http_gunzip(CMD_ARGS)
 {
 	int i;
 	z_stream vz;
@@ -745,20 +872,28 @@ http_tx_parse_args(char * const *av, struct vtclog *vl, struct http *hp,
 	char *b, *c;
 	char *nullbody = NULL;
 	int nolen = 0;
+	int l;
 
 	(void)vl;
 	nullbody = body;
 
-	for(; *av != NULL; av++) {
+	for (; *av != NULL; av++) {
 		if (!strcmp(*av, "-nolen")) {
 			nolen = 1;
 		} else if (!strcmp(*av, "-hdr")) {
 			VSB_printf(hp->vsb, "%s%s", av[1], nl);
 			av++;
+		} else if (!strcmp(*av, "-hdrlen")) {
+			VSB_printf(hp->vsb, "%s: ", av[1]);
+			l = atoi(av[2]);
+			while (l-- > 0)
+				VSB_putc(hp->vsb, '0' + (l % 10));
+			VSB_printf(hp->vsb, "%s", nl);
+			av+=2;
 		} else
 			break;
 	}
-	for(; *av != NULL; av++) {
+	for (; *av != NULL; av++) {
 		if (!strcmp(*av, "-body")) {
 			assert(body == nullbody);
 			REPLACE(body, av[1]);
@@ -767,9 +902,9 @@ http_tx_parse_args(char * const *av, struct vtclog *vl, struct http *hp,
 			av++;
 			bodylen = strlen(body);
 			for (b = body; *b != '\0'; b++) {
-				if(*b == '\\' && b[1] == '0') {
+				if (*b == '\\' && b[1] == '0') {
 					*b = '\0';
-					for(c = b+1; *c != '\0'; c++) {
+					for (c = b+1; *c != '\0'; c++) {
 						*c = c[1];
 					}
 					b++;
@@ -813,6 +948,69 @@ http_tx_parse_args(char * const *av, struct vtclog *vl, struct http *hp,
 	return (av);
 }
 
+/* SECTION: client-server.spec.txreq
+ *
+ * txreq|txresp [...]
+ *         Send a minimal request or response, but overload it if necessary.
+ *
+ *         txreq is client-specific and txresp is server-specific.
+ *
+ *         The only thing different between a request and a response, apart
+ *         from who can send them is that the first line (request line vs
+ *         status line), so all the options are prety much the same.
+ *
+ *         \-req STRING (txreq only)
+ *                 What method to use (default: "GET").
+ *
+ *         \-url STRING (txreq only)
+ *                 What location to use (default "/").
+ *
+ *         \-proto STRING
+ *                 What protocol use in the status line.
+ *                 (default: "HTTP/1.1").
+ *
+ *         \-status NUMBER (txresp only)
+ *                 What status code to return (default 200).
+ *
+ *         \-reason STRING (txresp only)
+ *                 What message to put in the status line (default: "OK").
+ *
+ *         These three switches can appear in any order but must come before the
+ *         following ones.
+ *
+ *         \-nolen
+ *                 Don't include a Content-Length header in the response.
+ *
+ *         \-hdr STRING
+ *                 Add STRING as a header, it must follow this format:
+ *                 "name: value". It can be called multiple times.
+ *
+ *         \-hdrlen STRING NUMBER
+ *                 Add STRING as a header with NUMBER bytes of content.
+ *
+ *         You can then use the arguments related to the body:
+ *
+ *         \-body STRING
+ *                 Input STRING as body.
+ *
+ *         \-bodylen NUMBER
+ *                 Generate and input a body that is NUMBER bytes-long.
+ *
+ *         \-gziplevel NUMBER
+ *		   Set the gzip level (call it before any of the other gzip
+ *		   switches).
+ *
+ *         \-gzipresidual NUMBER
+ *                 Add extra gzip bits. You should never need it.
+ *
+ *         \-gzipbody STRING
+ *                 Zip STRING and send it as body.
+ *
+ *         \-gziplen NUMBER
+ *                 Combine -body and -gzipbody: create a body of length NUMBER,
+ *                 zip it and send as body.
+ */
+
 /**********************************************************************
  * Transmit a response
  */
@@ -835,14 +1033,14 @@ cmd_http_txresp(CMD_ARGS)
 
 	VSB_clear(hp->vsb);
 
-	for(; *av != NULL; av++) {
+	for (; *av != NULL; av++) {
 		if (!strcmp(*av, "-proto")) {
 			proto = av[1];
 			av++;
 		} else if (!strcmp(*av, "-status")) {
 			status = av[1];
 			av++;
-		} else if (!strcmp(*av, "-reason") || !strcmp(*av, "-msg")) {
+		} else if (!strcmp(*av, "-reason")) {
 			reason = av[1];
 			av++;
 			continue;
@@ -857,37 +1055,86 @@ cmd_http_txresp(CMD_ARGS)
 
 	av = http_tx_parse_args(av, vl, hp, body);
 	if (*av != NULL)
-		vtc_log(hp->vl, 0, "Unknown http txresp spec: %s\n", *av);
+		vtc_fatal(hp->vl, "Unknown http txresp spec: %s\n", *av);
 
 	http_write(hp, 4, "txresp");
+}
+
+static void
+cmd_http_upgrade(CMD_ARGS)
+{
+	char *h;
+	struct http *hp;
+
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_SERVER(hp, av);
+	AN(hp->sfd);
+
+	h = http_find_header(hp->req, "Upgrade");
+	if (!h || strcmp(h, "h2c"))
+		vtc_fatal(vl, "Req misses \"Upgrade: h2c\" header");
+
+	h = http_find_header(hp->req, "Connection");
+	if (!h || strcmp(h, "Upgrade, HTTP2-Settings"))
+		vtc_fatal(vl, "Req misses \"Connection: "
+			"Upgrade, HTTP2-Settings\" header");
+
+	h = http_find_header(hp->req, "HTTP2-Settings");
+	if (!h)
+		vtc_fatal(vl, "Req misses \"HTTP2-Settings\" header");
+
+
+	parse_string("txresp -status 101 "
+				"-hdr \"Connection: Upgrade\" "
+				"-hdr \"Upgrade: h2c\"\n", cmd, hp, vl);
+
+	b64_settings(hp, h);
+
+	parse_string("rxpri\n"
+			"stream 0 {\n"
+			"txsettings\n"
+			"rxsettings\n"
+			"txsettings -ack\n"
+			"rxsettings\n"
+			"expect settings.ack == true\n"
+			"} -start\n", cmd, hp, vl);
 }
 
 /**********************************************************************
  * Receive a request
  */
 
+/* SECTION: client-server.spec.rxreq
+ *
+ * rxreq (server only)
+ *         Receive and parse a request's headers and body.
+ */
 static void
 cmd_http_rxreq(CMD_ARGS)
 {
 	struct http *hp;
 
 	(void)cmd;
-	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
 	ONLY_SERVER(hp, av);
 	AZ(strcmp(av[0], "rxreq"));
 	av++;
 
-	for(; *av != NULL; av++)
-		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
+	for (; *av != NULL; av++)
+		vtc_fatal(vl, "Unknown http rxreq spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 1);
 	if (http_count_header(hp->req, "Content-Length") > 1)
-		vtc_log(hp->vl, 0,
-		    "Multiple Content-Length headers.\n");
+		vtc_fatal(vl, "Multiple Content-Length headers.\n");
 	http_swallow_body(hp, hp->req, 0);
-	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
+	vtc_log(vl, 4, "bodylen = %s", hp->bodylen);
 }
+
+/* SECTION: client-server.spec.rxreqhdrs
+ *
+ * rxreqhdrs
+ *         Receive and parse a request's headers (but not the body).
+ */
 
 static void
 cmd_http_rxreqhdrs(CMD_ARGS)
@@ -900,14 +1147,19 @@ cmd_http_rxreqhdrs(CMD_ARGS)
 	AZ(strcmp(av[0], "rxreqhdrs"));
 	av++;
 
-	for(; *av != NULL; av++)
-		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
+	for (; *av != NULL; av++)
+		vtc_fatal(hp->vl, "Unknown http rxreq spec: %s\n", *av);
 	http_rxhdr(hp);
 	http_splitheader(hp, 1);
 	if (http_count_header(hp->req, "Content-Length") > 1)
-		vtc_log(hp->vl, 0,
-		    "Multiple Content-Length headers.\n");
+		vtc_fatal(hp->vl, "Multiple Content-Length headers.\n");
 }
+
+/* SECTION: client-server.spec.rxreqbody
+ *
+ * rxreqbody (server only)
+ *         Receive a request's body.
+ */
 
 static void
 cmd_http_rxreqbody(CMD_ARGS)
@@ -921,11 +1173,17 @@ cmd_http_rxreqbody(CMD_ARGS)
 	AZ(strcmp(av[0], "rxreqbody"));
 	av++;
 
-	for(; *av != NULL; av++)
-		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
+	for (; *av != NULL; av++)
+		vtc_fatal(hp->vl, "Unknown http rxreq spec: %s\n", *av);
 	http_swallow_body(hp, hp->req, 0);
 	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 }
+
+/* SECTION: client-server.spec.rxrespbody
+ *
+ * rxrespbody (client only)
+ *         Receive a response's body.
+ */
 
 static void
 cmd_http_rxrespbody(CMD_ARGS)
@@ -939,11 +1197,17 @@ cmd_http_rxrespbody(CMD_ARGS)
 	AZ(strcmp(av[0], "rxrespbody"));
 	av++;
 
-	for(; *av != NULL; av++)
-		vtc_log(hp->vl, 0, "Unknown http rxreq spec: %s\n", *av);
+	for (; *av != NULL; av++)
+		vtc_fatal(hp->vl, "Unknown http rxrespbody spec: %s\n", *av);
 	http_swallow_body(hp, hp->resp, 0);
 	vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 }
+
+/* SECTION: client-server.spec.rxchunk
+ *
+ * rxchunk
+ *         Receive an HTTP chunk.
+ */
 
 static void
 cmd_http_rxchunk(CMD_ARGS)
@@ -960,7 +1224,7 @@ cmd_http_rxchunk(CMD_ARGS)
 	if (i == 0) {
 		ll = hp->rxbuf + hp->prxbuf - hp->body;
 		hp->bodyl = ll;
-		sprintf(hp->bodylen, "%d", ll);
+		bprintf(hp->bodylen, "%d", ll);
 		vtc_log(hp->vl, 4, "bodylen = %s", hp->bodylen);
 	}
 }
@@ -976,6 +1240,7 @@ cmd_http_txreq(CMD_ARGS)
 	const char *req = "GET";
 	const char *url = "/";
 	const char *proto = "HTTP/1.1";
+	const char *up = NULL;
 
 	(void)cmd;
 	(void)vl;
@@ -986,7 +1251,7 @@ cmd_http_txreq(CMD_ARGS)
 
 	VSB_clear(hp->vsb);
 
-	for(; *av != NULL; av++) {
+	for (; *av != NULL; av++) {
 		if (!strcmp(*av, "-url")) {
 			url = av[1];
 			av++;
@@ -996,19 +1261,45 @@ cmd_http_txreq(CMD_ARGS)
 		} else if (!strcmp(*av, "-req")) {
 			req = av[1];
 			av++;
+		} else if (!hp->sfd && !strcmp(*av, "-up")) {
+			up = av[1];
+			av++;
 		} else
 			break;
 	}
 	VSB_printf(hp->vsb, "%s %s %s%s", req, url, proto, nl);
 
+	if (up)
+		VSB_printf(hp->vsb, "Connection: Upgrade, HTTP2-Settings%s"
+				"Upgrade: h2c%s"
+				"HTTP2-Settings: %s%s", nl, nl, up, nl);
+
 	av = http_tx_parse_args(av, vl, hp, NULL);
 	if (*av != NULL)
-		vtc_log(hp->vl, 0, "Unknown http txreq spec: %s\n", *av);
+		vtc_fatal(hp->vl, "Unknown http txreq spec: %s\n", *av);
 	http_write(hp, 4, "txreq");
+
+	if (up) {
+		parse_string("rxresp\n"
+				"expect resp.status == 101\n"
+				"expect resp.http.connection == Upgrade\n"
+				"expect resp.http.upgrade == h2c\n"
+				"txpri\n", http_cmds, hp, vl);
+		b64_settings(hp, up);
+		parse_string("stream 0 {\n"
+				"txsettings\n"
+				"rxsettings\n"
+				"txsettings -ack\n"
+				"rxsettings\n"
+				"expect settings.ack == true"
+			     "} -start\n", http_cmds, hp, vl);
+	}
 }
 
-/**********************************************************************
- * Receive N characters
+/* SECTION: client-server.spec.recv
+ *
+ * recv NUMBER
+ *         Read NUMBER bytes from the connection.
  */
 
 static void
@@ -1035,8 +1326,10 @@ cmd_http_recv(CMD_ARGS)
 	}
 }
 
-/**********************************************************************
- * Send a string
+/* SECTION: client-server.spec.send
+ *
+ * send STRING
+ *         Push STRING on the connection.
  */
 
 static void
@@ -1057,8 +1350,10 @@ cmd_http_send(CMD_ARGS)
 		    strerror(errno));
 }
 
-/**********************************************************************
- * Send a string many times
+/* SECTION: client-server.spec.send_n
+ *
+ * send_n NUMBER STRING
+ *         Write STRING on the socket NUMBER times.
  */
 
 static void
@@ -1085,8 +1380,10 @@ cmd_http_send_n(CMD_ARGS)
 	}
 }
 
-/**********************************************************************
- * Send an OOB urgent message
+/* SECTION: client-server.spec.send_urgent
+ *
+ * send_urgent STRING
+ *         Send string as TCP OOB urgent data. You will never need this.
  */
 
 static void
@@ -1107,49 +1404,38 @@ cmd_http_send_urgent(CMD_ARGS)
 		    "Write error in http_send_urgent(): %s", strerror(errno));
 }
 
-/**********************************************************************
- * Send a hex string
+/* SECTION: client-server.spec.sendhex
+ *
+ * sendhex STRING
+ *         Send bytes as described by STRING. STRING should consist of hex pairs
+ *         possibly separated by whitespace or newlines. For example:
+ *         "0F EE a5    3df2".
  */
 
 static void
 cmd_http_sendhex(CMD_ARGS)
 {
+	struct vsb *vsb;
 	struct http *hp;
-	char buf[3], *q;
-	uint8_t *p;
-	int i, j, l;
+	int j;
 
 	(void)cmd;
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
 	AN(av[1]);
 	AZ(av[2]);
-	l = strlen(av[1]) / 2;
-	p = malloc(l);
-	AN(p);
-	q = av[1];
-	for (i = 0; i < l; i++) {
-		while (vct_issp(*q) || *q == '\n')
-			q++;
-		if (*q == '\0')
-			break;
-		memcpy(buf, q, 2);
-		q += 2;
-		buf[2] = '\0';
-		if (!vct_ishex(buf[0]) || !vct_ishex(buf[1]))
-			vtc_log(hp->vl, 0, "Illegal Hex char \"%c%c\"",
-			    buf[0], buf[1]);
-		p[i] = (uint8_t)strtoul(buf, NULL, 16);
-	}
-	vtc_hexdump(hp->vl, 4, "sendhex", (void*)p, i);
-	j = write(hp->fd, p, i);
-	assert(j == i);
-	free(p);
-
+	vsb = vtc_hex_to_bin(hp->vl, av[1]);
+	assert(VSB_len(vsb) >= 0);
+	vtc_hexdump(hp->vl, 4, "sendhex", VSB_data(vsb), VSB_len(vsb));
+	j = write(hp->fd, VSB_data(vsb), VSB_len(vsb));
+	assert(j == VSB_len(vsb));
+	VSB_destroy(&vsb);
 }
 
-/**********************************************************************
- * Send a string as chunked encoding
+/* SECTION: client-server.spec.chunked
+ *
+ * chunked STRING
+ *         Send STRING as chunked encoding.
  */
 
 static void
@@ -1167,6 +1453,13 @@ cmd_http_chunked(CMD_ARGS)
 	    (uintmax_t)strlen(av[1]), nl, av[1], nl);
 	http_write(hp, 4, "chunked");
 }
+
+/* SECTION: client-server.spec.chunkedlen
+ *
+ * chunkedlen NUMBER
+ *         Do as ``chunked`` except that varnishtest will generate the string
+ *         for you, with a length of NUMBER characters.
+ */
 
 static void
 cmd_http_chunkedlen(CMD_ARGS)
@@ -1203,8 +1496,11 @@ cmd_http_chunkedlen(CMD_ARGS)
 	http_write(hp, 4, "chunked");
 }
 
-/**********************************************************************
- * set the timeout
+
+/* SECTION: client-server.spec.timeout
+ *
+ * timeout NUMBER
+ *         Set the TCP timeout for this entity.
  */
 
 static void
@@ -1220,14 +1516,15 @@ cmd_http_timeout(CMD_ARGS)
 	AZ(av[2]);
 	d = VNUM(av[1]);
 	if (isnan(d))
-		vtc_log(vl, 0, "timeout is not a number (%s)", av[1]);
+		vtc_fatal(vl, "timeout is not a number (%s)", av[1]);
 	hp->timeout = (int)(d * 1000.0);
 }
 
-/**********************************************************************
- * expect other end to close (server only)
+/* SECTION: client-server.spec.expect_close
+ *
+ * expect_close
+ *	Reads from the connection, expecting nothing to read but an EOF.
  */
-
 static void
 cmd_http_expect_close(CMD_ARGS)
 {
@@ -1242,6 +1539,8 @@ cmd_http_expect_close(CMD_ARGS)
 	AZ(av[1]);
 
 	vtc_log(vl, 4, "Expecting close (fd = %d)", hp->fd);
+	if (hp->h2)
+		stop_h2(hp);
 	while (1) {
 		fds[0].fd = hp->fd;
 		fds[0].events = POLLIN | POLLERR;
@@ -1266,10 +1565,12 @@ cmd_http_expect_close(CMD_ARGS)
 	vtc_log(vl, 4, "fd=%d EOF, as expected", hp->fd);
 }
 
-/**********************************************************************
- * close a new connection  (server only)
+/* SECTION: client-server.spec.close
+ *
+ * close (server only)
+ *	Close the connection. Note that if operating in HTTP/2 mode no
+ *	extra (GOAWAY) frame is sent, it's simply a TCP close.
  */
-
 static void
 cmd_http_close(CMD_ARGS)
 {
@@ -1278,17 +1579,22 @@ cmd_http_close(CMD_ARGS)
 	(void)cmd;
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_SERVER(hp, av);
 	AZ(av[1]);
 	assert(hp->sfd != NULL);
 	assert(*hp->sfd >= 0);
+	if (hp->h2)
+		stop_h2(hp);
 	VTCP_close(&hp->fd);
 	vtc_log(vl, 4, "Closed");
 }
 
-/**********************************************************************
- * close and accept a new connection  (server only)
+/* SECTION: client-server.spec.accept
+ *
+ * accept (server only)
+ *	Close the current connection, if any, and accept a new one. Note
+ *	that this new connection is HTTP/1.x.
  */
-
 static void
 cmd_http_accept(CMD_ARGS)
 {
@@ -1297,9 +1603,12 @@ cmd_http_accept(CMD_ARGS)
 	(void)cmd;
 	(void)vl;
 	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_SERVER(hp, av);
 	AZ(av[1]);
 	assert(hp->sfd != NULL);
 	assert(*hp->sfd >= 0);
+	if (hp->h2)
+		stop_h2(hp);
 	if (hp->fd >= 0)
 		VTCP_close(&hp->fd);
 	vtc_log(vl, 4, "Accepting");
@@ -1309,8 +1618,10 @@ cmd_http_accept(CMD_ARGS)
 	vtc_log(vl, 3, "Accepted socket fd is %d", hp->fd);
 }
 
-/**********************************************************************
- * loop operator
+/* SECTION: client-server.spec.loop
+ *
+ * loop NUMBER STRING
+ *         Process STRING as a specification, NUMBER times.
  */
 
 static void
@@ -1330,8 +1641,10 @@ cmd_http_loop(CMD_ARGS)
 	}
 }
 
-/**********************************************************************
- * Control fatality
+/* SECTION: client-server.spec.fatal
+ *
+ * fatal|non_fatal
+ *         Control whether a failure of this entity should stop the test.
  */
 
 static void
@@ -1343,11 +1656,159 @@ cmd_http_fatal(CMD_ARGS)
 	AZ(av[1]);
 	if (!strcmp(av[0], "fatal"))
 		hp->fatal = 0;
-	else if (!strcmp(av[0], "non-fatal"))
+	else if (!strcmp(av[0], "non_fatal"))
 		hp->fatal = -1;
-	else {
-		vtc_log(vl, 0, "XXX: fatal %s", cmd->name);
+	else
+		vtc_fatal(vl, "XXX: fatal %s", cmd->name);
+}
+
+#define cmd_http_non_fatal cmd_http_fatal
+
+/* SECTION: client-server.spec.delay
+ *
+ * delay
+ *	Same as for the top-level delay.
+ *
+ * SECTION: client-server.spec.barrier
+ *
+ * barrier
+ *	Same as for the top-level barrier
+ */
+
+static const char PREFACE[24] = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+
+/* SECTION: client-server.spec.txpri
+ *
+ * txpri (client only)
+ *	Send an HTTP/2 preface ("PRI * HTTP/2.0\\r\\n\\r\\nSM\\r\\n\\r\\n")
+ *	and set client to HTTP/2.
+ */
+static void
+cmd_http_txpri(CMD_ARGS)
+{
+	size_t l;
+	struct http *hp;
+	(void)cmd;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_CLIENT(hp, av);
+
+	vtc_dump(hp->vl, 4, "txpri", PREFACE, sizeof(PREFACE));
+	/* Dribble out the preface */
+	l = write(hp->fd, PREFACE, 18);
+	if (l != 18)
+		vtc_log(vl, hp->fatal, "Write failed: (%zd vs %zd) %s",
+		    l, sizeof(PREFACE), strerror(errno));
+	usleep(10000);
+	l = write(hp->fd, PREFACE + 18, sizeof(PREFACE) - 18);
+	if (l != sizeof(PREFACE) - 18)
+		vtc_log(vl, hp->fatal, "Write failed: (%zd vs %zd) %s",
+		    l, sizeof(PREFACE), strerror(errno));
+
+	start_h2(hp);
+	AN(hp->h2);
+}
+
+/* SECTION: client-server.spec.rxpri
+ *
+ * rxpri (server only)
+ *	Receive a preface. If valid set the server to HTTP/2, abort
+ *	otherwise.
+ */
+static void
+cmd_http_rxpri(CMD_ARGS)
+{
+	struct http *hp;
+	(void)cmd;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	ONLY_SERVER(hp, av);
+
+	hp->prxbuf = 0;
+	if (!http_rxchar(hp, sizeof(PREFACE), 0))
+		vtc_fatal(vl, "Couldn't retrieve connection preface");
+	if (memcmp(hp->rxbuf, PREFACE, sizeof(PREFACE)))
+		vtc_fatal(vl, "Received invalid preface\n");
+	start_h2(hp);
+	AN(hp->h2);
+}
+
+/* SECTION: client-server.spec.settings
+ *
+ * settings -dectbl INT
+ *	Force internal HTTP/2 settings to certain values. Currently only
+ *	support setting the decoding table size.
+ */
+static void
+cmd_http_settings(CMD_ARGS)
+{
+	uint32_t n;
+	char *p;
+	struct http *hp;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	(void)cmd;
+
+	if (!hp->h2)
+		vtc_fatal(hp->vl, "Only possible in H/2 mode");
+
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+
+	for (; *av != NULL; av++) {
+		if (!strcmp(*av, "-dectbl")) {
+			n = strtoul(av[1], &p, 0);
+			if (*p != '\0')
+				vtc_fatal(hp->vl, "-dectbl takes an integer as "
+				    "argument (found %s)", av[1]);
+			HPK_ResizeTbl(hp->decctx, n);
+			av++;
+		} else
+			vtc_fatal(vl, "Unknown settings spec: %s\n", *av);
 	}
+}
+
+static void
+cmd_http_stream(CMD_ARGS)
+{
+	struct http *hp = (struct http *)priv;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	if (!hp->h2) {
+		vtc_log(hp->vl, 4, "Not in H/2 mode, do what's needed");
+		if (hp->sfd)
+			parse_string("rxpri", http_cmds, hp, vl);
+		else
+			parse_string("txpri", http_cmds, hp, vl);
+		parse_string("stream 0 {\n"
+				"txsettings\n"
+				"rxsettings\n"
+				"txsettings -ack\n"
+				"rxsettings\n"
+				"expect settings.ack == true"
+			     "} -run\n", http_cmds, hp, vl);
+	}
+	cmd_stream(av, hp, cmd, vl);
+}
+
+/* SECTION: client-server.spec.write_body
+ *
+ * write_body STRING
+ *	Write the body of a request or a response to a file. By using the
+ *	shell command, higher-level checks on the body can be performed
+ *	(eg. XML, JSON, ...) provided that such checks can be delegated
+ *	to an external program.
+ */
+static void
+cmd_http_write_body(CMD_ARGS)
+{
+	struct http *hp;
+
+	(void)cmd;
+	(void)vl;
+	CAST_OBJ_NOTNULL(hp, priv, HTTP_MAGIC);
+	AN(av[0]);
+	AN(av[1]);
+	AZ(av[2]);
+	AZ(strcmp(av[0], "write_body"));
+	if (VFIL_writefile(NULL, av[1], hp->body, hp->bodyl) != 0)
+		vtc_fatal(hp->vl, "failed to write body: %s (%d)",
+		    strerror(errno), errno);
 }
 
 /**********************************************************************
@@ -1355,38 +1816,63 @@ cmd_http_fatal(CMD_ARGS)
  */
 
 static const struct cmds http_cmds[] = {
-	{ "timeout",		cmd_http_timeout },
-	{ "txreq",		cmd_http_txreq },
+#define CMD(n) { #n, cmd_##n },
+#define CMD_HTTP(n) { #n, cmd_http_##n },
+	/* session */
+	CMD_HTTP(accept)
+	CMD_HTTP(close)
+	CMD_HTTP(recv)
+	CMD_HTTP(send)
+	CMD_HTTP(send_n)
+	CMD_HTTP(send_urgent)
+	CMD_HTTP(sendhex)
+	CMD_HTTP(timeout)
 
-	{ "rxreq",		cmd_http_rxreq },
-	{ "rxreqhdrs",		cmd_http_rxreqhdrs },
-	{ "rxreqbody",		cmd_http_rxreqbody },
-	{ "rxchunk",		cmd_http_rxchunk },
+	/* spec */
+	CMD_HTTP(fatal)
+	CMD_HTTP(loop)
+	CMD_HTTP(non_fatal)
 
-	{ "txresp",		cmd_http_txresp },
-	{ "rxresp",		cmd_http_rxresp },
-	{ "rxresphdrs",		cmd_http_rxresphdrs },
-	{ "rxrespbody",		cmd_http_rxrespbody },
-	{ "gunzip",		cmd_http_gunzip_body },
-	{ "expect",		cmd_http_expect },
-	{ "expect_pattern",	cmd_http_expect_pattern },
-	{ "recv",		cmd_http_recv },
-	{ "send",		cmd_http_send },
-	{ "send_n",		cmd_http_send_n },
-	{ "send_urgent",	cmd_http_send_urgent },
-	{ "sendhex",		cmd_http_sendhex },
-	{ "chunked",		cmd_http_chunked },
-	{ "chunkedlen",		cmd_http_chunkedlen },
-	{ "delay",		cmd_delay },
-	{ "barrier",		cmd_barrier },
-	{ "sema",		cmd_sema },
-	{ "expect_close",	cmd_http_expect_close },
-	{ "close",		cmd_http_close },
-	{ "accept",		cmd_http_accept },
-	{ "loop",		cmd_http_loop },
-	{ "fatal",		cmd_http_fatal },
-	{ "non-fatal",		cmd_http_fatal },
-	{ NULL,			NULL }
+	/* body */
+	CMD_HTTP(gunzip)
+	CMD_HTTP(write_body)
+
+	/* HTTP/1.x */
+	CMD_HTTP(chunked)
+	CMD_HTTP(chunkedlen)
+	CMD_HTTP(rxchunk)
+
+	/* HTTP/2 */
+	CMD_HTTP(stream)
+	CMD_HTTP(settings)
+
+	/* client */
+	CMD_HTTP(rxresp)
+	CMD_HTTP(rxrespbody)
+	CMD_HTTP(rxresphdrs)
+	CMD_HTTP(txpri)
+	CMD_HTTP(txreq)
+
+	/* server */
+	CMD_HTTP(rxpri)
+	CMD_HTTP(rxreq)
+	CMD_HTTP(rxreqbody)
+	CMD_HTTP(rxreqhdrs)
+	CMD_HTTP(txresp)
+	CMD_HTTP(upgrade)
+
+	/* expect */
+	CMD_HTTP(expect)
+	CMD_HTTP(expect_close)
+	CMD_HTTP(expect_pattern)
+
+	/* general purpose */
+	CMD(barrier)
+	CMD(delay)
+	CMD(shell)
+#undef CMD_HTTP
+#undef CMD
+	{ NULL, NULL }
 };
 
 int
@@ -1420,10 +1906,13 @@ http_process(struct vtclog *vl, const char *spec, int sock, int *sfd)
 	hp->gziplevel = 0;
 	hp->gzipresidual = -1;
 
-	VTCP_hisname(sock, hp->rem_ip, VTCP_ADDRBUFSIZE, hp->rem_port, VTCP_PORTBUFSIZE);
+	VTCP_hisname(sock,
+	    hp->rem_ip, VTCP_ADDRBUFSIZE, hp->rem_port, VTCP_PORTBUFSIZE);
 	parse_string(spec, http_cmds, hp, vl);
+	if (hp->h2)
+		stop_h2(hp);
 	retval = hp->fd;
-	VSB_delete(hp->vsb);
+	VSB_destroy(&hp->vsb);
 	free(hp->rxbuf);
 	free(hp->rem_ip);
 	free(hp->rem_port);
@@ -1468,10 +1957,10 @@ xxx(void)
 
 	memset(&vz, 0, sizeof vz);
 
-	for(n = 0;  n < 999999999; n++) {
+	for (n = 0;  n < 999999999; n++) {
 		*ibuf = 0;
 		for (j = 0; j < 7; j++) {
-			sprintf(strchr(ibuf, 0), "%x",
+			snprintf(strchr(ibuf, 0), 5, "%x",
 			    (unsigned)random() & 0xffff);
 			vz.next_in = TRUST_ME(ibuf);
 			vz.avail_in = strlen(ibuf);

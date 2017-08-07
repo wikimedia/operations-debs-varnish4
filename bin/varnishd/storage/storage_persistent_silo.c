@@ -34,21 +34,24 @@
 
 #include "config.h"
 
-#include <math.h>
+#include "cache/cache.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
+#include "cache/cache_obj.h"
 #include "storage/storage.h"
+#include "storage/storage_simple.h"
 
 #include "hash/hash_slinger.h"
 #include "vsha256.h"
+#include "vend.h"
 #include "vtim.h"
 
 #include "storage/storage_persistent.h"
 
 /*
- * We use the low bit to mark objects still needing fixup
+ * We use the top bit to mark objects still needing fixup
  * In theory this may need to be platform dependent
  */
 
@@ -103,7 +106,7 @@ smp_save_segs(struct smp_sc *sc)
 		if (sg == sc->cur_seg)
 			continue;
 		VTAILQ_REMOVE(&sc->segments, sg, list);
-		LRU_Free(sg->lru);
+		AN(VTAILQ_EMPTY(&sg->objcores));
 		FREE_OBJ(sg);
 	}
 	smp_save_seg(sc, &sc->seg1);
@@ -130,6 +133,7 @@ smp_load_seg(struct worker *wrk, const struct smp_sc *sc,
 {
 	struct smp_object *so;
 	struct objcore *oc;
+	struct ban *ban;
 	uint32_t no;
 	double t_now = VTIM_real();
 	struct smp_signctx ctx[1];
@@ -137,7 +141,6 @@ smp_load_seg(struct worker *wrk, const struct smp_sc *sc,
 	ASSERT_SILO_THREAD(sc);
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(sg, SMP_SEG_MAGIC);
-	CHECK_OBJ_NOTNULL(sg->lru, LRU_MAGIC);
 	assert(sg->flags & SMP_SEG_MUSTLOAD);
 	sg->flags &= ~SMP_SEG_MUSTLOAD;
 	AN(sg->p.offset);
@@ -155,19 +158,23 @@ smp_load_seg(struct worker *wrk, const struct smp_sc *sc,
 	/* Clear the bogus "hold" count */
 	sg->nobj = 0;
 	for (;no > 0; so++,no--) {
-		if (EXP_When(&so->exp) < t_now)
+		if (EXP_WHEN(so) < t_now)
 			continue;
-		ALLOC_OBJ(oc, OBJCORE_MAGIC);
-		AN(oc);
-		oc->flags &= ~OC_F_BUSY;
+		ban = BAN_FindBan(so->ban);
+		AN(ban);
+		oc = ObjNew(wrk);
 		oc->stobj->stevedore = sc->parent;
 		smp_init_oc(oc, sg, no);
+		VTAILQ_INSERT_TAIL(&sg->objcores, oc, lru_list);
 		oc->stobj->priv2 |= NEED_FIXUP;
-		oc->ban = BAN_RefBan(oc, so->ban);
-		HSH_Insert(wrk, so->hash, oc);
-		oc->exp = so->exp;
+		EXP_COPY(oc, so);
 		sg->nobj++;
-		EXP_Inject(wrk, oc, sg->lru);
+		oc->refcnt++;
+		HSH_Insert(wrk, so->hash, oc, ban);
+		AN(oc->ban);
+		HSH_DerefBoc(wrk, oc);	// XXX Keep it an stream resurrection?
+		(void)HSH_DerefObjCore(wrk, &oc, HSH_RUSH_POLICY);
+		wrk->stats->n_vampireobject++;
 	}
 	Pool_Sumstat(wrk);
 	sg->flags |= SMP_SEG_LOADED;
@@ -218,12 +225,9 @@ smp_new_seg(struct smp_sc *sc)
 
 	ALLOC_OBJ(sg, SMP_SEG_MAGIC);
 	if (sg == NULL)
-		/* Failed allocation */
 		return;
 	*sg = tmpsg;
-	sg->lru = LRU_Alloc();
-	CHECK_OBJ_NOTNULL(sg->lru, LRU_MAGIC);
-	sg->lru->flags |= LRU_F_DONTMOVE;
+	VTAILQ_INIT(&sg->objcores);
 
 	sg->p.offset = IRNUP(sc, sg->p.offset);
 	sg->p.length -= sg->p.offset - tmpsg.p.offset;
@@ -272,7 +276,7 @@ smp_close_seg(struct smp_sc *sc, struct smp_seg *sg)
 		assert(sg->p.offset >= sc->ident->stuff[SMP_SPC_STUFF]);
 		assert(sg->p.offset < sc->mediasize);
 		sc->free_offset = sg->p.offset;
-		LRU_Free(sg->lru);
+		AN(VTAILQ_EMPTY(&sg->objcores));
 		FREE_OBJ(sg);
 		return;
 	}
@@ -386,8 +390,8 @@ smp_loaded_st(const struct smp_sc *sc, const struct smp_seg *sg,
  * objcore methods for persistent objects
  */
 
-static struct object *
-smp_oc_getobj(struct worker *wrk, struct objcore *oc)
+struct object *
+smp_sml_getobj(struct worker *wrk, struct objcore *oc)
 {
 	struct object *o;
 	struct smp_seg *sg;
@@ -400,9 +404,6 @@ smp_oc_getobj(struct worker *wrk, struct objcore *oc)
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	AN(oc->stobj->stevedore);
 
-	/* Some calls are direct, but they should match anyway */
-	assert(oc->stobj->stevedore->methods->getobj == smp_oc_getobj);
-
 	CAST_OBJ_NOTNULL(sg, oc->stobj->priv, SMP_SEG_MAGIC);
 	so = smp_find_so(sg, oc->stobj->priv2);
 
@@ -411,7 +412,7 @@ smp_oc_getobj(struct worker *wrk, struct objcore *oc)
 	 * The object may not be in this segment since we allocate it
 	 * In a separate operation than the smp_object.  We could check
 	 * that it is in a later segment, but that would be complicated.
-	 * XXX: For now, be happy if it is inside th silo
+	 * XXX: For now, be happy if it is inside the silo
 	 */
 	ASSERT_PTR_IN_SILO(sg->sc, o);
 	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
@@ -436,12 +437,12 @@ smp_oc_getobj(struct worker *wrk, struct objcore *oc)
 				break;
 			l += st->len;
 		}
-		if (l != o->len)
+		if (l != vbe64dec(o->fa_len))
 			bad |= 0x100;
 
-		if(bad) {
-			EXP_Clr(&oc->exp);
-			EXP_Clr(&so->exp);
+		if (bad) {
+			EXP_ZERO(oc);
+			EXP_ZERO(so);
 		}
 
 		sg->nfixed++;
@@ -450,40 +451,11 @@ smp_oc_getobj(struct worker *wrk, struct objcore *oc)
 		oc->stobj->priv2 &= ~NEED_FIXUP;
 	}
 	Lck_Unlock(&sg->sc->mtx);
-	EXP_Rearm(oc, NAN, NAN, NAN, NAN);	// XXX: Shouldn't be needed
 	return (o);
 }
 
-static void
-smp_oc_updatemeta(struct worker *wrk, struct objcore *oc)
-{
-	struct object *o;
-	struct smp_seg *sg;
-	struct smp_object *so;
-
-	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
-	o = smp_oc_getobj(wrk, oc);
-	AN(o);
-
-	CAST_OBJ_NOTNULL(sg, oc->stobj->priv, SMP_SEG_MAGIC);
-	CHECK_OBJ_NOTNULL(sg->sc, SMP_SC_MAGIC);
-	so = smp_find_so(sg, oc->stobj->priv2);
-
-	if (sg == sg->sc->cur_seg) {
-		/* Lock necessary, we might race close_seg */
-		Lck_Lock(&sg->sc->mtx);
-		so->ban = BAN_Time(oc->ban);
-		so->exp = oc->exp;
-		Lck_Unlock(&sg->sc->mtx);
-	} else {
-		so->ban = BAN_Time(oc->ban);
-		so->exp = oc->exp;
-	}
-}
-
-static void __match_proto__(freeobj_f)
-smp_oc_freeobj(struct worker *wrk, struct objcore *oc)
+void __match_proto__(objfree_f)
+smp_oc_objfree(struct worker *wrk, struct objcore *oc)
 {
 	struct smp_seg *sg;
 	struct smp_object *so;
@@ -495,7 +467,7 @@ smp_oc_freeobj(struct worker *wrk, struct objcore *oc)
 	so = smp_find_so(sg, oc->stobj->priv2);
 
 	Lck_Lock(&sg->sc->mtx);
-	EXP_Clr(&so->exp);
+	EXP_ZERO(so);
 	so->ptr = 0;
 
 	assert(sg->nobj > 0);
@@ -507,30 +479,11 @@ smp_oc_freeobj(struct worker *wrk, struct objcore *oc)
 		sg->nfixed--;
 		wrk->stats->n_object--;
 	}
+	VTAILQ_REMOVE(&sg->objcores, oc, lru_list);
 
 	Lck_Unlock(&sg->sc->mtx);
 	memset(oc->stobj, 0, sizeof oc->stobj);
 }
-
-/*--------------------------------------------------------------------
- * Find the per-segment lru list for this object
- */
-
-static struct lru * __match_proto__(getlru_f)
-smp_oc_getlru(const struct objcore *oc)
-{
-	struct smp_seg *sg;
-
-	CAST_OBJ_NOTNULL(sg, oc->stobj->priv, SMP_SEG_MAGIC);
-	return (sg->lru);
-}
-
-const struct storeobj_methods smp_oc_methods = {
-	.getobj =		smp_oc_getobj,
-	.updatemeta =		smp_oc_updatemeta,
-	.freeobj =		smp_oc_freeobj,
-	.getlru =		smp_oc_getlru,
-};
 
 /*--------------------------------------------------------------------*/
 
@@ -542,3 +495,40 @@ smp_init_oc(struct objcore *oc, struct smp_seg *sg, unsigned objidx)
 	oc->stobj->priv = sg;
 	oc->stobj->priv2 = objidx;
 }
+
+/*--------------------------------------------------------------------*/
+
+void __match_proto__(obj_event_f)
+smp_oc_event(struct worker *wrk, void *priv, struct objcore *oc, unsigned ev)
+{
+	struct stevedore *st;
+	struct smp_seg *sg;
+	struct smp_object *so;
+
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CAST_OBJ_NOTNULL(st, priv, STEVEDORE_MAGIC);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+
+	if (oc->stobj->stevedore != st)
+		return;
+
+	CAST_OBJ_NOTNULL(sg, oc->stobj->priv, SMP_SEG_MAGIC);
+	CHECK_OBJ_NOTNULL(sg->sc, SMP_SC_MAGIC);
+	so = smp_find_so(sg, oc->stobj->priv2);
+
+	if (sg == sg->sc->cur_seg) {
+		/* Lock necessary, we might race close_seg */
+		Lck_Lock(&sg->sc->mtx);
+		if (ev & (OEV_BANCHG|OEV_INSERT))
+			so->ban = BAN_Time(oc->ban);
+		if (ev & (OEV_TTLCHG|OEV_INSERT))
+			EXP_COPY(so, oc);
+		Lck_Unlock(&sg->sc->mtx);
+	} else {
+		if (ev & (OEV_BANCHG|OEV_INSERT))
+			so->ban = BAN_Time(oc->ban);
+		if (ev & (OEV_TTLCHG|OEV_INSERT))
+			EXP_COPY(so, oc);
+	}
+}
+

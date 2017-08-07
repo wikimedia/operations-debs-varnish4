@@ -29,21 +29,6 @@
  * Stuff that should *never* be exposed to a VMOD
  */
 
-/*--------------------------------------------------------------------
- * A transport is how we talk HTTP for a given request.
- * This is different from a protocol because ESI child requests have
- * their own "protocol" to talk to the parent ESI request, which may
- * or may not, be talking a "real" HTTP protocol itself.
- */
-
-typedef void vtr_deliver_f (struct req *, struct busyobj *, int sendbody);
-
-struct transport {
-	unsigned		magic;
-#define TRANSPORT_MAGIC		0xf157f32f
-	vtr_deliver_f		*deliver;
-};
-
 /* Prototypes etc ----------------------------------------------------*/
 
 /* cache_acceptor.c */
@@ -54,13 +39,13 @@ void VCA_Shutdown(void);
 void VBE_InitCfg(void);
 void VBE_Poll(void);
 
-/* cache_backend_tcp.c */
-void VBT_Init(void);
-
 /* cache_backend_poll.c */
 void VBP_Init(void);
 
-/* == cache_ban.c == */
+/* cache_exp.c */
+double EXP_Ttl(const struct req *, const struct objcore *);
+void EXP_Insert(struct worker *wrk, struct objcore *oc);
+void EXP_Remove(struct objcore *);
 
 /* From cache_main.c */
 void BAN_Init(void);
@@ -100,14 +85,22 @@ struct req * THR_GetRequest(void);
 /* cache_lck.c */
 void LCK_Init(void);
 
+/* cache_obj.c */
+void ObjInit(void);
+
 /* cache_panic.c */
 void PAN_Init(void);
+int PAN_already(struct vsb *, const void *);
 
 /* cache_pool.c */
 void Pool_Init(void);
 
 /* cache_proxy.c [VPX] */
 task_func_t VPX_Proto_Sess;
+
+/* cache_session.c */
+void SES_NewPool(struct pool *, unsigned pool_no);
+void SES_DestroyPool(struct pool *);
 
 /* cache_shmlog.c */
 void VSM_Init(void);
@@ -126,11 +119,24 @@ void VCL_Poll(void);
 /* cache_vrt.c */
 void VRTPRIV_init(struct vrt_privs *privs);
 void VRTPRIV_dynamic_kill(struct vrt_privs *privs, uintptr_t id);
+void pan_privs(struct vsb *, const struct vrt_privs *);
 
 /* cache_vrt_vmod.c */
 void VMOD_Init(void);
+void VMOD_Panic(struct vsb *);
+
+/* http1/cache_http1_pipe.c */
+void V1P_Init(void);
+
+/* stevedore.c */
+void STV_open(void);
+void STV_close(void);
+const struct stevedore *STV_find(const char *);
+const struct stevedore *STV_next(void);
+int STV_BanInfoDrop(const uint8_t *ban, unsigned len);
+int STV_BanInfoNew(const uint8_t *ban, unsigned len);
+void STV_BanExport(const uint8_t *banlist, unsigned len);
 
 /* storage_persistent.c */
-void SMP_Init(void);
 void SMP_Ready(void);
 

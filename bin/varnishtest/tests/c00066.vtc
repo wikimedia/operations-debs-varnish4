@@ -6,7 +6,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	backend bad { .host = "${bad_ip}"; .port = "9080"; }
+	backend bad { .host = "${bad_backend}"; }
 	sub vcl_recv {
 		if (req.url == "/synth") {
 			return (synth(200, "Synth test"));
@@ -43,13 +43,13 @@ client c1 {
 	txreq -url "/"
 	rxresp
 	expect resp.status == 200
-	expect resp.msg == "OK"
+	expect resp.reason == "OK"
 	delay .1
 
 	txreq -url "/synth"
 	rxresp
 	expect resp.status == 200
-	expect resp.msg == "Synth test"
+	expect resp.reason == "Synth test"
 	delay .1
 
 	txreq -url "/error"

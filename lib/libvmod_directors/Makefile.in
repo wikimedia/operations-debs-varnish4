@@ -91,7 +91,8 @@ host_triplet = @host@
 target_triplet = @target@
 subdir = lib/libvmod_directors
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/varnish.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
 	$(top_srcdir)/m4/ax_lib_readline.m4 \
 	$(top_srcdir)/m4/ax_pthread.m4 \
@@ -137,9 +138,16 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(vmoddir)"
 LTLIBRARIES = $(vmod_LTLIBRARIES)
 libvmod_directors_la_LIBADD =
-am_libvmod_directors_la_OBJECTS = vdir.lo fall_back.lo hash.lo \
-	random.lo round_robin.lo
-nodist_libvmod_directors_la_OBJECTS = vcc_if.lo
+am_libvmod_directors_la_OBJECTS = libvmod_directors_la-vdir.lo \
+	libvmod_directors_la-fall_back.lo libvmod_directors_la-hash.lo \
+	libvmod_directors_la-random.lo \
+	libvmod_directors_la-round_robin.lo \
+	libvmod_directors_la-vmod_shard.lo \
+	libvmod_directors_la-shard_cfg.lo \
+	libvmod_directors_la-shard_dir.lo \
+	libvmod_directors_la-shard_hash.lo \
+	libvmod_directors_la-shard_parse_vcc_enums.lo
+nodist_libvmod_directors_la_OBJECTS = libvmod_directors_la-vcc_if.lo
 libvmod_directors_la_OBJECTS = $(am_libvmod_directors_la_OBJECTS) \
 	$(nodist_libvmod_directors_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -148,8 +156,8 @@ am__v_lt_0 = --silent
 am__v_lt_1 = 
 libvmod_directors_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
-	$(AM_CFLAGS) $(CFLAGS) $(libvmod_directors_la_LDFLAGS) \
-	$(LDFLAGS) -o $@
+	$(libvmod_directors_la_CFLAGS) $(CFLAGS) \
+	$(libvmod_directors_la_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -242,6 +250,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTCFLAGS = @EXTCFLAGS@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -258,7 +267,6 @@ LIBM = @LIBM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
-LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -270,6 +278,7 @@ MKDIR_P = @MKDIR_P@
 NET_LIBS = @NET_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NSL_LIBS = @NSL_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -292,13 +301,20 @@ PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 PYTHON = @PYTHON@
+PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
+PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PREFIX = @PYTHON_PREFIX@
+PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
 RST2HTML = @RST2HTML@
 RST2MAN = @RST2MAN@
 RT_LIBS = @RT_LIBS@
+SAN_CFLAGS = @SAN_CFLAGS@
+SAN_LDFLAGS = @SAN_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VARNISH_STATE_DIR = @VARNISH_STATE_DIR@
 VCC_CC = @VCC_CC@
@@ -347,9 +363,14 @@ mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
+pkgpyexecdir = @pkgpyexecdir@
+pkgpythondir = @pkgpythondir@
+pkgsysconfdir = @pkgsysconfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+pyexecdir = @pyexecdir@
+pythondir = @pythondir@
 runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
@@ -363,7 +384,6 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-varnishconfdir = @varnishconfdir@
 
 #
 AM_LDFLAGS = $(AM_LT_LDFLAGS)
@@ -377,14 +397,28 @@ vmod_srcdir = $(top_srcdir)/lib/libvmod_directors
 vmodtool = $(top_srcdir)/lib/libvcc/vmodtool.py
 vmodtoolargs = --strict
 vmod_LTLIBRARIES = libvmod_directors.la
-libvmod_directors_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared
+libvmod_directors_la_CFLAGS = \
+	@SAN_CFLAGS@
+
+libvmod_directors_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared \
+	@SAN_LDFLAGS@
+
 libvmod_directors_la_SOURCES = \
 	vdir.c \
 	vdir.h \
 	fall_back.c \
 	hash.c \
 	random.c \
-	round_robin.c
+	round_robin.c \
+	vmod_shard.c \
+	shard_cfg.c \
+	shard_cfg.h \
+	shard_dir.c \
+	shard_dir.h \
+	shard_hash.c \
+	shard_hash.h \
+	shard_parse_vcc_enums.h \
+	shard_parse_vcc_enums.c
 
 nodist_libvmod_directors_la_SOURCES = \
 	vcc_if.c \
@@ -473,12 +507,17 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fall_back.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hash.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/random.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/round_robin.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vcc_if.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vdir.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-fall_back.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-hash.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-random.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-round_robin.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-shard_cfg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-shard_dir.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-shard_hash.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-shard_parse_vcc_enums.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-vcc_if.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-vdir.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_directors_la-vmod_shard.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -500,6 +539,83 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+libvmod_directors_la-vdir.lo: vdir.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-vdir.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-vdir.Tpo -c -o libvmod_directors_la-vdir.lo `test -f 'vdir.c' || echo '$(srcdir)/'`vdir.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-vdir.Tpo $(DEPDIR)/libvmod_directors_la-vdir.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vdir.c' object='libvmod_directors_la-vdir.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-vdir.lo `test -f 'vdir.c' || echo '$(srcdir)/'`vdir.c
+
+libvmod_directors_la-fall_back.lo: fall_back.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-fall_back.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-fall_back.Tpo -c -o libvmod_directors_la-fall_back.lo `test -f 'fall_back.c' || echo '$(srcdir)/'`fall_back.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-fall_back.Tpo $(DEPDIR)/libvmod_directors_la-fall_back.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fall_back.c' object='libvmod_directors_la-fall_back.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-fall_back.lo `test -f 'fall_back.c' || echo '$(srcdir)/'`fall_back.c
+
+libvmod_directors_la-hash.lo: hash.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-hash.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-hash.Tpo -c -o libvmod_directors_la-hash.lo `test -f 'hash.c' || echo '$(srcdir)/'`hash.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-hash.Tpo $(DEPDIR)/libvmod_directors_la-hash.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hash.c' object='libvmod_directors_la-hash.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-hash.lo `test -f 'hash.c' || echo '$(srcdir)/'`hash.c
+
+libvmod_directors_la-random.lo: random.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-random.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-random.Tpo -c -o libvmod_directors_la-random.lo `test -f 'random.c' || echo '$(srcdir)/'`random.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-random.Tpo $(DEPDIR)/libvmod_directors_la-random.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='random.c' object='libvmod_directors_la-random.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-random.lo `test -f 'random.c' || echo '$(srcdir)/'`random.c
+
+libvmod_directors_la-round_robin.lo: round_robin.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-round_robin.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-round_robin.Tpo -c -o libvmod_directors_la-round_robin.lo `test -f 'round_robin.c' || echo '$(srcdir)/'`round_robin.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-round_robin.Tpo $(DEPDIR)/libvmod_directors_la-round_robin.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='round_robin.c' object='libvmod_directors_la-round_robin.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-round_robin.lo `test -f 'round_robin.c' || echo '$(srcdir)/'`round_robin.c
+
+libvmod_directors_la-vmod_shard.lo: vmod_shard.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-vmod_shard.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-vmod_shard.Tpo -c -o libvmod_directors_la-vmod_shard.lo `test -f 'vmod_shard.c' || echo '$(srcdir)/'`vmod_shard.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-vmod_shard.Tpo $(DEPDIR)/libvmod_directors_la-vmod_shard.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_shard.c' object='libvmod_directors_la-vmod_shard.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-vmod_shard.lo `test -f 'vmod_shard.c' || echo '$(srcdir)/'`vmod_shard.c
+
+libvmod_directors_la-shard_cfg.lo: shard_cfg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-shard_cfg.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-shard_cfg.Tpo -c -o libvmod_directors_la-shard_cfg.lo `test -f 'shard_cfg.c' || echo '$(srcdir)/'`shard_cfg.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-shard_cfg.Tpo $(DEPDIR)/libvmod_directors_la-shard_cfg.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shard_cfg.c' object='libvmod_directors_la-shard_cfg.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-shard_cfg.lo `test -f 'shard_cfg.c' || echo '$(srcdir)/'`shard_cfg.c
+
+libvmod_directors_la-shard_dir.lo: shard_dir.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-shard_dir.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-shard_dir.Tpo -c -o libvmod_directors_la-shard_dir.lo `test -f 'shard_dir.c' || echo '$(srcdir)/'`shard_dir.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-shard_dir.Tpo $(DEPDIR)/libvmod_directors_la-shard_dir.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shard_dir.c' object='libvmod_directors_la-shard_dir.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-shard_dir.lo `test -f 'shard_dir.c' || echo '$(srcdir)/'`shard_dir.c
+
+libvmod_directors_la-shard_hash.lo: shard_hash.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-shard_hash.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-shard_hash.Tpo -c -o libvmod_directors_la-shard_hash.lo `test -f 'shard_hash.c' || echo '$(srcdir)/'`shard_hash.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-shard_hash.Tpo $(DEPDIR)/libvmod_directors_la-shard_hash.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shard_hash.c' object='libvmod_directors_la-shard_hash.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-shard_hash.lo `test -f 'shard_hash.c' || echo '$(srcdir)/'`shard_hash.c
+
+libvmod_directors_la-shard_parse_vcc_enums.lo: shard_parse_vcc_enums.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-shard_parse_vcc_enums.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-shard_parse_vcc_enums.Tpo -c -o libvmod_directors_la-shard_parse_vcc_enums.lo `test -f 'shard_parse_vcc_enums.c' || echo '$(srcdir)/'`shard_parse_vcc_enums.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-shard_parse_vcc_enums.Tpo $(DEPDIR)/libvmod_directors_la-shard_parse_vcc_enums.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shard_parse_vcc_enums.c' object='libvmod_directors_la-shard_parse_vcc_enums.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-shard_parse_vcc_enums.lo `test -f 'shard_parse_vcc_enums.c' || echo '$(srcdir)/'`shard_parse_vcc_enums.c
+
+libvmod_directors_la-vcc_if.lo: vcc_if.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -MT libvmod_directors_la-vcc_if.lo -MD -MP -MF $(DEPDIR)/libvmod_directors_la-vcc_if.Tpo -c -o libvmod_directors_la-vcc_if.lo `test -f 'vcc_if.c' || echo '$(srcdir)/'`vcc_if.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_directors_la-vcc_if.Tpo $(DEPDIR)/libvmod_directors_la-vcc_if.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vcc_if.c' object='libvmod_directors_la-vcc_if.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_directors_la_CFLAGS) $(CFLAGS) -c -o libvmod_directors_la-vcc_if.lo `test -f 'vcc_if.c' || echo '$(srcdir)/'`vcc_if.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -718,9 +834,11 @@ uninstall-am: uninstall-vmodLTLIBRARIES
 
 
 # BUILT_SOURCES is only a hack and dependency tracking does not help for the first build
-vdir.lo fall_back.lo hash.lo random.lo round_robin.lo: vcc_if.h
+$(libvmod_directors_la_OBJECTS):vcc_if.h
 
-vcc_if.c vcc_if.h vmod_directors.rst vmod_directors.man.rst: $(vmodtool) $(vmod_srcdir)/vmod.vcc
+vcc_if.h vmod_directors.rst vmod_directors.man.rst: vcc_if.c
+
+vcc_if.c: $(vmodtool) $(vmod_srcdir)/vmod.vcc
 	@PYTHON@ $(vmodtool) $(vmodtoolargs) $(vmod_srcdir)/vmod.vcc
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

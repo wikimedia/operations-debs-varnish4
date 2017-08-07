@@ -1,14 +1,28 @@
-varnishtest "Check that we fail to start if any listen address does not work"
+varnishtest "Check that we fail to start with erroneous -a/-b arguments"
+
+# Duplicate -a arguments
+# XXX: this cannot be tested reliably, we tolerate port collision
+shell -err -match "have same address|already in use" {
+	varnishd -d -a 127.0.0.1:38484 -a 127.0.0.1:38484 -b localhost:80
+}
+
+# -a bad protocol specs
+shell -err -expect "Too many sub-arguments" {
+	varnishd -a 127.0.0.1:80000,PROXY,FOO -d
+}
+shell -err -expect "Too many sub-arguments" {
+	varnishd -a 127.0.0.1:80000,HTTP/1,FOO -d
+}
 
 # This requires non-local binds to be disabled.  If you see this fail
 # and are on Linux, ensure /proc/net/ipv4/ip_nonlocal_bind is set to 0.
 
 # All bad listen addresses
-err_shell "could not be resolved to an IP address" {
-	${varnishd} -F -a "${bad_ip}:0" -b '***' -n ${tmpdir} 2>&1
+shell -err -expect "Error: Could not get socket" {
+	varnishd -F -a "${bad_ip}:0" -b '***' -n ${tmpdir}
 }
 
 # old style address list
-err_shell "Unknown protocol" {
-	${varnishd} -F -a "127.0.0.1:0,${bad_ip}:0" -b '***' -n ${tmpdir} 2>&1
+shell -err -expect "Unknown protocol" {
+	varnishd -F -a "127.0.0.1:0,${bad_ip}:0" -b '***' -n ${tmpdir}
 }

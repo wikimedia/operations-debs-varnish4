@@ -84,6 +84,7 @@ enum vfp_status VFP_Error(struct vfp_ctx *, const char *fmt, ...)
 
 /* cache_fetch_proc.c */
 enum vfp_status VFP_GetStorage(struct vfp_ctx *, ssize_t *sz, uint8_t **ptr);
+void VFP_Extend(const struct vfp_ctx *, ssize_t sz);
 
 /* Deliver processors ------------------------------------------------*/
 
@@ -102,13 +103,15 @@ struct vdp_entry {
 #define VDP_ENTRY_MAGIC		0x353eb781
 	vdp_bytes		*func;
 	void			*priv;
+	const char		*id;
 	VTAILQ_ENTRY(vdp_entry)	list;
 };
 
 int VDP_bytes(struct req *, enum vdp_action act, const void *ptr, ssize_t len);
-void VDP_push(struct req *, vdp_bytes *func, void *priv, int bottom);
+void VDP_push(struct req *, vdp_bytes *func, void *priv, int bottom,
+    const char *id);
 void VDP_close(struct req *req);
-enum objiter_status VDP_DeliverObj(struct req *req);
+int VDP_DeliverObj(struct req *req);
 
 vdp_bytes VDP_gunzip;
 vdp_bytes VDP_ESI;

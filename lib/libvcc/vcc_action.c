@@ -35,6 +35,7 @@
 #include <string.h>
 
 #include "vcc_compile.h"
+#include "libvcc.h"
 
 /*--------------------------------------------------------------------*/
 
@@ -46,17 +47,16 @@ parse_call(struct vcc *tl)
 	ExpectErr(tl, ID);
 	vcc_AddCall(tl, tl->t);
 	vcc_AddRef(tl, tl->t, SYM_SUB);
-	Fb(tl, 1, "if (VGC_function_%.*s(ctx))\n", PF(tl->t));
-	Fb(tl, 1, "\treturn (1);\n");
+	Fb(tl, 1, "VGC_function_%.*s(ctx);\n", PF(tl->t));
 	vcc_NextToken(tl);
 }
 
 /*--------------------------------------------------------------------*/
 
 static const struct arith {
-	enum var_type		type;
+	vcc_type_t		type;
 	unsigned		oper;
-	enum var_type		want;
+	vcc_type_t		want;
 } arith[] = {
 	{ INT,		T_INCR,		INT },
 	{ INT,		T_DECR,		INT },
@@ -82,26 +82,31 @@ static const struct arith {
 static void
 parse_set(struct vcc *tl)
 {
-	const struct var *vp;
+	const struct symbol *sym;
 	const struct arith *ap;
-	enum var_type fmt;
+	vcc_type_t fmt;
 
 	vcc_NextToken(tl);
 	ExpectErr(tl, ID);
-	vp = vcc_FindVar(tl, tl->t, 1, "cannot be set");
+	sym = vcc_FindVar(tl, tl->t, 1, "cannot be set");
 	ERRCHK(tl);
-	assert(vp != NULL);
-	Fb(tl, 1, "%s\n", vp->lname);
+	assert(sym != NULL);
+	if (vcc_IdIs(tl->t, "bereq.body")) {
+		VSB_printf(tl->sb, "bereq.body cannot be set.\n");
+		vcc_ErrWhere(tl, tl->t);
+		return;
+	}
+	Fb(tl, 1, "%s\n", sym->lname);
 	tl->indent += INDENT;
 	vcc_NextToken(tl);
-	fmt = vp->fmt;
+	fmt = sym->fmt;
 	for (ap = arith; ap->type != VOID; ap++) {
 		if (ap->type != fmt)
 			continue;
 		if (ap->oper != tl->t->tok)
 			continue;
 		if (ap->oper != '=')
-			Fb(tl, 1, "%s %c ", vp->rname, *tl->t->b);
+			Fb(tl, 1, "%s %c ", sym->rname, *tl->t->b);
 		vcc_NextToken(tl);
 		fmt = ap->want;
 		break;
@@ -111,6 +116,8 @@ parse_set(struct vcc *tl)
 	if (fmt == HEADER) {
 		vcc_Expr(tl, STRING_LIST);
 	} else if (fmt == STRING) {
+		vcc_Expr(tl, STRING_LIST);
+	} else if (fmt == BODY) {
 		vcc_Expr(tl, STRING_LIST);
 	} else {
 		vcc_Expr(tl, fmt);
@@ -124,145 +131,24 @@ parse_set(struct vcc *tl)
 static void
 parse_unset(struct vcc *tl)
 {
-	const struct var *vp;
+	const struct symbol *sym;
 
 	/* XXX: Wrong, should use VCC_Expr(HEADER) */
 	vcc_NextToken(tl);
 	ExpectErr(tl, ID);
-	vp = vcc_FindVar(tl, tl->t, 1, "cannot be unset");
+	sym = vcc_FindVar(tl, tl->t, 1, "cannot be unset");
 	ERRCHK(tl);
-	assert(vp != NULL);
-	if (vp->fmt != HEADER) {
+	assert(sym != NULL);
+	if (sym->fmt != HEADER && !vcc_IdIs(tl->t, "bereq.body")) {
 		VSB_printf(tl->sb,
-		    "Only HTTP header variables can be unset.\n");
+		    "Only bereq.body and HTTP header variables can"
+		    " be unset.\n");
 		vcc_ErrWhere(tl, tl->t);
 		return;
 	}
 	ERRCHK(tl);
-	Fb(tl, 1, "%svrt_magic_string_unset);\n", vp->lname);
+	Fb(tl, 1, "%svrt_magic_string_unset);\n", sym->lname);
 	vcc_NextToken(tl);
-}
-
-/*--------------------------------------------------------------------*/
-
-static void
-parse_new(struct vcc *tl)
-{
-	struct symbol *sy1, *sy2, *sy3;
-	struct inifin *ifp;
-	const char *p, *s_obj, *s_init, *s_struct, *s_fini;
-	char buf1[128];
-	char buf2[128];
-
-	vcc_NextToken(tl);
-	ExpectErr(tl, ID);
-	if (!vcc_isCid(tl->t)) {
-		VSB_printf(tl->sb,
-		    "Names of VCL objects cannot contain '-'\n");
-		vcc_ErrWhere(tl, tl->t);
-		return;
-	}
-	sy1 = VCC_FindSymbol(tl, tl->t, SYM_NONE);
-	if (sy1 != NULL) {
-		VSB_printf(tl->sb, "Object name '%.*s' already used.\n",
-		    PF(tl->t));
-
-		VSB_printf(tl->sb, "First usage:\n");
-		AN(sy1->def_b);
-		if (sy1->def_e != NULL)
-			vcc_ErrWhere2(tl, sy1->def_b, sy1->def_e);
-		else
-			vcc_ErrWhere(tl, sy1->def_b);
-		VSB_printf(tl->sb, "Redefinition:\n");
-		vcc_ErrWhere(tl, tl->t);
-		return;
-	}
-
-	sy1 = VCC_AddSymbolTok(tl, tl->t, SYM_NONE);	// XXX: NONE ?
-	XXXAN(sy1);
-	sy1->def_b = tl->t;
-	vcc_NextToken(tl);
-
-	ExpectErr(tl, '=');
-	vcc_NextToken(tl);
-
-	ExpectErr(tl, ID);
-	sy2 = VCC_FindSymbol(tl, tl->t, SYM_OBJECT);
-	if (sy2 == NULL) {
-		VSB_printf(tl->sb, "Symbol not found: ");
-		vcc_ErrToken(tl, tl->t);
-		VSB_printf(tl->sb, " at ");
-		vcc_ErrWhere(tl, tl->t);
-		return;
-	}
-	XXXAN(sy2);
-
-	/*lint -save -e448 */
-	/* Split the first three args */
-	p = sy2->args;
-	s_obj = p;
-	p += strlen(p) + 1;
-	s_init = p;
-	/*
-	 * Check for the end marked (\0\0) followed by s(truct) to avoid
-	 * matching an ENUM half-way through and generating illegal C code.
-	 */
-	while (p[0] != '\0' || p[1] != '\0' || p[2] != 's')
-		p++;
-	p += 2;
-	AZ(strncmp(p, "struct vmod_", 12));
-	s_struct = p;
-	p += strlen(p) + 1;
-	s_fini = p + strlen(p) + 1;
-	while (p[0] != '\0' || p[1] != '\0')
-		p++;
-	p += 2;
-
-	Fh(tl, 0, "static %s *vo_%s;\n\n", s_struct, sy1->name);
-
-	vcc_NextToken(tl);
-
-	bprintf(buf1, ", &vo_%s, \"%s\"", sy1->name, sy1->name);
-	vcc_Eval_Func(tl, s_init, buf1, sy2->name, s_init + strlen(s_init) + 1);
-	ifp = New_IniFin(tl);
-	VSB_printf(ifp->fin, "\t\t%s(&vo_%s);", s_fini, sy1->name);
-	ExpectErr(tl, ';');
-
-	bprintf(buf1, ", vo_%s", sy1->name);
-	/* Split the methods from the args */
-	while (*p != '\0') {
-		p += strlen(s_obj);
-		bprintf(buf2, "%s%s", sy1->name, p);
-		sy3 = VCC_AddSymbolStr(tl, buf2, SYM_FUNC);
-		AN(sy3);
-		sy3->eval = vcc_Eval_SymFunc;
-		p += strlen(p) + 1;
-		sy3->cfunc = p;
-		p += strlen(p) + 1;
-
-		/* Functions which return VOID are procedures */
-		if (!memcmp(p, "VOID\0", 5))
-			sy3->kind = SYM_PROC;
-
-		sy3->args = p;
-		sy3->extra = TlDup(tl, buf1);
-		while (p[0] != '\0' || p[1] != '\0') {
-			if (!memcmp(p, "ENUM\0", 5)) {
-				/* XXX: Special case for ENUM that has
-				   it's own \0\0 end marker. Not exactly
-				   elegant, we should consider
-				   alternatives here. Maybe runlength
-				   encode the entire block? */
-				p += strlen(p) + 1;
-				while (p[0] != '\0' || p[1] != '\0')
-					p++;
-			}
-			p++;
-		}
-		p += 2;
-	}
-	sy1->def_e = tl->t;
-	/*lint -restore */
 }
 
 /*--------------------------------------------------------------------*/
@@ -305,69 +191,85 @@ parse_hash_data(struct vcc *tl)
 /*--------------------------------------------------------------------*/
 
 static void
-parse_return(struct vcc *tl)
+parse_return_pass(struct vcc *tl)
 {
-	int retval = 0;
 
+	ExpectErr(tl, '(');
 	vcc_NextToken(tl);
+	Fb(tl, 1, "VRT_hit_for_pass(ctx,\n");
+	tl->indent += INDENT;
+	vcc_Expr(tl, DURATION);
+	ERRCHK(tl);
+	ExpectErr(tl, ')');
+	vcc_NextToken(tl);
+	Fb(tl, 1, ");\n");
+	tl->indent -= INDENT;
+}
+/*--------------------------------------------------------------------*/
+
+static void
+parse_return_synth(struct vcc *tl)
+{
+
+	ExpectErr(tl, '(');
+	vcc_NextToken(tl);
+	Fb(tl, 1, "VRT_synth(ctx,\n");
+	tl->indent += INDENT;
+	vcc_Expr(tl, INT);
+	ERRCHK(tl);
+	Fb(tl, 1, ",\n");
+	if (tl->t->tok == ',') {
+		vcc_NextToken(tl);
+		vcc_Expr(tl, STRING);
+		ERRCHK(tl);
+	} else {
+		Fb(tl, 1, "(const char*)0\n");
+	}
+	tl->indent -= INDENT;
+	ExpectErr(tl, ')');
+	vcc_NextToken(tl);
+	Fb(tl, 1, ");\n");
+}
+
+/*--------------------------------------------------------------------*/
+
+static void
+parse_return_vcl(struct vcc *tl)
+{
+	struct symbol *sym;
+	struct inifin *p;
+	char buf[1024];
+
 	ExpectErr(tl, '(');
 	vcc_NextToken(tl);
 	ExpectErr(tl, ID);
-
-	/* 'error' gets special handling, to allow optional status/response */
-	if (vcc_IdIs(tl->t, "synth")) {
-		vcc_NextToken(tl);
-		if (tl->t->tok == ')') {
-			VSB_printf(tl->sb,
-			    "Syntax has changed, use:\n"
-			    "\treturn(synth(999));\n"
-			    "or\n"
-			    "\treturn(synth(999, \"Response text\"));\n");
-			vcc_ErrWhere(tl, tl->t);
-			return;
-		}
-		ExpectErr(tl, '(');
-		vcc_NextToken(tl);
-		Fb(tl, 1, "VRT_synth(ctx,\n");
-		tl->indent += INDENT;
-		vcc_Expr(tl, INT);
-		ERRCHK(tl);
-		Fb(tl, 1, ",\n");
-		if (tl->t->tok == ',') {
-			vcc_NextToken(tl);
-			vcc_Expr(tl, STRING);
-			ERRCHK(tl);
-		} else {
-			Fb(tl, 1, "(const char*)0\n");
-		}
-		tl->indent -= INDENT;
-		ExpectErr(tl, ')');
-		vcc_NextToken(tl);
-		Fb(tl, 1, ");\n");
-		Fb(tl, 1, "VRT_handling(ctx, VCL_RET_SYNTH);\n");
-		Fb(tl, 1, "return (1);\n");
-		vcc_ProcAction(tl->curproc, VCL_RET_SYNTH, tl->t);
-		ExpectErr(tl, ')');
-		vcc_NextToken(tl);
+	sym = VCC_SymbolTok(tl, NULL, tl->t, SYM_VCL, 0);
+	ERRCHK(tl);
+	if (sym == NULL) {
+		VSB_printf(tl->sb, "Not a VCL label:\n");
+		vcc_ErrWhere(tl, tl->t);
 		return;
 	}
+	if (sym->eval_priv == NULL) {
+		VSB_printf(tl->fi, "%s VCL %.*s */\n",
+		    VCC_INFO_PREFIX, PF(tl->t));
 
-#define VCL_RET_MAC(l, U, B)						\
-	do {								\
-		if (vcc_IdIs(tl->t, #l)) {				\
-			Fb(tl, 1, "VRT_handling(ctx, VCL_RET_" #U ");\n"); \
-			Fb(tl, 1, "return (1);\n");			\
-			vcc_ProcAction(tl->curproc, VCL_RET_##U, tl->t);\
-			retval = 1;					\
-		}							\
-	} while (0);
-#include "tbl/vcl_returns.h"
-#undef VCL_RET_MAC
-	if (!retval) {
-		VSB_printf(tl->sb, "Expected return action name.\n");
-		vcc_ErrWhere(tl, tl->t);
-		ERRCHK(tl);
+		bprintf(buf, "vgc_vcl_%u", tl->unique++);
+		sym->eval_priv = strdup(buf);
+		AN(sym->eval_priv);
+
+		Fh(tl, 0, "static VCL_VCL %s;", buf);
+		Fh(tl, 0, "\t/* VCL %.*s */\n", PF(tl->t));
+
+		p = New_IniFin(tl);
+		AN(p);
+		VSB_printf(p->ini, "\t%s = VRT_vcl_get(ctx, \"%.*s\");",
+		    buf, PF(tl->t));
+		VSB_printf(p->fin, "\tVRT_vcl_rel(ctx, %s);",
+		    buf);
 	}
+	Fb(tl, 1, "VRT_vcl_select(ctx, %s);\t/* %.*s */\n",
+	    (const char*)sym->eval_priv, PF(tl->t));
 	vcc_NextToken(tl);
 	ExpectErr(tl, ')');
 	vcc_NextToken(tl);
@@ -376,11 +278,59 @@ parse_return(struct vcc *tl)
 /*--------------------------------------------------------------------*/
 
 static void
-parse_rollback(struct vcc *tl)
+parse_return(struct vcc *tl)
 {
+	unsigned hand;
+	const char *h;
 
 	vcc_NextToken(tl);
-	Fb(tl, 1, "VRT_Rollback(ctx, VRT_r_req(ctx));\n");
+	if (tl->t->tok == ';' && tl->fb == tl->fc) {
+		/* fb == fc means we're in a subroutine */
+		Fb(tl, 1, "return;\n");
+		return;
+	}
+	ExpectErr(tl, '(');
+	vcc_NextToken(tl);
+	ExpectErr(tl, ID);
+
+	hand = VCL_RET_MAX;
+	h = NULL;
+#define VCL_RET_MAC(l, U, B)				\
+		if (vcc_IdIs(tl->t, #l)) {		\
+			hand = VCL_RET_ ## U;		\
+			h = #U;				\
+		}
+#include "tbl/vcl_returns.h"
+	if (h == NULL) {
+		VSB_printf(tl->sb, "Expected return action name.\n");
+		vcc_ErrWhere(tl, tl->t);
+		ERRCHK(tl);
+	}
+	assert(hand < VCL_RET_MAX);
+
+	vcc_ProcAction(tl->curproc, hand, tl->t);
+	vcc_NextToken(tl);
+	if (tl->t->tok == '(') {
+		if (hand == VCL_RET_SYNTH)
+			parse_return_synth(tl);
+		else if (hand == VCL_RET_VCL)
+			parse_return_vcl(tl);
+		else if (hand == VCL_RET_PASS)
+			parse_return_pass(tl);
+		else {
+			VSB_printf(tl->sb, "Arguments not allowed.\n");
+			vcc_ErrWhere(tl, tl->t);
+		}
+	} else {
+		if (hand == VCL_RET_SYNTH || hand == VCL_RET_VCL) {
+			VSB_printf(tl->sb, "Missing argument.\n");
+			vcc_ErrWhere(tl, tl->t);
+		}
+	}
+	ERRCHK(tl);
+	Fb(tl, 1, "VRT_handling(ctx, VCL_RET_%s);\n", h);
+	ExpectErr(tl, ')');
+	vcc_NextToken(tl);
 }
 
 /*--------------------------------------------------------------------*/
@@ -397,7 +347,7 @@ parse_synthetic(struct vcc *tl)
 	Fb(tl, 1, "VRT_synth_page(ctx, ");
 	vcc_Expr(tl, STRING_LIST);
 	ERRCHK(tl);
-	Fb(tl, 0, ");\n");
+	Fb(tl, 1, ");\n");
 
 	ExpectErr(tl, ')');
 	vcc_NextToken(tl);
@@ -417,9 +367,8 @@ static struct action_table {
 	{ "ban",		parse_ban },
 	{ "call",		parse_call },
 	{ "hash_data",		parse_hash_data, VCL_MET_HASH },
-	{ "new",		parse_new, VCL_MET_INIT},
+	{ "new",		vcc_ParseNew, VCL_MET_INIT},
 	{ "return",		parse_return },
-	{ "rollback",		parse_rollback },
 	{ "set",		parse_set },
 	{ "synthetic",		parse_synthetic,
 		VCL_MET_SYNTH | VCL_MET_BACKEND_ERROR },
@@ -436,7 +385,7 @@ vcc_ParseAction(struct vcc *tl)
 
 	at = tl->t;
 	assert(at->tok == ID);
-	for(atp = action_table; atp->name != NULL; atp++) {
+	for (atp = action_table; atp->name != NULL; atp++) {
 		if (vcc_IdIs(at, atp->name)) {
 			if (atp->bitmask != 0)
 				vcc_AddUses(tl, at, atp->bitmask,
@@ -445,8 +394,8 @@ vcc_ParseAction(struct vcc *tl)
 			return (1);
 		}
 	}
-	sym = VCC_FindSymbol(tl, tl->t, SYM_NONE);
-	if (sym != NULL && sym->kind == SYM_PROC) {
+	sym = VCC_SymbolTok(tl, NULL, tl->t, SYM_NONE, 0);
+	if (sym != NULL && sym->kind == SYM_FUNC) {
 		vcc_Expr_Call(tl, sym);
 		return (1);
 	}

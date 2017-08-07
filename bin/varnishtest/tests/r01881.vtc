@@ -3,19 +3,15 @@ varnishtest "Test cached request bodies can be piped"
 server s1 {
 	rxreq
 	expect req.bodylen == 6
-	expect req.http.foo == "1"
+	expect req.http.foo == "true"
 	txresp
 } -start
 
-varnish v1 -cliok "param.set vcc_allow_inline_c true" -vcl+backend {
+varnish v1 -vcl+backend {
+	import std;
+
 	sub vcl_recv {
-		C{
-			const struct gethdr_s HDR_REQ_foo =
-			    { HDR_REQ, "\04foo:"};
-			VRT_SetHdr(ctx, &HDR_REQ_foo,
-			    VRT_INT_string(ctx, VRT_CacheReqBody(ctx, 10240) != -1),
-			    vrt_magic_string_end);
-		}C
+		set req.http.foo = std.cache_req_body(10KB);
 		return (pipe);
 	}
 } -start

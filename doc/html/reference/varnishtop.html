@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnishtop &#8212; Varnish version 4.1.8 documentation</title>
+    <title>varnishtop &#8212; Varnish version 5.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.8',
+        VERSION:     '5.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="VSM: Shared Memory Logging and Statistics" href="vsm.html" />
     <link rel="prev" title="varnishtest" href="varnishtest.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="varnishtest.html" title="varnishtest"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -67,7 +67,7 @@
 </table>
 <div class="section" id="synopsis">
 <h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
-<p>varnishtop [-1] [-b] [-c] [-C] [-d] [-f] [-g &lt;session|request|vxid|raw&gt;] [-h] [-i &lt;taglist&gt;] [-I &lt;[taglist:]regex&gt;] [-L &lt;limit&gt;] [-n &lt;name&gt;] [-N &lt;filename&gt;] [-p &lt;period&gt;] [-q &lt;query&gt;] [-r &lt;filename&gt;] [-t &lt;seconds|off&gt;] [-T &lt;seconds&gt;] [-x &lt;taglist&gt;] [-X &lt;[taglist:]regex&gt;] [-V]</p>
+<p>varnishtop [-1] [-b] [-c] [-C] [-d] [-f] [-g &lt;session|request|vxid|raw&gt;] [-h] [-i &lt;taglist&gt;] [-I &lt;[taglist:]regex&gt;] [-L &lt;limit&gt;] [-n &lt;dir&gt;] [-N &lt;filename&gt;] [-p &lt;period&gt;] [-q &lt;query&gt;] [-r &lt;filename&gt;] [-t &lt;seconds|off&gt;] [-T &lt;seconds&gt;] [-x &lt;taglist&gt;] [-X &lt;[taglist:]regex&gt;] [-V]</p>
 </div>
 <div class="section" id="description">
 <h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
@@ -122,8 +122,8 @@ recorded in the log.</p>
 <kbd><span class="option">-L <var>&lt;limit&gt;</var></span></kbd></td>
 <td>Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.</td></tr>
 <tr><td class="option-group">
-<kbd><span class="option">-n <var>&lt;name&gt;</var></span></kbd></td>
-<td>Specify the name of the varnishd instance to get logs from. If -n is not specified, the host name is used.</td></tr>
+<kbd><span class="option">-n <var>&lt;dir&gt;</var></span></kbd></td>
+<td>Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-N <var>&lt;filename&gt;</var></span></kbd></td>
 <td>Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.</td></tr>
@@ -260,7 +260,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishtest.html" title="varnishtest"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

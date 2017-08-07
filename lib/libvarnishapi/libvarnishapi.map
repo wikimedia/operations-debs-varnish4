@@ -40,8 +40,8 @@ LIBVARNISHAPI_1.0 {
 	VSM_Head;
 	VSM_Find_Chunk;
 	VSM_Close;
-	VSM__iter0;
-	VSM__itern;
+	VSM_iter0;
+	VSM_intern;
 
 	VSC_Setup;
 	VSC_Arg;
@@ -130,4 +130,48 @@ LIBVARNISHAPI_1.4 {
 	VNUM;
 	VSLQ_SetCursor;
 	VSM_IsOpen;
+} LIBVARNISHAPI_1.0;
+
+LIBVARNISHAPI_1.5 {
+  global:
+	VUT_Error;
+	VUT_g_Arg;
+	VUT_Arg;
+	VUT_Setup;
+	VUT_Init;
+	VUT_Fini;
+	VUT_Main;
+	VUT;
+
+	VTIM_mono;
+	VTIM_real;
+	VTIM_sleep;
+
+	VSB_new;
+	VSB_destroy;
+	VSB_error;
+	VSB_cat;
+	VSB_putc;
+	VSB_printf;
+	VSB_clear;
+	VSB_finish;
+	VSB_len;
+	VSB_data;
+
+	VAS_Fail;
+
+	VCS_Message;
+} LIBVARNISHAPI_1.0;
+
+LIBVARNISHAPI_1.6 {
+  global:
+	VTIM_format;
+	VSB_bcat;
+	VSB_quote;
+	VSB_vprintf;
+	VSB_delete;
+	VSB_indent;
+	VTIM_parse;
+	VTIM_timespec;
+	VTIM_timeval;
 } LIBVARNISHAPI_1.0;

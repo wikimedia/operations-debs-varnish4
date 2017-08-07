@@ -31,12 +31,15 @@
 
 #include "config.h"
 
+#include "cache/cache.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
 #include "storage/storage.h"
+#include "storage/storage_simple.h"
 
+#include "vrt.h"
 #include "vnum.h"
 
 struct sma_sc {
@@ -58,7 +61,7 @@ struct sma {
 
 static struct VSC_C_lck *lck_sma;
 
-static struct storage *
+static struct storage * __match_proto__(sml_alloc_f)
 sma_alloc(const struct stevedore *st, size_t size)
 {
 	struct sma_sc *sma_sc;
@@ -124,7 +127,7 @@ sma_alloc(const struct stevedore *st, size_t size)
 	return (&sma->s);
 }
 
-static void __match_proto__(storage_free_f)
+static void __match_proto__(sml_free_f)
 sma_free(struct storage *s)
 {
 	struct sma_sc *sma_sc;
@@ -146,42 +149,7 @@ sma_free(struct storage *s)
 	free(sma);
 }
 
-static void
-sma_trim(struct storage *s, size_t size, int move_ok)
-{
-	struct sma_sc *sma_sc;
-	struct sma *sma;
-	void *p;
-	size_t delta;
-
-	CHECK_OBJ_NOTNULL(s, STORAGE_MAGIC);
-	CAST_OBJ_NOTNULL(sma, s->priv, SMA_MAGIC);
-	sma_sc = sma->sc;
-
-	assert(sma->sz == sma->s.space);
-	assert(size < sma->sz);
-
-	if (!move_ok)
-		return;
-
-	delta = sma->sz - size;
-	if (delta < 256)
-		return;
-	if ((p = realloc(sma->s.ptr, size)) != NULL) {
-		Lck_Lock(&sma_sc->sma_mtx);
-		sma_sc->sma_alloc -= delta;
-		sma_sc->stats->g_bytes -= delta;
-		sma_sc->stats->c_freed += delta;
-		if (sma_sc->sma_max != SIZE_MAX)
-			sma_sc->stats->g_space += delta;
-		sma->sz = size;
-		Lck_Unlock(&sma_sc->sma_mtx);
-		sma->s.ptr = p;
-		s->space = size;
-	}
-}
-
-static double
+static VCL_BYTES __match_proto__(stv_var_used_space)
 sma_used_space(const struct stevedore *st)
 {
 	struct sma_sc *sma_sc;
@@ -190,7 +158,7 @@ sma_used_space(const struct stevedore *st)
 	return (sma_sc->sma_alloc);
 }
 
-static double
+static VCL_BYTES __match_proto__(stv_var_free_space)
 sma_free_space(const struct stevedore *st)
 {
 	struct sma_sc *sma_sc;
@@ -232,12 +200,13 @@ sma_init(struct stevedore *parent, int ac, char * const *av)
 	sc->sma_max = u;
 }
 
-static void
-sma_open(const struct stevedore *st)
+static void __match_proto__(storage_open_f)
+sma_open(struct stevedore *st)
 {
 	struct sma_sc *sma_sc;
 
 	ASSERT_CLI();
+	st->lru = LRU_Alloc();
 	if (lck_sma == NULL)
 		lck_sma = Lck_CreateClass("sma");
 	CAST_OBJ_NOTNULL(sma_sc, st->priv, SMA_SC_MAGIC);
@@ -254,10 +223,11 @@ const struct stevedore sma_stevedore = {
 	.name		=	"malloc",
 	.init		=	sma_init,
 	.open		=	sma_open,
-	.alloc		=	sma_alloc,
-	.free		=	sma_free,
-	.trim		=	sma_trim,
-	.methods	=	&default_oc_methods,
+	.sml_alloc	=	sma_alloc,
+	.sml_free	=	sma_free,
+	.allocobj	=	SML_allocobj,
+	.panic		=	SML_panic,
+	.methods	=	&SML_methods,
 	.var_free_space =	sma_free_space,
 	.var_used_space =	sma_used_space,
 };

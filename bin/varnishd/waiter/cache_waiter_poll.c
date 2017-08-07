@@ -206,7 +206,7 @@ VSL(SLT_Debug, vwp->pollfd[i].fd, "POLL loop i=%d revents=0x%x", i, vwp->pollfd[
 		if (vwp->pollfd[0].revents)
 			vwp_dopipe(vwp);
 	}
-	NEEDLESS_RETURN(NULL);
+	NEEDLESS(return NULL);
 }
 
 /*--------------------------------------------------------------------*/
@@ -262,8 +262,8 @@ vwp_fini(struct waiter *w)
 	// XXX: set write pipe blocking
 	assert(write(vwp->pipes[1], &vp, sizeof vp) == sizeof vp);
 	AZ(pthread_join(vwp->thread, &vp));
-	AZ(close(vwp->pipes[0]));
-	AZ(close(vwp->pipes[1]));
+	closefd(&vwp->pipes[0]);
+	closefd(&vwp->pipes[1]);
 	free(vwp->pollfd);
 	free(vwp->idx);
 }

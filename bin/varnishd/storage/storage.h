@@ -33,12 +33,17 @@
 
 struct stevedore;
 struct sess;
-struct busyobj;
 struct objcore;
 struct worker;
 struct lru;
 struct vsl_log;
 struct vfp_ctx;
+struct obj_methods;
+
+enum baninfo {
+	BI_NEW,
+	BI_DROP
+};
 
 /* Storage -----------------------------------------------------------*/
 
@@ -55,102 +60,28 @@ struct storage {
 	unsigned		space;
 };
 
-/* Object ------------------------------------------------------------*/
-
-VTAILQ_HEAD(storagehead, storage);
-
-struct object {
-	unsigned		magic;
-#define OBJECT_MAGIC		0x32851d42
-	struct storage		*objstore;
-
-	char			oa_vxid[4];
-	uint8_t			*oa_vary;
-	uint8_t			*oa_http;
-	uint8_t			oa_flags[1];
-	char			oa_gzipbits[32];
-	char			oa_lastmodified[8];
-
-	struct storagehead	list;
-	ssize_t			len;
-
-	struct storage		*esidata;
-};
-
-/* Methods on objcore ------------------------------------------------*/
-
-typedef void updatemeta_f(struct worker *, struct objcore *oc);
-typedef void freeobj_f(struct worker *, struct objcore *oc);
-typedef struct lru *getlru_f(const struct objcore *oc);
-
-/*
- * Stevedores can either be simple, and provide just this method:
- */
-
-typedef struct object *getobj_f(struct worker *, struct objcore *oc);
-
-/*
- * Or the can be "complex" and provide all of these methods:
- * (Described in comments in cache_obj.c)
- */
-typedef void *objiterbegin_f(struct worker *, struct objcore *oc);
-typedef enum objiter_status objiter_f(struct objcore *oc, void *oix,
-    void **p, ssize_t *l);
-typedef void objiterend_f(struct objcore *, void **oix);
-typedef int objgetspace_f(struct worker *, struct objcore *,
-     ssize_t *sz, uint8_t **ptr);
-typedef void objextend_f(struct worker *, struct objcore *, ssize_t l);
-typedef void objtrimstore_f(struct worker *, struct objcore *);
-typedef void objslim_f(struct worker *, struct objcore *);
-typedef void *objgetattr_f(struct worker *, struct objcore *,
-    enum obj_attr attr, ssize_t *len);
-typedef void *objsetattr_f(struct worker *, struct objcore *,
-    enum obj_attr attr, ssize_t len, const void *ptr);
-typedef uint64_t objgetlen_f(struct worker *, struct objcore *);
-
-struct storeobj_methods {
-	freeobj_f	*freeobj;
-	getlru_f	*getlru;
-	updatemeta_f	*updatemeta;
-
-	getobj_f	*getobj;
-
-	objiterbegin_f	*objiterbegin;
-	objiter_f	*objiter;
-	objiterend_f	*objiterend;
-	objgetspace_f	*objgetspace;
-	objextend_f	*objextend;
-	objgetlen_f	*objgetlen;
-	objtrimstore_f	*objtrimstore;
-	objslim_f	*objslim;
-	objgetattr_f	*objgetattr;
-	objsetattr_f	*objsetattr;
-};
-
 /* Prototypes --------------------------------------------------------*/
 
 typedef void storage_init_f(struct stevedore *, int ac, char * const *av);
-typedef void storage_open_f(const struct stevedore *);
-typedef struct storage *storage_alloc_f(const struct stevedore *, size_t size);
-typedef void storage_trim_f(struct storage *, size_t size, int move_ok);
-typedef void storage_free_f(struct storage *);
-typedef int storage_allocobj_f(const struct stevedore *, struct objcore *,
-    unsigned ltot);
-typedef void storage_close_f(const struct stevedore *);
-typedef void storage_signal_close_f(const struct stevedore *);
+typedef void storage_open_f(struct stevedore *);
+typedef int storage_allocobj_f(struct worker *, const struct stevedore *,
+    struct objcore *, unsigned);
+typedef void storage_close_f(const struct stevedore *, int pass);
 typedef int storage_baninfo_f(const struct stevedore *, enum baninfo event,
     const uint8_t *ban, unsigned len);
 typedef void storage_banexport_f(const struct stevedore *, const uint8_t *bans,
     unsigned len);
+typedef void storage_panic_f(struct vsb *vsb, const struct objcore *oc);
+
+
+typedef struct object *sml_getobj_f(struct worker *, struct objcore *);
+typedef struct storage *sml_alloc_f(const struct stevedore *, size_t size);
+typedef void sml_free_f(struct storage *);
 
 /* Prototypes for VCL variable responders */
-#define VRTSTVTYPE(ct) typedef ct storage_var_##ct(const struct stevedore *);
+#define VRTSTVVAR(nm,vt,ct,def) \
+    typedef ct stv_var_##nm(const struct stevedore *);
 #include "tbl/vrt_stv_var.h"
-#undef VRTSTVTYPE
-
-extern storage_allocobj_f stv_default_allocobj;
-
-extern const struct storeobj_methods default_oc_methods;
 
 /*--------------------------------------------------------------------*/
 
@@ -158,53 +89,62 @@ struct stevedore {
 	unsigned		magic;
 #define STEVEDORE_MAGIC		0x4baf43db
 	const char		*name;
-	unsigned		transient;
-	storage_init_f		*init;		/* called by mgt process */
-	storage_open_f		*open;		/* called by cache process */
-	storage_alloc_f		*alloc;		/* --//-- */
-	storage_trim_f		*trim;		/* --//-- */
-	storage_free_f		*free;		/* --//-- */
-	storage_close_f		*close;		/* --//-- */
-	storage_allocobj_f	*allocobj;	/* --//-- */
-	storage_signal_close_f	*signal_close;	/* --//-- */
-	storage_baninfo_f	*baninfo;	/* --//-- */
-	storage_banexport_f	*banexport;	/* --//-- */
 
-	const struct storeobj_methods
+	/* Called in MGT process */
+	storage_init_f		*init;
+
+	/* Called in cache process */
+	storage_open_f		*open;
+	storage_close_f		*close;
+	storage_allocobj_f	*allocobj;
+	storage_baninfo_f	*baninfo;
+	storage_banexport_f	*banexport;
+	storage_panic_f		*panic;
+
+	/* Only if SML is used */
+	sml_alloc_f		*sml_alloc;
+	sml_free_f		*sml_free;
+	sml_getobj_f		*sml_getobj;
+
+	const struct obj_methods
 				*methods;
 
+	/* Only if LRU is used */
 	struct lru		*lru;
 
-#define VRTSTVVAR(nm, vtype, ctype, dval) storage_var_##ctype *var_##nm;
+#define VRTSTVVAR(nm, vtype, ctype, dval) stv_var_##nm *var_##nm;
 #include "tbl/vrt_stv_var.h"
-#undef VRTSTVVAR
 
-	/* private fields */
+	/* private fields for the stevedore */
 	void			*priv;
 
 	VTAILQ_ENTRY(stevedore)	list;
 	char			ident[16];	/* XXX: match VSM_chunk.ident */
+	char			*vclname;
 };
 
-VTAILQ_HEAD(stevedore_head, stevedore);
-
-extern struct stevedore_head stv_stevedores;
 extern struct stevedore *stv_transient;
+
+/*--------------------------------------------------------------------*/
+
+#define STV_Foreach(arg) for (arg = NULL; STV__iter(&arg);)
+
+int STV__iter(struct stevedore ** const );
 
 /*--------------------------------------------------------------------*/
 int STV_GetFile(const char *fn, int *fdp, const char **fnp, const char *ctx);
 uintmax_t STV_FileSize(int fd, const char *size, unsigned *granularity,
     const char *ctx);
-struct object *STV_MkObject(const struct stevedore *, struct objcore *,
-    void *ptr);
 
+/*--------------------------------------------------------------------*/
 struct lru *LRU_Alloc(void);
-void LRU_Free(struct lru *lru);
+void LRU_Free(struct lru **);
+void LRU_Add(struct objcore *, double now);
+void LRU_Remove(struct objcore *);
+int LRU_NukeOne(struct worker *, struct lru *);
+void LRU_Touch(struct worker *, struct objcore *, double now);
 
 /*--------------------------------------------------------------------*/
 extern const struct stevedore sma_stevedore;
 extern const struct stevedore smf_stevedore;
 extern const struct stevedore smp_stevedore;
-#ifdef HAVE_LIBUMEM
-extern const struct stevedore smu_stevedore;
-#endif

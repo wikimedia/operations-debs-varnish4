@@ -34,12 +34,11 @@ int V1F_FetchRespHdr(struct busyobj *);
 int V1F_Setup_Fetch(struct vfp_ctx *vfc, struct http_conn *htc);
 
 /* cache_http1_fsm.c [HTTP1] */
-void HTTP1_Session(struct worker *, struct req *);
 extern const int HTTP1_Req[3];
 extern const int HTTP1_Resp[3];
 
 /* cache_http1_deliver.c */
-vtr_deliver_f V1D_Deliver;
+void V1D_Deliver(struct req *, struct boc *, int sendbody);
 
 /* cache_http1_pipe.c */
 struct v1p_acct {
@@ -49,7 +48,6 @@ struct v1p_acct {
 	uint64_t        out;
 };
 
-void V1P_Init(void);
 void V1P_Process(struct req *, int fd, struct v1p_acct *);
 void V1P_Charge(struct req *, const struct v1p_acct *, struct VSC_C_vbe *);
 

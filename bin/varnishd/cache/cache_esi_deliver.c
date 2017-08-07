@@ -30,10 +30,12 @@
 
 #include "config.h"
 
+#include "cache.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache.h"
+#include "cache_transport.h"
 #include "cache_filter.h"
 
 #include "vtim.h"
@@ -41,7 +43,8 @@
 #include "vend.h"
 #include "vgz.h"
 
-static vtr_deliver_f VED_Deliver;
+static vtr_deliver_f ved_deliver;
+static vtr_reembark_f ved_reembark;
 
 static const uint8_t gzip_hdr[] = {
 	0x1f, 0x8b, 0x08,
@@ -53,16 +56,40 @@ static const uint8_t gzip_hdr[] = {
 struct ecx {
 	unsigned	magic;
 #define ECX_MAGIC	0x0b0f9163
-	uint8_t		*p;
-	uint8_t		*e;
+	const uint8_t	*p;
+	const uint8_t	*e;
 	int		state;
 	ssize_t		l;
 	int		isgzip;
+	int		woken;
 
 	struct req	*preq;
 	ssize_t		l_crc;
 	uint32_t	crc;
 };
+
+static const struct transport VED_transport = {
+	.magic =	TRANSPORT_MAGIC,
+	.name =		"ESI_INCLUDE",
+	.deliver =	ved_deliver,
+	.reembark =	ved_reembark,
+};
+
+/*--------------------------------------------------------------------*/
+
+static void __match_proto__(vtr_reembark_f)
+ved_reembark(struct worker *wrk, struct req *req)
+{
+	struct ecx *ecx;
+
+	(void)wrk;
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	CAST_OBJ_NOTNULL(ecx, req->transport_priv, ECX_MAGIC);
+	Lck_Lock(&req->sp->mtx);
+	ecx->woken = 1;
+	AZ(pthread_cond_signal(&ecx->preq->wrk->cond));
+	Lck_Unlock(&req->sp->mtx);
+}
 
 /*--------------------------------------------------------------------*/
 
@@ -71,18 +98,21 @@ ved_include(struct req *preq, const char *src, const char *host,
     struct ecx *ecx)
 {
 	struct worker *wrk;
+	struct sess *sp;
 	struct req *req;
 	enum req_fsm_nxt s;
-	struct transport xp;
 
 	CHECK_OBJ_NOTNULL(preq, REQ_MAGIC);
+	sp = preq->sp;
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 	CHECK_OBJ_NOTNULL(ecx, ECX_MAGIC);
 	wrk = preq->wrk;
 
 	if (preq->esi_level >= cache_param->max_esi_depth)
 		return;
 
-	req = Req_New(wrk, preq->sp);
+	req = Req_New(wrk, sp);
+	SES_Ref(sp);
 	req->req_body_status = REQ_BODY_NONE;
 	AZ(req->vsl->wid);
 	req->vsl->wid = VXID_Get(wrk, VSL_CLIENTMARKER);
@@ -131,9 +161,9 @@ ved_include(struct req *preq, const char *src, const char *host,
 	/* Reset request to status before we started messing with it */
 	HTTP_Copy(req->http, req->http0);
 
+	AZ(req->vcl);
 	req->vcl = preq->vcl;
 	preq->vcl = NULL;
-	req->wrk = preq->wrk;
 
 	/*
 	 * XXX: We should decide if we should cache the director
@@ -145,9 +175,7 @@ ved_include(struct req *preq, const char *src, const char *host,
 	assert(isnan(req->t_first));
 	assert(isnan(req->t_prev));
 
-	INIT_OBJ(&xp, TRANSPORT_MAGIC);
-	xp.deliver = VED_Deliver;
-	req->transport = &xp;
+	req->transport = &VED_transport;
 	req->transport_priv = ecx;
 
 	THR_SetRequest(req);
@@ -158,27 +186,34 @@ ved_include(struct req *preq, const char *src, const char *host,
 
 	while (1) {
 		req->wrk = wrk;
+		ecx->woken = 0;
 		s = CNT_Request(wrk, req);
 		if (s == REQ_FSM_DONE)
 			break;
 		DSL(DBG_WAITINGLIST, req->vsl->wid,
 		    "loop waiting for ESI (%d)", (int)s);
 		assert(s == REQ_FSM_DISEMBARK);
+		Lck_Lock(&sp->mtx);
+		if (!ecx->woken)
+			(void)Lck_CondWait(
+			    &ecx->preq->wrk->cond, &sp->mtx, 0);
+		Lck_Unlock(&sp->mtx);
+		ecx->woken = 0;
 		AZ(req->wrk);
-		(void)usleep(10000);
 	}
 
-	VRTPRIV_dynamic_kill(req->sp->privs, (uintptr_t)req);
-	CNT_AcctLogCharge(wrk->stats, req);
-	VSL_End(req->vsl);
+	VRTPRIV_dynamic_kill(sp->privs, (uintptr_t)req);
 
+	AZ(preq->vcl);
 	preq->vcl = req->vcl;
 	req->vcl = NULL;
 
 	req->wrk = NULL;
-
 	THR_SetRequest(preq);
+
+	Req_AcctLogCharge(wrk->stats, req);
 	Req_Release(req);
+	SES_Rel(sp);
 }
 
 /*--------------------------------------------------------------------*/
@@ -187,9 +222,9 @@ ved_include(struct req *preq, const char *src, const char *host,
 #define Debug(fmt, ...) /**/
 
 static ssize_t
-ved_decode_len(struct req *req, uint8_t **pp)
+ved_decode_len(struct req *req, const uint8_t **pp)
 {
-	uint8_t *p;
+	const uint8_t *p;
 	ssize_t l;
 
 	p = *pp;
@@ -253,6 +288,7 @@ VDP_ESI(struct req *req, enum vdp_action act, void **priv,
 	pp = ptr;
 
 	if (req->esi_level > 0) {
+		assert(req->transport == &VED_transport);
 		CAST_OBJ_NOTNULL(pecx, req->transport_priv, ECX_MAGIC);
 		if (!pecx->isgzip)
 			pecx = NULL;
@@ -261,7 +297,7 @@ VDP_ESI(struct req *req, enum vdp_action act, void **priv,
 	while (1) {
 		switch (ecx->state) {
 		case 0:
-			ecx->p = ObjGetattr(req->wrk, req->objcore,
+			ecx->p = ObjGetAttr(req->wrk, req->objcore,
 			    OA_ESIDATA, &l);
 			AN(ecx->p);
 			assert(l > 0);
@@ -506,33 +542,180 @@ ved_pretend_gzip(struct req *req, enum vdp_action act, void **priv,
  * much cheaper than running a gunzip instance.
  */
 
-static void
-ved_stripgzip(struct req *req, struct busyobj *bo)
-{
+struct ved_foo {
+	unsigned		magic;
+#define VED_FOO_MAGIC		0x6a5a262d
+	struct req		*req;
+	struct req		*preq;
 	ssize_t start, last, stop, lpad;
-	ssize_t l;
-	char *p;
-	uint32_t icrc;
-	uint32_t ilen;
+	ssize_t ll;
 	uint64_t olen;
 	uint8_t *dbits;
-	uint8_t *pp;
 	uint8_t tailbuf[8];
-	enum objiter_status ois;
-	void *oi;
-	void *sp;
-	ssize_t sl, ll, dl;
+};
+
+static int
+ved_objiterate(void *priv, int flush, const void *ptr, ssize_t len)
+{
+	struct ved_foo *foo;
+	const uint8_t *pp;
+	ssize_t dl;
+	ssize_t l;
+
+	CAST_OBJ_NOTNULL(foo, priv, VED_FOO_MAGIC);
+	(void)flush;
+	pp = ptr;
+	if (len > 0) {
+		/* Skip over the GZIP header */
+		dl = foo->start / 8 - foo->ll;
+		if (dl > 0) {
+			/* Before foo.start, skip */
+			if (dl > len)
+				dl = len;
+			foo->ll += dl;
+			len -= dl;
+			pp += dl;
+		}
+	}
+	if (len > 0) {
+		/* The main body of the object */
+		dl = foo->last / 8 - foo->ll;
+		if (dl > 0) {
+			if (dl > len)
+				dl = len;
+			if (ved_bytes(foo->req, foo->preq, VDP_NULL, pp, dl))
+				return(-1);
+			foo->ll += dl;
+			len -= dl;
+			pp += dl;
+		}
+	}
+	if (len > 0 && foo->ll == foo->last / 8) {
+		/* Remove the "LAST" bit */
+		foo->dbits[0] = *pp;
+		foo->dbits[0] &= ~(1U << (foo->last & 7));
+		if (ved_bytes(foo->req, foo->preq, VDP_NULL, foo->dbits, 1))
+			return (-1);
+		foo->ll++;
+		len--;
+		pp++;
+	}
+	if (len > 0) {
+		/* Last block */
+		dl = foo->stop / 8 - foo->ll;
+		if (dl > 0) {
+			if (dl > len)
+				dl = len;
+			if (ved_bytes(foo->req, foo->preq, VDP_NULL, pp, dl))
+				return (-1);
+			foo->ll += dl;
+			len -= dl;
+			pp += dl;
+		}
+	}
+	if (len > 0 && (foo->stop & 7) && foo->ll == foo->stop / 8) {
+		/* Add alignment to byte boundary */
+		foo->dbits[1] = *pp;
+		foo->ll++;
+		len--;
+		pp++;
+		switch ((int)(foo->stop & 7)) {
+		case 1: /*
+			 * x000....
+			 * 00000000 00000000 11111111 11111111
+			 */
+		case 3: /*
+			 * xxx000..
+			 * 00000000 00000000 11111111 11111111
+			 */
+		case 5: /*
+			 * xxxxx000
+			 * 00000000 00000000 11111111 11111111
+			 */
+			foo->dbits[2] = 0x00; foo->dbits[3] = 0x00;
+			foo->dbits[4] = 0xff; foo->dbits[5] = 0xff;
+			foo->lpad = 5;
+			break;
+		case 2: /* xx010000 00000100 00000001 00000000 */
+			foo->dbits[1] |= 0x08;
+			foo->dbits[2] = 0x20;
+			foo->dbits[3] = 0x80;
+			foo->dbits[4] = 0x00;
+			foo->lpad = 4;
+			break;
+		case 4: /* xxxx0100 00000001 00000000 */
+			foo->dbits[1] |= 0x20;
+			foo->dbits[2] = 0x80;
+			foo->dbits[3] = 0x00;
+			foo->lpad = 3;
+			break;
+		case 6: /* xxxxxx01 00000000 */
+			foo->dbits[1] |= 0x80;
+			foo->dbits[2] = 0x00;
+			foo->lpad = 2;
+			break;
+		case 7:	/*
+			 * xxxxxxx0
+			 * 00......
+			 * 00000000 00000000 11111111 11111111
+			 */
+			foo->dbits[2] = 0x00;
+			foo->dbits[3] = 0x00; foo->dbits[4] = 0x00;
+			foo->dbits[5] = 0xff; foo->dbits[6] = 0xff;
+			foo->lpad = 6;
+			break;
+		case 0: /* xxxxxxxx */
+		default:
+			WRONG("compiler must be broken");
+		}
+		if (ved_bytes(foo->req, foo->preq,
+		    VDP_NULL, foo->dbits + 1, foo->lpad))
+			return (-1);
+	}
+	if (len > 0) {
+		/* Recover GZIP tail */
+		dl = foo->olen - foo->ll;
+		assert(dl >= 0);
+		if (dl > len)
+			dl = len;
+		if (dl > 0) {
+			assert(dl <= 8);
+			l = foo->ll - (foo->olen - 8);
+			assert(l >= 0);
+			assert(l <= 8);
+			assert(l + dl <= 8);
+			memcpy(foo->tailbuf + l, pp, dl);
+			foo->ll += dl;
+			len -= dl;
+		}
+	}
+	assert(len == 0);
+	return (0);
+}
+
+static void
+ved_stripgzip(struct req *req, const struct boc *boc)
+{
+	ssize_t l;
+	const char *p;
+	uint32_t icrc;
+	uint32_t ilen;
+	uint8_t *dbits;
 	struct ecx *ecx;
-	struct req *preq;
+	struct ved_foo foo;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
 	CAST_OBJ_NOTNULL(ecx, req->transport_priv, ECX_MAGIC);
-	preq = ecx->preq;
+
+	INIT_OBJ(&foo, VED_FOO_MAGIC);
+	foo.req = req;
+	foo.preq = ecx->preq;
+	memset(foo.tailbuf, 0xdd, sizeof foo.tailbuf);
 
 	/* OA_GZIPBITS is not valid until BOS_FINISHED */
-	if (bo != NULL)
-		VBO_waitstate(bo, BOS_FINISHED);
+	if (boc != NULL)
+		ObjWaitState(req->objcore, BOS_FINISHED);
 	if (req->objcore->flags & OC_F_FAILED) {
 		/* No way of signalling errors in the middle of
 		   the ESI body. Omit this ESI fragment. */
@@ -547,165 +730,31 @@ ved_stripgzip(struct req *req, struct busyobj *bo)
 	 * padding it, as necessary, to a byte boundary.
 	 */
 
-	p = ObjGetattr(req->wrk, req->objcore, OA_GZIPBITS, &l);
+	p = ObjGetAttr(req->wrk, req->objcore, OA_GZIPBITS, &l);
 	AN(p);
 	assert(l == 32);
-	start = vbe64dec(p);
-	last = vbe64dec(p + 8);
-	stop = vbe64dec(p + 16);
-	olen = ObjGetLen(req->wrk, req->objcore);
-	assert(start > 0 && start < olen * 8);
-	assert(last > 0 && last < olen * 8);
-	assert(stop > 0 && stop < olen * 8);
-	assert(last >= start);
-	assert(last < stop);
+	foo.start = vbe64dec(p);
+	foo.last = vbe64dec(p + 8);
+	foo.stop = vbe64dec(p + 16);
+	foo.olen = ObjGetLen(req->wrk, req->objcore);
+	assert(foo.start > 0 && foo.start < foo.olen * 8);
+	assert(foo.last > 0 && foo.last < foo.olen * 8);
+	assert(foo.stop > 0 && foo.stop < foo.olen * 8);
+	assert(foo.last >= foo.start);
+	assert(foo.last < foo.stop);
 
 	/* The start bit must be byte aligned. */
-	AZ(start & 7);
+	AZ(foo.start & 7);
 
-	/*
-	 * XXX: optimize for the case where the 'last'
-	 * XXX: bit is in a empty copy block
-	 */
-
-	memset(tailbuf, 0xdd, sizeof tailbuf);
 	dbits = WS_Alloc(req->ws, 8);
 	AN(dbits);
-	ll = 0;
-	oi = ObjIterBegin(req->wrk, req->objcore);
-	do {
-		ois = ObjIter(req->objcore, oi, &sp, &sl);
-		pp = sp;
-		if (sl > 0) {
-			/* Skip over the GZIP header */
-			dl = start / 8 - ll;
-			if (dl > 0) {
-				/* Before start, skip */
-				if (dl > sl)
-					dl = sl;
-				ll += dl;
-				sl -= dl;
-				pp += dl;
-			}
-		}
-		if (sl > 0) {
-			/* The main body of the object */
-			dl = last / 8 - ll;
-			if (dl > 0) {
-				if (dl > sl)
-					dl = sl;
-				if (ved_bytes(req, preq, VDP_NULL, pp, dl))
-					break;
-				ll += dl;
-				sl -= dl;
-				pp += dl;
-			}
-		}
-		if (sl > 0 && ll == last / 8) {
-			/* Remove the "LAST" bit */
-			dbits[0] = *pp;
-			dbits[0] &= ~(1U << (last & 7));
-			if (ved_bytes(req, preq, VDP_NULL, dbits, 1))
-				break;
-			ll++;
-			sl--;
-			pp++;
-		}
-		if (sl > 0) {
-			/* Last block */
-			dl = stop / 8 - ll;
-			if (dl > 0) {
-				if (dl > sl)
-					dl = sl;
-				if (ved_bytes(req, preq, VDP_NULL, pp, dl))
-					break;
-				ll += dl;
-				sl -= dl;
-				pp += dl;
-			}
-		}
-		if (sl > 0 && (stop & 7) && ll == stop / 8) {
-			/* Add alignment to byte boundary */
-			dbits[1] = *pp;
-			ll++;
-			sl--;
-			pp++;
-			switch((int)(stop & 7)) {
-			case 1: /*
-				 * x000....
-				 * 00000000 00000000 11111111 11111111
-				 */
-			case 3: /*
-				 * xxx000..
-				 * 00000000 00000000 11111111 11111111
-				 */
-			case 5: /*
-				 * xxxxx000
-				 * 00000000 00000000 11111111 11111111
-				 */
-				dbits[2] = 0x00; dbits[3] = 0x00;
-				dbits[4] = 0xff; dbits[5] = 0xff;
-				lpad = 5;
-				break;
-			case 2: /* xx010000 00000100 00000001 00000000 */
-				dbits[1] |= 0x08;
-				dbits[2] = 0x20;
-				dbits[3] = 0x80;
-				dbits[4] = 0x00;
-				lpad = 4;
-				break;
-			case 4: /* xxxx0100 00000001 00000000 */
-				dbits[1] |= 0x20;
-				dbits[2] = 0x80;
-				dbits[3] = 0x00;
-				lpad = 3;
-				break;
-			case 6: /* xxxxxx01 00000000 */
-				dbits[1] |= 0x80;
-				dbits[2] = 0x00;
-				lpad = 2;
-				break;
-			case 7:	/*
-				 * xxxxxxx0
-				 * 00......
-				 * 00000000 00000000 11111111 11111111
-				 */
-				dbits[2] = 0x00;
-				dbits[3] = 0x00; dbits[4] = 0x00;
-				dbits[5] = 0xff; dbits[6] = 0xff;
-				lpad = 6;
-				break;
-			case 0: /* xxxxxxxx */
-			default:
-				WRONG("compiler must be broken");
-			}
-			if (ved_bytes(req, preq, VDP_NULL, dbits + 1, lpad))
-				break;
-		}
-		if (sl > 0) {
-			/* Recover GZIP tail */
-			dl = olen - ll;
-			assert(dl >= 0);
-			if (dl > sl)
-				dl = sl;
-			if (dl > 0) {
-				assert(dl <= 8);
-				l = ll - (olen - 8);
-				assert(l >= 0);
-				assert(l <= 8);
-				assert(l + dl <= 8);
-				memcpy(tailbuf + l, pp, dl);
-				ll += dl;
-				sl -= dl;
-				pp += dl;
-			}
-		}
-	} while (ois == OIS_DATA || ois == OIS_STREAM);
-	ObjIterEnd(req->objcore, &oi);
-	(void)ved_bytes(req, preq, VDP_FLUSH, NULL, 0);
+	foo.dbits = dbits;
+	(void)ObjIterate(req->wrk, req->objcore, &foo, ved_objiterate, 0);
+	/* XXX: error check ?? */
+	(void)ved_bytes(req, foo.preq, VDP_FLUSH, NULL, 0);
 
-	icrc = vle32dec(tailbuf);
-	ilen = vle32dec(tailbuf + 4);
+	icrc = vle32dec(foo.tailbuf);
+	ilen = vle32dec(foo.tailbuf + 4);
 
 	ecx->crc = crc32_combine(ecx->crc, icrc, ilen);
 	ecx->l_crc += ilen;
@@ -733,13 +782,13 @@ ved_vdp_bytes(struct req *req, enum vdp_action act, void **priv,
 /*--------------------------------------------------------------------*/
 
 static void __match_proto__(vtr_deliver_f)
-VED_Deliver(struct req *req, struct busyobj *bo, int wantbody)
+ved_deliver(struct req *req, struct boc *boc, int wantbody)
 {
 	int i;
 	struct ecx *ecx;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-	CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_ORNULL(boc, BOC_MAGIC);
 	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
 
 	CAST_OBJ_NOTNULL(ecx, req->transport_priv, ECX_MAGIC);
@@ -747,15 +796,18 @@ VED_Deliver(struct req *req, struct busyobj *bo, int wantbody)
 	if (wantbody == 0)
 		return;
 
+	if (boc == NULL && ObjGetLen(req->wrk, req->objcore) == 0)
+		return;
+
 	req->res_mode |= RES_ESI_CHILD;
 	i = ObjCheckFlag(req->wrk, req->objcore, OF_GZIPED);
 	if (ecx->isgzip && i && !(req->res_mode & RES_ESI)) {
-		ved_stripgzip(req, bo);
+		ved_stripgzip(req, boc);
 	} else {
 		if (ecx->isgzip && !i)
-			VDP_push(req, ved_pretend_gzip, ecx, 1);
+			VDP_push(req, ved_pretend_gzip, ecx, 1, "PGZ");
 		else
-			VDP_push(req, ved_vdp_bytes, ecx->preq, 1);
+			VDP_push(req, ved_vdp_bytes, ecx->preq, 1, "VED");
 		(void)VDP_DeliverObj(req);
 		(void)VDP_bytes(req, VDP_FLUSH, NULL, 0);
 	}

@@ -7,10 +7,17 @@ server s1 {
 
 varnish v1 -arg "-i J.F.Nobody" -vcl+backend {
 
-	import ${vmod_std};
+	import std;
+	import directors;
+
+	sub vcl_init {
+		new rr = directors.round_robin();
+		rr.add_backend(s1);
+	}
 
 	sub vcl_recv {
 		set client.identity = "Samuel B. Nobody";
+		set req.backend_hint = rr.backend();
 	}
 
 	sub vcl_deliver {
@@ -25,11 +32,17 @@ varnish v1 -arg "-i J.F.Nobody" -vcl+backend {
 		set resp.http.l_ip = local.ip;
 		set resp.http.r_ip = remote.ip;
 		if (obj.uncacheable) { }
+		set resp.http.o_age = obj.age;
+		set resp.http.o_ttl = obj.ttl;
+		set resp.http.o_grace = obj.grace;
+		set resp.http.o_keep = obj.keep;
 	}
 
 	sub vcl_backend_response {
-		set beresp.http.backend = bereq.backend;
+		set beresp.http.bereq_backend = bereq.backend;
+		set beresp.http.beresp_backend = beresp.backend;
 		set beresp.http.keep = beresp.keep;
+		set beresp.http.stv = beresp.storage;
 		set beresp.http.hint = beresp.storage_hint;
 		set beresp.http.be_ip = beresp.backend.ip;
 		set beresp.http.be_nm = beresp.backend.name;
@@ -69,6 +82,13 @@ varnish v1 -arg "-i J.F.Nobody" -vcl+backend {
 client c1 {
 	txreq
 	rxresp
+	expect resp.status == 200
+	expect resp.http.bereq_backend == "rr"
+	expect resp.http.beresp_backend == "s1"
+	expect resp.http.be_ip == "${localhost}"
+	expect resp.http.be_nm == "s1"
+	expect resp.http.be == "rr"
+
 	txreq
 	rxresp
 } -run

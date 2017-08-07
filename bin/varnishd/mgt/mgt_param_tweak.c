@@ -34,7 +34,6 @@
 
 #include <limits.h>
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -53,7 +52,7 @@ static int
 tweak_generic_double(struct vsb *vsb, volatile double *dest,
     const char *arg, const char *min, const char *max, const char *fmt)
 {
-	double u, minv = 0, maxv = 0;
+	volatile double u, minv = 0, maxv = 0;
 
 	if (arg != NULL) {
 		if (min != NULL) {
@@ -223,7 +222,7 @@ fmt_bytes(struct vsb *vsb, uintmax_t t)
 {
 	const char *p;
 
-	if (t & 0xff) {
+	if (t == 0 || t & 0xff) {
 		VSB_printf(vsb, "%jub", t);
 		return;
 	}
@@ -329,16 +328,14 @@ tweak_vsl_buffer(struct vsb *vsb, const struct parspec *par, const char *arg)
 {
 	volatile unsigned *d1;
 	volatile ssize_t dest;
-	char buf[20];
 
 	d1 = par->priv;
 	dest = *d1;
 	if (tweak_generic_bytes(vsb, &dest, arg, par->min, par->max))
 		return (-1);
 	*d1 = dest;
-	bprintf(buf, "%u", *d1 - 12);
-	MCF_SetMaximum("vsl_reclen", strdup(buf));
-	MCF_SetMaximum("shm_reclen", strdup(buf));
+	MCF_ParamConf(MCF_MAXIMUM, "vsl_reclen", "%u", *d1 - 12);
+	MCF_ParamConf(MCF_MAXIMUM, "shm_reclen", "%u", *d1 - 12);
 	return (0);
 }
 
@@ -347,15 +344,13 @@ tweak_vsl_reclen(struct vsb *vsb, const struct parspec *par, const char *arg)
 {
 	volatile unsigned *d1;
 	volatile ssize_t dest;
-	char buf[20];
 
 	d1 = par->priv;
 	dest = *d1;
 	if (tweak_generic_bytes(vsb, &dest, arg, par->min, par->max))
 		return (-1);
 	*d1 = dest;
-	bprintf(buf, "%u", *d1 + 12);
-	MCF_SetMinimum("vsl_buffer", strdup(buf));
+	MCF_ParamConf(MCF_MINIMUM, "vsl_buffer", "%u", *d1 + 12);
 	return (0);
 }
 
@@ -425,7 +420,7 @@ tweak_poolparam(struct vsb *vsb, const struct parspec *par, const char *arg)
 				break;
 			}
 			*pp = px;
-		} while(0);
+		} while (0);
 		VAV_Free(av);
 	}
 	return (retval);

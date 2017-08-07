@@ -94,7 +94,8 @@ target_triplet = @target@
 bin_PROGRAMS = varnishadm$(EXEEXT)
 subdir = bin/varnishadm
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/varnish.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
 	$(top_srcdir)/m4/ax_lib_readline.m4 \
 	$(top_srcdir)/m4/ax_pthread.m4 \
@@ -112,14 +113,11 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_varnishadm_OBJECTS = varnishadm-varnishadm.$(OBJEXT) \
-	varnishadm-vas.$(OBJEXT) varnishadm-vsa.$(OBJEXT) \
-	varnishadm-vtcp.$(OBJEXT) varnishadm-vss.$(OBJEXT)
+am_varnishadm_OBJECTS = varnishadm-varnishadm.$(OBJEXT)
 varnishadm_OBJECTS = $(am_varnishadm_OBJECTS)
 am__DEPENDENCIES_1 =
-varnishadm_DEPENDENCIES =  \
+varnishadm_DEPENDENCIES = $(top_builddir)/lib/libvarnish/libvarnish.a \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
-	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -220,6 +218,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTCFLAGS = @EXTCFLAGS@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -236,7 +235,6 @@ LIBM = @LIBM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
-LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -248,6 +246,7 @@ MKDIR_P = @MKDIR_P@
 NET_LIBS = @NET_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NSL_LIBS = @NSL_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -270,13 +269,20 @@ PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 PYTHON = @PYTHON@
+PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
+PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PREFIX = @PYTHON_PREFIX@
+PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
 RST2HTML = @RST2HTML@
 RST2MAN = @RST2MAN@
 RT_LIBS = @RT_LIBS@
+SAN_CFLAGS = @SAN_CFLAGS@
+SAN_LDFLAGS = @SAN_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VARNISH_STATE_DIR = @VARNISH_STATE_DIR@
 VCC_CC = @VCC_CC@
@@ -325,9 +331,14 @@ mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
+pkgpyexecdir = @pkgpyexecdir@
+pkgpythondir = @pkgpythondir@
+pkgsysconfdir = @pkgsysconfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+pyexecdir = @pyexecdir@
+pythondir = @pythondir@
 runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
@@ -341,23 +352,19 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-varnishconfdir = @varnishconfdir@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)/include
 
-varnishadm_SOURCES = \
-	varnishadm.c \
-	$(top_srcdir)/lib/libvarnish/vas.c \
-	$(top_srcdir)/lib/libvarnish/vsa.c \
-	$(top_srcdir)/lib/libvarnish/vtcp.c \
-	$(top_srcdir)/lib/libvarnish/vss.c
+varnishadm_SOURCES = varnishadm.c
+varnishadm_CFLAGS = @LIBEDIT_CFLAGS@ \
+	@SAN_CFLAGS@
 
-varnishadm_CFLAGS = @LIBEDIT_CFLAGS@
 varnishadm_LDADD = \
+	$(top_builddir)/lib/libvarnish/libvarnish.a \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
-	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
-	${PTHREAD_LIBS} ${RT_LIBS} ${NET_LIBS} @LIBEDIT_LIBS@ ${LIBM}
+	${PTHREAD_LIBS} ${RT_LIBS} ${NET_LIBS} @LIBEDIT_LIBS@ ${LIBM} \
+	@SAN_LDFLAGS@
 
 all: all-am
 
@@ -453,10 +460,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishadm-varnishadm.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishadm-vas.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishadm-vsa.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishadm-vss.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishadm-vtcp.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -492,62 +495,6 @@ varnishadm-varnishadm.obj: varnishadm.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='varnishadm.c' object='varnishadm-varnishadm.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-varnishadm.obj `if test -f 'varnishadm.c'; then $(CYGPATH_W) 'varnishadm.c'; else $(CYGPATH_W) '$(srcdir)/varnishadm.c'; fi`
-
-varnishadm-vas.o: $(top_srcdir)/lib/libvarnish/vas.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vas.o -MD -MP -MF $(DEPDIR)/varnishadm-vas.Tpo -c -o varnishadm-vas.o `test -f '$(top_srcdir)/lib/libvarnish/vas.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vas.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vas.Tpo $(DEPDIR)/varnishadm-vas.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vas.c' object='varnishadm-vas.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vas.o `test -f '$(top_srcdir)/lib/libvarnish/vas.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vas.c
-
-varnishadm-vas.obj: $(top_srcdir)/lib/libvarnish/vas.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vas.obj -MD -MP -MF $(DEPDIR)/varnishadm-vas.Tpo -c -o varnishadm-vas.obj `if test -f '$(top_srcdir)/lib/libvarnish/vas.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vas.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vas.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vas.Tpo $(DEPDIR)/varnishadm-vas.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vas.c' object='varnishadm-vas.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vas.obj `if test -f '$(top_srcdir)/lib/libvarnish/vas.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vas.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vas.c'; fi`
-
-varnishadm-vsa.o: $(top_srcdir)/lib/libvarnish/vsa.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vsa.o -MD -MP -MF $(DEPDIR)/varnishadm-vsa.Tpo -c -o varnishadm-vsa.o `test -f '$(top_srcdir)/lib/libvarnish/vsa.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vsa.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vsa.Tpo $(DEPDIR)/varnishadm-vsa.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vsa.c' object='varnishadm-vsa.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vsa.o `test -f '$(top_srcdir)/lib/libvarnish/vsa.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vsa.c
-
-varnishadm-vsa.obj: $(top_srcdir)/lib/libvarnish/vsa.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vsa.obj -MD -MP -MF $(DEPDIR)/varnishadm-vsa.Tpo -c -o varnishadm-vsa.obj `if test -f '$(top_srcdir)/lib/libvarnish/vsa.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vsa.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vsa.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vsa.Tpo $(DEPDIR)/varnishadm-vsa.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vsa.c' object='varnishadm-vsa.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vsa.obj `if test -f '$(top_srcdir)/lib/libvarnish/vsa.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vsa.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vsa.c'; fi`
-
-varnishadm-vtcp.o: $(top_srcdir)/lib/libvarnish/vtcp.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vtcp.o -MD -MP -MF $(DEPDIR)/varnishadm-vtcp.Tpo -c -o varnishadm-vtcp.o `test -f '$(top_srcdir)/lib/libvarnish/vtcp.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vtcp.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vtcp.Tpo $(DEPDIR)/varnishadm-vtcp.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vtcp.c' object='varnishadm-vtcp.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vtcp.o `test -f '$(top_srcdir)/lib/libvarnish/vtcp.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vtcp.c
-
-varnishadm-vtcp.obj: $(top_srcdir)/lib/libvarnish/vtcp.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vtcp.obj -MD -MP -MF $(DEPDIR)/varnishadm-vtcp.Tpo -c -o varnishadm-vtcp.obj `if test -f '$(top_srcdir)/lib/libvarnish/vtcp.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vtcp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vtcp.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vtcp.Tpo $(DEPDIR)/varnishadm-vtcp.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vtcp.c' object='varnishadm-vtcp.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vtcp.obj `if test -f '$(top_srcdir)/lib/libvarnish/vtcp.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vtcp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vtcp.c'; fi`
-
-varnishadm-vss.o: $(top_srcdir)/lib/libvarnish/vss.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vss.o -MD -MP -MF $(DEPDIR)/varnishadm-vss.Tpo -c -o varnishadm-vss.o `test -f '$(top_srcdir)/lib/libvarnish/vss.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vss.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vss.Tpo $(DEPDIR)/varnishadm-vss.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vss.c' object='varnishadm-vss.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vss.o `test -f '$(top_srcdir)/lib/libvarnish/vss.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vss.c
-
-varnishadm-vss.obj: $(top_srcdir)/lib/libvarnish/vss.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -MT varnishadm-vss.obj -MD -MP -MF $(DEPDIR)/varnishadm-vss.Tpo -c -o varnishadm-vss.obj `if test -f '$(top_srcdir)/lib/libvarnish/vss.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vss.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vss.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishadm-vss.Tpo $(DEPDIR)/varnishadm-vss.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vss.c' object='varnishadm-vss.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishadm_CFLAGS) $(CFLAGS) -c -o varnishadm-vss.obj `if test -f '$(top_srcdir)/lib/libvarnish/vss.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vss.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vss.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

@@ -1,3 +1,5 @@
+#
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)/include \
@@ -5,41 +7,38 @@ AM_CPPFLAGS = \
 
 AM_LDFLAGS  = $(AM_LT_LDFLAGS)
 
-pkglib_LTLIBRARIES = libvarnish.la
+noinst_LIBRARIES = libvarnish.a
 
-libvarnish_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
+libvarnish_a_CFLAGS = \
+	-DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"' \
+	@SAN_CFLAGS@
 
-libvarnish_la_SOURCES = \
-	vav.c \
-	vas.c \
+libvarnish_a_SOURCES = \
 	binary_heap.c \
-	vsub.c \
-	cli_auth.c \
-	cli_common.c \
-	cli_serve.c \
-	flopen.c \
-	vnum.c \
-	vtim.c \
-	vtcp.c \
+	vas.c \
+	vav.c \
+	vcli_proto.c \
+	vcli_serve.c \
 	vct.c \
 	version.c \
 	vev.c \
 	vfil.c \
+	vfl.c \
 	vin.c \
 	vlu.c \
 	vmb.c \
+	vnum.c \
 	vpf.c \
 	vre.c \
 	vrnd.c \
 	vsa.c \
 	vsb.c \
 	vsha256.c \
-	vss.c
+	vss.c \
+	vsub.c \
+	vtcp.c \
+	vtim.c
 
-libvarnish_la_CFLAGS = -DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"'
-libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM} @PCRE_LIBS@
-
-if ENABLE_TESTS
 TESTS = vnum_c_test
 
 noinst_PROGRAMS = ${TESTS}
@@ -50,4 +49,3 @@ vnum_c_test_LDADD = ${LIBM}
 
 test: ${TESTS}
 	@for test in ${TESTS} ; do ./$${test} ; done
-endif

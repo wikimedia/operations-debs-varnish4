@@ -12,7 +12,7 @@ link_srcdir:
 	   test ! -f $(builddir)/cache_http1_fsm.svg ; then \
 		d=`pwd`/$(builddir) ; \
 		cd $(srcdir) && find . -name \*.svg -type f | \
-		cpio -ldmp $${d} ; \
+		cpio -dmp $${d} || true ; \
 	fi
 
 dist-hook:
@@ -23,7 +23,6 @@ dist-hook:
 SIZE	      = 8.4,11.7
 
 EXTRA_DIST = $(srcdir)/*.dot	\
-	$(PDFS)		\
 	$(SVGS)
 
 PDFS = \

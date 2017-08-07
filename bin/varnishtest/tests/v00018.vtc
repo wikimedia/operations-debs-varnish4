@@ -2,14 +2,9 @@ varnishtest "VCL compiler coverage test: vcc_action.c"
 
 varnish v1 -vcl {
 	backend b { .host = "127.0.0.1"; }
-	sub vcl_hit { return (restart) ; }
-	sub vcl_miss { rollback; return (restart); }
-}
-
-varnish v1 -vcl {
-	backend b { .host = "127.0.0.1"; }
 	sub vcl_miss { return(synth(100,req.url)); }
 	sub vcl_hit { return(synth(100,"the butter please")); }
+	sub vcl_deliver { return(synth(resp.status, resp.reason)); }
 }
 
 varnish v1 -errvcl {Variable 'now' is read only.} {
@@ -73,9 +68,14 @@ varnish v1 -errvcl {Symbol not found: 'mu' (expected type BOOL):} {
 	sub vcl_backend_response { set beresp.do_gzip = mu; }
 }
 
-varnish v1 -errvcl {Only HTTP header variables can be unset.} {
+varnish v1 -errvcl {Only bereq.body and HTTP header variables can be unset.} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_backend_response { unset beresp.do_gzip; }
+}
+
+varnish v1 -errvcl {bereq.body cannot be set.} {
+	backend b { .host = "127.0.0.1"; }
+	sub vcl_backend_fetch { set bereq.body = "foo"; }
 }
 
 varnish v1 -errvcl {Unknown token '<<' when looking for STRING} {
@@ -103,7 +103,26 @@ varnish v1 -errvcl {Unknown token '<<' when looking for STRING_LIST} {
 	sub vcl_synth { synthetic( << "foo"; }
 }
 
-varnish v1 -errvcl {Syntax has changed, use:} {
+varnish v1 -errvcl {Missing argument.} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_recv { return(synth); }
+}
+
+varnish v1 -errvcl {Arguments not allowed.} {
+	backend b { .host = "127.0.0.1"; }
+	sub vcl_recv { return(pipe(XXX); }
+}
+
+varnish v1 -errvcl {Expected return action name.} {
+	backend b { .host = "127.0.0.1"; }
+	sub vcl_recv { return(foobar); }
+}
+
+# issue #936
+varnish v1 -errvcl {'synthetic': not a valid action in method 'vcl_recv'} {
+	backend foo { .host = "127.0.0.1"; }
+	sub vcl_recv {
+		synthetic("XXX");
+		return (synth(503));
+	}
 }

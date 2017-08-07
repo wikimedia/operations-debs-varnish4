@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishhist [\-B <factor>] [\-C] [\-d] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <name>] [\-N <filename>] [\-p <period>] [\-P responsetime] [\-P size] [\-P Bereqtime] [\-P Beresptime] [\-P BerespBodytime] [\-P Besize] [\-P <[cb:]tag:field_num:min:max>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-V]
+varnishhist [\-B <factor>] [\-C] [\-d] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <dir>] [\-N <filename>] [\-p <period>] [\-P responsetime] [\-P size] [\-P Bereqtime] [\-P Beresptime] [\-P BerespBodytime] [\-P Besize] [\-P <[cb:]tag:field_num:min:max>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-V]
 .SH DESCRIPTION
 .sp
 The varnishhist utility reads varnishd(1) shared memory logs and
@@ -63,8 +63,8 @@ Print program usage and exit
 .BI \-L \ <limit>
 Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 .TP
-.BI \-n \ <name>
-Specify the name of the varnishd instance to get logs from. If \-n is not specified, the host name is used.
+.BI \-n \ <dir>
+Specify the varnishd working directory (also known as instance name) to get logs from. If \-n is not specified, the host name is used.
 .TP
 .BI \-N \ <filename>
 Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.

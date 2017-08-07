@@ -33,16 +33,6 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef HAVE_SYS_MOUNT_H
-#  include <sys/param.h>
-#  include <sys/mount.h>
-#endif
-#ifdef HAVE_SYS_STATVFS_H
-#  include <sys/statvfs.h>
-#endif
-#ifdef HAVE_SYS_VFS_H
-#  include <sys/vfs.h>
-#endif
 
 #include <errno.h>
 #include <fcntl.h>
@@ -199,7 +189,7 @@ STV_FileSize(int fd, const char *size, unsigned *granularity, const char *ctx)
 	 * just add OFF_MAX to <limits.h>...
 	 */
 	i = 0;
-	while(1) {
+	while (1) {
 		o = l;
 		if (o == l && o > 0)
 			break;

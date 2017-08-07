@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishncsa [\-a] [\-b] [\-c] [\-C] [\-d] [\-D] [\-F <format>] [\-f <formatfile>] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <name>] [\-N <filename>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-V] [\-w <filename>]
+varnishncsa [\-a] [\-b] [\-c] [\-C] [\-d] [\-D] [\-F <format>] [\-f <formatfile>] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <dir>] [\-N <filename>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-V] [\-w <filename>]
 .SH DESCRIPTION
 .sp
 The varnishncsa utility reads varnishd(1) shared memory logs and
@@ -80,8 +80,8 @@ Print program usage and exit
 .BI \-L \ <limit>
 Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 .TP
-.BI \-n \ <name>
-Specify the name of the varnishd instance to get logs from. If \-n is not specified, the host name is used.
+.BI \-n \ <dir>
+Specify the varnishd working directory (also known as instance name) to get logs from. If \-n is not specified, the host name is used.
 .TP
 .BI \-N \ <filename>
 Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
@@ -233,12 +233,12 @@ is sent to the client.  For backend mode: Time from the request was
 sent to the backend to the entire header had been received.
 .TP
 .B Varnish:hitmiss
-Whether the request was a cache hit or miss. Pipe and pass are
-considered misses.
+One of the \(aqhit\(aq or \(aqmiss\(aq strings, depending on whether the request
+was a cache hit or miss. Pipe, pass and synth are considered misses.
 .TP
 .B Varnish:handling
-How the request was handled, whether it was a cache hit, miss,
-pass, pipe or synth.
+One of the \(aqhit\(aq, \(aqmiss\(aq, \(aqpass\(aq, \(aqpipe\(aq or \(aqsynth\(aq strings indicating
+how the request was handled.
 .TP
 .B Varnish:side
 Backend or client side. One of two values, \(aqb\(aq or \(aqc\(aq, depending
@@ -249,34 +249,25 @@ this field will be constant.
 The VXID of the varnish transaction.
 .TP
 .B VCL_Log:key
-Output value set by std.log("key:value") in VCL.
+The value set by std.log("key:value") in VCL.
 .TP
-.B VSL:tag:record\-prefix[field]
-The value of the VSL entry for the given tag\-record prefix\-field
-combination. Tag is mandatory, the other components are optional.
-.sp
-The record prefix will limit the matches to those records that
-have this prefix as the first part of the record content followed
-by a colon.
-.sp
-The field will, if present, treat the log record as a white
-space separated list of fields, and only the nth part of the
-record will be matched against. Fields start counting at 1.
-.sp
-Defaults to \(aq\-\(aq when the tag is not seen, the record prefix
-does not match or the field is out of bounds. If a tag appears
-multiple times in a single transaction, the first occurrence
-is used.
+.B VSL:tag[field]
+The value of the VSL entry for the given tag. The field will,
+if present, treat the log record as a white space separated list
+of fields, and only the nth part of the record will be matched
+against. Fields start counting at 1. Defaults to \(aq\-\(aq when the tag
+is not seen, or when the field is out of bounds. If a tag appears
+multiple times in a single transaction, the first occurrence is used.
 .UNINDENT
 .UNINDENT
 .SH SIGNALS
 .INDENT 0.0
 .TP
 .B SIGHUP
-Rotate the log file (see \-w option)
+Rotate the log file (see \-w option).
 .TP
 .B SIGUSR1
-Flush any outstanding transactions
+Flush any outstanding transactions.
 .UNINDENT
 .SH NOTES
 .sp
@@ -286,26 +277,14 @@ Furthermore, when using the %r formatter, if the Host header appears
 multiple times in a single transaction, the first occurrence is used.
 .SH EXAMPLE
 .sp
-Log the second field of the Begin record, corresponding to the VXID
-of the parent transaction:
+Log the second field of the Begin tag, corresponding to the VXID of the
+parent transaction:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 varnishncsa \-F "%{VSL:Begin[2]}x"
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
-.sp
-Log the entire Timestamp record associated with the processing length:
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-varnishncsa \-F "%{VSL:Timestamp:Process}x"
 .ft P
 .fi
 .UNINDENT

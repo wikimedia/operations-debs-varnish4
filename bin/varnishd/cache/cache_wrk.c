@@ -70,7 +70,7 @@ wrk_bgthread(void *arg)
 
 	WRONG("BgThread terminated");
 
-	NEEDLESS_RETURN(NULL);
+	NEEDLESS(return NULL);
 }
 
 void
@@ -140,9 +140,8 @@ pool_addstat(struct dstat *dst, struct dstat *src)
 	dst->summs++;
 #define L0(n)
 #define L1(n) (dst->n += src->n)
-#define VSC_F(n,t,l,s,f,v,d,e)	L##l(n);
+#define VSC_FF(n,t,l,s,f,v,d,e)	L##l(n);
 #include "tbl/vsc_f_main.h"
-#undef VSC_F
 #undef L0
 #undef L1
 	memset(src, 0, sizeof *src);
@@ -164,14 +163,14 @@ pool_reserve(void)
 /*--------------------------------------------------------------------*/
 
 static struct worker *
-pool_getidleworker(struct pool *pp, enum task_prio how)
+pool_getidleworker(struct pool *pp, enum task_prio prio)
 {
 	struct pool_task *pt = NULL;
 	struct worker *wrk;
 
 	CHECK_OBJ_NOTNULL(pp, POOL_MAGIC);
 	Lck_AssertHeld(&pp->mtx);
-	if (how <= TASK_QUEUE_RESERVE || pp->nidle > pool_reserve()) {
+	if (prio <= TASK_QUEUE_RESERVE || pp->nidle > pool_reserve()) {
 		pt = VTAILQ_FIRST(&pp->idle_queue);
 		if (pt == NULL)
 			AZ(pp->nidle);
@@ -197,7 +196,7 @@ pool_getidleworker(struct pool *pp, enum task_prio how)
  */
 
 int
-Pool_Task_Arg(struct worker *wrk, enum task_prio how, task_func_t *func,
+Pool_Task_Arg(struct worker *wrk, enum task_prio prio, task_func_t *func,
     const void *arg, size_t arg_len)
 {
 	struct pool *pp;
@@ -211,7 +210,7 @@ Pool_Task_Arg(struct worker *wrk, enum task_prio how, task_func_t *func,
 	CHECK_OBJ_NOTNULL(pp, POOL_MAGIC);
 
 	Lck_Lock(&pp->mtx);
-	wrk2 = pool_getidleworker(pp, how);
+	wrk2 = pool_getidleworker(pp, prio);
 	if (wrk2 != NULL) {
 		AN(pp->nidle);
 		VTAILQ_REMOVE(&pp->idle_queue, &wrk2->task, list);
@@ -238,20 +237,20 @@ Pool_Task_Arg(struct worker *wrk, enum task_prio how, task_func_t *func,
  */
 
 int
-Pool_Task(struct pool *pp, struct pool_task *task, enum task_prio how)
+Pool_Task(struct pool *pp, struct pool_task *task, enum task_prio prio)
 {
 	struct worker *wrk;
 	int retval = 0;
 	CHECK_OBJ_NOTNULL(pp, POOL_MAGIC);
 	AN(task);
 	AN(task->func);
-	assert(how < TASK_QUEUE_END);
+	assert(prio < TASK_QUEUE_END);
 
 	Lck_Lock(&pp->mtx);
 
 	/* The common case first:  Take an idle thread, do it. */
 
-	wrk = pool_getidleworker(pp, how);
+	wrk = pool_getidleworker(pp, prio);
 	if (wrk != NULL) {
 		AN(pp->nidle);
 		VTAILQ_REMOVE(&pp->idle_queue, &wrk->task, list);
@@ -268,12 +267,12 @@ Pool_Task(struct pool *pp, struct pool_task *task, enum task_prio how)
 	 * queue limits only apply to client threads - all other
 	 * work is vital and needs do be done at the earliest
 	 */
-	if (how != TASK_QUEUE_REQ ||
+	if (prio != TASK_QUEUE_REQ ||
 	    pp->lqueue < cache_param->wthread_max +
 	    cache_param->wthread_queue_limit + pp->nthr) {
 		pp->nqueued++;
 		pp->lqueue++;
-		VTAILQ_INSERT_TAIL(&pp->queues[how], task, list);
+		VTAILQ_INSERT_TAIL(&pp->queues[prio], task, list);
 	} else {
 		pp->ndropped++;
 		retval = -1;
@@ -301,7 +300,7 @@ pool_kiss_of_death(struct worker *wrk, void *priv)
 static void
 Pool_Work_Thread(struct pool *pp, struct worker *wrk)
 {
-	struct pool_task *tp;
+	struct pool_task *tp = NULL;
 	struct pool_task tpx, tps;
 	int i, prio_lim;
 
@@ -312,7 +311,7 @@ Pool_Work_Thread(struct pool *pp, struct worker *wrk)
 
 		CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 
-		WS_Reset(wrk->aws, NULL);
+		WS_Reset(wrk->aws, 0);
 		AZ(wrk->vsl);
 
 		if (pp->nidle < pool_reserve())
@@ -446,13 +445,14 @@ pool_breed(struct pool *qp)
 /*--------------------------------------------------------------------
  * Herd a single pool
  *
- * This thread wakes up whenever a pool queues.
+ * This thread wakes up every thread_pool_timeout seconds, whenever a pool
+ * queues and when threads need to be destroyed
  *
- * The trick here is to not be too aggressive about creating threads.
- * We do this by only examining one pool at a time, and by sleeping
- * a short while whenever we create a thread and a little while longer
- * whenever we fail to, hopefully missing a lot of cond_signals in
- * the meantime.
+ * The trick here is to not be too aggressive about creating threads.  In
+ * pool_breed(), we sleep whenever we create a thread and a little while longer
+ * whenever we fail to, hopefully missing a lot of cond_signals in the meantime.
+ *
+ * Idle threads are destroyed at a rate determined by wthread_destroy_delay
  *
  * XXX: probably need a lot more work.
  *
@@ -465,12 +465,17 @@ pool_herder(void *priv)
 	struct pool_task *pt;
 	double t_idle;
 	struct worker *wrk;
-	int delay, wthread_min;
+	double delay;
+	int wthread_min;
 
 	CAST_OBJ_NOTNULL(pp, priv, POOL_MAGIC);
 
-	while (1) {
+	THR_SetName("pool_herder");
+
+	while (!pp->die || pp->nthr > 0) {
 		wthread_min = cache_param->wthread_min;
+		if (pp->die)
+			wthread_min = 0;
 
 		/* Make more threads if needed and allowed */
 		if (pp->nthr < wthread_min ||
@@ -499,7 +504,7 @@ pool_herder(void *priv)
 				AZ(pt->func);
 				CAST_OBJ_NOTNULL(wrk, pt->priv, WORKER_MAGIC);
 
-				if (wrk->lastused < t_idle ||
+				if (pp->die || wrk->lastused < t_idle ||
 				    pp->nthr > cache_param->wthread_max) {
 					/* Give it a kiss on the cheek... */
 					VTAILQ_REMOVE(&pp->idle_queue,
@@ -525,6 +530,14 @@ pool_herder(void *priv)
 				delay = cache_param->wthread_destroy_delay;
 		}
 
+		if (pp->die) {
+			if (delay < 2)
+				delay = 10e-3;
+			else
+				delay = 1;
+			VTIM_sleep(delay);
+			continue;
+		}
 		Lck_Lock(&pp->mtx);
 		if (!pp->dry) {
 			(void)Lck_CondWait(&pp->herder_cond, &pp->mtx,
@@ -536,5 +549,5 @@ pool_herder(void *priv)
 		}
 		Lck_Unlock(&pp->mtx);
 	}
-	NEEDLESS_RETURN(NULL);
+	return (NULL);
 }

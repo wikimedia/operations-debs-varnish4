@@ -48,23 +48,59 @@ struct vrt_priv {
 	uintptr_t			vmod_id;
 };
 
+static struct vmod_priv cli_task_priv;
+
+/*--------------------------------------------------------------------
+ */
+
+void
+pan_privs(struct vsb *vsb, const struct vrt_privs *privs)
+{
+	struct vrt_priv *vp;
+
+	VSB_printf(vsb, "privs = %p {\n", privs);
+	if (PAN_already(vsb, privs))
+		return;
+	VSB_indent(vsb, 2);
+	PAN_CheckMagic(vsb, privs, VRT_PRIVS_MAGIC);
+	if (privs->magic == VRT_PRIVS_MAGIC) {
+		VTAILQ_FOREACH(vp, &privs->privs, list) {
+			PAN_CheckMagic(vsb, vp, VRT_PRIV_MAGIC);
+			VSB_printf(vsb,
+			    "priv {p %p l %d f %p} vcl %p id %jx vmod %jx\n",
+			    vp->priv->priv,
+			    vp->priv->len,
+			    vp->priv->free,
+			    vp->vcl,
+			    (uintmax_t)vp->id,
+			    (uintmax_t)vp->vmod_id
+			);
+		}
+	}
+	VSB_indent(vsb, -2);
+	VSB_printf(vsb, "},\n");
+}
+
+
 /*--------------------------------------------------------------------
  */
 
 void
 VRTPRIV_init(struct vrt_privs *privs)
 {
-	privs->magic = VRT_PRIVS_MAGIC;
+
+	INIT_OBJ(privs, VRT_PRIVS_MAGIC);
 	VTAILQ_INIT(&privs->privs);
 }
 
 static struct vmod_priv *
-VRT_priv_dynamic(VRT_CTX, uintptr_t id, uintptr_t vmod_id)
+vrt_priv_dynamic(VRT_CTX, uintptr_t id, uintptr_t vmod_id)
 {
 	struct vrt_privs *vps;
 	struct vrt_priv *vp;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(vmod_id);
 	if (ctx->req) {
 		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 		CHECK_OBJ_NOTNULL(ctx->req->sp, SESS_MAGIC);
@@ -94,7 +130,14 @@ VRTPRIV_dynamic_kill(struct vrt_privs *privs, uintptr_t id)
 {
 	struct vrt_priv *vp, *vp1;
 
+	if (privs == NULL && id == 0) {
+		ASSERT_CLI();
+		VRT_priv_fini(&cli_task_priv);
+		memset(&cli_task_priv, 0, sizeof cli_task_priv);
+		return;
+	}
 	CHECK_OBJ_NOTNULL(privs, VRT_PRIVS_MAGIC);
+	AN(id);
 
 	VTAILQ_FOREACH_SAFE(vp, &privs->privs, list, vp1) {
 		CHECK_OBJ_NOTNULL(vp, VRT_PRIV_MAGIC);
@@ -118,9 +161,11 @@ VRT_priv_task(VRT_CTX, void *vmod_id)
 	} else if (ctx->bo) {
 		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
 		id = (uintptr_t)ctx->bo;
-	} else
-		WRONG("PRIV_TASK is only accessible in client or backend VCL contexts");
-	return (VRT_priv_dynamic(ctx, id, (uintptr_t)vmod_id));
+	} else {
+		ASSERT_CLI();
+		return (&cli_task_priv);
+	}
+	return (vrt_priv_dynamic(ctx, id, (uintptr_t)vmod_id));
 }
 
 struct vmod_priv *
@@ -133,10 +178,10 @@ VRT_priv_top(VRT_CTX, void *vmod_id)
 		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 		CHECK_OBJ_NOTNULL(ctx->req->top, REQ_MAGIC);
 		id = (uintptr_t)&ctx->req->top->top;
-		return (VRT_priv_dynamic(ctx, id, (uintptr_t)vmod_id));
+		return (vrt_priv_dynamic(ctx, id, (uintptr_t)vmod_id));
 	} else
 		WRONG("PRIV_TOP is only accessible in client VCL context");
-	return (NULL);
+	NEEDLESS(return NULL);
 }
 
 /*--------------------------------------------------------------------
@@ -146,6 +191,6 @@ void
 VRT_priv_fini(const struct vmod_priv *p)
 {
 
-	if (p->priv != (void*)0 && p->free != (void*)0)
+	if (p->priv != NULL && p->free != NULL)
 		p->free(p->priv);
 }

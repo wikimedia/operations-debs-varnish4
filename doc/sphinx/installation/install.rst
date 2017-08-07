@@ -23,9 +23,9 @@ FreeBSD
 -------
 
 Binary package:
-		``pkg_add -r varnish``
+		``pkg_add -r varnish4``
 From source:
-		``cd /usr/ports/varnish && make install clean``
+		``cd /usr/ports/www/varnish4 && make install clean``
 
 Red Hat / CentOS
 ----------------
@@ -67,7 +67,7 @@ http://repo.varnish-cache.org/source/ .
 Alternatively, if you want to hack on Varnish, you should clone our
 git repository by doing.
 
-      ``git clone git://git.varnish-cache.org/varnish-cache``
+      ``git clone https://github.com/varnishcache/varnish-cache``
 
 
 Build dependencies on Debian / Ubuntu
@@ -88,6 +88,9 @@ installed. On a Debian or Ubuntu system these are:
 * `pkg-config`
 * `python-docutils`
 * `python-sphinx`
+
+Optionally, to rebuild the svg files:
+
 * `graphviz`
 
 Build dependencies on Red Hat / CentOS
@@ -108,6 +111,9 @@ packages installed:
 * `pkgconfig`
 * `python-docutils`
 * `python-sphinx`
+
+Optionally, to rebuild the svg files:
+
 * `graphviz`
 
 Build dependencies on a SmartOS Zone
@@ -116,12 +122,33 @@ Build dependencies on a SmartOS Zone
 As of SmartOS pkgsrc 2015Q4, install the following packages::
 
 	pkgin in autoconf automake libedit libtool ncurses \
-		 pcre graphviz py27-sphinx python27 gmake gcc49 \
-		 pkg-config
+		 pcre py27-sphinx python27 gmake gcc49 pkg-config
+
+Optionally, to rebuild the svg files:
+
+        pkgin in graphviz
 
 Optionally, to pull from a repository::
 
 	pkgin in git
+
+Building on Solaris and other Solaris-ish OSes
+----------------------------------------------
+
+Building with gcc should be straight forward, as long as the above
+requirements are installed.
+
+Alternatively, building with Solaris Studio 12.4 should work
+considering the following recommendations:
+
+* have GNU `nm` in `$PATH` before Solaris `nm`
+* Provide compiler flags for `configure` to include paths under which
+  dependencies are installed. Example for `/opt/local`::
+
+	./configure \
+	CPPFLAGS="-I/opt/local/include" \
+	CFLAGS="-m64" \
+	LDFLAGS="-L/opt/local/lib -R/opt/local/lib"
 
 Compiling Varnish
 -----------------
@@ -143,11 +170,11 @@ tea while it runs, it usually takes a couple of minutes::
 
 	make check
 
-Don't worry if one or two tests fail. Some of the tests are a
-bit too timing sensitive (Please tell us which so we can fix them). 
-However, if a lot of them fail, and in particular if the `b00000.vtc` test
-fails, something is horribly wrong. You will get nowhere without
-figuring this one out.
+Don't worry if one or two tests fail, some of the tests are a
+bit too timing sensitive (Please tell us which so we can fix them.) but
+if a lot of them fails, and in particular if the `b00000.vtc` test
+fails, something is horribly wrong, and you will get nowhere without
+figuring out what.
 
 Installing
 ----------

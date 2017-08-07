@@ -29,13 +29,14 @@
 
 #include "config.h"
 
+#include <stddef.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 
 #include <netinet/in.h>
 
 #include <netdb.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -197,8 +198,8 @@ vcc_acl_try_getaddrinfo(struct vcc *tl, struct acl_e *ae)
 	}
 
 	i4 = i6 = 0;
-	for(res = res0; res != NULL; res = res->ai_next) {
-		switch(res->ai_family) {
+	for (res = res0; res != NULL; res = res->ai_next) {
+		switch (res->ai_family) {
 		case PF_INET:
 			assert(PF_INET < 256);
 			sin4 = (void*)res->ai_addr;
@@ -366,7 +367,7 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 	Fh(tl, 0, "\t\tVRT_acl_log(ctx, \"NO_FAM %s\");\n", acln);
 	Fh(tl, 0, "\t\treturn(0);\n");
 	Fh(tl, 0, "\t}\n\n");
-	if (!tl->param->err_unref && !anon) {
+	if (!tl->err_unref && !anon) {
 		ifp = New_IniFin(tl);
 		VSB_printf(ifp->ini,
 			"\tif (0) match_acl_named_%s(0, 0);\n", acln);
@@ -457,7 +458,7 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 }
 
 void
-vcc_Acl_Hack(struct vcc *tl, char *b)
+vcc_Acl_Hack(struct vcc *tl, char *b, size_t bl)
 {
 	char acln[32];
 	unsigned tcond;
@@ -468,43 +469,27 @@ vcc_Acl_Hack(struct vcc *tl, char *b)
 	bprintf(acln, "%u", tl->unique++);
 	vcc_acl_entry(tl);
 	vcc_acl_emit(tl, acln, 1);
-	sprintf(b, "%smatch_acl_anon_%s(ctx, \v1)",
-	    (tcond == T_NEQ ? "!" : ""), acln);
+	assert(snprintf(b, bl - 1, "%smatch_acl_anon_%s(ctx, \v1)",
+	    (tcond == T_NEQ ? "!" : ""), acln) < bl - 1);
 }
 
 void
 vcc_ParseAcl(struct vcc *tl)
 {
 	struct token *an;
-	struct symbol *sym;
-	char acln[1024];
+	char *acln;
 
 	vcc_NextToken(tl);
 	VTAILQ_INIT(&tl->acl);
 
-	ExpectErr(tl, ID);
-	if (!vcc_isCid(tl->t)) {
-		VSB_printf(tl->sb,
-		    "Names of VCL acl's cannot contain '-'\n");
-		vcc_ErrWhere(tl, tl->t);
-		return;
-	}
+	vcc_ExpectCid(tl, "ACL");
+	ERRCHK(tl);
 	an = tl->t;
 	vcc_NextToken(tl);
 
-	bprintf(acln, "%.*s", PF(an));
+	acln = TlDupTok(tl, an);
 
-	sym = VCC_GetSymbolTok(tl, an, SYM_ACL);
-	AN(sym);
-	if (sym->ndef > 0) {
-		VSB_printf(tl->sb, "ACL %.*s redefined\n", PF(an));
-		vcc_ErrWhere(tl, an);
-		return;
-	}
-	sym->fmt = ACL;
-	sym->eval = vcc_Eval_Acl;
-	sym->eval_priv = TlDup(tl, acln);
-	sym->ndef++;
+	(void)VCC_HandleSymbol(tl, an, ACL, "&vrt_acl_named_%s", acln);
 	ERRCHK(tl);
 
 	SkipToken(tl, '{');

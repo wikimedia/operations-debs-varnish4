@@ -8,6 +8,10 @@ You may or may not want to know what Poul-Henning thinks.
 .. toctree::
 	:maxdepth: 1
 
+	trialerror.rst
+	farfaraway.rst
+	thatslow.rst
+	firstdesign.rst
 	10goingon50.rst
 	brinch-hansens-arrows.rst
 	ssl_again.rst
@@ -29,4 +33,5 @@ You may or may not want to know what Poul-Henning thinks.
 	thoughts.rst
 	autocrap.rst
 	sphinx.rst
+	notes.rst
 

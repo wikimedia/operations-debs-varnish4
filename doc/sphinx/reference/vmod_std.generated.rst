@@ -44,12 +44,12 @@ CONTENTS
 * :ref:`func_cache_req_body`
 * :ref:`func_collect`
 * :ref:`func_duration`
-* :ref:`func_file_exists`
 * :ref:`func_fileread`
 * :ref:`func_getenv`
 * :ref:`func_healthy`
 * :ref:`func_integer`
 * :ref:`func_ip`
+* :ref:`func_late_100_continue`
 * :ref:`func_log`
 * :ref:`func_port`
 * :ref:`func_querysort`
@@ -70,11 +70,12 @@ CONTENTS
 
 .. _func_toupper:
 
-STRING toupper(STRING_LIST)
----------------------------
+toupper
+-------
 
-Prototype
-	STRING toupper(STRING_LIST s)
+::
+
+	STRING toupper(STRING s)
 
 Description
 	Converts the string *s* to uppercase.
@@ -83,11 +84,12 @@ Example
 
 .. _func_tolower:
 
-STRING tolower(STRING_LIST)
----------------------------
+tolower
+-------
 
-Prototype
-	STRING tolower(STRING_LIST s)
+::
+
+	STRING tolower(STRING s)
 
 Description
 	Converts the string *s* to lowercase.
@@ -96,10 +98,11 @@ Example
 
 .. _func_set_ip_tos:
 
-VOID set_ip_tos(INT)
---------------------
+set_ip_tos
+----------
 
-Prototype
+::
+
 	VOID set_ip_tos(INT tos)
 
 Description
@@ -115,24 +118,29 @@ Example
 
 .. _func_random:
 
-REAL random(REAL, REAL)
------------------------
+random
+------
 
-Prototype
+::
+
 	REAL random(REAL lo, REAL hi)
 
 Description
 	Returns a random real number between *lo* and *hi*.
+	This function uses the "testable" random generator in varnishd
+	which enables determinstic tests to be run (See m00002.vtc).
+	This function should not be used for cryptographic applications.
 Example
 	set beresp.http.random-number = std.random(1, 100);
 
 .. _func_log:
 
-VOID log(STRING_LIST)
----------------------
+log
+---
 
-Prototype
-	VOID log(STRING_LIST s)
+::
+
+	VOID log(STRING s)
 
 Description
 	Logs the string *s* to the shared memory log, using VSL tag
@@ -142,11 +150,12 @@ Example
 
 .. _func_syslog:
 
-VOID syslog(INT, STRING_LIST)
------------------------------
+syslog
+------
 
-Prototype
-	VOID syslog(INT priority, STRING_LIST s)
+::
+
+	VOID syslog(INT priority, STRING s)
 
 Description
 	Logs the string *s* to syslog tagged with *priority*. *priority*
@@ -159,10 +168,11 @@ Example
 
 .. _func_fileread:
 
-STRING fileread(PRIV_CALL, STRING)
-----------------------------------
+fileread
+--------
 
-Prototype
+::
+
 	STRING fileread(PRIV_CALL, STRING)
 
 Description
@@ -173,46 +183,35 @@ Description
 Example
 	set beresp.http.served-by = std.fileread("/etc/hostname");
 
-.. _func_file_exists:
-
-BOOL file_exists(STRING)
-------------------------
-
-Prototype
-	BOOL file_exists(STRING path)
-
-Description
-	Returns `true` if path or the file pointed to by path exists,
-	`false` otherwise.
-Example
-	| if (std.file_exists("/etc/return_503")) {
-	| 	return (synth(503, "Varnish is in maintenance"));
-	| }
-
 .. _func_collect:
 
-VOID collect(HEADER)
---------------------
+collect
+-------
 
-Prototype
-	VOID collect(HEADER hdr)
+::
+
+	VOID collect(HEADER hdr, STRING sep=", ")
 
 Description
-	Collapses multiple *hdr* headers into one long header.
-	The header values are joined with a comma (",").
+	Collapses multiple *hdr* headers into one long header. The
+	default separator *sep* is the standard comma separator to
+	use when collapsing headers, with an additional  whitespace
+	for pretty printing.
 
 	Care should be taken when collapsing headers. In particular
 	collapsing Set-Cookie will lead to unexpected results on the
 	browser side.
-Example
-	std.collect(req.http.cookie);
+Examples
+	| std.collect(req.http.accept);
+	| std.collect(req.http.cookie, "; ");
 
 .. _func_duration:
 
-DURATION duration(STRING, DURATION)
------------------------------------
+duration
+--------
 
-Prototype
+::
+
 	DURATION duration(STRING s, DURATION fallback)
 
 Description
@@ -225,10 +224,11 @@ Example
 
 .. _func_integer:
 
-INT integer(STRING, INT)
-------------------------
+integer
+-------
 
-Prototype
+::
+
 	INT integer(STRING s, INT fallback)
 
 Description
@@ -241,10 +241,11 @@ Example
 
 .. _func_ip:
 
-IP ip(STRING, IP)
------------------
+ip
+--
 
-Prototype
+::
+
 	IP ip(STRING s, IP fallback)
 
 Description
@@ -258,10 +259,11 @@ Example
 
 .. _func_real:
 
-REAL real(STRING, REAL)
------------------------
+real
+----
 
-Prototype
+::
+
 	REAL real(STRING s, REAL fallback)
 
 Description
@@ -274,10 +276,11 @@ Example
 
 .. _func_real2integer:
 
-INT real2integer(REAL, INT)
----------------------------
+real2integer
+------------
 
-Prototype
+::
+
 	INT real2integer(REAL r, INT fallback)
 
 Description
@@ -288,10 +291,11 @@ Example
 
 .. _func_real2time:
 
-TIME real2time(REAL, TIME)
---------------------------
+real2time
+---------
 
-Prototype
+::
+
 	TIME real2time(REAL r, TIME fallback)
 
 Description
@@ -302,10 +306,11 @@ Example
 
 .. _func_time2integer:
 
-INT time2integer(TIME, INT)
----------------------------
+time2integer
+------------
 
-Prototype
+::
+
 	INT time2integer(TIME t, INT fallback)
 
 Description
@@ -316,10 +321,11 @@ Example
 
 .. _func_time2real:
 
-REAL time2real(TIME, REAL)
---------------------------
+time2real
+---------
 
-Prototype
+::
+
 	REAL time2real(TIME t, REAL fallback)
 
 Description
@@ -330,10 +336,11 @@ Example
 
 .. _func_healthy:
 
-BOOL healthy(BACKEND)
----------------------
+healthy
+-------
 
-Prototype
+::
+
 	BOOL healthy(BACKEND be)
 
 Description
@@ -341,10 +348,11 @@ Description
 
 .. _func_port:
 
-INT port(IP)
-------------
+port
+----
 
-Prototype
+::
+
 	INT port(IP ip)
 
 Description
@@ -352,10 +360,11 @@ Description
 
 .. _func_rollback:
 
-VOID rollback(HTTP)
--------------------
+rollback
+--------
 
-Prototype
+::
+
 	VOID rollback(HTTP h)
 
 Description
@@ -365,10 +374,11 @@ Example
 
 .. _func_timestamp:
 
-VOID timestamp(STRING)
-----------------------
+timestamp
+---------
 
-Prototype
+::
+
 	VOID timestamp(STRING s)
 
 Description
@@ -381,10 +391,11 @@ Example
 
 .. _func_querysort:
 
-STRING querysort(STRING)
-------------------------
+querysort
+---------
 
-Prototype
+::
+
 	STRING querysort(STRING)
 
 Description
@@ -394,28 +405,32 @@ Example
 
 .. _func_cache_req_body:
 
-VOID cache_req_body(BYTES)
---------------------------
+cache_req_body
+--------------
 
-Prototype
-	VOID cache_req_body(BYTES size)
+::
+
+	BOOL cache_req_body(BYTES size)
 
 Description
-	Cache the req.body if it is smaller than *size*.
+	Caches the request body if it is smaller than *size*.  Returns
+	`true` if the body was cached, `false` otherwise.
 
-	Caching the req.body makes it possible to retry pass
-	operations (POST, PUT).
+	Normally the request body is not available after sending it to
+	the backend.  By caching it is possible to retry pass operations,
+	e.g. POST and PUT.
 Example
-	std.cache_req_body(1KB);
-
-	This will cache the req.body if its size is smaller than 1KB.
+	| if (std.cache_req_body(1KB)) {
+	|	...
+	| }
 
 .. _func_strstr:
 
-STRING strstr(STRING, STRING)
------------------------------
+strstr
+------
 
-Prototype
+::
+
 	STRING strstr(STRING s1, STRING s2)
 
 Description
@@ -433,10 +448,11 @@ Example
 
 .. _func_time:
 
-TIME time(STRING, TIME)
------------------------
+time
+----
 
-Prototype
+::
+
 	TIME time(STRING s, TIME fallback)
 
 Description
@@ -458,10 +474,11 @@ Example
 
 .. _func_getenv:
 
-STRING getenv(STRING)
----------------------
+getenv
+------
 
-Prototype
+::
+
 	STRING getenv(STRING name)
 
 Description
@@ -471,23 +488,83 @@ Description
 Example
 	| set req.http.My-Env = std.getenv("MY_ENV");
 
+.. _func_late_100_continue:
+
+late_100_continue
+-----------------
+
+::
+
+	VOID late_100_continue(BOOL late)
+
+Description
+	Controls when varnish reacts to an `Expect: 100-continue` client
+	request header.
+
+	Varnish always generates a `100 Continue` response if
+	requested by the client trough the `Expect: 100-continue`
+	header when waiting for request body data.
+
+	But, by default, the `100 Continue` response is already
+	generated immediately after `vcl_recv` returns to reduce
+	latencies under the assumption that the request body will be
+	read eventually.
+
+	Calling `std.late_100_continue(true)` in `vcl_recv` will cause
+	the `100 Continue` response to only be sent when needed. This
+	may cause additional latencies for processing request bodies,
+	but is the correct behavior by strict interpretation of
+	RFC7231.
+
+	This function has no effect outside `vcl_recv` and after
+	calling `std.cache_req_body()` or any other function consuming
+	the request body.
+
+Example
+	| vcl_recv {
+	|	std.late_100_continue(true);
+	|
+	|	if (req.method == "POST") {
+	|		std.late_100_continue(false);
+	|		return (pass);
+	|	}
+	|	...
+	| }
+
 SEE ALSO
 ========
 
 * :ref:`varnishd(1)`
 * :ref:`vsl(7)`
 
-HISTORY
-=======
-
-The Varnish standard module was released along with Varnish Cache 3.0.
-This manual page was written by Per Buer with help from Martin Blix
-Grydeland.
-
 COPYRIGHT
 =========
 
-This document is licensed under the same licence as Varnish
-itself. See LICENCE for details.
+::
 
-* Copyright (c) 2010-2015 Varnish Software AS
+  Copyright (c) 2010-2017 Varnish Software AS
+  All rights reserved.
+ 
+  Author: Poul-Henning Kamp <phk@FreeBSD.org>
+ 
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+ 
+  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+  SUCH DAMAGE.
+

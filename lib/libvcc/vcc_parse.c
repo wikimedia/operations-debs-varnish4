@@ -160,7 +160,7 @@ vcc_Compound(struct vcc *tl)
 			Fb(tl, 1, "}\n");
 			return;
 		case CSRC:
-			if (tl->param->allow_inline_c) {
+			if (tl->allow_inline_c) {
 				Fb(tl, 1, "%.*s\n",
 				    (int) (tl->t->e - (tl->t->b + 2)),
 				    tl->t->b + 1);
@@ -196,6 +196,7 @@ vcc_Compound(struct vcc *tl)
 			vcc_ErrWhere(tl, tl->t);
 			return;
 		}
+		Fb(tl, 1, "if (*ctx->handling) return;\n");
 	}
 }
 
@@ -211,13 +212,8 @@ vcc_ParseFunction(struct vcc *tl)
 	int m, i;
 
 	vcc_NextToken(tl);
-	ExpectErr(tl, ID);
-	if (!vcc_isCid(tl->t)) {
-		VSB_printf(tl->sb,
-		    "Names of VCL sub's cannot contain '-'\n");
-		vcc_ErrWhere(tl, tl->t);
-		return;
-	}
+	vcc_ExpectCid(tl, "function");
+	ERRCHK(tl);
 
 	m = IsMethod(tl->t);
 	if (m == -2) {
@@ -225,7 +221,7 @@ vcc_ParseFunction(struct vcc *tl)
 		    "VCL sub's named 'vcl*' are reserved names.\n");
 		vcc_ErrWhere(tl, tl->t);
 		VSB_printf(tl->sb, "Valid vcl_* methods are:\n");
-		for (i = 0; method_tab[i].name != NULL; i++)
+		for (i = 1; method_tab[i].name != NULL; i++)
 			VSB_printf(tl->sb, "\t%s\n", method_tab[i].name);
 		return;
 	} else if (m != -1) {
@@ -245,14 +241,13 @@ vcc_ParseFunction(struct vcc *tl)
 		i = vcc_AddDef(tl, tl->t, SYM_SUB);
 		if (i > 1) {
 			VSB_printf(tl->sb,
-			    "Function %.*s redefined\n", PF(tl->t));
+			    "Function '%.*s' redefined\n", PF(tl->t));
 			vcc_ErrWhere(tl, tl->t);
 			return;
 		}
 		tl->curproc = vcc_AddProc(tl, tl->t);
-		Fh(tl, 0, "int VGC_function_%.*s "
-		    "(VRT_CTX);\n", PF(tl->t));
-		Fc(tl, 1, "\nint __match_proto__(vcl_func_t)\n");
+		Fh(tl, 0, "void VGC_function_%.*s(VRT_CTX);\n", PF(tl->t));
+		Fc(tl, 1, "\nvoid __match_proto__(vcl_func_t)\n");
 		Fc(tl, 1, "VGC_function_%.*s(VRT_CTX)\n",
 		    PF(tl->t));
 	}
@@ -260,13 +255,6 @@ vcc_ParseFunction(struct vcc *tl)
 	tl->indent += INDENT;
 	Fb(tl, 1, "{\n");
 	L(tl, vcc_Compound(tl));
-	if (m == -1) {
-		/*
-		 * non-method subroutines must have an explicit non-action
-		 * return in case they just fall through the bottom.
-		 */
-		Fb(tl, 1, "  return(0);\n");
-	}
 	Fb(tl, 1, "}\n");
 	tl->indent -= INDENT;
 	tl->fb = NULL;
@@ -277,18 +265,6 @@ vcc_ParseFunction(struct vcc *tl)
  */
 
 static void
-vcc_ParseDirector(struct vcc *tl)
-{
-	VSB_printf(tl->sb, "\ndirectors are now in directors VMOD.\n");
-	vcc_ErrWhere(tl, tl->t);
-}
-
-/*--------------------------------------------------------------------
- * TODO when bumping the vcl version:
- * #1603 remove return(fetch) from vcl_hit{}
- */
-
-static void
 vcc_ParseVcl(struct vcc *tl)
 {
 	struct token *tok;
@@ -296,13 +272,20 @@ vcc_ParseVcl(struct vcc *tl)
 	assert(vcc_IdIs(tl->t, "vcl"));
 	vcc_NextToken(tl);
 	tok = tl->t;
-	tl->syntax = vcc_DoubleVal(tl);
+	tok->src->syntax = vcc_DoubleVal(tl);
 	ERRCHK(tl);
-	if (tl->syntax != 4.0) {
-		// see TODO above
-		VSB_printf(tl->sb, "VCL version %.1f not supported.\n",
-		    tl->syntax);
-		vcc_ErrWhere(tl, tok);
+	if (tl->t->e - tok->b > 4) {
+		VSB_printf(tl->sb,
+		    "Don't play silly buggers with VCL version numbers\n");
+		vcc_ErrWhere2(tl, tok, tl->t);
+		ERRCHK(tl);
+	}
+	if (tl->syntax != 0.0 && tok->src->syntax > tl->syntax) {
+		VSB_printf(tl->sb,
+		    "VCL version %.1f higher than"
+		    " the top level version %.1f\n",
+		    tok->src->syntax, tl->syntax);
+		vcc_ErrWhere2(tl, tok, tl->t);
 		ERRCHK(tl);
 	}
 	ExpectErr(tl, ';');
@@ -329,7 +312,6 @@ static struct toplev {
 	{ "acl",		vcc_ParseAcl },
 	{ "sub",		vcc_ParseFunction },
 	{ "backend",		vcc_ParseBackend },
-	{ "director",		vcc_ParseDirector },
 	{ "probe",		vcc_ParseProbe },
 	{ "import",		vcc_ParseImport },
 	{ "vcl",		vcc_ParseVcl },
@@ -340,24 +322,34 @@ void
 vcc_Parse(struct vcc *tl)
 {
 	struct toplev *tp;
+	struct token *tok;
 
+	AZ(tl->indent);
 	if (tl->t->tok != ID || !vcc_IdIs(tl->t, "vcl")) {
 		VSB_printf(tl->sb,
 		    "VCL version declaration missing\n"
 		    "Update your VCL to Version 4 syntax, and add\n"
 		    "\tvcl 4.0;\n"
-		    "on the first line the VCL files.\n"
+		    "on the first line of the VCL files.\n"
 		);
 		vcc_ErrWhere(tl, tl->t);
 		ERRCHK(tl);
 	}
+	tok = tl->t;
 	vcc_ParseVcl(tl);
+	if (tok->src->syntax != 4.0) {
+		VSB_printf(tl->sb, "VCL version %.1f not supported.\n",
+		    tok->src->syntax);
+		vcc_ErrWhere2(tl, tok, tl->t);
+		ERRCHK(tl);
+	}
+	tl->syntax = tl->t->src->syntax;
 	ERRCHK(tl);
 	while (tl->t->tok != EOI) {
 		ERRCHK(tl);
 		switch (tl->t->tok) {
 		case CSRC:
-			if (tl->param->allow_inline_c) {
+			if (tl->allow_inline_c) {
 				Fc(tl, 0, "%.*s\n",
 				    (int) (tl->t->e - (tl->t->b + 4)),
 				    tl->t->b + 2);
@@ -397,4 +389,5 @@ vcc_Parse(struct vcc *tl)
 			return;
 		}
 	}
+	AZ(tl->indent);
 }

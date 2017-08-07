@@ -22,8 +22,8 @@ server s4 {
 	txresp -body "4444"
 } -start
 
-varnish v1 -errvcl {Names of VCL objects cannot contain '-'} {
-	import ${vmod_directors};
+varnish v1 -errvcl {Name of VCL object, 'rr1-xx', contains illegal character '-'} {
+	import directors;
 	backend b1 { .host = "127.0.0.1"; .port = "8080";}
 	sub vcl_init {
 		new rr1-xx = directors.round_robin();
@@ -32,7 +32,7 @@ varnish v1 -errvcl {Names of VCL objects cannot contain '-'} {
 
 varnish v1 -vcl+backend {
 
-	import ${vmod_directors};
+	import directors;
 	sub vcl_init {
 		new rr1 = directors.round_robin();
 		rr1.add_backend(s1);

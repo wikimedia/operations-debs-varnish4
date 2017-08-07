@@ -39,9 +39,6 @@
 #include "cache.h"
 #include "common/heritage.h"
 
-#include "vcli.h"
-#include "vcli_common.h"
-#include "vcli_priv.h"
 #include "vcli_serve.h"
 
 pthread_t		cli_thread;
@@ -67,7 +64,7 @@ CLI_AddFuncs(struct cli_proto *p)
 
 	AZ(add_check);
 	Lck_Lock(&cli_mtx);
-	AZ(VCLS_AddFunc(cls, 0, p));
+	VCLS_AddFunc(cls, 0, p);
 	Lck_Unlock(&cli_mtx);
 }
 
@@ -103,15 +100,15 @@ CLI_Run(void)
 
 	do {
 		i = VCLS_Poll(cls, -1);
-	} while(i > 0);
+	} while (i > 0);
 	VSL(SLT_CLI, 0, "EOF on CLI connection, worker stops");
 }
 
 /*--------------------------------------------------------------------*/
 
 static struct cli_proto cli_cmds[] = {
-	{ CLI_PING,		"i", VCLS_func_ping },
-	{ CLI_HELP,             "i", VCLS_func_help },
+	{ CLICMD_PING,	"i", VCLS_func_ping },
+	{ CLICMD_HELP,	"i", VCLS_func_help, VCLS_func_help_json },
 	{ NULL }
 };
 
@@ -129,6 +126,7 @@ CLI_Init(void)
 	cls = VCLS_New(cli_cb_before, cli_cb_after,
 	    &cache_param->cli_buffer, &cache_param->cli_limit);
 	AN(cls);
+	VCLS_Clone(cls, mgt_cls);
 
 	CLI_AddFuncs(cli_cmds);
 }

@@ -1,0 +1,49 @@
+varnishtest "varnishstat coverage"
+
+server s1 {
+	rxreq
+	txresp
+} -start
+
+varnish v1 -vcl+backend {} -start
+
+# On fast systems the next varnishstat will return "inf" counters
+# if we don't give varnishd a chance to get going.
+
+delay 1
+
+process p1 {varnishstat -1 -n ${v1_name} -f ^LCK.vbe.destroy \
+	-f LCK.vbe.* -f LCK.mempool.* | tr '[1-9]' '0'} -run
+
+shell "grep -q vbe ${p1_out}"
+shell "grep -q mempool ${p1_out}"
+shell -err "grep -q LCK.vbe.destroy ${p1_out}"
+
+process p2 {varnishstat -1 -n ${v1_name} -f ^*vbe.destroy \
+	-f *vbe* -f *mempool* | tr '[1-9]' '0'} -run
+
+shell "grep -q vbe ${p2_out}"
+shell "grep -q mempool ${p2_out}"
+shell -err "grep -q LCK.vbe.destroy ${p2_out}"
+
+shell "cmp -s ${p1_out} ${p2_out}"
+
+shell -expect "cache_hit" \
+	"varnishstat -1 -n ${v1_name} -f MAIN.cache_hit"
+
+shell -expect "Usage: varnishstat <options>" \
+	"varnishstat -h"
+shell -expect "Varnishstat -f option fields:" \
+	"varnishstat -n ${v1_name} -l"
+shell -expect "Copyright (c) 2006 Verdens Gang AS" \
+	"varnishstat -V"
+shell -err -expect "Usage: varnishstat <options>" \
+	"varnishstat extra"
+shell -err -expect "Cannot open /nonexistent/_.vsm" \
+	"varnishstat -n /nonexistent"
+shell -expect "MAIN.uptime" \
+	"varnishstat -n ${v1_name} -1"
+shell -expect "<type>MAIN</type>" \
+	"varnishstat -n ${v1_name} -x"
+shell -expect "MAIN.uptime\":" \
+	"varnishstat -n ${v1_name} -j"

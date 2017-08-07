@@ -48,14 +48,13 @@ depend on the operating systems ability to page effectively.
 file
 ~~~~
 
-syntax: file[,path[,size[,granularity]]]
+syntax: file,path[,size[,granularity[,advice]]]
 
 The file backend stores objects in memory backed by an unlinked file on disk
 with `mmap`.
 
 The 'path' parameter specifies either the path to the backing file or
-the path to a directory in which `varnishd` will create the backing
-file. The default is `/tmp`.
+the path to a directory in which `varnishd` will create the backing file.
 
 The size parameter specifies the size of the backing file. The size
 is assumed to be in bytes, unless followed by one of the following
@@ -93,6 +92,16 @@ have many small objects.
 
 File performance is typically limited to the write speed of the
 device, and depending on use, the seek time.
+
+The 'advice' parameter tells the kernel how `varnishd` expects to
+use this mapped region so that the kernel can choose the appropriate
+read-ahead and caching techniques.  Possible values are ``normal``,
+``random`` and ``sequencial``, corresponding to MADV_NORMAL, MADV_RANDOM
+and MADV_SEQUENTIAL madvise() advice argument, respectively.  Defaults to
+``random``.
+
+On Linux, large objects and rotational disk should benefit from
+"sequential".
 
 persistent (experimental)
 ~~~~~~~~~~~~~~~~~~~~~~~~~

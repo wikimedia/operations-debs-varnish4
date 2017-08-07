@@ -78,7 +78,9 @@ vcc_AddRef(struct vcc *tl, const struct token *t, enum symkind kind)
 {
 	struct symbol *sym;
 
-	sym = VCC_GetSymbolTok(tl, t, kind);
+	sym = VCC_SymbolTok(tl, NULL, t, kind, 1);
+	if (sym->ref_b == NULL)
+		sym->ref_b = t;
 	AN(sym);
 	sym->nref++;
 }
@@ -88,7 +90,9 @@ vcc_AddDef(struct vcc *tl, const struct token *t, enum symkind kind)
 {
 	struct symbol *sym;
 
-	sym = VCC_GetSymbolTok(tl, t, kind);
+	sym = VCC_SymbolTok(tl, NULL, t, kind, 1);
+	if (sym->def_b == NULL)
+		sym->def_b = t;
 	AN(sym);
 	sym->ndef++;
 	return (sym->ndef);
@@ -101,14 +105,16 @@ vcc_checkref(struct vcc *tl, const struct symbol *sym)
 {
 
 	if (sym->ndef == 0 && sym->nref != 0) {
+		AN(sym->ref_b);
 		VSB_printf(tl->sb, "Undefined %s %.*s, first reference:\n",
-		    VCC_SymKind(tl, sym), PF(sym->def_b));
-		vcc_ErrWhere(tl, sym->def_b);
+		    VCC_SymKind(tl, sym), PF(sym->ref_b));
+		vcc_ErrWhere(tl, sym->ref_b);
 	} else if (sym->ndef != 0 && sym->nref == 0) {
+		AN(sym->def_b);
 		VSB_printf(tl->sb, "Unused %s %.*s, defined:\n",
 		    VCC_SymKind(tl, sym), PF(sym->def_b));
 		vcc_ErrWhere(tl, sym->def_b);
-		if (!tl->param->err_unref) {
+		if (!tl->err_unref) {
 			VSB_printf(tl->sb, "(That was just a warning)\n");
 			tl->err = 0;
 		}
@@ -134,7 +140,7 @@ vcc_findproc(struct vcc *tl, struct token *t)
 	struct proc *p;
 
 
-	sym = VCC_GetSymbolTok(tl, t, SYM_SUB);
+	sym = VCC_SymbolTok(tl, NULL, t, SYM_SUB, 1);
 	AN(sym);
 	if (sym->proc != NULL)
 		return (sym->proc);
@@ -225,7 +231,6 @@ vcc_CheckActionRecurse(struct vcc *tl, struct proc *p, unsigned bitmap)
 			vcc_ErrWhere(tl, p->return_tok[VCL_RET_##U]);	\
 		}
 #include "tbl/vcl_returns.h"
-#undef VCL_RET_MAC
 
 		VSB_printf(tl->sb, "\n...in subroutine \"%.*s\"\n",
 		    PF(p->name));
@@ -270,7 +275,6 @@ vcc_checkaction1(struct vcc *tl, const struct symbol *sym)
 			VSB_printf(tl->sb, " \"%s\"", #l);
 
 #include "tbl/vcl_returns.h"
-#undef VCL_RET_MAC
 		VSB_printf(tl->sb, "\n");
 		tl->err = 1;
 	}
@@ -289,7 +293,7 @@ vcc_checkaction2(struct vcc *tl, const struct symbol *sym)
 		return;
 	VSB_printf(tl->sb, "Function unused\n");
 	vcc_ErrWhere(tl, p->name);
-	if (!tl->param->err_unref) {
+	if (!tl->err_unref) {
 		VSB_printf(tl->sb, "(That was just a warning)\n");
 		tl->err = 0;
 	}
@@ -385,4 +389,38 @@ vcc_CheckUses(struct vcc *tl)
 
 	VCC_WalkSymbols(tl, vcc_checkuses, SYM_SUB);
 	return (tl->err);
+}
+
+/*---------------------------------------------------------------------*/
+
+static void
+vcc_pnam(struct vcc *tl, const struct symbol *sym)
+{
+
+	if (sym->parent != tl->symbols) {
+		vcc_pnam(tl, sym->parent);
+		Fc(tl, 0, ".");
+	}
+	Fc(tl, 0, "%s", sym->name);
+}
+
+static void __match_proto__(symwalk_f)
+vcc_xreftable(struct vcc *tl, const struct symbol *sym)
+{
+
+	Fc(tl, 0, " * %-7s ", VCC_SymKind(tl, sym));
+	Fc(tl, 0, " %-9s ", sym->fmt != NULL ? sym->fmt->name : "");
+	vcc_pnam(tl, sym);
+	if (sym->wildcard != NULL)
+		Fc(tl, 0, "*");
+	Fc(tl, 0, "\n");
+}
+
+void
+VCC_XrefTable(struct vcc *tl)
+{
+
+	Fc(tl, 0, "\n/*\n * Symbol Table\n *\n");
+	VCC_WalkSymbols(tl, vcc_xreftable, SYM_NONE);
+	Fc(tl, 0, "*/\n\n");
 }

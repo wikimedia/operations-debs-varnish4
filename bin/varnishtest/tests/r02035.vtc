@@ -1,7 +1,9 @@
 varnishtest "Streaming range early finish"
 
+barrier b1 cond 2
+
 server s1 {
-	non-fatal
+	non_fatal
 	rxreq
 	txresp -nolen -hdr "Content-Length: 11"
 	# Delay to get around Nagle. Without the delay the body bytes
@@ -11,7 +13,7 @@ server s1 {
 	delay 1
 	send_n 10 "A"
 	# Sema r1 halts the backend thread until client c1 is finished.
-	sema r1 sync 2
+	barrier b1 sync
 	send "B"
 } -start
 
@@ -30,5 +32,5 @@ client c1 {
 	expect resp.status == 206
 	expect resp.bodylen == 5
 
-	sema r1 sync 2
+	barrier b1 sync
 } -run

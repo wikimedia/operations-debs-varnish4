@@ -112,7 +112,7 @@ vslq_test_vxid(const struct vex *vex, const struct VSL_transaction *trans)
 	default:	WRONG("Bad vxid expression token");
 	}
 
-	NEEDLESS_RETURN(0);
+	NEEDLESS(return (0));
 }
 
 static int
@@ -351,7 +351,7 @@ vslq_exec(const struct vex *vex, struct VSL_transaction * const ptrans[])
 	default:
 		return (vslq_test(vex, ptrans));
 	}
-	NEEDLESS_RETURN(0);
+	NEEDLESS(return 0);
 }
 
 struct vslq_query *
@@ -376,7 +376,7 @@ vslq_newquery(struct VSL_data *vsl, enum VSL_grouping_e grouping,
 		XXXAN(query);
 		query->vex = vex;
 	}
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 	return (query);
 }
 
@@ -385,10 +385,7 @@ vslq_deletequery(struct vslq_query **pquery)
 {
 	struct vslq_query *query;
 
-	AN(pquery);
-	query = *pquery;
-	*pquery = NULL;
-	CHECK_OBJ_NOTNULL(query, VSLQ_QUERY_MAGIC);
+	TAKE_OBJ_NOTNULL(query, pquery, VSLQ_QUERY_MAGIC);
 
 	AN(query->vex);
 	vex_Free(&query->vex);

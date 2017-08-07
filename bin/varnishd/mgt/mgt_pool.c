@@ -42,8 +42,6 @@
 
 #include "config.h"
 
-#include <stdio.h>
-
 #include "mgt/mgt.h"
 
 #include "mgt/mgt_param.h"
@@ -53,30 +51,17 @@
  * limit, so they don't end up crossing.
  */
 
-static char min_val[20];
-static char max_val[20];
-static char reserve_max_val[20];
-
 static int
 tweak_thread_pool_min(struct vsb *vsb, const struct parspec *par,
     const char *arg)
 {
-	struct vsb v2;
 
 	if (tweak_generic_uint(vsb, par->priv, arg, par->min, par->max))
 		return (-1);
-
-	AN(VSB_new(&v2, min_val, sizeof min_val, 0));
-	AZ(tweak_generic_uint(&v2, &mgt_param.wthread_min, NULL, NULL, NULL));
-	AZ(VSB_finish(&v2));
-	MCF_SetMinimum("thread_pool_max", min_val);
-
-	unsigned t = mgt_param.wthread_min * 19 / 20;
-	AN(VSB_new(&v2, reserve_max_val, sizeof reserve_max_val, 0));
-	AZ(tweak_generic_uint(&v2, &t, NULL, NULL, NULL));
-	AZ(VSB_finish(&v2));
-	MCF_SetMaximum("thread_pool_reserve", reserve_max_val);
-
+	MCF_ParamConf(MCF_MINIMUM, "thread_pool_max",
+	    "%u", mgt_param.wthread_min);
+	MCF_ParamConf(MCF_MAXIMUM, "thread_pool_reserve",
+	    "%u", mgt_param.wthread_min * 950 / 1000);
 	return (0);
 }
 
@@ -84,14 +69,11 @@ static int
 tweak_thread_pool_max(struct vsb *vsb, const struct parspec *par,
     const char *arg)
 {
-	struct vsb v2;
 
 	if (tweak_generic_uint(vsb, par->priv, arg, par->min, par->max))
 		return (-1);
-	AN(VSB_new(&v2, max_val, sizeof max_val, 0));
-	AZ(tweak_generic_uint(&v2, &mgt_param.wthread_max, NULL, NULL, NULL));
-	AZ(VSB_finish(&v2));
-	MCF_SetMaximum("thread_pool_min", max_val);
+	MCF_ParamConf(MCF_MAXIMUM, "thread_pool_min",
+	    "%u", mgt_param.wthread_max);
 	return (0);
 }
 
@@ -180,7 +162,7 @@ struct parspec WRK_parspec[] = {
 		"Set this to a few milliseconds if you see the "
 		"'threads_failed' counter grow too much.\n"
 		"\n"
-		"Setting this too high results in insuffient worker threads.",
+		"Setting this too high results in insufficient worker threads.",
 		EXPERIMENTAL,
 		"0", "seconds" },
 	{ "thread_pool_fail_delay",

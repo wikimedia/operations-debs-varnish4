@@ -66,31 +66,27 @@ they return the second argument, which must have the given TYPE.
 .SH CONTENTS
 .INDENT 0.0
 .IP \(bu 2
-VOID cache_req_body(BYTES)
+STRING toupper(STRING)
 .IP \(bu 2
-VOID collect(HEADER)
+STRING tolower(STRING)
 .IP \(bu 2
-DURATION duration(STRING, DURATION)
+VOID set_ip_tos(INT)
 .IP \(bu 2
-BOOL file_exists(STRING)
+REAL random(REAL, REAL)
+.IP \(bu 2
+VOID log(STRING)
+.IP \(bu 2
+VOID syslog(INT, STRING)
 .IP \(bu 2
 STRING fileread(PRIV_CALL, STRING)
 .IP \(bu 2
-STRING getenv(STRING)
+VOID collect(HEADER, STRING)
 .IP \(bu 2
-BOOL healthy(BACKEND)
+DURATION duration(STRING, DURATION)
 .IP \(bu 2
 INT integer(STRING, INT)
 .IP \(bu 2
 IP ip(STRING, IP)
-.IP \(bu 2
-VOID log(STRING_LIST)
-.IP \(bu 2
-INT port(IP)
-.IP \(bu 2
-STRING querysort(STRING)
-.IP \(bu 2
-REAL random(REAL, REAL)
 .IP \(bu 2
 REAL real(STRING, REAL)
 .IP \(bu 2
@@ -98,31 +94,42 @@ INT real2integer(REAL, INT)
 .IP \(bu 2
 TIME real2time(REAL, TIME)
 .IP \(bu 2
-VOID rollback(HTTP)
-.IP \(bu 2
-VOID set_ip_tos(INT)
-.IP \(bu 2
-STRING strstr(STRING, STRING)
-.IP \(bu 2
-VOID syslog(INT, STRING_LIST)
-.IP \(bu 2
-TIME time(STRING, TIME)
-.IP \(bu 2
 INT time2integer(TIME, INT)
 .IP \(bu 2
 REAL time2real(TIME, REAL)
 .IP \(bu 2
+BOOL healthy(BACKEND)
+.IP \(bu 2
+INT port(IP)
+.IP \(bu 2
+VOID rollback(HTTP)
+.IP \(bu 2
 VOID timestamp(STRING)
 .IP \(bu 2
-STRING tolower(STRING_LIST)
+STRING querysort(STRING)
 .IP \(bu 2
-STRING toupper(STRING_LIST)
+BOOL cache_req_body(BYTES)
+.IP \(bu 2
+STRING strstr(STRING, STRING)
+.IP \(bu 2
+TIME time(STRING, TIME)
+.IP \(bu 2
+STRING getenv(STRING)
+.IP \(bu 2
+VOID late_100_continue(BOOL)
 .UNINDENT
-.SS STRING toupper(STRING_LIST)
+.SS toupper
 .INDENT 0.0
-.TP
-.B Prototype
-STRING toupper(STRING_LIST s)
+.INDENT 3.5
+.sp
+.nf
+.ft C
+STRING toupper(STRING s)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the string \fIs\fP to uppercase.
@@ -130,11 +137,18 @@ Converts the string \fIs\fP to uppercase.
 .B Example
 set beresp.http.scream = std.toupper("yes!");
 .UNINDENT
-.SS STRING tolower(STRING_LIST)
+.SS tolower
 .INDENT 0.0
-.TP
-.B Prototype
-STRING tolower(STRING_LIST s)
+.INDENT 3.5
+.sp
+.nf
+.ft C
+STRING tolower(STRING s)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the string \fIs\fP to lowercase.
@@ -142,11 +156,18 @@ Converts the string \fIs\fP to lowercase.
 .B Example
 set beresp.http.nice = std.tolower("VerY");
 .UNINDENT
-.SS VOID set_ip_tos(INT)
+.SS set_ip_tos
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 VOID set_ip_tos(INT tos)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Sets the IP type\-of\-service (TOS) field for the current session
@@ -165,23 +186,40 @@ std.set_ip_tos(0);
 .fi
 .sp
 .UNINDENT
-.SS REAL random(REAL, REAL)
+.SS random
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 REAL random(REAL lo, REAL hi)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Returns a random real number between \fIlo\fP and \fIhi\fP\&.
+This function uses the "testable" random generator in varnishd
+which enables determinstic tests to be run (See m00002.vtc).
+This function should not be used for cryptographic applications.
 .TP
 .B Example
 set beresp.http.random\-number = std.random(1, 100);
 .UNINDENT
-.SS VOID log(STRING_LIST)
+.SS log
 .INDENT 0.0
-.TP
-.B Prototype
-VOID log(STRING_LIST s)
+.INDENT 3.5
+.sp
+.nf
+.ft C
+VOID log(STRING s)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Logs the string \fIs\fP to the shared memory log, using VSL tag
@@ -190,11 +228,18 @@ Logs the string \fIs\fP to the shared memory log, using VSL tag
 .B Example
 std.log("Something fishy is going on with the vhost " + req.http.host);
 .UNINDENT
-.SS VOID syslog(INT, STRING_LIST)
+.SS syslog
 .INDENT 0.0
-.TP
-.B Prototype
-VOID syslog(INT priority, STRING_LIST s)
+.INDENT 3.5
+.sp
+.nf
+.ft C
+VOID syslog(INT priority, STRING s)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Logs the string \fIs\fP to syslog tagged with \fIpriority\fP\&. \fIpriority\fP
@@ -206,11 +251,18 @@ std.syslog(9, "Something is wrong");
 .sp
 This will send a message to syslog using LOG_USER | LOG_ALERT.
 .UNINDENT
-.SS STRING fileread(PRIV_CALL, STRING)
+.SS fileread
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 STRING fileread(PRIV_CALL, STRING)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Reads a file and returns a string with the content. Please
@@ -221,48 +273,48 @@ account. Also, files are not re\-read.
 .B Example
 set beresp.http.served\-by = std.fileread("/etc/hostname");
 .UNINDENT
-.SS BOOL file_exists(STRING)
+.SS collect
 .INDENT 0.0
-.TP
-.B Prototype
-BOOL file_exists(STRING path)
-.TP
-.B Description
-Returns \fItrue\fP if path or the file pointed to by path exists,
-\fIfalse\fP otherwise.
-.TP
-.B Example
-.nf
-if (std.file_exists("/etc/return_503")) {
-.in +2
-return (synth(503, "Varnish is in maintenance"));
-.in -2
-}
-.fi
+.INDENT 3.5
 .sp
+.nf
+.ft C
+VOID collect(HEADER hdr, STRING sep=", ")
+.ft P
+.fi
 .UNINDENT
-.SS VOID collect(HEADER)
+.UNINDENT
 .INDENT 0.0
 .TP
-.B Prototype
-VOID collect(HEADER hdr)
-.TP
 .B Description
-Collapses multiple \fIhdr\fP headers into one long header.
-The header values are joined with a comma (",").
+Collapses multiple \fIhdr\fP headers into one long header. The
+default separator \fIsep\fP is the standard comma separator to
+use when collapsing headers, with an additional  whitespace
+for pretty printing.
 .sp
 Care should be taken when collapsing headers. In particular
 collapsing Set\-Cookie will lead to unexpected results on the
 browser side.
 .TP
-.B Example
-std.collect(req.http.cookie);
+.B Examples
+.nf
+std.collect(req.http.accept);
+std.collect(req.http.cookie, "; ");
+.fi
+.sp
 .UNINDENT
-.SS DURATION duration(STRING, DURATION)
+.SS duration
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 DURATION duration(STRING s, DURATION fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the string \fIs\fP to seconds. \fIs\fP must be quantified
@@ -273,11 +325,18 @@ d (days), w (weeks) or y (years) units. If conversion fails,
 .B Example
 set beresp.ttl = std.duration("1w", 3600s);
 .UNINDENT
-.SS INT integer(STRING, INT)
+.SS integer
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 INT integer(STRING s, INT fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the string \fIs\fP to an integer. If conversion fails,
@@ -293,11 +352,18 @@ if (std.integer(req.http.foo, 0) > 5) {
 .fi
 .sp
 .UNINDENT
-.SS IP ip(STRING, IP)
+.SS ip
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 IP ip(STRING s, IP fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the string \fIs\fP to the first IP number returned by
@@ -314,11 +380,18 @@ if (std.ip(req.http.X\-forwarded\-for, "0.0.0.0") ~ my_acl) {
 .fi
 .sp
 .UNINDENT
-.SS REAL real(STRING, REAL)
+.SS real
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 REAL real(STRING s, REAL fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the string \fIs\fP to a real. If conversion fails,
@@ -334,11 +407,18 @@ if (std.real(req.http.foo, 0.0) > 5.5) {
 .fi
 .sp
 .UNINDENT
-.SS INT real2integer(REAL, INT)
+.SS real2integer
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 INT real2integer(REAL r, INT fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the real \fIr\fP to an integer. If conversion fails,
@@ -347,11 +427,18 @@ Converts the real \fIr\fP to an integer. If conversion fails,
 .B Example
 set req.http.integer = std.real2integer(1140618699.00, 0);
 .UNINDENT
-.SS TIME real2time(REAL, TIME)
+.SS real2time
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 TIME real2time(REAL r, TIME fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the real \fIr\fP to a time. If conversion fails,
@@ -360,11 +447,18 @@ Converts the real \fIr\fP to a time. If conversion fails,
 .B Example
 set req.http.time = std.real2time(1140618699.00, now);
 .UNINDENT
-.SS INT time2integer(TIME, INT)
+.SS time2integer
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 INT time2integer(TIME t, INT fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the time \fIt\fP to a integer. If conversion fails,
@@ -373,11 +467,18 @@ Converts the time \fIt\fP to a integer. If conversion fails,
 .B Example
 set req.http.int = std.time2integer(now, 0);
 .UNINDENT
-.SS REAL time2real(TIME, REAL)
+.SS time2real
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 REAL time2real(TIME t, REAL fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the time \fIt\fP to a real. If conversion fails,
@@ -386,29 +487,50 @@ Converts the time \fIt\fP to a real. If conversion fails,
 .B Example
 set req.http.real = std.time2real(now, 1.0);
 .UNINDENT
-.SS BOOL healthy(BACKEND)
+.SS healthy
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 BOOL healthy(BACKEND be)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Returns \fItrue\fP if the backend \fIbe\fP is healthy.
 .UNINDENT
-.SS INT port(IP)
+.SS port
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 INT port(IP ip)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Returns the port number of the IP address \fIip\fP\&.
 .UNINDENT
-.SS VOID rollback(HTTP)
+.SS rollback
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 VOID rollback(HTTP h)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Restores the \fIh\fP HTTP headers to their original state.
@@ -416,11 +538,18 @@ Restores the \fIh\fP HTTP headers to their original state.
 .B Example
 std.rollback(bereq);
 .UNINDENT
-.SS VOID timestamp(STRING)
+.SS timestamp
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 VOID timestamp(STRING s)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Introduces a timestamp in the log with the current time, using
@@ -431,11 +560,18 @@ automatically by Varnish more accurate.
 .B Example
 std.timestamp("curl\-request");
 .UNINDENT
-.SS STRING querysort(STRING)
+.SS querysort
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 STRING querysort(STRING)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Sorts the query string for cache normalization purposes.
@@ -443,28 +579,49 @@ Sorts the query string for cache normalization purposes.
 .B Example
 set req.url = std.querysort(req.url);
 .UNINDENT
-.SS VOID cache_req_body(BYTES)
+.SS cache_req_body
 .INDENT 0.0
-.TP
-.B Prototype
-VOID cache_req_body(BYTES size)
+.INDENT 3.5
+.sp
+.nf
+.ft C
+BOOL cache_req_body(BYTES size)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
-Cache the req.body if it is smaller than \fIsize\fP\&.
+Caches the request body if it is smaller than \fIsize\fP\&.  Returns
+\fItrue\fP if the body was cached, \fIfalse\fP otherwise.
 .sp
-Caching the req.body makes it possible to retry pass
-operations (POST, PUT).
+Normally the request body is not available after sending it to
+the backend.  By caching it is possible to retry pass operations,
+e.g. POST and PUT.
 .TP
 .B Example
-std.cache_req_body(1KB);
+.nf
+if (std.cache_req_body(1KB)) {
+.in +2
+\&...
+.in -2
+}
+.fi
 .sp
-This will cache the req.body if its size is smaller than 1KB.
 .UNINDENT
-.SS STRING strstr(STRING, STRING)
+.SS strstr
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 STRING strstr(STRING s1, STRING s2)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Returns a string beginning at the first occurrence of the string
@@ -485,11 +642,18 @@ if (std.strstr(req.url, req.http.restrict)) {
 This will check if the content of req.http.restrict occurs
 anywhere in req.url.
 .UNINDENT
-.SS TIME time(STRING, TIME)
+.SS time
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 TIME time(STRING s, TIME fallback)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Converts the string \fIs\fP to a time. If conversion fails,
@@ -516,11 +680,18 @@ if (std.time(resp.http.last\-modified, now) < now \- 1w) {
 .fi
 .sp
 .UNINDENT
-.SS STRING getenv(STRING)
+.SS getenv
 .INDENT 0.0
-.TP
-.B Prototype
+.INDENT 3.5
+.sp
+.nf
+.ft C
 STRING getenv(STRING name)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B Description
 Return environment variable \fIname\fP or the empty string.
@@ -533,6 +704,60 @@ set req.http.My\-Env = std.getenv("MY_ENV");
 .fi
 .sp
 .UNINDENT
+.SS late_100_continue
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+VOID late_100_continue(BOOL late)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B Description
+Controls when varnish reacts to an \fIExpect: 100\-continue\fP client
+request header.
+.sp
+Varnish always generates a \fI100 Continue\fP response if
+requested by the client trough the \fIExpect: 100\-continue\fP
+header when waiting for request body data.
+.sp
+But, by default, the \fI100 Continue\fP response is already
+generated immediately after \fIvcl_recv\fP returns to reduce
+latencies under the assumption that the request body will be
+read eventually.
+.sp
+Calling \fIstd.late_100_continue(true)\fP in \fIvcl_recv\fP will cause
+the \fI100 Continue\fP response to only be sent when needed. This
+may cause additional latencies for processing request bodies,
+but is the correct behavior by strict interpretation of
+RFC7231.
+.sp
+This function has no effect outside \fIvcl_recv\fP and after
+calling \fIstd.cache_req_body()\fP or any other function consuming
+the request body.
+.TP
+.B Example
+.nf
+vcl_recv {
+.in +2
+std.late_100_continue(true);
+
+if (req.method == "POST") {
+.in +2
+std.late_100_continue(false);
+return (pass);
+.in -2
+}
+\&...
+.in -2
+}
+.fi
+.sp
+.UNINDENT
 .SH SEE ALSO
 .INDENT 0.0
 .IP \(bu 2
@@ -540,18 +765,40 @@ set req.http.My\-Env = std.getenv("MY_ENV");
 .IP \(bu 2
 \fIvsl(7)\fP
 .UNINDENT
-.SH HISTORY
-.sp
-The Varnish standard module was released along with Varnish Cache 3.0.
-This manual page was written by Per Buer with help from Martin Blix
-Grydeland.
 .SH COPYRIGHT
-.sp
-This document is licensed under the same licence as Varnish
-itself. See LICENCE for details.
 .INDENT 0.0
-.IP \(bu 2
-Copyright (c) 2010\-2015 Varnish Software AS
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Copyright (c) 2010\-2017 Varnish Software AS
+All rights reserved.
+
+Author: Poul\-Henning Kamp <phk@FreeBSD.org>
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS \(ga\(gaAS IS\(aq\(aq AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+.ft P
+.fi
+.UNINDENT
 .UNINDENT
 .\" Generated by docutils manpage writer.
 .

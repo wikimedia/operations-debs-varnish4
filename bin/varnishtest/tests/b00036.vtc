@@ -26,10 +26,8 @@ client c1 {
 
 	txreq -req PURGE
 	rxresp
-	expect resp.msg == "Purged"
-} -run
+	expect resp.reason == "Purged"
 
-client c1 {
 	txreq
 	rxresp
 	expect resp.http.foo == 2

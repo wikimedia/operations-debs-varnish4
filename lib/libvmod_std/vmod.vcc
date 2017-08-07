@@ -1,5 +1,5 @@
 #-
-# Copyright (c) 2010-2015 Varnish Software AS
+# Copyright (c) 2010-2017 Varnish Software AS
 # All rights reserved.
 #
 # Author: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -72,6 +72,9 @@ $Function REAL random(REAL lo, REAL hi)
 
 Description
 	Returns a random real number between *lo* and *hi*.
+	This function uses the "testable" random generator in varnishd
+	which enables determinstic tests to be run (See m00002.vtc).
+	This function should not be used for cryptographic applications.
 Example
 	set beresp.http.random-number = std.random(1, 100);
 
@@ -104,27 +107,20 @@ Description
 Example
 	set beresp.http.served-by = std.fileread("/etc/hostname");
 
-$Function BOOL file_exists(STRING path)
+$Function VOID collect(HEADER hdr, STRING sep=", ")
 
 Description
-	Returns `true` if path or the file pointed to by path exists,
-	`false` otherwise.
-Example
-	| if (std.file_exists("/etc/return_503")) {
-	| 	return (synth(503, "Varnish is in maintenance"));
-	| }
-
-$Function VOID collect(HEADER hdr)
-
-Description
-	Collapses multiple *hdr* headers into one long header.
-	The header values are joined with a comma (",").
+	Collapses multiple *hdr* headers into one long header. The
+	default separator *sep* is the standard comma separator to
+	use when collapsing headers, with an additional  whitespace
+	for pretty printing.
 
 	Care should be taken when collapsing headers. In particular
 	collapsing Set-Cookie will lead to unexpected results on the
 	browser side.
-Example
-	std.collect(req.http.cookie);
+Examples
+	| std.collect(req.http.accept);
+	| std.collect(req.http.cookie, "; ");
 
 $Function DURATION duration(STRING s, DURATION fallback)
 
@@ -233,17 +229,19 @@ Description
 Example
 	set req.url = std.querysort(req.url);
 
-$Function VOID cache_req_body(BYTES size)
+$Function BOOL cache_req_body(BYTES size)
 
 Description
-	Cache the req.body if it is smaller than *size*.
+	Caches the request body if it is smaller than *size*.  Returns
+	`true` if the body was cached, `false` otherwise.
 
-	Caching the req.body makes it possible to retry pass
-	operations (POST, PUT).
+	Normally the request body is not available after sending it to
+	the backend.  By caching it is possible to retry pass operations,
+	e.g. POST and PUT.
 Example
-	std.cache_req_body(1KB);
-
-	This will cache the req.body if its size is smaller than 1KB.
+	| if (std.cache_req_body(1KB)) {
+	|	...
+	| }
 
 $Function STRING strstr(STRING s1, STRING s2)
 
@@ -288,23 +286,44 @@ Description
 Example
 	| set req.http.My-Env = std.getenv("MY_ENV");
 
+$Function VOID late_100_continue(BOOL late)
+
+Description
+	Controls when varnish reacts to an `Expect: 100-continue` client
+	request header.
+
+	Varnish always generates a `100 Continue` response if
+	requested by the client trough the `Expect: 100-continue`
+	header when waiting for request body data.
+
+	But, by default, the `100 Continue` response is already
+	generated immediately after `vcl_recv` returns to reduce
+	latencies under the assumption that the request body will be
+	read eventually.
+
+	Calling `std.late_100_continue(true)` in `vcl_recv` will cause
+	the `100 Continue` response to only be sent when needed. This
+	may cause additional latencies for processing request bodies,
+	but is the correct behavior by strict interpretation of
+	RFC7231.
+
+	This function has no effect outside `vcl_recv` and after
+	calling `std.cache_req_body()` or any other function consuming
+	the request body.
+
+Example
+	| vcl_recv {
+	|	std.late_100_continue(true);
+	|
+	|	if (req.method == "POST") {
+	|		std.late_100_continue(false);
+	|		return (pass);
+	|	}
+	|	...
+	| }
+
 SEE ALSO
 ========
 
 * :ref:`varnishd(1)`
 * :ref:`vsl(7)`
-
-HISTORY
-=======
-
-The Varnish standard module was released along with Varnish Cache 3.0.
-This manual page was written by Per Buer with help from Martin Blix
-Grydeland.
-
-COPYRIGHT
-=========
-
-This document is licensed under the same licence as Varnish
-itself. See LICENCE for details.
-
-* Copyright (c) 2010-2015 Varnish Software AS

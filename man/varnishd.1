@@ -32,13 +32,14 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishd [\-a address[:port][,PROTO]] [\-b host[:port]] [\-C] [\-d] [\-F] [\-f config] [\-h type[,options]] [\-i identity] [\-j jail[,jailoptions]] [\-l vsl[,vsm]] [\-M address:port] [\-n name] [\-P file] [\-p param=value] [\-r param[,param...]] [\-S secret\-file] [\-s [name=]kind[,options]] [\-T address[:port]] [\-t TTL] [\-V] [\-W waiter]
+varnishd [\-a address[:port][,PROTO]] [\-b host[:port]] [\-C] [\-d] [\-F] [\-f config] [\-h type[,options]] [\-I clifile] [\-i identity] [\-j jail[,jailoptions]] [\-l vsl[,vsm]] [\-M address:port] [\-n name] [\-P file] [\-p param=value] [\-r param[,param...]] [\-S secret\-file] [\-s [name=]kind[,options]] [\-T address[:port]] [\-t TTL] [\-V] [\-W waiter] [\-x parameter|vsl|cli|builtin] [\-?]
 .SH DESCRIPTION
 .sp
 The \fIvarnishd\fP daemon accepts HTTP requests from clients, passes them on
 to a backend server and caches the returned documents to better
 satisfy future requests for the same document.
 .SH OPTIONS
+.SS Basic options
 .INDENT 0.0
 .TP
 .BI \-a \ <address[:port][,PROTO]>
@@ -54,49 +55,27 @@ Multiple listening addresses can be specified by using multiple \-a arguments.
 .TP
 .BI \-b \ <host[:port]>
 Use the specified host as backend server. If port is not specified,
-the default is 8080.
-.TP
-.B \-C
-Print VCL code compiled to C language and exit. Specify the VCL file
-to compile with the \-f option.
-.TP
-.B \-d
-Enables debugging mode: The parent process runs in the foreground
-with a CLI connection on stdin/stdout, and the child process must be
-started explicitly with a CLI command. Terminating the parent
-process will also terminate the child.
-.TP
-.B \-F
-Do not fork, run in the foreground.
+the default is 8080. \-b can be used only once, and not together with
+\-f.
 .TP
 .BI \-f \ config
 Use the specified VCL configuration file instead of the builtin
 default.  See \fIvcl(7)\fP for details on VCL syntax.
 .sp
-When neither a \-f nor a \-b argument are given, \fIvarnishd\fP will not
-start the worker process but process cli commands.
-.TP
-.BI \-h \ <type[,options]>
-Specifies the hash algorithm. See \fI\%Hash Algorithm\fP section for a list
-of supported algorithms.
-.TP
-.BI \-i \ identity
-Specify the identity of the Varnish server. This can be accessed
-using \fBserver.identity\fP from VCL.
-.TP
-.BI \-j \ <jail[,jailoptions]>
-Specify the jailing mechanism to use. See \fI\%Jail\fP section.
-.TP
-.BI \-l \ <vsl[,vsm]>
-Specifies size of shmlog file. vsl is the space for the VSL records
-[80M] and vsm is the space for stats counters [1M]. Scaling suffixes
-like \(aqK\(aq and \(aqM\(aq can be used up to (G)igabytes.
-Default is 81 Megabytes.
-.TP
-.BI \-M \ <address:port>
-Connect to this port and offer the command line interface.  Think of
-it as a reverse shell. When running with \-M and there is no backend
-defined the child process (the cache) will not start initially.
+If a single \-f option is used, then the VCL instance loaded from the
+file is named "boot" and immediately becomes active. If more than
+one \-f option is used, the VCL instances are named "boot0", "boot1"
+and so forth, in the order corresponding to the \-f arguments, and
+the last one is named "boot", which becomes active.
+.sp
+Either \-b or one or more \-f options must be specified, but not both,
+and they cannot both be left out, unless \-d is used to start
+\fIvarnishd\fP in debugging mode. If the empty string is specified as
+the sole \-f option, then \fIvarnishd\fP starts without starting the
+worker process, and the management process will accept CLI commands.
+You can also combine an empty \-f option with an initialization
+script (\-I option) and the child process will be started if there
+is an active VCL at the end of the initialization.
 .TP
 .BI \-n \ name
 Specify the name for this instance.  Amongst other things, this name
@@ -104,26 +83,75 @@ is used to construct the name of the directory in which \fIvarnishd\fP
 keeps temporary files and persistent state. If the specified name
 begins with a forward slash, it is interpreted as the absolute path
 to the directory which should be used for this purpose.
+.UNINDENT
+.SS Documentation options
+.sp
+For these options, \fIvarnishd\fP prints information to standard output
+and exits. When a \-x option is used, it must be the only option (it
+outputs documentation in reStructuredText, aka RST).
+.sp
+\-?
+.INDENT 0.0
+.INDENT 3.5
+Print the usage message.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.BI \-x \ parameter
+Print documentation of the runtime parameters (\-p options), see
+\fI\%List of Parameters\fP\&.
+.TP
+.BI \-x \ vsl
+Print documentation of the tags used in the Varnish shared memory
+log, see \fIvsl(7)\fP\&.
+.TP
+.BI \-x \ cli
+Print documentation of the command line interface, see
+\fIvarnish\-cli(7)\fP\&.
+.TP
+.BI \-x \ builtin
+Print the contents of the default VCL program \fBbuiltin.vcl\fP\&.
+.UNINDENT
+.SS Operations options
+.INDENT 0.0
+.TP
+.B \-F
+Do not fork, run in the foreground. Only one of \-F or \-d can be
+specified, and \-F cannot be used together with \-C.
+.TP
+.BI \-T \ <address[:port]>
+Offer a management interface on the specified address and port. See
+\fIvarnish\-cli(7)\fP for documentation of the management commands.
+To disable the management interface use \fBnone\fP\&.
+.TP
+.BI \-M \ <address:port>
+Connect to this port and offer the command line interface.  Think of
+it as a reverse shell. When running with \-M and there is no backend
+defined the child process (the cache) will not start initially.
 .TP
 .BI \-P \ file
 Write the PID of the process to the specified file.
+.TP
+.BI \-i \ identity
+Specify the identity of the Varnish server. This can be accessed
+using \fBserver.identity\fP from VCL.
+.TP
+.BI \-I \ clifile
+Execute the management commands in the file given as \fBclifile\fP
+before the the worker process starts, see \fI\%CLI Command File\fP\&.
+.UNINDENT
+.SS Tuning options
+.INDENT 0.0
+.TP
+.BI \-t \ TTL
+Specifies the default time to live (TTL) for cached objects. This is
+a shortcut for specifying the \fIdefault_ttl\fP run\-time parameter.
 .TP
 .BI \-p \ <param=value>
 Set the parameter specified by param to the specified value, see
 \fI\%List of Parameters\fP for details. This option can be used multiple
 times to specify multiple parameters.
-.TP
-.BI \-r \ <param[,param...]>
-Make the listed parameters read only. This gives the system
-administrator a way to limit what the Varnish CLI can do.  Consider
-making parameters such as \fIcc_command\fP, \fIvcc_allow_inline_c\fP and
-\fIvmod_dir\fP read only as these can potentially be used to escalate
-privileges from the CLI.
-.TP
-.BI \-S \ secret\-file
-Path to a file containing a secret used for authorizing access to
-the management port. If not provided a new secret will be drawn
-from the system PRNG.  To disable authentication use \fBnone\fP\&.
 .TP
 .BI \-s \ <[name=]type[,options]>
 Use the specified storage backend. See \fI\%Storage Backend\fP section.
@@ -131,16 +159,53 @@ Use the specified storage backend. See \fI\%Storage Backend\fP section.
 This option can be used multiple times to specify multiple storage
 files. Names are referenced in logs, VCL, statistics, etc.
 .TP
-.BI \-T \ <address[:port]>
-Offer a management interface on the specified address and port. See
-\fI\%Management Interface\fP for a list of management commands.
+.BI \-l \ <vsl[,vsm]>
+Specifies size of shmlog file. vsl is the space for the VSL records
+[80M] and vsm is the space for stats counters [1M]. Scaling suffixes
+like \(aqK\(aq and \(aqM\(aq can be used up to (G)igabytes.
+Default is 81 Megabytes.
+.UNINDENT
+.SS Security options
+.INDENT 0.0
 .TP
-.BI \-t \ TTL
-Specifies the default time to live (TTL) for cached objects. This is
-a shortcut for specifying the \fIdefault_ttl\fP run\-time parameter.
+.BI \-r \ <param[,param...]>
+Make the listed parameters read only. This gives the system
+administrator a way to limit what the Varnish CLI can do.  Consider
+making parameters such as \fIcc_command\fP, \fIvcc_allow_inline_c\fP and
+\fIvmod_path\fP read only as these can potentially be used to escalate
+privileges from the CLI.
+.TP
+.BI \-S \ secret\-file
+Path to a file containing a secret used for authorizing access to
+the management port. If not provided a new secret will be drawn
+from the system PRNG.  To disable authentication use \fBnone\fP\&.
+.TP
+.BI \-j \ <jail[,jailoptions]>
+Specify the jailing mechanism to use. See \fI\%Jail\fP section.
+.UNINDENT
+.SS Advanced, development and debugging options
+.INDENT 0.0
+.TP
+.B \-d
+Enables debugging mode: The parent process runs in the foreground
+with a CLI connection on stdin/stdout, and the child process must be
+started explicitly with a CLI command. Terminating the parent
+process will also terminate the child.
+.sp
+Only one of \-d or \-F can be specified, and \-d cannot be used together
+with \-C.
+.TP
+.B \-C
+Print VCL code compiled to C language and exit. Specify the VCL file
+to compile with the \-f option. Either \-f or \-b must be used with \-C,
+and \-C cannot be used with \-F or \-d.
 .TP
 .B \-V
-Display the version number and exit.
+Display the version number and exit. This must be the only option.
+.TP
+.BI \-h \ <type[,options]>
+Specifies the hash algorithm. See \fI\%Hash Algorithm\fP section for a list
+of supported algorithms.
 .TP
 .BI \-W \ waiter
 Specifies the waiter type to use.
@@ -174,7 +239,7 @@ The following storage types are available:
 .BI \-s \ <malloc[,size]>
 malloc is a memory based backend.
 .TP
-.BI \-s \ <file,path[,size[,granularity]]>
+.BI \-s \ <file,path[,size[,granularity[,advice]]]>
 The file backend stores data in a file on disk. The file will be
 accessed using mmap.
 .sp
@@ -188,6 +253,13 @@ error is reported.
 .sp
 Granularity sets the allocation block size. Defaults to the system
 page size or the filesystem block size, whichever is larger.
+.sp
+Advice tells the kernel how \fIvarnishd\fP expects to use this mapped
+region so that the kernel can choose the appropriate read\-ahead
+and caching techniques. Possible values are \fBnormal\fP, \fBrandom\fP
+and \fBsequencial\fP, corresponding to MADV_NORMAL, MADV_RANDOM and
+MADV_SEQUENTIAL madvise() advice argument, respectively. Defaults to
+\fBrandom\fP\&.
 .TP
 .BI \-s \ <persistent,path,size>
 Persistent storage. Varnish will store objects in a file in a manner
@@ -209,8 +281,8 @@ required set. Only available on platforms which have the setppriv(2)
 call.
 .TP
 .BI \-j \ <unix[,user=\(gauser\(ga][,ccgroup=\(gagroup\(ga][,workuser=\(gauser\(ga]>
-Default on all other platforms when \fIvarnishd\fP is started with an
-effective uid of 0 ("as root").
+Default on all other platforms when \fIvarnishd\fP is either started with
+an effective uid of 0 ("as root") or as user \fBvarnish\fP\&.
 .sp
 With the \fBunix\fP jail mechanism activated, varnish will switch to
 an alternative user for subprocesses and change the effective uid of
@@ -234,9 +306,37 @@ run all processes with the privileges it was started with.
 If the \-T option was specified, \fIvarnishd\fP will offer a command\-line
 management interface on the specified address and port.  The
 recommended way of connecting to the command\-line management interface
-is through varnishadm(1).
+is through \fIvarnishadm(1)\fP\&.
 .sp
-The commands available are documented in varnish(7).
+The commands available are documented in \fIvarnish\-cli(7)\fP\&.
+.SS CLI Command File
+.sp
+The \-I option makes it possible to run arbitrary management commands
+when \fIvarnishd\fP is launched, before the worker process is started. In
+particular, this is the way to load configurations, apply labels to
+them, and make a VCL instance active that uses those labels on
+startup:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+vcl.load panic /etc/varnish_panic.vcl
+vcl.load siteA0 /etc/varnish_siteA.vcl
+vcl.load siteB0 /etc/varnish_siteB.vcl
+vcl.load siteC0 /etc/varnish_siteC.vcl
+vcl.label siteA siteA0
+vcl.label siteB siteB0
+vcl.label siteC siteC0
+vcl.load main /etc/varnish_main.vcl
+vcl.use main
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+If a command in the file is prefixed with \(aq\-\(aq, failure will not abort
+the startup.
 .SH RUN TIME PARAMETERS
 .SS Run Time Parameter Flags
 .sp
@@ -297,9 +397,11 @@ thread_pool_stack: 64k
 .sp
 This text is produced from the same text you will find in the CLI if
 you use the param.show command:
-.\" The following is the autogenerated output from varnishd -x dumprstparam
+.\" The following is the autogenerated output from varnishd -x parameter
 .
 .SS accept_filter
+.sp
+NB: This parameter depends on a feature which is not available on all platforms.
 .INDENT 0.0
 .INDENT 3.5
 .INDENT 0.0
@@ -308,12 +410,12 @@ Units: bool
 .IP \(bu 2
 Default: off
 .IP \(bu 2
-Flags: must_restart
+Flags:
 .UNINDENT
 .UNINDENT
 .UNINDENT
 .sp
-Enable kernel accept\-filters (if available in the kernel).
+Enable kernel accept\-filters.
 .SS acceptor_sleep_decay
 .INDENT 0.0
 .INDENT 3.5
@@ -400,6 +502,24 @@ Minimum: 1.000
 .UNINDENT
 .sp
 Timeout before we close unused backend connections.
+.SS ban_cutoff
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Units: bans
+.IP \(bu 2
+Default: 0
+.IP \(bu 2
+Minimum: 0
+.IP \(bu 2
+Flags: experimental
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Expurge long tail content from the cache to keep the number of bans below this value. 0 disables.
+This is a safety net to avoid bad response times due to bans being tested at lookup time. Setting a cutoff trades response time for cache efficiency. The recommended value is proportional to rate(bans_lurker_tests_tested) / n_objects while the ban lurker is working, which is the number of bans the system can sustain. The additional latency due to request ban testing is in the order of ban_cutoff / rate(bans_lurker_tests_tested). For example, for rate(bans_lurker_tests_tested) = 2M/s and a tolerable latency of 100ms, a good value for ban_cutoff may be 200K.
 .SS ban_dups
 .INDENT 0.0
 .INDENT 3.5
@@ -428,7 +548,8 @@ Minimum: 0.000
 .UNINDENT
 .UNINDENT
 .sp
-The ban lurker will ignore bans until they are this old.  When a ban is added, the active traffic will be tested against it as part of object lookup.  This parameter holds the ban\-lurker off, until the rush is over.
+The ban lurker will ignore bans until they are this old.  When a ban is added, the active traffic will be tested against it as part of object lookup.  Because many applications issue bans in bursts, this parameter holds the ban\-lurker off until the rush is over.
+This should be set to the approximate time which a ban\-burst takes.
 .SS ban_lurker_batch
 .INDENT 0.0
 .INDENT 3.5
@@ -442,6 +563,23 @@ Minimum: 1
 .UNINDENT
 .sp
 The ban lurker sleeps ${ban_lurker_sleep} after examining this many objects.  Use this to pace the ban\-lurker if it eats too many resources.
+.SS ban_lurker_holdoff
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Units: seconds
+.IP \(bu 2
+Default: 0.010
+.IP \(bu 2
+Minimum: 0.000
+.IP \(bu 2
+Flags: experimental
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+How long the ban lurker sleeps when giving way to lookup due to lock contention.
 .SS ban_lurker_sleep
 .INDENT 0.0
 .INDENT 3.5
@@ -481,7 +619,7 @@ This parameter does not apply to pipe\(aqed requests.
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: "exec clang \-std=gnu99 \-g \-O2 \-Wall \-Werror \-Wno\-error=unused\-result  t\-Werror t\-Wall t\-Wno\-format\-y2k t\-W t\-Wstrict\-prototypes t\-Wmissing\-prototypes t\-Wpointer\-arith t\-Wreturn\-type t\-Wcast\-qual t\-Wwrite\-strings t\-Wswitch t\-Wshadow t\-Wunused\-parameter t\-Wcast\-align t\-Wchar\-subscripts t\-Wnested\-externs t\-Wextra t\-Wno\-sign\-compare  \-fstack\-protector \-Wno\-pointer\-sign \-Wno\-address \-Wno\-missing\-field\-initializers \-pthread \-fpic \-shared \-Wl,\-x \-o %o %s"
+Default: exec clang \-g \-O2 \-Wall \-Werror \-Wno\-error=unused\-result  t\-Werror t\-Wall t\-Wno\-format\-y2k t\-W t\-Wstrict\-prototypes t\-Wmissing\-prototypes t\-Wpointer\-arith t\-Wreturn\-type t\-Wcast\-qual t\-Wwrite\-strings t\-Wswitch t\-Wshadow t\-Wunused\-parameter t\-Wcast\-align t\-Wchar\-subscripts t\-Wnested\-externs t\-Wextra t\-Wno\-sign\-compare  \-fstack\-protector \-Wno\-pointer\-sign \-Wno\-address \-Wno\-missing\-field\-initializers \-pthread \-fpic \-shared \-Wl,\-x \-o %o %s
 .IP \(bu 2
 Flags: must_reload
 .UNINDENT
@@ -666,6 +804,15 @@ Emit WITNESS lock records
 .TP
 .B \fIvsm_keep\fP
 Keep the VSM file on restart
+.TP
+.B \fIdrop_pools\fP
+Drop thread pools (testing)
+.TP
+.B \fIslow_acceptor\fP
+Slow down Acceptor
+.TP
+.B \fIh2_nocheck\fP
+Disable various H2 checks
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -769,6 +916,9 @@ Remove UTF\-8 BOM
 .TP
 .B \fIhttps_scheme\fP
 Also split https URIs
+.TP
+.B \fIhttp2\fP
+Support HTTP/2 protocol
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -871,6 +1021,48 @@ Maximum: 9
 .sp
 Gzip memory level 1=slow/least, 9=fast/most compression.
 Memory impact is 1=1k, 2=2k, ... 9=256k.
+.SS h2_rx_window_increment
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Units: bytes
+.IP \(bu 2
+Default: 1M
+.IP \(bu 2
+Minimum: 1M
+.IP \(bu 2
+Maximum: 1G
+.IP \(bu 2
+Flags: wizard
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+HTTP2 Receive Window Increments.
+How big credits we send in WINDOW_UPDATE frames
+Only affects incoming request bodies (ie: POST, PUT etc.)
+.SS h2_rx_window_low_water
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Units: bytes
+.IP \(bu 2
+Default: 10M
+.IP \(bu 2
+Minimum: 65535b
+.IP \(bu 2
+Maximum: 1G
+.IP \(bu 2
+Flags: wizard
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+HTTP2 Receive Window low water mark.
+We try to keep the window at least this big
+Only affects incoming request bodies (ie: POST, PUT etc.)
 .SS http_gzip_support
 .INDENT 0.0
 .INDENT 3.5
@@ -1304,22 +1496,6 @@ Flags: delayed
 Send timeout for client connections. If the HTTP response hasn\(aqt been transmitted in this many
 seconds the session is closed.
 See setsockopt(2) under SO_SNDTIMEO for more information.
-.SS session_max
-.INDENT 0.0
-.INDENT 3.5
-.INDENT 0.0
-.IP \(bu 2
-Units: sessions
-.IP \(bu 2
-Default: 100000
-.IP \(bu 2
-Minimum: 1000
-.UNINDENT
-.UNINDENT
-.UNINDENT
-.sp
-Maximum number of sessions we will allocate from one pool before just dropping connections.
-This is mostly an anti\-DoS measure, and setting it plenty high should not hurt, as long as you have the memory for it.
 .SS shm_reclen
 .INDENT 0.0
 .INDENT 3.5
@@ -1394,7 +1570,7 @@ Flags: must_restart
 .UNINDENT
 .UNINDENT
 .sp
-Enable TCP Fast Open extension (if available in the kernel).
+Enable TCP Fast Open extension.
 .SS tcp_keepalive_intvl
 .INDENT 0.0
 .INDENT 3.5
@@ -1473,7 +1649,7 @@ Wait at least this long after creating a thread.
 Some (buggy) systems may need a short (sub\-second) delay between creating threads.
 Set this to a few milliseconds if you see the \(aqthreads_failed\(aq counter grow too much.
 .sp
-Setting this too high results in insuffient worker threads.
+Setting this too high results in insufficient worker threads.
 .SS thread_pool_destroy_delay
 .INDENT 0.0
 .INDENT 3.5
@@ -1638,6 +1814,8 @@ Default: 2
 .IP \(bu 2
 Minimum: 1
 .IP \(bu 2
+Maximum: 32
+.IP \(bu 2
 Flags: delayed, experimental
 .UNINDENT
 .UNINDENT
@@ -1780,13 +1958,35 @@ How long a VCL is kept warm after being replaced as the active VCL (granularity 
 .INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
-Default: /opt/varnish/etc/varnish
+Default: /opt/varnish/etc/varnish:/opt/varnish/share/varnish/vcl
 .UNINDENT
 .UNINDENT
 .UNINDENT
 .sp
-Directory (or colon separated list of directories) from which relative VCL filenames (vcl.load and include) are to be found.
+Old name for vcl_path, use that instead.
+.SS vcl_path
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Default: /opt/varnish/etc/varnish:/opt/varnish/share/varnish/vcl
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Directory (or colon separated list of directories) from which relative VCL filenames (vcl.load and include) are to be found.  By default Varnish searches VCL files in both the system configuration and shared data directories to allow packages to drop their VCL files in a standard location where relative includes would work.
 .SS vmod_dir
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Default: /opt/varnish/lib/varnish/vmods
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Old name for vmod_path, use that instead.
+.SS vmod_path
 .INDENT 0.0
 .INDENT 3.5
 .INDENT 0.0
@@ -1812,6 +2012,8 @@ Minimum: 267
 .UNINDENT
 .sp
 Bytes of (req\-/backend\-)workspace dedicated to buffering VSL records.
+When this parameter is adjusted, most likely workspace_client and workspace_backend will have to be adjusted by the same amount.
+.sp
 Setting this too high costs memory, setting it too low will cause more VSL flushes and likely increase lock\-contention on the VSL mutex.
 .sp
 The minimum tracks the vsl_reclen parameter + 12 bytes.
@@ -1867,6 +2069,8 @@ Default: 80M
 .IP \(bu 2
 Minimum: 1M
 .IP \(bu 2
+Maximum: 4G
+.IP \(bu 2
 Flags: must_restart
 .UNINDENT
 .UNINDENT
@@ -1900,6 +2104,8 @@ Units: bytes
 Default: 1M
 .IP \(bu 2
 Minimum: 1M
+.IP \(bu 2
+Maximum: 4G
 .IP \(bu 2
 Flags: must_restart
 .UNINDENT
@@ -1940,7 +2146,8 @@ Flags: delayed
 .UNINDENT
 .UNINDENT
 .sp
-Bytes of HTTP protocol workspace for clients HTTP req/resp.  If larger than 4k, use a multiple of 4k for VM efficiency.
+Bytes of HTTP protocol workspace for clients HTTP req/resp.  Use a multiple of 4k for VM efficiency.
+For HTTP/2 compliance this must be at least 20k, in order to receive fullsize (=16k) frames from the client.   That usually happens only in POST/PUT bodies.  For other traffic\-patterns smaller values work just fine.
 .SS workspace_session
 .INDENT 0.0
 .INDENT 3.5

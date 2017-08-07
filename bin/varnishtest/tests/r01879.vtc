@@ -14,7 +14,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import ${vmod_std};
+	import std;
 
 	sub vcl_backend_response {
 		set beresp.ttl = 0.00001s;

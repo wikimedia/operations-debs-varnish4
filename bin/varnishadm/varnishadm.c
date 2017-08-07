@@ -62,6 +62,7 @@
 #include "vapi/vsm.h"
 #include "vas.h"
 #include "vcli.h"
+#include "vdef.h"
 #include "vnum.h"
 #include "vtcp.h"
 
@@ -113,18 +114,18 @@ cli_sock(const char *T_arg, const char *S_arg)
 	if (status == CLIS_AUTH) {
 		if (S_arg == NULL) {
 			fprintf(stderr, "Authentication required\n");
-			AZ(close(sock));
+			closefd(&sock);
 			return(-1);
 		}
 		fd = open(S_arg, O_RDONLY);
 		if (fd < 0) {
 			fprintf(stderr, "Cannot open \"%s\": %s\n",
 			    S_arg, strerror(errno));
-			AZ(close(sock));
+			closefd(&sock);
 			return (-1);
 		}
 		VCLI_AuthResponse(fd, answer, buf);
-		AZ(close(fd));
+		closefd(&fd);
 		free(answer);
 
 		cli_write(sock, "auth ");
@@ -134,7 +135,7 @@ cli_sock(const char *T_arg, const char *S_arg)
 	}
 	if (status != CLIS_OK) {
 		fprintf(stderr, "Rejected %u\n%s\n", status, answer);
-		AZ(close(sock));
+		closefd(&sock);
 		free(answer);
 		return (-1);
 	}
@@ -144,7 +145,7 @@ cli_sock(const char *T_arg, const char *S_arg)
 	(void)VCLI_ReadResult(sock, &status, &answer, timeout);
 	if (status != CLIS_OK || strstr(answer, "PONG") == NULL) {
 		fprintf(stderr, "No pong received from server\n");
-		AZ(close(sock));
+		closefd(&sock);
 		free(answer);
 		return (-1);
 	}
@@ -302,7 +303,7 @@ interactive(int sock)
 				RL_EXIT(1);
 			}
 
-			sprintf(buf, "%u\n", status);
+			bprintf(buf, "%u\n", status);
 			u = write(1, buf, strlen(buf));
 			if (answer) {
 				u = write(1, answer, strlen(answer));
@@ -352,7 +353,7 @@ pass(int sock)
 				RL_EXIT(1);
 			}
 
-			sprintf(buf, "%u\n", status);
+			bprintf(buf, "%u\n", status);
 			u = write(1, buf, strlen(buf));
 			if (answer) {
 				u = write(1, answer, strlen(answer));
@@ -484,9 +485,8 @@ main(int argc, char * const *argv)
 	argv += optind;
 
 	if (n_arg != NULL) {
-		if (T_arg != NULL || S_arg != NULL) {
+		if (T_arg != NULL || S_arg != NULL)
 			usage(1);
-		}
 		sock = n_arg_sock(n_arg);
 	} else if (T_arg == NULL) {
 		sock = n_arg_sock("");

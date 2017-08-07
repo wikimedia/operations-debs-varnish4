@@ -38,16 +38,45 @@
  * Whenever something is deleted or changed in a way which is not
  * binary/load-time compatible, increment MAJOR version
  *
- * changes to consider with next VRT_MAJOR_VERSION bump:
- * - cache_vrt.c: -> ssize_t VRT_CacheReqBody(VRT_CTX, size_t)
+ *
+ * 6.1 (unreleased):
+ *	http_CollectHdrSep added
+ * 6.0 (2017-03-15):
+ *	VRT_hit_for_pass added
+ *	VRT_ipcmp added
+ *	VRT_Vmod_Init signature changed
+ *	VRT_vcl_lookup removed
+ *	VRT_vcl_get added
+ *	VRT_vcl_rel added
+ *	VRT_fail added
+ *	WS_Reset and WS_Snapshot signatures changed
+ *	WS_Front added
+ *	WS_ReserveLumps added
+ *	WS_Inside added
+ *	WS_Assert_Allocated added
+ * 5.0:
+ *	Varnish 5.0 release "better safe than sorry" bump
+ * 4.0:
+ *	VCL_BYTES changed to long long
+ *	VRT_CacheReqBody changed signature
+ * 3.2:
+ *	vrt_backend grew .proxy_header field
+ *	vrt_ctx grew .sp field.
+ *	vrt_acl type added
  */
 
-#define VRT_MAJOR_VERSION	3U
+#define VRT_MAJOR_VERSION	6U
 
-#define VRT_MINOR_VERSION	2U
+#define VRT_MINOR_VERSION	0U
 
 
 /***********************************************************************/
+
+#ifdef __v_printflike
+#  define __vrt_printflike(a,b) __v_printflike(a,b)
+#else
+#  define __vrt_printflike(a,b)
+#endif
 
 struct VCL_conf;
 struct vrt_acl;
@@ -55,6 +84,7 @@ struct busyobj;
 struct director;
 struct http;
 struct req;
+struct stevedore;
 struct suckaddr;
 struct vcl;
 struct vmod;
@@ -71,18 +101,22 @@ struct ws;
 typedef const struct vrt_acl *			VCL_ACL;
 typedef const struct director *			VCL_BACKEND;
 typedef const struct vmod_priv *		VCL_BLOB;
+typedef const char *				VCL_BODY;
 typedef unsigned				VCL_BOOL;
-typedef double					VCL_BYTES;
+typedef long long				VCL_BYTES;
 typedef double					VCL_DURATION;
 typedef const char *				VCL_ENUM;
 typedef const struct gethdr_s *			VCL_HEADER;
 typedef struct http *				VCL_HTTP;
+typedef void					VCL_INSTANCE;
 typedef long					VCL_INT;
 typedef const struct suckaddr *			VCL_IP;
 typedef const struct vrt_backend_probe *	VCL_PROBE;
 typedef double					VCL_REAL;
+typedef const struct stevedore *		VCL_STEVEDORE;
 typedef const char *				VCL_STRING;
 typedef double					VCL_TIME;
+typedef struct vcl *				VCL_VCL;
 typedef void					VCL_VOID;
 
 /***********************************************************************
@@ -101,6 +135,8 @@ struct vrt_ctx {
 	struct vsl_log			*vsl;
 	struct vcl			*vcl;
 	struct ws			*ws;
+
+	struct sess			*sp;
 
 	struct req			*req;
 	struct http			*http_req;
@@ -171,7 +207,8 @@ extern const void * const vrt_magic_string_unset;
 	double				connect_timeout;	\
 	double				first_byte_timeout;	\
 	double				between_bytes_timeout;	\
-	unsigned			max_connections;
+	unsigned			max_connections;	\
+	unsigned			proxy_header;
 
 #define VRT_BACKEND_HANDLE()			\
 	do {					\
@@ -184,6 +221,7 @@ extern const void * const vrt_magic_string_unset;
 		DN(first_byte_timeout);		\
 		DN(between_bytes_timeout);	\
 		DN(max_connections);		\
+		DN(proxy_header);		\
 	} while(0)
 
 struct vrt_backend {
@@ -252,7 +290,7 @@ int VRT_acl_match(VRT_CTX, VCL_ACL, VCL_IP);
 
 /* req related */
 
-int VRT_CacheReqBody(VRT_CTX, long long maxsize);
+VCL_BYTES VRT_CacheReqBody(VRT_CTX, VCL_BYTES maxsize);
 
 /* Regexp related */
 void VRT_re_init(void **, const char *);
@@ -265,17 +303,20 @@ void VRT_purge(VRT_CTX, double ttl, double grace, double keep);
 
 void VRT_count(VRT_CTX, unsigned);
 void VRT_synth(VRT_CTX, unsigned, const char *);
+void VRT_hit_for_pass(VRT_CTX, VCL_DURATION);
 
 struct http *VRT_selecthttp(VRT_CTX, enum gethdr_e);
 const char *VRT_GetHdr(VRT_CTX, const struct gethdr_s *);
 void VRT_SetHdr(VRT_CTX, const struct gethdr_s *, const char *, ...);
 void VRT_handling(VRT_CTX, unsigned hand);
+void VRT_fail(VRT_CTX, const char *fmt, ...) __vrt_printflike(2,3);
 
 void VRT_hashdata(VRT_CTX, const char *str, ...);
 
 /* Simple stuff */
 int VRT_strcmp(const char *s1, const char *s2);
 void VRT_memmove(void *dst, const void *src, unsigned len);
+int VRT_ipcmp(const struct suckaddr *sua1, const struct suckaddr *sua2);
 
 void VRT_Rollback(VRT_CTX, const struct http *);
 
@@ -290,9 +331,14 @@ void VRT_delete_backend(VRT_CTX, struct director **);
 int VRT_VSA_GetPtr(const struct suckaddr *sua, const unsigned char ** dst);
 
 /* VMOD/Modules related */
-int VRT_Vmod_Init(struct vmod **hdl, void *ptr, int len, const char *nm,
-    const char *path, const char *file_id, VRT_CTX);
+int VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len,
+    const char *nm, const char *path, const char *file_id, const char *backup);
 void VRT_Vmod_Fini(struct vmod **hdl);
+
+/* VCL program related */
+VCL_VCL VRT_vcl_get(VRT_CTX, const char *);
+void VRT_vcl_rel(VRT_CTX, VCL_VCL);
+void VRT_vcl_select(VRT_CTX, VCL_VCL);
 
 struct vmod_priv;
 typedef void vmod_priv_free_f(void *);
@@ -316,6 +362,7 @@ struct vmod_priv *VRT_priv_top(VRT_CTX, void *vmod_id);
 
 /* Stevedore related functions */
 int VRT_Stv(const char *nm);
+VCL_STEVEDORE VRT_stevedore(const char *nm);
 
 /* Convert things to string */
 
@@ -325,4 +372,5 @@ char *VRT_REAL_string(VRT_CTX, VCL_REAL);
 char *VRT_TIME_string(VRT_CTX, VCL_TIME);
 const char *VRT_BOOL_string(VCL_BOOL);
 const char *VRT_BACKEND_string(VCL_BACKEND);
+const char *VRT_STEVEDORE_string(VCL_STEVEDORE);
 const char *VRT_CollectString(VRT_CTX, const char *p, ...);
