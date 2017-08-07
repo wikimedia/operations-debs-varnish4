@@ -31,16 +31,27 @@
 
 struct vsm_sc;
 struct suckaddr;
+struct transport;
+
+struct listen_arg {
+	unsigned			magic;
+#define LISTEN_ARG_MAGIC		0xbb2fc333
+	VTAILQ_ENTRY(listen_arg)	list;
+	const char			*name;
+	VTAILQ_HEAD(,listen_sock)	socks;
+	const struct transport		*transport;
+};
 
 struct listen_sock {
 	unsigned			magic;
 #define LISTEN_SOCK_MAGIC		0x999e4b57
 	VTAILQ_ENTRY(listen_sock)	list;
+	VTAILQ_ENTRY(listen_sock)	arglist;
 	int				sock;
+	const struct listen_arg		*arg;
 	char				*name;
 	struct suckaddr			*addr;
-	enum sess_step			first_step;
-	const char			*proto_name;
+	const struct transport		*transport;
 };
 
 VTAILQ_HEAD(listen_sock_head, listen_sock);

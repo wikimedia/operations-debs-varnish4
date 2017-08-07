@@ -202,12 +202,12 @@
  *
  */
 
+//lint -e{766}
 #include "config.h"
 
 #ifdef HAVE_SETPPRIV
 
 #include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -255,13 +255,14 @@ jail_master_gen(enum jail_master_e e)
 static int __match_proto__(jail_init_f)
 vjs_init(char **args)
 {
-	(void) args;
+	(void)args;
 	return 0;
 }
 
 /* for priv_delset() and priv_addset() */
 static inline int
-priv_setop_check(int a) {
+priv_setop_check(int a)
+{
 	if (a == 0)
 		return (1);
 	if (errno == EINVAL)
@@ -279,7 +280,8 @@ priv_setop_check(int a) {
 
 /* for setppriv */
 static inline int
-setppriv_check(int a) {
+setppriv_check(int a)
+{
 	if (a == 0)
 		return (1);
 	if (errno == EPERM)
@@ -388,8 +390,8 @@ vjs_setup(enum jail_gen_e jge)
 {
 	priv_set_t *priv_all;
 
-	if (! (priv_all = priv_allocset())) {
-		MGT_complain(C_SECURITY,
+	if (!(priv_all = priv_allocset())) {
+		MGT_Complain(C_SECURITY,
 		    "Solaris Jail warning: "
 		    " vjs_setup - priv_allocset failed: errno=%d (%s)",
 		    errno, strerror(errno));
@@ -422,7 +424,7 @@ vjs_privsep(enum jail_gen_e jge)
 		if (getuid() != mgt_param.uid)
 			XXXAZ(setuid(mgt_param.uid));
 	} else {
-		MGT_complain(C_SECURITY,
+		MGT_Complain(C_SECURITY,
 		    "Privilege %s missing, will not change uid/gid",
 		    PRIV_PROC_SETID);
 	}
@@ -453,7 +455,7 @@ vjs_waive(enum jail_gen_e jge)
 	    !(inheritable = priv_allocset()) ||
 	    !(permitted = priv_allocset()) ||
 	    !(limited = priv_allocset())) {
-		MGT_complain(C_SECURITY,
+		MGT_Complain(C_SECURITY,
 		    "Solaris Jail warning: "
 		    " vjs_waive - priv_allocset failed: errno=%d (%s)",
 		    errno, strerror(errno));

@@ -28,14 +28,14 @@
 
 #include "config.h"
 
-#include <math.h>
 #include <stdlib.h>
 
 #include "cache/cache.h"
 #include "cache/cache_director.h"
 
-#include "vrt.h"
 #include "vbm.h"
+#include "vrnd.h"
+#include "vrt.h"
 
 #include "vdir.h"
 
@@ -69,7 +69,7 @@ vmod_random_resolve(const struct director *dir, struct worker *wrk,
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_DIRECTORS_RANDOM_MAGIC);
-	r = scalbn(random(), -31);
+	r = scalbn(VRND_RandomTestable(), -31);
 	assert(r >= 0 && r < 1.0);
 	be = vdir_pick_be(rr->vd, r, bo);
 	return (be);
@@ -118,7 +118,7 @@ VCL_VOID vmod_random_remove_backend(VRT_CTX,
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_RANDOM_MAGIC);
-	(void)vdir_remove_backend(rr->vd, be);
+	vdir_remove_backend(rr->vd, be, NULL);
 }
 
 VCL_BACKEND __match_proto__()

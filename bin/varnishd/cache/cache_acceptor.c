@@ -33,19 +33,18 @@
 
 #include "config.h"
 
-#include <sys/types.h>
+#include "cache.h"
 
 #include <errno.h>
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#include "cache.h"
+#include "cache_transport.h"
 #include "cache_pool.h"
 #include "common/heritage.h"
 
-#include "vcli.h"
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 #include "vsa.h"
 #include "vtcp.h"
 #include "vtim.h"
@@ -69,6 +68,7 @@ struct wrk_accept {
 struct poolsock {
 	unsigned			magic;
 #define POOLSOCK_MAGIC			0x1b0a2d38
+	VTAILQ_ENTRY(poolsock)		list;
 	struct listen_sock		*lsock;
 	struct pool_task		task;
 	struct pool			*pool;
@@ -292,6 +292,7 @@ static void __match_proto__(task_func_t)
 vca_make_session(struct worker *wrk, void *arg)
 {
 	struct sess *sp;
+	struct req *req;
 	struct wrk_accept *wa;
 	struct sockaddr_storage ss;
 	struct suckaddr *sa;
@@ -304,6 +305,13 @@ vca_make_session(struct worker *wrk, void *arg)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CAST_OBJ_NOTNULL(wa, arg, WRK_ACCEPT_MAGIC);
 
+	if (VTCP_blocking(wa->acceptsock)) {
+		closefd(&wa->acceptsock);
+		wrk->stats->sess_drop++;	// XXX Better counter ?
+		WS_Release(wrk->aws, 0);
+		return;
+	}
+
 	/* Turn accepted socket into a session */
 	AN(wrk->aws->r);
 	sp = SES_New(wrk->pool);
@@ -315,7 +323,7 @@ vca_make_session(struct worker *wrk, void *arg)
 		 */
 		vca_pace_bad();
 		(void)VTCP_nonblocking(wa->acceptsock);
-		AZ(close(wa->acceptsock));
+		closefd(&wa->acceptsock);
 		wrk->stats->sess_drop++;
 		WS_Release(wrk->aws, 0);
 		return;
@@ -329,7 +337,6 @@ vca_make_session(struct worker *wrk, void *arg)
 
 	sp->fd = wa->acceptsock;
 	wa->acceptsock = -1;
-	sp->sess_step = wa->acceptlsock->first_step;
 
 	assert(wa->acceptaddrlen <= vsa_suckaddr_len);
 	SES_Reserve_remote_addr(sp, &sa);
@@ -348,7 +355,8 @@ vca_make_session(struct worker *wrk, void *arg)
 
 	VTCP_name(sa, laddr, sizeof laddr, lport, sizeof lport);
 
-	VSL(SLT_Begin, sp->vxid, "sess 0 %s", wa->acceptlsock->proto_name);
+	VSL(SLT_Begin, sp->vxid, "sess 0 %s",
+	    wa->acceptlsock->transport->name);
 	VSL(SLT_SessOpen, sp->vxid, "%s %s %s %s %s %.6f %d",
 	    raddr, rport, wa->acceptlsock->name, laddr, lport,
 	    sp->t_open, sp->fd);
@@ -364,10 +372,11 @@ vca_make_session(struct worker *wrk, void *arg)
 	}
 	vca_tcp_opt_set(sp->fd, 0);
 
-	/* SES_Proto_Sess() must be sceduled with reserved WS */
-	assert(8 <= WS_Reserve(sp->ws, 8));
-	wrk->task.func = SES_Proto_Sess;
-	wrk->task.priv = sp;
+	req = Req_New(wrk, sp);
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	req->htc->rfd = &sp->fd;
+
+	SES_SetTransport(wrk, sp, req, wa->acceptlsock->transport);
 }
 
 /*--------------------------------------------------------------------
@@ -394,7 +403,7 @@ vca_accept_task(struct worker *wrk, void *arg)
 	while (!pool_accepting)
 		VTIM_sleep(.1);
 
-	while (1) {
+	while (!ps->pool->die) {
 		INIT_OBJ(&wa, WRK_ACCEPT_MAGIC);
 		wa.acceptlsock = ls;
 
@@ -405,6 +414,12 @@ vca_accept_task(struct worker *wrk, void *arg)
 			i = accept(ls->sock, (void*)&wa.acceptaddr,
 				   &wa.acceptaddrlen);
 		} while (i < 0 && errno == EAGAIN);
+
+		if (i < 0 && ps->pool->die) {
+			VSL(SLT_Debug, 0, "XXX Accept thread dies %p", ps);
+			FREE_OBJ(ps);
+			return;
+		}
 
 		if (i < 0 && ls->sock == -2) {
 			/* Shut down in progress */
@@ -446,9 +461,13 @@ vca_accept_task(struct worker *wrk, void *arg)
 			 * must reschedule the listening task so it will be
 			 * taken up by another thread again.
 			 */
-			AZ(Pool_Task(wrk->pool, &ps->task, TASK_QUEUE_VCA));
+			if (!ps->pool->die)
+				AZ(Pool_Task(wrk->pool, &ps->task,
+				    TASK_QUEUE_VCA));
 			return;
 		}
+		if (!ps->pool->die && DO_DEBUG(DBG_SLOW_ACCEPTOR))
+			VTIM_sleep(2.0);
 
 		/*
 		 * We were able to hand off, so release this threads VCL
@@ -477,7 +496,19 @@ VCA_NewPool(struct pool *pp)
 		ps->task.func = vca_accept_task;
 		ps->task.priv = ps;
 		ps->pool = pp;
+		VTAILQ_INSERT_TAIL(&pp->poolsocks, ps, list);
 		AZ(Pool_Task(pp, &ps->task, TASK_QUEUE_VCA));
+	}
+}
+
+void
+VCA_DestroyPool(struct pool *pp)
+{
+	struct poolsock *ps;
+
+	while (!VTAILQ_EMPTY(&pp->poolsocks)) {
+		ps = VTAILQ_FIRST(&pp->poolsocks);
+		VTAILQ_REMOVE(&pp->poolsocks, ps, list);
 	}
 }
 
@@ -495,6 +526,7 @@ vca_acct(void *arg)
 	(void)vca_tcp_opt_init();
 
 	VTAILQ_FOREACH(ls, &heritage.socks, list) {
+		CHECK_OBJ_NOTNULL(ls->transport, TRANSPORT_MAGIC);
 		assert (ls->sock > 0);		// We know where stdin is
 		if (cache_param->tcp_fastopen) {
 			int i;
@@ -533,7 +565,7 @@ vca_acct(void *arg)
 		now = VTIM_real();
 		VSC_C_main->uptime = (uint64_t)(now - t0);
 	}
-	NEEDLESS_RETURN(NULL);
+	NEEDLESS(return NULL);
 }
 
 /*--------------------------------------------------------------------*/
@@ -567,7 +599,7 @@ ccf_listen_address(struct cli *cli, const char * const *av, void *priv)
 	 * a race where varnishtest::client would attempt to connect(2)
 	 * before listen(2) has been called.
 	 */
-	while(!pool_accepting)
+	while (!pool_accepting)
 		VTIM_sleep(.1);
 
 	VTAILQ_FOREACH(ls, &heritage.socks, list) {
@@ -579,10 +611,8 @@ ccf_listen_address(struct cli *cli, const char * const *av, void *priv)
 /*--------------------------------------------------------------------*/
 
 static struct cli_proto vca_cmds[] = {
-	{ CLI_SERVER_START,	"i", ccf_start },
-	{ "debug.listen_address", "debug.listen_address",
-	    "\tReport the actual listen address.", 0, 0,
-	    "d", ccf_listen_address, NULL },
+	{ CLICMD_SERVER_START,		"", ccf_start },
+	{ CLICMD_DEBUG_LISTEN_ADDRESS,	"d", ccf_listen_address },
 	{ NULL }
 };
 
@@ -605,4 +635,53 @@ VCA_Shutdown(void)
 		ls->sock = -2;
 		(void)close(i);
 	}
+}
+
+/*--------------------------------------------------------------------
+ * Transport protocol registration
+ *
+ */
+
+static VTAILQ_HEAD(,transport)	transports =
+    VTAILQ_HEAD_INITIALIZER(transports);
+
+void
+XPORT_Init(void)
+{
+	uint16_t n;
+	struct transport *xp;
+
+	ASSERT_MGT();
+
+	VTAILQ_INSERT_TAIL(&transports, &PROXY_transport, list);
+	VTAILQ_INSERT_TAIL(&transports, &HTTP1_transport, list);
+	VTAILQ_INSERT_TAIL(&transports, &H2_transport, list);
+
+	n = 0;
+	VTAILQ_FOREACH(xp, &transports, list)
+		xp->number = ++n;
+}
+
+const struct transport *
+XPORT_Find(const char *name)
+{
+	const struct transport *xp;
+
+	ASSERT_MGT();
+
+	VTAILQ_FOREACH(xp, &transports, list)
+		if (!strcasecmp(xp->name, name))
+			return (xp);
+	return (NULL);
+}
+
+const struct transport *
+XPORT_ByNumber(uint16_t no)
+{
+	const struct transport *xp;
+
+	VTAILQ_FOREACH(xp, &transports, list)
+		if (xp->number == no)
+			return (xp);
+	return (NULL);
 }

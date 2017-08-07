@@ -54,7 +54,7 @@
 #include <unistd.h>
 #include <math.h>
 
-#include "common/params.h"
+#include "common/com_params.h"
 
 /*--------------------------------------------------------------------*/
 
@@ -69,7 +69,6 @@ enum req_fsm_nxt {
 enum body_status {
 #define BODYSTATUS(U,l)	BS_##U,
 #include "tbl/body_status.h"
-#undef BODYSTATUS
 };
 
 /*--------------------------------------------------------------------*/
@@ -77,7 +76,6 @@ enum body_status {
 enum req_body_state_e {
 #define REQ_BODY(U)	REQ_BODY_##U,
 #include <tbl/req_body.h>
-#undef REQ_BODY
 };
 
 /*--------------------------------------------------------------------*/
@@ -86,7 +84,6 @@ enum sess_close {
 	SC_NULL = 0,
 #define SESS_CLOSE(nm, stat, err, desc)	SC_##nm,
 #include "tbl/sess_close.h"
-#undef SESS_CLOSE
 };
 
 /*--------------------------------------------------------------------
@@ -95,7 +92,6 @@ enum sess_close {
 enum {
 #define SLTH(tag, ind, req, resp, sdesc, ldesc)	ind,
 #include "tbl/vsl_tags_http.h"
-#undef SLTH
 };
 
 /*--------------------------------------------------------------------*/
@@ -111,7 +107,6 @@ struct director;
 struct iovec;
 struct mempool;
 struct objcore;
-struct object;
 struct objhead;
 struct pool;
 struct poolparam;
@@ -121,7 +116,6 @@ struct sess;
 struct suckaddr;
 struct vrt_priv;
 struct vsb;
-struct waitinglist;
 struct worker;
 struct v1l;
 
@@ -137,15 +131,15 @@ typedef struct {
 /*--------------------------------------------------------------------*/
 
 enum req_step {
+	R_STP_NONE = 0,
 #define REQ_STEP(l, u, arg)	R_STP_##u,
 #include "tbl/steps.h"
-#undef REQ_STEP
 };
 
 enum fetch_step {
+	F_STP_NONE = 0,
 #define FETCH_STEP(l, U, arg)	F_STP_##U,
 #include "tbl/steps.h"
-#undef FETCH_STEP
 };
 
 /*--------------------------------------------------------------------*/
@@ -224,10 +218,8 @@ struct http_conn {
 	unsigned		magic;
 #define HTTP_CONN_MAGIC		0x3e19edd1
 
-	int			fd;
+	int			*rfd;
 	enum sess_close		doclose;
-	unsigned		maxbytes;
-	unsigned		maxhdr;
 	enum body_status	body_status;
 	struct ws		*ws;
 	char			*rxbuf_b;
@@ -235,7 +227,6 @@ struct http_conn {
 	char			*pipeline_b;
 	char			*pipeline_e;
 	ssize_t			content_length;
-	struct vfp_ctx		vfc[1];
 	void			*priv;
 
 	/* Timeouts */
@@ -248,7 +239,6 @@ struct http_conn {
 struct acct_req {
 #define ACCT(foo)	uint64_t	foo;
 #include "tbl/acct_fields_req.h"
-#undef ACCT
 };
 
 /*--------------------------------------------------------------------*/
@@ -256,30 +246,19 @@ struct acct_req {
 struct acct_bereq {
 #define ACCT(foo)	uint64_t	foo;
 #include "tbl/acct_fields_bereq.h"
-#undef ACCT
 };
 
 /*--------------------------------------------------------------------*/
 
 #define L0(t, n)
 #define L1(t, n)		t n;
-#define VSC_F(n,t,l,s,f,v,d,e)	L##l(t, n)
+#define VSC_FF(n,t,l,s,f,v,d,e)	L##l(t, n)
 struct dstat {
 	unsigned		summs;
 #include "tbl/vsc_f_main.h"
 };
-#undef VSC_F
 #undef L0
 #undef L1
-
-/*--------------------------------------------------------------------*/
-
-struct exp {
-	double			t_origin;
-	float			ttl;
-	float			grace;
-	float			keep;
-};
 
 /*--------------------------------------------------------------------*/
 
@@ -335,7 +314,6 @@ struct worker {
 	struct pool		*pool;
 	struct objhead		*nobjhead;
 	struct objcore		*nobjcore;
-	struct waitinglist	*nwaitinglist;
 	void			*nhashpriv;
 	struct dstat		stats[1];
 	struct vsl_log		*vsl;		// borrowed from req/bo
@@ -363,29 +341,38 @@ struct worker {
 	uintptr_t		stack_end;
 };
 
-/* LRU ---------------------------------------------------------------*/
-
-struct lru {
-	unsigned		magic;
-#define LRU_MAGIC		0x3fec7bb0
-	VTAILQ_HEAD(,objcore)	lru_head;
-	struct lock		mtx;
-	unsigned		flags;
-#define LRU_F_DONTMOVE		(1<<1)
-#define LRU_F_CONDEMMED		(1<<2)
-	unsigned		n_objcore;
-};
-
 /* Stored object -----------------------------------------------------
- * Pointer to a stored object, and the methods it supports
+ * This is just to encapsulate the fields owned by the stevedore
  */
 
 struct storeobj {
-	unsigned		magic;
-#define STOREOBJ_MAGIC		0x6faed850
 	const struct stevedore	*stevedore;
 	void			*priv;
 	uintptr_t		priv2;
+};
+
+/* Busy Objcore structure --------------------------------------------
+ *
+ */
+
+/*
+ * The macro-states we expose outside the fetch code
+ */
+enum boc_state_e {
+#define BOC_STATE(U, l)       BOS_##U,
+#include "tbl/boc_state.h"
+};
+
+struct boc {
+	unsigned		magic;
+#define BOC_MAGIC		0x70c98476
+	unsigned		refcount;
+	struct lock		mtx;
+	pthread_cond_t		cond;
+	void			*stevedore_priv;
+	enum boc_state_e	state;
+	uint8_t			*vary;
+	uint64_t		len_so_far;
 };
 
 /* Object core structure ---------------------------------------------
@@ -396,37 +383,56 @@ struct storeobj {
  * housekeeping fields parts of an object.
  */
 
+enum obj_attr {
+#define OBJ_FIXATTR(U, l, s)	OA_##U,
+#define OBJ_VARATTR(U, l)	OA_##U,
+#define OBJ_AUXATTR(U, l)	OA_##U,
+#include "tbl/obj_attr.h"
+				OA__MAX,
+};
+
+enum obj_flags {
+#define OBJ_FLAG(U, l, v)       OF_##U = v,
+#include "tbl/obj_attr.h"
+};
+
+enum oc_flags {
+#define OC_FLAG(U, l, v)	OC_F_##U = v,
+#include "tbl/oc_flags.h"
+};
+
+enum oc_exp_flags {
+#define OC_EXP_FLAG(U, l, v)	OC_EF_##U = v,
+#include "tbl/oc_exp_flags.h"
+};
+
 struct objcore {
 	unsigned		magic;
 #define OBJCORE_MAGIC		0x4d301302
 	int			refcnt;
 	struct storeobj		stobj[1];
 	struct objhead		*objhead;
-	struct busyobj		*busyobj;
+	struct boc		*boc;
 	double			timer_when;
 	long			hits;
 
-	struct exp		exp;
+	double			t_origin;
+	float			ttl;
+	float			grace;
+	float			keep;
 
-	uint16_t		flags;
-#define OC_F_BUSY		(1<<1)
-#define OC_F_PASS		(1<<2)
-#define OC_F_INCOMPLETE		(1<<3)
-#define OC_F_PRIVATE		(1<<8)
-#define OC_F_FAILED		(1<<9)
+	uint8_t			flags;
 
-	uint16_t		exp_flags;
-#define OC_EF_OFFLRU		(1<<4)
-#define OC_EF_MOVE		(1<<10)
-#define OC_EF_INSERT		(1<<11)
-#define OC_EF_EXP		(1<<12)
-#define OC_EF_DYING		(1<<7)
+	uint8_t			exp_flags;
 
-	unsigned		timer_idx;
-	VTAILQ_ENTRY(objcore)	list;
+	uint16_t		oa_present;
+
+	unsigned		timer_idx;	// XXX 4Gobj limit
+	float			last_lru;
+	VTAILQ_ENTRY(objcore)	hsh_list;
 	VTAILQ_ENTRY(objcore)	lru_list;
-	double			last_lru;
 	VTAILQ_ENTRY(objcore)	ban_list;
+	VSTAILQ_ENTRY(objcore)	exp_list;
 	struct ban		*ban;
 };
 
@@ -439,17 +445,6 @@ struct objcore {
  * streaming delivery will make use of.
  */
 
-/*
- * The macro-states we expose outside the fetch code
- */
-enum busyobj_state_e {
-	BOS_INVALID = 0,	/* don't touch (yet) */
-	BOS_REQ_DONE,		/* beresp.* can be examined */
-	BOS_STREAM,		/* beresp.* can be examined */
-	BOS_FINISHED,		/* object is complete */
-	BOS_FAILED,		/* something went wrong */
-};
-
 enum director_state_e {
 	DIR_S_NULL = 0,
 	DIR_S_HDRS = 1,
@@ -459,27 +454,22 @@ enum director_state_e {
 struct busyobj {
 	unsigned		magic;
 #define BUSYOBJ_MAGIC		0x23b95567
-	struct lock		mtx;
-	pthread_cond_t		cond;
+
 	char			*end;
 
 	/*
 	 * All fields from refcount and down are zeroed when the busyobj
 	 * is recycled.
 	 */
-	unsigned		refcount;
 	int			retries;
 	struct req		*req;
+	struct sess		*sp;
 	struct worker		*wrk;
-
-	uint8_t			*vary;
 
 	struct vfp_ctx		vfc[1];
 
-	enum busyobj_state_e	state;
-
 	struct ws		ws[1];
-	char			*ws_bo;
+	uintptr_t		ws_bo;
 	struct http		*bereq0;
 	struct http		*bereq;
 	struct http		*beresp;
@@ -492,7 +482,6 @@ struct busyobj {
 
 #define BO_FLAG(l, r, w, d) unsigned	l:1;
 #include "tbl/bo_flags.h"
-#undef BO_FLAG
 
 	/* Timeouts */
 	double			connect_timeout;
@@ -507,6 +496,7 @@ struct busyobj {
 	struct acct_bereq	acct;
 
 	const char		*storage_hint;
+	const struct stevedore	*storage;
 	const struct director	*director_req;
 	const struct director	*director_resp;
 	enum director_state_e	director_state;
@@ -536,7 +526,6 @@ struct req {
 
 #define REQ_FLAG(l, r, w, d) unsigned	l:1;
 #include "tbl/req_flags.h"
-#undef REQ_FLAG
 
 	uint16_t		err_code;
 	const char		*err_reason;
@@ -565,11 +554,12 @@ struct req {
 	double			d_ttl;
 
 	ssize_t			req_bodybytes;	/* Parsed req bodybytes */
+	const struct stevedore	*storage;
 
 	const struct director	*director_hint;
 	struct vcl		*vcl;
 
-	char			*ws_req;	/* WS above request data */
+	uintptr_t		ws_req;		/* WS above request data */
 
 	/* Timestamps */
 	double			t_first;	/* First timestamp logged */
@@ -577,6 +567,7 @@ struct req {
 	double			t_req;		/* Headers complete */
 
 	struct http_conn	htc[1];
+	struct vfp_ctx		vfc[1];
 	const char		*client_identity;
 
 	/* HTTP request */
@@ -594,7 +585,7 @@ struct req {
 	/* Deliver pipeline */
 	struct vdp_entry_s	vdp;
 	struct vdp_entry	*vdp_nxt;
-	int			vdp_retval;
+	unsigned		vdp_retval;
 
 	/* Delivery mode */
 	unsigned		res_mode;
@@ -625,8 +616,8 @@ struct req {
 
 enum sess_attr {
 #define SESS_ATTR(UP, low, typ, len)	SA_##UP,
+	SA_TRANSPORT,
 #include "tbl/sess_attr.h"
-#undef SESS_ATTR
 	SA_LAST
 };
 
@@ -634,20 +625,16 @@ struct sess {
 	unsigned		magic;
 #define SESS_MAGIC		0x2c2f9c5a
 
-	enum sess_step		sess_step;
-	struct lock		mtx;
+	uint16_t		sattr[SA_LAST];
+	int			refcnt;
 	int			fd;
 	uint32_t		vxid;
 
-	/* Cross references ------------------------------------------*/
+	struct lock		mtx;
 
 	struct pool		*pool;
 
-	/* Session related fields ------------------------------------*/
-
 	struct ws		ws[1];
-
-	uint16_t		sattr[SA_LAST];
 
 	/* Timestamps, all on TIM_real() timescale */
 	double			t_open;		/* fd accepted */
@@ -676,43 +663,49 @@ void BAN_Abandon(struct ban_proto *b);
 void BAN_Hold(void);
 void BAN_Release(void);
 void BAN_Reload(const uint8_t *ban, unsigned len);
-struct ban *BAN_RefBan(struct objcore *oc, double t0);
+struct ban *BAN_FindBan(double t0);
+void BAN_RefBan(struct objcore *oc, struct ban *);
 double BAN_Time(const struct ban *ban);
 
 /* cache_busyobj.c */
 struct busyobj *VBO_GetBusyObj(struct worker *, const struct req *);
-void VBO_DerefBusyObj(struct worker *wrk, struct busyobj **busyobj);
-void VBO_extend(struct busyobj *, ssize_t);
-ssize_t VBO_waitlen(struct worker *, struct busyobj *, ssize_t l);
-void VBO_setstate(struct busyobj *bo, enum busyobj_state_e next);
-void VBO_waitstate(struct busyobj *bo, enum busyobj_state_e want);
+void VBO_ReleaseBusyObj(struct worker *wrk, struct busyobj **busyobj);
 
 /* cache_cli.c [CLI] */
 extern pthread_t cli_thread;
 #define ASSERT_CLI() do {assert(pthread_self() == cli_thread);} while (0)
 
 /* cache_expire.c */
-void EXP_Clr(struct exp *e);
 
-double EXP_Ttl(const struct req *, const struct exp*);
-double EXP_When(const struct exp *exp);
-void EXP_Insert(struct worker *wrk, struct objcore *oc);
-void EXP_Inject(struct worker *wrk, struct objcore *oc, struct lru *lru);
+/*
+ * The set of variables which control object expiry are inconveniently
+ * 24 bytes long (double+3*float) and this causes alignment waste if
+ * we put then in a struct.
+ * These three macros operate on the struct we don't use.
+ */
+
+#define EXP_ZERO(xx)							\
+	do {								\
+		(xx)->t_origin = 0.0;					\
+		(xx)->ttl = 0.0;					\
+		(xx)->grace = 0.0;					\
+		(xx)->keep = 0.0;					\
+	} while (0)
+
+#define EXP_COPY(to,fm)							\
+	do {								\
+		(to)->t_origin = (fm)->t_origin;			\
+		(to)->ttl = (fm)->ttl;					\
+		(to)->grace = (fm)->grace;				\
+		(to)->keep = (fm)->keep;				\
+	} while (0)
+
+#define EXP_WHEN(to)							\
+	((to)->t_origin + (to)->ttl + (to)->grace + (to)->keep)
+
+/* cache_exp.c */
 void EXP_Rearm(struct objcore *, double now, double ttl, double grace,
     double keep);
-void EXP_Touch(struct objcore *oc, double now);
-int EXP_NukeOne(struct worker *wrk, struct lru *lru);
-
-enum exp_event_e {
-	EXP_INSERT,
-	EXP_INJECT,
-	EXP_REMOVE,
-};
-typedef void exp_callback_f(struct worker *, struct objcore *,
-    enum exp_event_e, void *priv);
-
-uintptr_t EXP_Register_Callback(exp_callback_f *func, void *priv);
-void EXP_Deregister_Callback(uintptr_t*);
 
 /* cache_fetch.c */
 enum vbf_fetch_mode_e {
@@ -756,8 +749,8 @@ void VGZ_UpdateObj(const struct vfp_ctx *, struct vgz*, enum vgz_ua_e);
 /* cache_http.c */
 unsigned HTTP_estimate(unsigned nhttp);
 void HTTP_Copy(struct http *to, const struct http * const fm);
-struct http *HTTP_create(void *p, uint16_t nhttp);
-const char *http_Status2Reason(unsigned);
+struct http *HTTP_create(void *p, uint16_t nhttp, unsigned);
+const char *http_Status2Reason(unsigned, const char **);
 unsigned http_EstimateWS(const struct http *fm, unsigned how);
 void http_PutResponse(struct http *to, const char *proto, uint16_t status,
     const char *response);
@@ -768,9 +761,10 @@ void http_ForceHeader(struct http *to, const char *hdr, const char *val);
 void http_PrintfHeader(struct http *to, const char *fmt, ...)
     __v_printflike(2, 3);
 void http_TimeHeader(struct http *to, const char *fmt, double now);
+void http_Proto(struct http *to);
 void http_SetHeader(struct http *to, const char *hdr);
-void http_SetH(const struct http *to, unsigned n, const char *fm);
-void http_ForceField(const struct http *to, unsigned n, const char *t);
+void http_SetH(struct http *to, unsigned n, const char *fm);
+void http_ForceField(struct http *to, unsigned n, const char *t);
 void HTTP_Setup(struct http *, struct ws *, struct vsl_log *, enum VSL_tag_e);
 void http_Teardown(struct http *ht);
 int http_GetHdr(const struct http *hp, const char *hdr, const char **ptr);
@@ -789,6 +783,7 @@ void http_CopyHome(const struct http *hp);
 void http_Unset(struct http *hp, const char *hdr);
 unsigned http_CountHdr(const struct http *hp, const char *hdr);
 void http_CollectHdr(struct http *hp, const char *hdr);
+void http_CollectHdrSep(struct http *hp, const char *hdr, const char *sep);
 void http_VSL_log(const struct http *hp);
 void HTTP_Merge(struct worker *, struct objcore *, struct http *to);
 uint16_t HTTP_GetStatusPack(struct worker *, struct objcore *oc);
@@ -806,12 +801,20 @@ uint16_t HTTP1_DissectResponse(struct http_conn *, struct http *resp,
     const struct http *req);
 unsigned HTTP1_Write(const struct worker *w, const struct http *hp, const int*);
 
+#define HTTPH_R_PASS	(1 << 0)	/* Request (c->b) in pass mode */
+#define HTTPH_R_FETCH	(1 << 1)	/* Request (c->b) for fetch */
+#define HTTPH_A_INS	(1 << 2)	/* Response (b->o) for insert */
+#define HTTPH_A_PASS	(1 << 3)	/* Response (b->o) for pass */
+
 #define HTTPH(a, b, c) extern char b[];
 #include "tbl/http_headers.h"
-#undef HTTPH
+
 extern const char H__Status[];
 extern const char H__Proto[];
 extern const char H__Reason[];
+
+/* cache_http2_deliver.c */
+void V2D_Init(void);
 
 /* cache_main.c */
 #define VXID(u) ((u) & VSL_IDENTMASK)
@@ -826,7 +829,8 @@ void Lck__Lock(struct lock *lck, const char *p,  int l);
 void Lck__Unlock(struct lock *lck, const char *p,  int l);
 int Lck__Trylock(struct lock *lck, const char *p,  int l);
 void Lck__New(struct lock *lck, struct VSC_C_lck *, const char *);
-void Lck__Assert(const struct lock *lck, int held);
+int Lck__Held(const struct lock *lck);
+int Lck__Owned(const struct lock *lck);
 
 /* public interface: */
 void Lck_Delete(struct lock *lck);
@@ -836,13 +840,16 @@ int Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double);
 #define Lck_Lock(a) Lck__Lock(a, __func__, __LINE__)
 #define Lck_Unlock(a) Lck__Unlock(a, __func__, __LINE__)
 #define Lck_Trylock(a) Lck__Trylock(a, __func__, __LINE__)
-#define Lck_AssertHeld(a) Lck__Assert(a, 1)
+#define Lck_AssertHeld(a)		\
+	do {				\
+		assert(Lck__Held(a));	\
+		assert(Lck__Owned(a));	\
+	} while (0)
 
 struct VSC_C_lck *Lck_CreateClass(const char *name);
 
 #define LOCK(nam) extern struct VSC_C_lck *lck_##nam;
 #include "tbl/locks.h"
-#undef LOCK
 
 /* cache_mempool.c */
 void MPL_AssertSane(void *item);
@@ -853,30 +860,32 @@ void *MPL_Get(struct mempool *mpl, unsigned *size);
 void MPL_Free(struct mempool *mpl, void *item);
 
 /* cache_obj.c */
-enum objiter_status {
-	OIS_DONE,
-	OIS_DATA,
-	OIS_STREAM,
-	OIS_ERROR,
-};
-void *ObjIterBegin(struct worker *, struct objcore *);
-enum objiter_status ObjIter(struct objcore *, void *, void **, ssize_t *);
-void ObjIterEnd(struct objcore *, void **);
+struct objcore * ObjNew(struct worker *);
+void ObjDestroy(struct worker *, struct objcore **);
+typedef int objiterate_f(void *priv, int flush, const void *ptr, ssize_t len);
+int ObjIterate(struct worker *, struct objcore *,
+    void *priv, objiterate_f *func, int final);
 int ObjGetSpace(struct worker *, struct objcore *, ssize_t *sz, uint8_t **ptr);
 void ObjExtend(struct worker *, struct objcore *, ssize_t l);
+uint64_t ObjWaitExtend(const struct worker *, const struct objcore *,
+    uint64_t l);
+void ObjSetState(struct worker *, const struct objcore *,
+    enum boc_state_e next);
+void ObjWaitState(const struct objcore *, enum boc_state_e want);
 void ObjTrimStore(struct worker *, struct objcore *);
+void ObjTouch(struct worker *, struct objcore *, double now);
 unsigned ObjGetXID(struct worker *, struct objcore *);
-uint64_t ObjGetLen(struct worker *, struct objcore *oc);
-void ObjUpdateMeta(struct worker *, struct objcore *);
+uint64_t ObjGetLen(struct worker *, struct objcore *);
 void ObjFreeObj(struct worker *, struct objcore *);
-void ObjSlim(struct worker *, struct objcore *oc);
-struct lru *ObjGetLRU(const struct objcore *);
-void *ObjGetattr(struct worker *wrk, struct objcore *oc, enum obj_attr attr,
+void ObjSlim(struct worker *, struct objcore *);
+int ObjHasAttr(struct worker *, struct objcore *, enum obj_attr);
+const void *ObjGetAttr(struct worker *, struct objcore *, enum obj_attr,
     ssize_t *len);
-void *ObjSetattr(struct worker *, struct objcore *, enum obj_attr attr,
+void *ObjSetAttr(struct worker *, struct objcore *, enum obj_attr,
     ssize_t len, const void *);
 int ObjCopyAttr(struct worker *, struct objcore *, struct objcore *,
     enum obj_attr attr);
+void ObjBocDone(struct worker *, struct objcore *, struct boc **);
 
 int ObjSetDouble(struct worker *, struct objcore *, enum obj_attr, double);
 int ObjSetU32(struct worker *, struct objcore *, enum obj_attr, uint32_t);
@@ -886,21 +895,35 @@ int ObjGetDouble(struct worker *, struct objcore *, enum obj_attr, double *);
 int ObjGetU32(struct worker *, struct objcore *, enum obj_attr, uint32_t *);
 int ObjGetU64(struct worker *, struct objcore *, enum obj_attr, uint64_t *);
 
-int ObjCheckFlag(struct worker *, struct objcore *oc, enum obj_flags of);
+int ObjCheckFlag(struct worker *, struct objcore *, enum obj_flags of);
 void ObjSetFlag(struct worker *, struct objcore *, enum obj_flags of, int val);
+
+#define OEV_INSERT	(1U<<1)
+#define OEV_BANCHG	(1U<<2)
+#define OEV_TTLCHG	(1U<<3)
+#define OEV_EXPIRE	(1U<<4)
+
+#define OEV_MASK (OEV_INSERT|OEV_BANCHG|OEV_TTLCHG|OEV_EXPIRE)
+
+typedef void obj_event_f(struct worker *, void *priv, struct objcore *,
+    unsigned);
+
+uintptr_t ObjSubscribeEvents(obj_event_f *, void *, unsigned mask);
+void ObjUnsubscribeEvents(uintptr_t *);
+void ObjSendEvent(struct worker *, struct objcore *oc, unsigned event);
 
 /* cache_panic.c */
 const char *body_status_2str(enum body_status e);
 const char *sess_close_2str(enum sess_close sc, int want_desc);
 
 /* cache_pool.c */
-int Pool_Task(struct pool *pp, struct pool_task *task, enum task_prio how);
+int Pool_Task(struct pool *pp, struct pool_task *task, enum task_prio prio);
 int Pool_Task_Arg(struct worker *, enum task_prio, task_func_t *,
     const void *arg, size_t arg_len);
 void Pool_Sumstat(struct worker *w);
 int Pool_TrySumstat(struct worker *wrk);
 void Pool_PurgeStat(unsigned nobj);
-int Pool_Task_Any(struct pool_task *task, enum task_prio how);
+int Pool_Task_Any(struct pool_task *task, enum task_prio prio);
 
 /* cache_range.c [VRG] */
 void VRG_dorange(struct req *req, const char *r);
@@ -908,29 +931,24 @@ void VRG_dorange(struct req *req, const char *r);
 /* cache_req.c */
 struct req *Req_New(const struct worker *, struct sess *);
 void Req_Release(struct req *);
-int Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req);
+void Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req);
 void Req_Fail(struct req *req, enum sess_close reason);
+void Req_AcctLogCharge(struct dstat *, struct req *);
 
 /* cache_req_body.c */
-int VRB_Ignore(struct req *req);
-ssize_t VRB_Cache(struct req *req, ssize_t maxsize);
-typedef int (req_body_iter_f)(struct req *, void *priv, void *ptr, size_t);
-ssize_t VRB_Iterate(struct req *req, req_body_iter_f *func, void *priv);
-void VRB_Free(struct req *req);
+int VRB_Ignore(struct req *);
+ssize_t VRB_Cache(struct req *, ssize_t maxsize);
+ssize_t VRB_Iterate(struct req *, objiterate_f *func, void *priv);
+void VRB_Free(struct req *);
 
 /* cache_req_fsm.c [CNT] */
 enum req_fsm_nxt CNT_Request(struct worker *, struct req *);
-void CNT_AcctLogCharge(struct dstat *, struct req *);
 
 /* cache_session.c [SES] */
-struct sess *SES_New(struct pool *);
-void SES_Close(struct sess *sp, enum sess_close reason);
-void SES_Wait(struct sess *sp);
-void SES_Delete(struct sess *sp, enum sess_close reason, double now);
-void SES_NewPool(struct pool *pp, unsigned pool_no);
+void SES_Wait(struct sess *, const struct transport *);
+void SES_Ref(struct sess *sp);
+void SES_Rel(struct sess *sp);
 int SES_Reschedule_Req(struct req *);
-task_func_t SES_Proto_Sess;
-task_func_t SES_Proto_Req;
 
 enum htc_status_e {
 	HTC_S_JUNK =		-5,
@@ -944,17 +962,17 @@ enum htc_status_e {
 	HTC_S_IDLE =		 3,
 };
 
-void SES_RxInit(struct http_conn *htc, struct ws *ws,
-    unsigned maxbytes, unsigned maxhdr);
-void SES_RxReInit(struct http_conn *htc);
-enum htc_status_e SES_RxStuff(struct http_conn *, htc_complete_f *,
-    double *t1, double *t2, double ti, double tn);
+void HTC_RxInit(struct http_conn *htc, struct ws *ws);
+void HTC_RxPipeline(struct http_conn *htc, void *);
+enum htc_status_e HTC_RxStuff(struct http_conn *, htc_complete_f *,
+    double *t1, double *t2, double ti, double tn, int maxbytes);
 
-#define SESS_ATTR(UP, low, typ, len)				\
-	int SES_Get_##low(const struct sess *sp, typ *dst);	\
-	void SES_Reserve_##low(struct sess *sp, typ *dst);
+#define SESS_ATTR(UP, low, typ, len)					\
+	int SES_Set_##low(const struct sess *sp, const typ *src);	\
+	int SES_Get_##low(const struct sess *sp, typ **dst);		\
+	void SES_Reserve_##low(struct sess *sp, typ **dst);
 #include "tbl/sess_attr.h"
-#undef SESS_ATTR
+
 void SES_Set_String_Attr(struct sess *sp, enum sess_attr a, const char *src);
 const char *SES_Get_String_Attr(const struct sess *sp, enum sess_attr a);
 
@@ -973,6 +991,7 @@ void VSLb(struct vsl_log *, enum VSL_tag_e tag, const char *fmt, ...)
 void VSLbt(struct vsl_log *, enum VSL_tag_e tag, txt t);
 void VSLb_ts(struct vsl_log *, const char *event, double first, double *pprev,
     double now);
+void VSLb_bin(struct vsl_log *, enum VSL_tag_e, ssize_t, const void*);
 
 static inline void
 VSLb_ts_req(struct req *req, const char *event, double now)
@@ -1017,7 +1036,6 @@ const char *VCL_Return_Name(unsigned);
     void VCL_##l##_method(struct vcl *, struct worker *, struct req *, \
 	struct busyobj *bo, void *specific);
 #include "tbl/vcl_returns.h"
-#undef VCL_MET_MAC
 
 /* cache_vrt.c */
 
@@ -1038,37 +1056,37 @@ void WRK_BgThread(pthread_t *thr, const char *name, bgthread_t *func,
 
 void WS_Init(struct ws *ws, const char *id, void *space, unsigned len);
 unsigned WS_Reserve(struct ws *ws, unsigned bytes);
+unsigned WS_ReserveLumps(struct ws *ws, size_t sz);
 void WS_MarkOverflow(struct ws *ws);
 void WS_Release(struct ws *ws, unsigned bytes);
 void WS_ReleaseP(struct ws *ws, char *ptr);
 void WS_Assert(const struct ws *ws);
-void WS_Reset(struct ws *ws, char *p);
+void WS_Reset(struct ws *ws, uintptr_t);
 void *WS_Alloc(struct ws *ws, unsigned bytes);
 void *WS_Copy(struct ws *ws, const void *str, int len);
-char *WS_Snapshot(struct ws *ws);
+uintptr_t WS_Snapshot(struct ws *ws);
 int WS_Overflowed(const struct ws *ws);
 void *WS_Printf(struct ws *ws, const char *fmt, ...) __v_printflike(2, 3);
+int WS_Inside(const struct ws *, const void *, const void *);
 void WS_Assert_Allocated(const struct ws *ws, const void *ptr, ssize_t len);
 
+static inline char*
+WS_Front(const struct ws *ws)
+{
+	return ws->f;
+}
+
 /* cache_rfc2616.c */
-void RFC2616_Ttl(struct busyobj *, double now);
+void RFC2616_Ttl(struct busyobj *, double now, double *t_origin,
+    float *ttl, float *grace, float *keep);
 unsigned RFC2616_Req_Gzip(const struct http *);
 int RFC2616_Do_Cond(const struct req *sp);
 void RFC2616_Weaken_Etag(struct http *hp);
 void RFC2616_Vary_AE(struct http *hp);
 
 /* stevedore.c */
-int STV_NewObject(struct objcore *, struct worker *,
-    const char *hint, unsigned len);
-struct storage *STV_alloc(const struct stevedore *, size_t size, int flags);
-#define LESS_MEM_ALLOCED_IS_OK	1
-void STV_trim(const struct stevedore *, struct storage *, size_t size,
-    int move_ok);
-void STV_free(const struct stevedore *, struct storage *st);
-void STV_open(void);
-void STV_close(void);
-int STV_BanInfo(enum baninfo event, const uint8_t *ban, unsigned len);
-void STV_BanExport(const uint8_t *bans, unsigned len);
+int STV_NewObject(struct worker *, struct objcore *,
+    const struct stevedore *, unsigned len);
 
 /*
  * A normal pointer difference is signed, but we never want a negative value
@@ -1087,7 +1105,7 @@ pdiff(const void *b, const void *e)
 #define Tcheck(t) do {						\
 		AN((t).b);					\
 		AN((t).e);					\
-		assert((t).b <= (t).e); 			\
+		assert((t).b <= (t).e);				\
 	} while(0)
 
 /*

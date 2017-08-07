@@ -29,18 +29,17 @@
 
 #include "config.h"
 
+#include <time.h>
+#include <sys/types.h>
 #include <sys/stat.h>
-
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/types.h>
 #ifdef HAVE_SYS_MOUNT_H
 #  include <sys/param.h>
 #  include <sys/mount.h>
@@ -62,6 +61,18 @@
 #include "vsb.h"
 #include "vfil.h"
 #include "vqueue.h"
+
+void
+VFIL_null_fd(int target)
+{
+	int fd;
+
+	assert(target >= 0);
+	fd = open("/dev/null", O_RDWR);
+	assert(fd >= 0);
+	assert(dup2(fd, target) == target);
+	closefd(&fd);
+}
 
 static char *
 vfil_readfd(int fd, ssize_t *sz)
@@ -86,26 +97,69 @@ vfil_readfd(int fd, ssize_t *sz)
 	return (f);
 }
 
+static int
+vfil_writefd(int fd, const char *buf, size_t sz)
+{
+	ssize_t len;
+
+	while (sz > 0) {
+		len = write(fd, buf, sz);
+		if (len < 0)
+			return (len);
+		if (len == 0)
+			break;
+		buf += len;
+		sz -= len;
+	}
+
+	return (sz == 0 ? 0 : -1);
+}
+
+static int
+vfil_openfile(const char *pfx, const char *fn, int flags, int mode)
+{
+	char fnb[PATH_MAX + 1];
+
+	if (fn[0] != '/' && pfx != NULL) {
+		/* XXX: graceful length check */
+		bprintf(fnb, "/%s/%s", pfx, fn);
+		fn = fnb;
+	}
+
+	if (flags & O_CREAT)
+		return (open(fn, flags, mode));
+	else
+		return (open(fn, flags));
+}
+
 char *
 VFIL_readfile(const char *pfx, const char *fn, ssize_t *sz)
 {
 	int fd, err;
 	char *r;
-	char fnb[PATH_MAX + 1];
 
-	if (fn[0] == '/')
-		fd = open(fn, O_RDONLY);
-	else if (pfx != NULL) {
-		bprintf(fnb, "/%s/%s", pfx, fn);
-		    /* XXX: graceful length check */
-		fd = open(fnb, O_RDONLY);
-	} else
-		fd = open(fn, O_RDONLY);
+	fd = vfil_openfile(pfx, fn, O_RDONLY, 0);
 	if (fd < 0)
 		return (NULL);
 	r = vfil_readfd(fd, sz);
 	err = errno;
-	AZ(close(fd));
+	closefd(&fd);
+	errno = err;
+	return (r);
+}
+
+int
+VFIL_writefile(const char *pfx, const char *fn, const char *buf, size_t sz)
+{
+	int fd, err;
+	int r;
+
+	fd = vfil_openfile(pfx, fn, O_WRONLY|O_CREAT|O_TRUNC, 0660);
+	if (fd < 0)
+		return (fd);
+	r = vfil_writefd(fd, buf, sz);
+	err = errno;
+	closefd(&fd);
 	errno = err;
 	return (r);
 }
@@ -330,11 +384,11 @@ VFIL_searchpath(const struct vfil_path *vp, vfil_path_func_f *func, void *priv,
 			e = errno;
 			*fno = strdup(VSB_data(vsb));
 			AN(*fno);
-			VSB_delete(vsb);
+			VSB_destroy(&vsb);
 			errno = e;
 			return (i);
 		}
 	}
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 	return (-1);
 }

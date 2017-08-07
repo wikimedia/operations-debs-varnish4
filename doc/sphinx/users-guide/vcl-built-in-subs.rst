@@ -178,10 +178,17 @@ The `vcl_hash` subroutine may only terminate with calling ``return(lookup)``:
     Look up the object in cache.
     Control passes to :ref:`vcl_purge` when coming from a ``purge``
     return in `vcl_recv`.
-    Otherwise control passes to :ref:`vcl_hit`, :ref:`vcl_miss` or
-    :ref:`vcl_pass` if the cache lookup result was a hit, a miss or hit
-    on a hit-for-pass object (object with ``obj.uncacheable ==
-    true``), respectively.
+    Otherwise control passes to the next subroutine depending on the result of
+    the cache lookup:
+
+    * a hit: pass to :ref:`vcl_hit`
+
+    * a miss or a hit on a hit-for-miss object (an object with
+      ``obj.uncacheable == true``): pass to :ref:`vcl_miss`
+
+    * a hit on a hit-for-pass object (for which ``pass(DURATION)`` had been
+      previously returned from ``vcl_backend_response``): pass to
+      :ref:`vcl_pass`
 
 .. _vcl_purge:
 
@@ -334,6 +341,11 @@ The `vcl_backend_response` subroutine may terminate with calling
     Otherwise, fetch the object body from the backend and initiate
     delivery to any waiting client requests, possibly in parallel
     (streaming).
+
+  ``pass(duration)``
+    Mark the object as a hit-for-pass for the given duration. Subsequent
+    lookups hitting this object will be turned into passed transactions,
+    as if ``vcl_recv`` had returned ``pass``.
 
   ``abandon``
     Abandon the backend request. Unless the backend request was a

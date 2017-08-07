@@ -144,7 +144,10 @@ struct smp_segptr {
 
 struct smp_object {
 	uint8_t			hash[32];	/* really: DIGEST_LEN */
-	struct exp		exp;
+	double			t_origin;
+	float			ttl;
+	float			grace;
+	float			keep;
 	uint32_t		__filler__;	/* -> align/8 on 32bit */
 	double			ban;
 	uint64_t		ptr;		/* rel to silo */
@@ -193,7 +196,7 @@ struct smp_seg {
 #define SMP_SEG_MAGIC		0x45c61895
 
 	struct smp_sc		*sc;
-	struct lru		*lru;
+	VTAILQ_HEAD(,objcore)	objcores;
 
 	VTAILQ_ENTRY(smp_seg)	list;		/* on smp_sc.smp_segments */
 
@@ -307,7 +310,9 @@ void smp_new_seg(struct smp_sc *sc);
 void smp_close_seg(struct smp_sc *sc, struct smp_seg *sg);
 void smp_init_oc(struct objcore *oc, struct smp_seg *sg, unsigned objidx);
 void smp_save_segs(struct smp_sc *sc);
-extern const struct storeobj_methods smp_oc_methods;
+sml_getobj_f smp_sml_getobj;
+void smp_oc_objfree(struct worker *, struct objcore *);
+obj_event_f smp_oc_event;
 
 /* storage_persistent_subr.c */
 

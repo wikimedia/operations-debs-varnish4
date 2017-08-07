@@ -34,11 +34,10 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <stdlib.h>
+#include <string.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <unistd.h>
@@ -47,31 +46,7 @@
 
 #include "vtcp.h"
 
-#include "mgt/mgt_param.h"
-
 #ifdef HAVE_TCP_KEEP
-
-static struct parspec mgt_parspec_tcp_keep[] = {
-	{ "tcp_keepalive_time", tweak_timeout, &mgt_param.tcp_keepalive_time,
-		"1", "7200",
-		"The number of seconds a connection needs to be idle before "
-		"TCP begins sending out keep-alive probes.",
-		EXPERIMENTAL,
-		"", "seconds" },
-	{ "tcp_keepalive_probes", tweak_uint, &mgt_param.tcp_keepalive_probes,
-		"1", "100",
-		"The maximum number of TCP keep-alive probes to send before "
-		"giving up and killing the connection if no response is "
-		"obtained from the other end.",
-		EXPERIMENTAL,
-		"", "probes" },
-	{ "tcp_keepalive_intvl", tweak_timeout, &mgt_param.tcp_keepalive_intvl,
-		"1", "100",
-		"The number of seconds between TCP keep-alive probes.",
-		EXPERIMENTAL,
-		"", "seconds" },
-	{ NULL, NULL, NULL }
-};
 
 static void
 tcp_probe(int sock, int nam, const char *param, unsigned def)
@@ -79,17 +54,12 @@ tcp_probe(int sock, int nam, const char *param, unsigned def)
 	int i;
 	socklen_t l;
 	unsigned u;
-	char buf[10];
-	const char *p;
 
 	l = sizeof u;
 	i = getsockopt(sock, IPPROTO_TCP, nam, &u, &l);
 	if (i < 0 || u == 0)
 		u = def;
-	bprintf(buf, "%u", u);
-	p = strdup(buf);
-	AN(p);
-	MCF_SetDefault(param, p);
+	MCF_ParamConf(MCF_DEFAULT, param, "%u", u);
 }
 
 static void
@@ -105,7 +75,7 @@ tcp_keep_probes(void)
 	tcp_probe(s, TCP_KEEPIDLE, "tcp_keepalive_time",	600);
 	tcp_probe(s, TCP_KEEPCNT, "tcp_keepalive_probes",	5);
 	tcp_probe(s, TCP_KEEPINTVL, "tcp_keepalive_intvl",	5);
-	AZ(close(s));
+	closefd(&s);
 }
 #endif
 
@@ -113,7 +83,6 @@ void
 MCF_TcpParams(void)
 {
 #ifdef HAVE_TCP_KEEP
-	MCF_AddParams(mgt_parspec_tcp_keep);
 	tcp_keep_probes();
 #endif
 }

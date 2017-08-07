@@ -35,19 +35,24 @@
 
 #include "config.h"
 
+#include "cache/cache.h"
+
 #include <sys/mman.h>
 
 #include <errno.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
 #include "storage/storage.h"
+#include "storage/storage_simple.h"
 
 #include "vsha256.h"
 
 #include "storage/storage_persistent.h"
+
+#ifdef HAVE_SYS_PERSONALITY_H
+#include <sys/personality.h>
+#endif
 
 #ifndef MAP_NOCORE
 #define MAP_NOCORE 0 /* XXX Linux */
@@ -138,6 +143,18 @@ smp_mgt_init(struct stevedore *parent, int ac, char * const *av)
 
 	AZ(av[ac]);
 
+
+#ifdef HAVE_SYS_PERSONALITY_H
+	i = personality(0xffffffff); /* Fetch old personality. */
+	if (!(i & ADDR_NO_RANDOMIZE)) {
+		i = personality(i | ADDR_NO_RANDOMIZE);
+		if (i < 0)
+			fprintf(stderr, "WARNING: Could not disable ASLR\n");
+		else
+			fprintf(stderr, "NB: Disabled ASLR for Persistent\n");
+	}
+#endif
+
 	/* Necessary alignment. See also smp_object::__filler__ */
 	assert(sizeof(struct smp_object) % 8 == 0);
 
@@ -188,6 +205,9 @@ smp_mgt_init(struct stevedore *parent, int ac, char * const *av)
 	if (sc->base == MAP_FAILED)
 		ARGV_ERR("(-spersistent) failed to mmap (%s)\n",
 		    strerror(errno));
+	if (target != NULL && sc->base != target)
+		fprintf(stderr, "WARNING: Persistent silo lost to ASLR %s\n",
+		    sc->filename);
 
 	smp_def_sign(sc, &sc->idn, 0, "SILO");
 	sc->ident = SIGN_DATA(&sc->idn);
@@ -205,5 +225,5 @@ smp_mgt_init(struct stevedore *parent, int ac, char * const *av)
 	parent->priv = sc;
 
 	/* XXX: only for sendfile I guess... */
-	mgt_child_inherit(sc->fd, "storage_persistent");
+	MCH_Fd_Inherit(sc->fd, "storage_persistent");
 }

@@ -39,20 +39,40 @@
 #include <unistd.h>
 
 #include "mgt/mgt.h"
-#include "vcli_priv.h"
-#include "mgt/mgt_cli.h"
+#include "vcli_serve.h"
 
 #include "storage/storage.h"
 #include "vav.h"
 
-struct stevedore_head stv_stevedores =
-    VTAILQ_HEAD_INITIALIZER(stv_stevedores);
+static VTAILQ_HEAD(, stevedore) stevedores =
+    VTAILQ_HEAD_INITIALIZER(stevedores);
 
 struct stevedore *stv_transient;
 
 /*--------------------------------------------------------------------*/
 
-static void
+int
+STV__iter(struct stevedore ** const pp)
+{
+
+	AN(pp);
+	CHECK_OBJ_ORNULL(*pp, STEVEDORE_MAGIC);
+	if (*pp == stv_transient) {
+		*pp = NULL;
+		return (0);
+	}
+	if (*pp != NULL)
+		*pp = VTAILQ_NEXT(*pp, list);
+	else
+		*pp = VTAILQ_FIRST(&stevedores);
+	if (*pp == NULL)
+		*pp = stv_transient;
+	return (1);
+}
+
+/*--------------------------------------------------------------------*/
+
+static void __match_proto__(cli_func_t)
 stv_cli_list(struct cli *cli, const char * const *av, void *priv)
 {
 	struct stevedore *stv;
@@ -61,17 +81,14 @@ stv_cli_list(struct cli *cli, const char * const *av, void *priv)
 	(void)av;
 	(void)priv;
 	VCLI_Out(cli, "Storage devices:\n");
-	stv = stv_transient;
-		VCLI_Out(cli, "\tstorage.%s = %s\n", stv->ident, stv->name);
-	VTAILQ_FOREACH(stv, &stv_stevedores, list)
+	STV_Foreach(stv)
 		VCLI_Out(cli, "\tstorage.%s = %s\n", stv->ident, stv->name);
 }
 
 /*--------------------------------------------------------------------*/
 
-struct cli_proto cli_stv[] = {
-	{ "storage.list", "storage.list", "\tList storage devices.",
-	    0, 0, "", stv_cli_list },
+static struct cli_proto cli_stv[] = {
+	{ CLICMD_STORAGE_LIST,		"", stv_cli_list },
 	{ NULL}
 };
 
@@ -92,13 +109,11 @@ smp_fake_init(struct stevedore *parent, int ac, char * const *av)
 	);
 }
 
-
 static const struct stevedore smp_fake_stevedore = {
 	.magic = STEVEDORE_MAGIC,
 	.name = "deprecated_persistent",
 	.init = smp_fake_init,
 };
-
 
 /*--------------------------------------------------------------------
  * Parse a stevedore argument on the form:
@@ -110,33 +125,8 @@ static const struct choice STV_choice[] = {
 	{ "malloc",			&sma_stevedore },
 	{ "deprecated_persistent",	&smp_stevedore },
 	{ "persistent",			&smp_fake_stevedore },
-#ifdef HAVE_LIBUMEM
-	{ "umem",			&smu_stevedore },
-#endif
 	{ NULL,		NULL }
 };
-
-static void
-stv_check_ident(const char *spec, const char *ident)
-{
-	struct stevedore *stv;
-	unsigned found = 0;
-
-	if (!strcmp(ident, TRANSIENT_STORAGE))
-		found = (stv_transient != NULL);
-	else {
-		VTAILQ_FOREACH(stv, &stv_stevedores, list) {
-			CHECK_OBJ(stv, STEVEDORE_MAGIC);
-			if (!strcmp(stv->ident, ident)) {
-				found = 1;
-				break;
-			}
-		}
-	}
-
-	if (found)
-		ARGV_ERR("(-s %s) '%s' is already defined\n", spec, ident);
-}
 
 void
 STV_Config(const char *spec)
@@ -145,6 +135,7 @@ STV_Config(const char *spec)
 	const char *p, *q;
 	struct stevedore *stv;
 	const struct stevedore *stv2;
+	struct stevedore *stv3;
 	int ac, l;
 	static unsigned seq = 0;
 
@@ -168,7 +159,7 @@ STV_Config(const char *spec)
 	for (ac = 0; av[ac + 2] != NULL; ac++)
 		continue;
 
-	stv2 = pick(STV_choice, av[1], "storage");
+	stv2 = MGT_Pick(STV_choice, av[1], "storage");
 	AN(stv2);
 
 	/* Append strategy to ident string */
@@ -192,23 +183,24 @@ STV_Config(const char *spec)
 		bprintf(stv->ident, "%.*s", l, spec);
 	}
 
-	stv_check_ident(spec, stv->ident);
+	STV_Foreach(stv3)
+		if (!strcmp(stv3->ident, stv->ident))
+			ARGV_ERR("(-s%s=%s) already defined once\n",
+			    stv->ident, stv->name);
 
 	if (stv->init != NULL)
 		stv->init(stv, ac, av);
 	else if (ac != 0)
-		ARGV_ERR("(-s %s) too many arguments\n", stv->name);
+		ARGV_ERR("(-s%s) too many arguments\n", stv->name);
 
-	AN(stv->alloc);
-	if (stv->allocobj == NULL)
-		stv->allocobj = stv_default_allocobj;
+	AN(stv->allocobj);
+	AN(stv->methods);
 
 	if (!strcmp(stv->ident, TRANSIENT_STORAGE)) {
-		stv->transient = 1;
 		AZ(stv_transient);
 		stv_transient = stv;
 	} else {
-		VTAILQ_INSERT_TAIL(&stv_stevedores, stv, list);
+		VTAILQ_INSERT_TAIL(&stevedores, stv, list);
 	}
 	/* NB: Do not free av, stevedore gets to keep it */
 }
@@ -221,8 +213,7 @@ STV_Config_Transient(void)
 
 	ASSERT_MGT();
 
+	VCLS_AddFunc(mgt_cls, MCF_AUTH, cli_stv);
 	if (stv_transient == NULL)
 		STV_Config(TRANSIENT_STORAGE "=malloc");
 }
-
-/*--------------------------------------------------------------------*/

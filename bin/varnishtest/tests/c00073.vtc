@@ -27,6 +27,4 @@ varnish v1 -expect SMA.s0.g_bytes > 10000
 barrier b2 sync
 
 client c1 -wait
-
-# Removed when adopting to 4.1. VTC kept since it uses barriers.
-#varnish v1 -expect SMA.s0.g_bytes < 6000
+varnish v1 -expect SMA.s0.g_bytes < 6000

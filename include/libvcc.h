@@ -30,13 +30,16 @@
 
 struct vcc;
 
-struct vcp *VCP_New(void);
-void VCP_Builtin_VCL(struct vcp *, const char *str);
-void VCP_VCL_dir(struct vcp *, const char *str);
-void VCP_VMOD_dir(struct vcp *, const char *str);
-void VCP_Err_Unref(struct vcp *tl, unsigned u);
-void VCP_Allow_InlineC(struct vcp *tl, unsigned u);
-void VCP_Unsafe_Path(struct vcp *tl, unsigned u);
+#define VCC_INFO_PREFIX	"/* VCC_INFO"
 
-char *VCC_Compile(const struct vcp *, struct vsb *sb,
+struct vcc *VCC_New(void);
+void VCC_Allow_InlineC(struct vcc *, unsigned);
+void VCC_Builtin_VCL(struct vcc *, const char *);
+void VCC_Err_Unref(struct vcc *, unsigned);
+void VCC_Unsafe_Path(struct vcc *, unsigned);
+void VCC_VCL_path(struct vcc *, const char *);
+void VCC_VMOD_path(struct vcc *, const char *);
+void VCC_Predef(struct vcc *, const char *type, const char *name);
+
+struct vsb *VCC_Compile(struct vcc *, struct vsb **,
     const char *vclsrc, const char *vclsrcfile);

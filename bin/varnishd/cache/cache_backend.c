@@ -42,6 +42,7 @@
 
 #include "cache_director.h"
 #include "cache_backend.h"
+#include "cache_transport.h"
 #include "http1/cache_http1.h"
 
 #define FIND_TMO(tmx, dst, bo, be)					\
@@ -108,6 +109,9 @@ vbe_dir_getfd(struct worker *wrk, struct backend *bp, struct busyobj *bo)
 	bp->vsc->req++;
 	Lck_Unlock(&bp->mtx);
 
+	if (bp->proxy_header != 0)
+		VPX_Send_Proxy(vc->fd, bp->proxy_header, bo->sp);
+
 	VTCP_myname(vc->fd, abuf1, sizeof abuf1, pbuf1, sizeof pbuf1);
 	VTCP_hisname(vc->fd, abuf2, sizeof abuf2, pbuf2, sizeof pbuf2);
 	VSLb(bo->vsl, SLT_BackendOpen, "%d %s %s %s %s %s",
@@ -115,7 +119,7 @@ vbe_dir_getfd(struct worker *wrk, struct backend *bp, struct busyobj *bo)
 
 	INIT_OBJ(bo->htc, HTTP_CONN_MAGIC);
 	bo->htc->priv = vc;
-	bo->htc->fd = vc->fd;
+	bo->htc->rfd = &vc->fd;
 	FIND_TMO(first_byte_timeout,
 	    bo->htc->first_byte_timeout, bo, bp);
 	FIND_TMO(between_bytes_timeout,
@@ -152,7 +156,7 @@ vbe_dir_finish(const struct director *d, struct worker *wrk,
 	bo->htc->priv = NULL;
 	if (vbc->state != VBC_STATE_USED)
 		VBT_Wait(wrk, vbc);
-	if (bo->htc->doclose != SC_NULL) {
+	if (bo->htc->doclose != SC_NULL || bp->proxy_header != 0) {
 		VSLb(bo->vsl, SLT_BackendClose, "%d %s", vbc->fd,
 		    bp->display_name);
 		VBT_Close(bp->tcp_pool, &vbc);
@@ -169,7 +173,6 @@ vbe_dir_finish(const struct director *d, struct worker *wrk,
 	bp->vsc->conn--;
 #define ACCT(foo)	bp->vsc->foo += bo->acct.foo;
 #include "tbl/acct_fields_bereq.h"
-#undef ACCT
 	Lck_Unlock(&bp->mtx);
 	bo->htc = NULL;
 }
@@ -268,10 +271,11 @@ vbe_dir_getip(const struct director *d, struct worker *wrk,
 
 /*--------------------------------------------------------------------*/
 
-static void
+static enum sess_close
 vbe_dir_http1pipe(const struct director *d, struct req *req, struct busyobj *bo)
 {
 	int i;
+	enum sess_close retval;
 	struct backend *bp;
 	struct v1p_acct v1a;
 	struct vbc *vbc;
@@ -293,18 +297,19 @@ vbe_dir_http1pipe(const struct director *d, struct req *req, struct busyobj *bo)
 
 	if (vbc == NULL) {
 		VSLb(bo->vsl, SLT_FetchError, "no backend connection");
-		SES_Close(req->sp, SC_RX_TIMEOUT);
+		retval = SC_TX_ERROR;
 	} else {
 		i = V1F_SendReq(req->wrk, bo, &v1a.bereq, 1);
 		VSLb_ts_req(req, "Pipe", W_TIM_real(req->wrk));
 		if (i == 0)
 			V1P_Process(req, vbc->fd, &v1a);
 		VSLb_ts_req(req, "PipeSess", W_TIM_real(req->wrk));
-		SES_Close(req->sp, SC_TX_PIPE);
 		bo->htc->doclose = SC_TX_PIPE;
 		vbe_dir_finish(d, req->wrk, bo);
+		retval = SC_TX_PIPE;
 	}
 	V1P_Charge(req, &v1a, bp->vsc);
+	return (retval);
 }
 
 /*--------------------------------------------------------------------*/
@@ -324,9 +329,10 @@ vbe_panic(const struct director *d, struct vsb *vsb)
 		VSB_printf(vsb, "ipv6 = %s,\n", bp->ipv6_addr);
 	VSB_printf(vsb, "port = %s,\n", bp->port);
 	VSB_printf(vsb, "hosthdr = %s,\n", bp->hosthdr);
-	VSB_printf(vsb, "health=%s, admin_health=%s",
-	    bp->healthy ? "healthy" : "sick", bp->admin_health);
-	VSB_printf(vsb, ", changed=%.1f,\n", bp->health_changed);
+	VSB_printf(vsb, "health = %s,\n",
+	    bp->healthy ? "healthy" : "sick");
+	VSB_printf(vsb, "admin_health = %s, changed = %f,\n",
+	    bp->admin_health, bp->health_changed);
 	VSB_printf(vsb, "n_conn = %u,\n", bp->n_conn);
 }
 

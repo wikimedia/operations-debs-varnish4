@@ -26,14 +26,11 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * XXX: We need to pass sessions back into the event engine when they are
- * reused.  Not sure what the most efficient way is for that.  For now
- * write the session pointer to a pipe which the event engine monitors.
- *
  * Recommended reading: libev(3) "EVBACKEND_EPOLL" section
  * - thank you, Marc Alexander Lehmann
  */
 
+//lint -e{766}
 #include "config.h"
 
 #if defined(HAVE_EPOLL_CTL)
@@ -48,7 +45,6 @@
 #include "waiter/waiter_priv.h"
 #include "waiter/mgt_waiter.h"
 #include "vtim.h"
-#include "vfil.h"
 
 #ifndef EPOLLRDHUP
 #  define EPOLLRDHUP 0
@@ -132,7 +128,7 @@ vwe_thread(void *priv)
 			Lck_Lock(&vwe->mtx);
 			active = Wait_HeapDelete(w, wp);
 			Lck_Unlock(&vwe->mtx);
-			if (! active) {
+			if (!active) {
 				VSL(SLT_Debug, wp->fd, "epoll: spurious event");
 				continue;
 			}
@@ -150,9 +146,9 @@ vwe_thread(void *priv)
 		if (vwe->nwaited == 0 && vwe->die)
 			break;
 	}
-	AZ(close(vwe->pipe[0]));
-	AZ(close(vwe->pipe[1]));
-	AZ(close(vwe->epfd));
+	closefd(&vwe->pipe[0]);
+	closefd(&vwe->pipe[1]);
+	closefd(&vwe->epfd);
 	return (NULL);
 }
 

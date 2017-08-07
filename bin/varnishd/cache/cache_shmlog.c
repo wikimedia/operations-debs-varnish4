@@ -29,11 +29,12 @@
 
 #include "config.h"
 
+#include "cache.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache.h"
 #include "common/heritage.h"
 
 #include "vsl_priv.h"
@@ -378,6 +379,42 @@ VSLb_ts(struct vsl_log *vsl, const char *event, double first, double *pprev,
 	*pprev = now;
 }
 
+void
+VSLb_bin(struct vsl_log *vsl, enum VSL_tag_e tag, ssize_t len, const void *ptr)
+{
+	char *p;
+	const uint8_t *pp = ptr;
+	int suff = 0;
+	size_t tl, ll;
+
+	assert(len >= 0);
+	AN(pp);
+	if (vsl_tag_is_masked(tag))
+		return;
+	vsl_sanity(vsl);
+	tl = len * 2 + 1;
+	if (tl > cache_param->vsl_reclen) {
+		len = (cache_param->vsl_reclen - 2) / 2;
+		tl = len * 2 + 2;
+		suff = 1;
+	}
+	if (VSL_END(vsl->wlp, tl) >= vsl->wle)
+		VSL_Flush(vsl, 1);
+	assert(VSL_END(vsl->wlp, tl) < vsl->wle);
+	p = VSL_DATA(vsl->wlp);
+	for (ll = 0; ll < len; ll++) {
+		assert(snprintf(p, 3, "%02x", *pp) == 2);
+		pp++;
+		p += 2;
+	}
+	if (suff)
+		*p++ = '-';
+	*p = '\0';
+	vsl->wlp = vsl_hdr(tag, vsl->wlp, tl, vsl->wid);
+	assert(vsl->wlp < vsl->wle);
+	vsl->wlr++;
+}
+
 /*--------------------------------------------------------------------
  * Setup a VSL buffer, allocate space if none provided.
  */
@@ -445,7 +482,7 @@ vsm_cleaner(void *priv)
 		AZ(pthread_mutex_unlock(&vsm_mtx));
 		VTIM_sleep(1.1);
 	}
-	NEEDLESS_RETURN(NULL);
+	NEEDLESS(return NULL);
 }
 
 /*--------------------------------------------------------------------*/
@@ -468,7 +505,7 @@ VSM_Init(void)
 	vsl_end = vsl_head->log + vsl_segsize * VSL_SEGMENTS;
 	/* Make segment_n always overflow on first log wrap to make any
 	   problems with regard to readers on that event visible */
-	vsl_segment_n = UINT_MAX - VSL_SEGMENTS + 1;
+	vsl_segment_n = UINT_MAX - (VSL_SEGMENTS - 1);
 	AZ(vsl_segment_n % VSL_SEGMENTS);
 	vsl_ptr = vsl_head->log;
 	*vsl_ptr = VSL_ENDMARKER;

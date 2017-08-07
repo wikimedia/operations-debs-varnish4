@@ -32,8 +32,8 @@
 
 #include "config.h"
 
-#include <stdlib.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #include "cache.h"
 
@@ -68,8 +68,6 @@ vbo_New(void)
 	XXXAN(bo);
 	bo->magic = BUSYOBJ_MAGIC;
 	bo->end = (char *)bo + sz;
-	Lck_New(&bo->mtx, lck_busyobj);
-	AZ(pthread_cond_init(&bo->cond, NULL));
 	return (bo);
 }
 
@@ -78,14 +76,8 @@ vbo_Free(struct busyobj **bop)
 {
 	struct busyobj *bo;
 
-	AN(bop);
-	bo = *bop;
-	*bop = NULL;
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	TAKE_OBJ_NOTNULL(bo, bop, BUSYOBJ_MAGIC);
 	AZ(bo->htc);
-	AZ(bo->refcount);
-	AZ(pthread_cond_destroy(&bo->cond));
-	Lck_Delete(&bo->mtx);
 	MPL_Free(vbopool, bo);
 }
 
@@ -101,9 +93,6 @@ VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 
 	bo = vbo_New();
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	AZ(bo->refcount);
-
-	bo->refcount = 1;
 
 	p = (void*)(bo + 1);
 	p = (void*)PRNDUP(p);
@@ -112,17 +101,17 @@ VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 	nhttp = (uint16_t)cache_param->http_max_hdr;
 	sz = HTTP_estimate(nhttp);
 
-	bo->bereq0 = HTTP_create(p, nhttp);
+	bo->bereq0 = HTTP_create(p, nhttp, sz);
 	p += sz;
 	p = (void*)PRNDUP(p);
 	assert(p < bo->end);
 
-	bo->bereq = HTTP_create(p, nhttp);
+	bo->bereq = HTTP_create(p, nhttp, sz);
 	p += sz;
 	p = (void*)PRNDUP(p);
 	assert(p < bo->end);
 
-	bo->beresp = HTTP_create(p, nhttp);
+	bo->beresp = HTTP_create(p, nhttp, sz);
 	p += sz;
 	p = (void*)PRNDUP(p);
 	assert(p < bo->end);
@@ -154,35 +143,13 @@ VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 }
 
 void
-VBO_DerefBusyObj(struct worker *wrk, struct busyobj **pbo)
+VBO_ReleaseBusyObj(struct worker *wrk, struct busyobj **pbo)
 {
 	struct busyobj *bo;
-	struct objcore *oc = NULL;
-	unsigned r;
 
 	CHECK_OBJ_ORNULL(wrk, WORKER_MAGIC);
-	AN(pbo);
-	bo = *pbo;
-	*pbo = NULL;
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	TAKE_OBJ_NOTNULL(bo, pbo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_ORNULL(bo->fetch_objcore, OBJCORE_MAGIC);
-	if (bo->fetch_objcore != NULL) {
-		oc = bo->fetch_objcore;
-		CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
-		CHECK_OBJ_NOTNULL(oc->objhead, OBJHEAD_MAGIC);
-		Lck_Lock(&oc->objhead->mtx);
-		assert(bo->refcount > 0);
-		r = --bo->refcount;
-		Lck_Unlock(&oc->objhead->mtx);
-	} else {
-		Lck_Lock(&bo->mtx);
-		assert(bo->refcount > 0);
-		r = --bo->refcount;
-		Lck_Unlock(&bo->mtx);
-	}
-
-	if (r)
-		return;
 
 	AZ(bo->htc);
 	AZ(bo->stale_oc);
@@ -204,75 +171,14 @@ VBO_DerefBusyObj(struct worker *wrk, struct busyobj **pbo)
 
 	if (bo->fetch_objcore != NULL) {
 		AN(wrk);
-		(void)HSH_DerefObjCore(wrk, &bo->fetch_objcore);
+		(void)HSH_DerefObjCore(wrk, &bo->fetch_objcore,
+		    HSH_RUSH_POLICY);
 	}
 
 	VCL_Rel(&bo->vcl);
 
-	if (bo->vary != NULL)
-		free(bo->vary);
-
-	memset(&bo->refcount, 0,
-	    sizeof *bo - offsetof(struct busyobj, refcount));
+	memset(&bo->retries, 0,
+	    sizeof *bo - offsetof(struct busyobj, retries));
 
 	vbo_Free(&bo);
-}
-
-void
-VBO_extend(struct busyobj *bo, ssize_t l)
-{
-
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	CHECK_OBJ_NOTNULL(bo->vfc, VFP_CTX_MAGIC);
-	if (l == 0)
-		return;
-	assert(l > 0);
-	Lck_Lock(&bo->mtx);
-	ObjExtend(bo->wrk, bo->vfc->oc, l);
-	AZ(pthread_cond_broadcast(&bo->cond));
-	Lck_Unlock(&bo->mtx);
-}
-
-ssize_t
-VBO_waitlen(struct worker *wrk, struct busyobj *bo, ssize_t l)
-{
-	ssize_t rv;
-
-	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	Lck_Lock(&bo->mtx);
-	rv = ObjGetLen(wrk, bo->fetch_objcore);
-	while (1) {
-		assert(l <= rv || bo->state == BOS_FAILED);
-		if (rv > l || bo->state >= BOS_FINISHED)
-			break;
-		(void)Lck_CondWait(&bo->cond, &bo->mtx, 0);
-		rv = ObjGetLen(wrk, bo->fetch_objcore);
-	}
-	Lck_Unlock(&bo->mtx);
-	return (rv);
-}
-
-void
-VBO_setstate(struct busyobj *bo, enum busyobj_state_e next)
-{
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	assert(bo->do_stream || next != BOS_STREAM);
-	assert(next > bo->state);
-	Lck_Lock(&bo->mtx);
-	bo->state = next;
-	AZ(pthread_cond_broadcast(&bo->cond));
-	Lck_Unlock(&bo->mtx);
-}
-
-void
-VBO_waitstate(struct busyobj *bo, enum busyobj_state_e want)
-{
-	Lck_Lock(&bo->mtx);
-	while (1) {
-		if (bo->state >= want)
-			break;
-		(void)Lck_CondWait(&bo->cond, &bo->mtx, 0);
-	}
-	Lck_Unlock(&bo->mtx);
 }

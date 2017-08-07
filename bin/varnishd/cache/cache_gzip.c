@@ -76,7 +76,7 @@ vgz_msg(const struct vgz *vg)
  */
 
 static struct vgz *
-vgz_alloc_vgz(struct vsl_log *vsl, const char *id)
+vgz_gunzip(struct vsl_log *vsl, const char *id)
 {
 	struct vgz *vg;
 
@@ -84,17 +84,7 @@ vgz_alloc_vgz(struct vsl_log *vsl, const char *id)
 	AN(vg);
 	vg->vsl = vsl;
 	vg->id = id;
-	return (vg);
-}
-
-static struct vgz *
-VGZ_NewUngzip(struct vsl_log *vsl, const char *id)
-{
-	struct vgz *vg;
-
-	vg = vgz_alloc_vgz(vsl, id);
 	vg->dir = VGZ_UN;
-	VSC_C_main->n_gunzip++;
 
 	/*
 	 * Max memory usage according to zonf.h:
@@ -106,15 +96,32 @@ VGZ_NewUngzip(struct vsl_log *vsl, const char *id)
 	return (vg);
 }
 
+static struct vgz *
+VGZ_NewGunzip(struct vsl_log *vsl, const char *id)
+{
+	VSC_C_main->n_gunzip++;
+	return (vgz_gunzip(vsl, id));
+}
+
+static struct vgz *
+VGZ_NewTestGunzip(struct vsl_log *vsl, const char *id)
+{
+	VSC_C_main->n_test_gunzip++;
+	return (vgz_gunzip(vsl, id));
+}
+
 struct vgz *
 VGZ_NewGzip(struct vsl_log *vsl, const char *id)
 {
 	struct vgz *vg;
 	int i;
 
-	vg = vgz_alloc_vgz(vsl, id);
-	vg->dir = VGZ_GZ;
 	VSC_C_main->n_gzip++;
+	ALLOC_OBJ(vg, VGZ_MAGIC);
+	AN(vg);
+	vg->vsl = vsl;
+	vg->id = id;
+	vg->dir = VGZ_GZ;
 
 	/*
 	 * From zconf.h:
@@ -248,7 +255,7 @@ VGZ_Gzip(struct vgz *vg, const void **pptr, ssize_t *plen, enum vgz_flag flags)
 	AN(vg->vz.next_out);
 	AN(vg->vz.avail_out);
 	before = vg->vz.next_out;
-	switch(flags) {
+	switch (flags) {
 	case VGZ_NORMAL:	zflg = Z_NO_FLUSH; break;
 	case VGZ_ALIGN:		zflg = Z_SYNC_FLUSH; break;
 	case VGZ_RESET:		zflg = Z_FULL_FLUSH; break;
@@ -285,7 +292,7 @@ VDP_gunzip(struct req *req, enum vdp_action act, void **priv,
 	const void *dp;
 	struct worker *wrk;
 	struct vgz *vg;
-	char *p;
+	const char *p;
 	uint64_t u;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
@@ -293,7 +300,7 @@ VDP_gunzip(struct req *req, enum vdp_action act, void **priv,
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 
 	if (act == VDP_INIT) {
-		vg = VGZ_NewUngzip(req->vsl, "U D -");
+		vg = VGZ_NewGunzip(req->vsl, "U D -");
 		AN(vg);
 		if (vgz_getmbuf(vg)) {
 			(void)VGZ_Destroy(&vg);
@@ -307,10 +314,10 @@ VDP_gunzip(struct req *req, enum vdp_action act, void **priv,
 		http_Unset(req->resp, H_Content_Encoding);
 
 		req->resp_len = -1;
-		if (req->objcore->flags & OC_F_INCOMPLETE)
-			return (0);	/* No idea about length */
+		if (req->objcore->boc != NULL)
+			return (0);	/* No idea about length (yet) */
 
-		p = ObjGetattr(req->wrk, req->objcore, OA_GZIPBITS, &dl);
+		p = ObjGetAttr(req->wrk, req->objcore, OA_GZIPBITS, &dl);
 		if (p == NULL || dl != 32)
 			return (0); /* No OA_GZIPBITS yet */
 
@@ -369,7 +376,7 @@ VGZ_UpdateObj(const struct vfp_ctx *vc, struct vgz *vg, enum vgz_ua_e e)
 	if (e == VUA_UPDATE && ii == vg->bits)
 		return;
 	vg->bits = ii;
-	p = ObjSetattr(vc->wrk, vc->oc, OA_GZIPBITS, 32, NULL);
+	p = ObjSetAttr(vc->wrk, vc->oc, OA_GZIPBITS, 32, NULL);
 	AN(p);
 	vbe64enc(p, vg->vz.start_bit);
 	vbe64enc(p + 8, vg->vz.last_bit);
@@ -451,7 +458,10 @@ vfp_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
 	} else {
 		if (!http_HdrIs(vc->http, H_Content_Encoding, "gzip"))
 			return (VFP_NULL);
-		vg = VGZ_NewUngzip(vc->wrk->vsl, vfe->vfp->priv1);
+		if (vfe->vfp->priv2 == VFP_GUNZIP)
+			vg = VGZ_NewGunzip(vc->wrk->vsl, vfe->vfp->priv1);
+		else
+			vg = VGZ_NewTestGunzip(vc->wrk->vsl, vfe->vfp->priv1);
 	}
 	if (vg == NULL)
 		return (VFP_ERROR);

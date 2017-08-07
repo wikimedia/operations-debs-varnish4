@@ -28,17 +28,17 @@
  *
  */
 
+//lint -e{766}
 #include "config.h"
 
 #if defined(HAVE_KQUEUE)
 
-#include <sys/types.h>
+#include "cache/cache.h"
+
 #include <sys/event.h>
 
 #include <errno.h>
 #include <stdlib.h>
-
-#include "cache/cache.h"
 
 #include "waiter/waiter_priv.h"
 #include "waiter/mgt_waiter.h"
@@ -128,9 +128,9 @@ vwk_thread(void *priv)
 		if (vwk->nwaited == 0 && vwk->die)
 			break;
 	}
-	AZ(close(vwk->pipe[0]));
-	AZ(close(vwk->pipe[1]));
-	AZ(close(vwk->kq));
+	closefd(&vwk->pipe[0]);
+	closefd(&vwk->pipe[1]);
+	closefd(&vwk->kq);
 	return(NULL);
 }
 

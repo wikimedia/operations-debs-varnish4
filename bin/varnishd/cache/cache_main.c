@@ -29,14 +29,14 @@
 
 #include "config.h"
 
+#include "cache.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache.h"
-#include "http1/cache_http1.h"
 #include "common/heritage.h"
 
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 #include "vrnd.h"
 
 #include "hash/hash_slinger.h"
@@ -92,8 +92,16 @@ THR_SetName(const char *name)
 {
 
 	AZ(pthread_setspecific(name_key, name));
-#ifdef HAVE_PTHREAD_SET_NAME_NP
+#if defined(HAVE_PTHREAD_SET_NAME_NP)
 	pthread_set_name_np(pthread_self(), name);
+#elif defined(HAVE_PTHREAD_SETNAME_NP)
+#if defined(__APPLE__)
+	pthread_setname_np(name);
+#elif defined(__NetBSD__)
+	pthread_setname_np(pthread_self(), "%s", (char *)(uintptr_t)name);
+#else
+	pthread_setname_np(pthread_self(), name);
+#endif
 #endif
 }
 
@@ -161,28 +169,23 @@ cli_debug_xid(struct cli *cli, const char * const *av, void *priv)
  * Default to seed=1, this is the only seed value POSIXl guarantees will
  * result in a reproducible random number sequence.
  */
-static void
+static void __match_proto__(cli_func_t)
 cli_debug_srandom(struct cli *cli, const char * const *av, void *priv)
 {
-	(void)priv;
 	unsigned seed = 1;
 
+	(void)priv;
+	(void)cli;
 	if (av[2] != NULL)
 		seed = strtoul(av[2], NULL, 0);
-	srandom(seed);
-	srand48(random());
-	VCLI_Out(cli, "Random(3) seeded with %u", seed);
+	VRND_SeedTestable(seed);
 }
 
 static struct cli_proto debug_cmds[] = {
-	{ "debug.xid", "debug.xid",
-		"\tExamine or set XID.", 0, 1, "d", cli_debug_xid },
-	{ "debug.srandom", "debug.srandom",
-		"\tSeed the random(3) function.", 0, 1, "d",
-		cli_debug_srandom },
+	{ CLICMD_DEBUG_XID,			"d", cli_debug_xid },
+	{ CLICMD_DEBUG_SRANDOM,			"d", cli_debug_srandom },
 	{ NULL }
 };
-
 
 /*--------------------------------------------------------------------
  * XXX: Think more about which order we start things
@@ -228,16 +231,18 @@ child_main(void)
 	PAN_Init();
 	VFP_Init();
 
+	ObjInit();
+
 	VCL_Init();
 
 	HTTP_Init();
 
 	VBO_Init();
-	VBT_Init();
 	VBP_Init();
 	VBE_InitCfg();
 	Pool_Init();
 	V1P_Init();
+	V2D_Init();
 
 	EXP_Init();
 	HSH_Init(heritage.hash);
@@ -245,15 +250,14 @@ child_main(void)
 
 	VCA_Init();
 
-	SMP_Init();
 	STV_open();
 
 	VMOD_Init();
 
 	BAN_Compile();
 
-	VRND_Seed();
-	srand48(random());
+	VRND_SeedAll();
+
 	CLI_AddFuncs(debug_cmds);
 
 	/* Wait for persistent storage to load if asked to */

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Storage backends &#8212; Varnish version 4.1.8 documentation</title>
+    <title>Storage backends &#8212; Varnish version 5.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.8',
+        VERSION:     '5.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
     <link rel="up" title="Starting and running Varnish" href="running.html" />
     <link rel="next" title="Parameters" href="params.html" />
     <link rel="prev" title="CLI - bossing Varnish around" href="run_cli.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="run_cli.html" title="CLI - bossing Varnish around"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="running.html" accesskey="U">Starting and running Varnish</a> &#187;</li> 
       </ul>
@@ -88,12 +88,11 @@ depend on the operating systems ability to page effectively.</p>
 </div>
 <div class="section" id="file">
 <h2>file<a class="headerlink" href="#file" title="Permalink to this headline">¶</a></h2>
-<p>syntax: file[,path[,size[,granularity]]]</p>
+<p>syntax: file,path[,size[,granularity[,advice]]]</p>
 <p>The file backend stores objects in memory backed by an unlinked file on disk
 with <cite>mmap</cite>.</p>
 <p>The 'path' parameter specifies either the path to the backing file or
-the path to a directory in which <cite>varnishd</cite> will create the backing
-file. The default is <cite>/tmp</cite>.</p>
+the path to a directory in which <cite>varnishd</cite> will create the backing file.</p>
 <p>The size parameter specifies the size of the backing file. The size
 is assumed to be in bytes, unless followed by one of the following
 suffixes:</p>
@@ -120,6 +119,14 @@ suffixes described for size.</p>
 have many small objects.</p>
 <p>File performance is typically limited to the write speed of the
 device, and depending on use, the seek time.</p>
+<p>The 'advice' parameter tells the kernel how <cite>varnishd</cite> expects to
+use this mapped region so that the kernel can choose the appropriate
+read-ahead and caching techniques.  Possible values are <code class="docutils literal"><span class="pre">normal</span></code>,
+<code class="docutils literal"><span class="pre">random</span></code> and <code class="docutils literal"><span class="pre">sequencial</span></code>, corresponding to MADV_NORMAL, MADV_RANDOM
+and MADV_SEQUENTIAL madvise() advice argument, respectively.  Defaults to
+<code class="docutils literal"><span class="pre">random</span></code>.</p>
+<p>On Linux, large objects and rotational disk should benefit from
+&quot;sequential&quot;.</p>
 </div>
 <div class="section" id="persistent-experimental">
 <h2>persistent (experimental)<a class="headerlink" href="#persistent-experimental" title="Permalink to this headline">¶</a></h2>
@@ -216,7 +223,7 @@ parameter 'shortlived'.</p>
         <li class="right" >
           <a href="run_cli.html" title="CLI - bossing Varnish around"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="running.html" >Starting and running Varnish</a> &#187;</li> 
       </ul>

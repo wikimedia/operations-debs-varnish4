@@ -93,7 +93,8 @@ host_triplet = @host@
 target_triplet = @target@
 subdir = doc/sphinx
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/varnish.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
 	$(top_srcdir)/m4/ax_lib_readline.m4 \
 	$(top_srcdir)/m4/ax_pthread.m4 \
@@ -159,6 +160,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTCFLAGS = @EXTCFLAGS@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -175,7 +177,6 @@ LIBM = @LIBM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
-LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -187,6 +188,7 @@ MKDIR_P = @MKDIR_P@
 NET_LIBS = @NET_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NSL_LIBS = @NSL_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -209,13 +211,20 @@ PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 PYTHON = @PYTHON@
+PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
+PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PREFIX = @PYTHON_PREFIX@
+PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
 RST2HTML = @RST2HTML@
 RST2MAN = @RST2MAN@
 RT_LIBS = @RT_LIBS@
+SAN_CFLAGS = @SAN_CFLAGS@
+SAN_LDFLAGS = @SAN_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VARNISH_STATE_DIR = @VARNISH_STATE_DIR@
 VCC_CC = @VCC_CC@
@@ -264,9 +273,14 @@ mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
+pkgpyexecdir = @pkgpyexecdir@
+pkgpythondir = @pkgpythondir@
+pkgsysconfdir = @pkgsysconfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+pyexecdir = @pyexecdir@
+pythondir = @pythondir@
 runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
@@ -280,25 +294,36 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-varnishconfdir = @varnishconfdir@
 
 # You can set these variables from the command line.
 SPHINXOPTS = 
 SPHINXBUILD = sphinx-build -W -q -N
 PAPER = a4
 BUILDDIR = build
-ALLSPHINXOPTS = -d $(BUILDDIR)/doctrees -D latex_paper_size=$(PAPER) $(SPHINXOPTS) $(builddir)
-EXTRA_DIST = conf.py index.rst include glossary installation phk \
-	tutorial users-guide whats-new $(BUILT_SOURCES)
-BUILT_SOURCES = include/params.rst include/counters.rst \
-	include/varnishncsa_options.rst \
+ALLSPHINXOPTS = -d $(BUILDDIR)/doctrees -D latex_elements.papersize=$(PAPER) $(SPHINXOPTS) $(builddir)
+EXTRA_DIST = conf.py dev-guide glossary include index.rst installation \
+	phk tutorial users-guide vtc-syntax.py whats-new \
+	$(BUILT_SOURCES)
+BUILT_SOURCES = include/cli.rst include/params.rst \
+	include/counters.rst include/varnishncsa_options.rst \
 	include/varnishncsa_synopsis.rst \
 	include/varnishlog_options.rst include/varnishlog_synopsis.rst \
 	include/varnishtop_options.rst include/varnishtop_synopsis.rst \
 	include/varnishhist_options.rst \
-	include/varnishhist_synopsis.rst reference \
+	include/varnishhist_synopsis.rst \
+	include/varnishstat_options.rst \
+	include/varnishstat_synopsis.rst include/vsl-tags.rst \
+	include/vtc-syntax.rst reference \
 	reference/vmod_std.generated.rst \
 	reference/vmod_directors.generated.rst
+VTCSYN_SRC = $(top_srcdir)/bin/varnishtest/vtc.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_barrier.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_http.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_http2.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_logexp.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_process.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_varnish.c
+
 MAINTAINERCLEANFILES = $(EXTRA_DIST)
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -522,7 +547,7 @@ clean:
 link_srcdir:
 	if test "x$(srcdir)" != "x$(builddir)" && test ! -f index.rst ; then \
 		d=`pwd`/$(builddir) ; \
-		cd $(srcdir) && find . -type f | cpio -ldmp $${d} ; \
+		cd $(srcdir) && find . -type f | cpio -dmp $${d} || true ; \
 	fi
 
 # work around for make html called within doc/sphinx
@@ -531,6 +556,8 @@ graphviz:
 	cd ../graphviz && $(MAKE) html
 
 sphinx_prereq: link_srcdir graphviz conf.py
+
+all: link_srcdir
 
 html: sphinx_prereq
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
@@ -600,43 +627,56 @@ dist-hook:
 distclean-local:
 	rm -rf $(BUILDDIR)
 
+include/cli.rst: $(top_builddir)/bin/varnishd/varnishd
+	$(top_builddir)/bin/varnishd/varnishd -x cli > $@
+
 include/params.rst: $(top_builddir)/bin/varnishd/varnishd
-	$(top_builddir)/bin/varnishd/varnishd -x dumprstparam > include/params.rst
+	$(top_builddir)/bin/varnishd/varnishd -x parameter > $@
 
 include/counters.rst: $(top_builddir)/bin/varnishstat/vsc2rst
 	$(top_builddir)/bin/varnishstat/vsc2rst > $@
 
 # XXX add varnishstat here when it's been _opt2rst'ed
 
-include/varnishncsa_options.rst: $(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst
-	$(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst options > $@
-include/varnishncsa_synopsis.rst: $(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst
-	$(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst synopsis > $@
+include/varnishncsa_options.rst: $(top_builddir)/bin/varnishncsa/varnishncsa
+	$(top_builddir)/bin/varnishncsa/varnishncsa --options > $@
+include/varnishncsa_synopsis.rst: $(top_builddir)/bin/varnishncsa/varnishncsa
+	$(top_builddir)/bin/varnishncsa/varnishncsa --synopsis > $@
 
-include/varnishlog_options.rst: $(top_builddir)/bin/varnishlog/varnishlog_opt2rst
-	$(top_builddir)/bin/varnishlog/varnishlog_opt2rst options > $@
-include/varnishlog_synopsis.rst: $(top_builddir)/bin/varnishlog/varnishlog_opt2rst
-	$(top_builddir)/bin/varnishlog/varnishlog_opt2rst synopsis > $@
+include/varnishlog_options.rst: $(top_builddir)/bin/varnishlog/varnishlog
+	$(top_builddir)/bin/varnishlog/varnishlog --options > $@
+include/varnishlog_synopsis.rst: $(top_builddir)/bin/varnishlog/varnishlog
+	$(top_builddir)/bin/varnishlog/varnishlog --synopsis > $@
 
-include/varnishtop_options.rst: $(top_builddir)/bin/varnishtop/varnishtop_opt2rst
-	$(top_builddir)/bin/varnishtop/varnishtop_opt2rst options > $@
-include/varnishtop_synopsis.rst: $(top_builddir)/bin/varnishtop/varnishtop_opt2rst
-	$(top_builddir)/bin/varnishtop/varnishtop_opt2rst synopsis > $@
+include/varnishtop_options.rst: $(top_builddir)/bin/varnishtop/varnishtop
+	$(top_builddir)/bin/varnishtop/varnishtop --options > $@
+include/varnishtop_synopsis.rst: $(top_builddir)/bin/varnishtop/varnishtop
+	$(top_builddir)/bin/varnishtop/varnishtop --synopsis > $@
 
-include/varnishhist_options.rst: $(top_builddir)/bin/varnishhist/varnishhist_opt2rst
-	$(top_builddir)/bin/varnishhist/varnishhist_opt2rst options > $@
-include/varnishhist_synopsis.rst: $(top_builddir)/bin/varnishhist/varnishhist_opt2rst
-	$(top_builddir)/bin/varnishhist/varnishhist_opt2rst synopsis > $@
+include/varnishhist_options.rst: $(top_builddir)/bin/varnishhist/varnishhist
+	$(top_builddir)/bin/varnishhist/varnishhist --options > $@
+include/varnishhist_synopsis.rst: $(top_builddir)/bin/varnishhist/varnishhist
+	$(top_builddir)/bin/varnishhist/varnishhist --synopsis > $@
+
+include/varnishstat_options.rst: $(top_builddir)/bin/varnishstat/varnishstat
+	$(top_builddir)/bin/varnishstat/varnishstat --options > $@
+include/varnishstat_synopsis.rst: $(top_builddir)/bin/varnishstat/varnishstat
+	$(top_builddir)/bin/varnishstat/varnishstat --synopsis > $@
+
+include/vsl-tags.rst: $(top_builddir)/lib/libvarnishapi/vsl2rst
+	$(top_builddir)/lib/libvarnishapi/vsl2rst > $@
+include/vtc-syntax.rst: vtc-syntax.py $(VTCSYN_SRC)
+	$(PYTHON) $(top_srcdir)/doc/sphinx/vtc-syntax.py $(VTCSYN_SRC) > $@
 
 .PHONY: reference
 reference:
 	test -d $@ || mkdir $@
 
 reference/vmod_std.generated.rst: reference $(top_builddir)/lib/libvmod_std/vmod_std.rst
-	cp $(top_builddir)/lib/libvmod_std/vmod_std.rst $@
+	cp $(top_builddir)/lib/libvmod_std/vmod_std.rst $@ || true
 
 reference/vmod_directors.generated.rst: reference $(top_builddir)/lib/libvmod_directors/vmod_directors.rst
-	cp $(top_builddir)/lib/libvmod_directors/vmod_directors.rst $@
+	cp $(top_builddir)/lib/libvmod_directors/vmod_directors.rst $@ || true
 
 .NOPATH: $(BUILT_SOURCES)
 

@@ -91,7 +91,8 @@ host_triplet = @host@
 target_triplet = @target@
 subdir = lib/libvmod_debug
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/varnish.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
 	$(top_srcdir)/m4/ax_lib_readline.m4 \
 	$(top_srcdir)/m4/ax_pthread.m4 \
@@ -109,9 +110,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libvmod_debug_la_LIBADD =
-am_libvmod_debug_la_OBJECTS = vmod_debug.lo vmod_debug_obj.lo \
-	vmod_debug_dyn.lo
-nodist_libvmod_debug_la_OBJECTS = vcc_if.lo
+am_libvmod_debug_la_OBJECTS = libvmod_debug_la-vmod_debug.lo \
+	libvmod_debug_la-vmod_debug_obj.lo \
+	libvmod_debug_la-vmod_debug_dyn.lo
+nodist_libvmod_debug_la_OBJECTS = libvmod_debug_la-vcc_if.lo
 libvmod_debug_la_OBJECTS = $(am_libvmod_debug_la_OBJECTS) \
 	$(nodist_libvmod_debug_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -120,8 +122,8 @@ am__v_lt_0 = --silent
 am__v_lt_1 = 
 libvmod_debug_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
-	$(AM_CFLAGS) $(CFLAGS) $(libvmod_debug_la_LDFLAGS) $(LDFLAGS) \
-	-o $@
+	$(libvmod_debug_la_CFLAGS) $(CFLAGS) \
+	$(libvmod_debug_la_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -214,6 +216,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTCFLAGS = @EXTCFLAGS@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -230,7 +233,6 @@ LIBM = @LIBM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
-LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -242,6 +244,7 @@ MKDIR_P = @MKDIR_P@
 NET_LIBS = @NET_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NSL_LIBS = @NSL_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -264,13 +267,20 @@ PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 PYTHON = @PYTHON@
+PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
+PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PREFIX = @PYTHON_PREFIX@
+PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
 RST2HTML = @RST2HTML@
 RST2MAN = @RST2MAN@
 RT_LIBS = @RT_LIBS@
+SAN_CFLAGS = @SAN_CFLAGS@
+SAN_LDFLAGS = @SAN_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VARNISH_STATE_DIR = @VARNISH_STATE_DIR@
 VCC_CC = @VCC_CC@
@@ -319,9 +329,14 @@ mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
+pkgpyexecdir = @pkgpyexecdir@
+pkgpythondir = @pkgpythondir@
+pkgsysconfdir = @pkgsysconfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+pyexecdir = @pyexecdir@
+pythondir = @pythondir@
 runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
@@ -335,7 +350,6 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-varnishconfdir = @varnishconfdir@
 
 #
 AM_LDFLAGS = $(AM_LT_LDFLAGS)
@@ -347,9 +361,14 @@ AM_CPPFLAGS = \
 vmoddir = $(pkglibdir)/vmods
 vmod_srcdir = $(top_srcdir)/lib/libvmod_debug
 vmodtool = $(top_srcdir)/lib/libvcc/vmodtool.py
-vmodtoolargs = --strict
+vmodtoolargs = 
 noinst_LTLIBRARIES = libvmod_debug.la
-libvmod_debug_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared -rpath /nowhere
+libvmod_debug_la_CFLAGS = \
+	@SAN_CFLAGS@
+
+libvmod_debug_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared -rpath /nowhere \
+	@SAN_LDFLAGS@
+
 libvmod_debug_la_SOURCES = \
 	vmod_debug.c \
 	vmod_debug_obj.c \
@@ -418,10 +437,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vcc_if.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vmod_debug.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vmod_debug_dyn.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vmod_debug_obj.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_debug_la-vcc_if.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_debug_la-vmod_debug.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_debug_la-vmod_debug_dyn.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_debug_la-vmod_debug_obj.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -443,6 +462,34 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+libvmod_debug_la-vmod_debug.lo: vmod_debug.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -MT libvmod_debug_la-vmod_debug.lo -MD -MP -MF $(DEPDIR)/libvmod_debug_la-vmod_debug.Tpo -c -o libvmod_debug_la-vmod_debug.lo `test -f 'vmod_debug.c' || echo '$(srcdir)/'`vmod_debug.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_debug_la-vmod_debug.Tpo $(DEPDIR)/libvmod_debug_la-vmod_debug.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_debug.c' object='libvmod_debug_la-vmod_debug.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -c -o libvmod_debug_la-vmod_debug.lo `test -f 'vmod_debug.c' || echo '$(srcdir)/'`vmod_debug.c
+
+libvmod_debug_la-vmod_debug_obj.lo: vmod_debug_obj.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -MT libvmod_debug_la-vmod_debug_obj.lo -MD -MP -MF $(DEPDIR)/libvmod_debug_la-vmod_debug_obj.Tpo -c -o libvmod_debug_la-vmod_debug_obj.lo `test -f 'vmod_debug_obj.c' || echo '$(srcdir)/'`vmod_debug_obj.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_debug_la-vmod_debug_obj.Tpo $(DEPDIR)/libvmod_debug_la-vmod_debug_obj.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_debug_obj.c' object='libvmod_debug_la-vmod_debug_obj.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -c -o libvmod_debug_la-vmod_debug_obj.lo `test -f 'vmod_debug_obj.c' || echo '$(srcdir)/'`vmod_debug_obj.c
+
+libvmod_debug_la-vmod_debug_dyn.lo: vmod_debug_dyn.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -MT libvmod_debug_la-vmod_debug_dyn.lo -MD -MP -MF $(DEPDIR)/libvmod_debug_la-vmod_debug_dyn.Tpo -c -o libvmod_debug_la-vmod_debug_dyn.lo `test -f 'vmod_debug_dyn.c' || echo '$(srcdir)/'`vmod_debug_dyn.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_debug_la-vmod_debug_dyn.Tpo $(DEPDIR)/libvmod_debug_la-vmod_debug_dyn.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_debug_dyn.c' object='libvmod_debug_la-vmod_debug_dyn.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -c -o libvmod_debug_la-vmod_debug_dyn.lo `test -f 'vmod_debug_dyn.c' || echo '$(srcdir)/'`vmod_debug_dyn.c
+
+libvmod_debug_la-vcc_if.lo: vcc_if.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -MT libvmod_debug_la-vcc_if.lo -MD -MP -MF $(DEPDIR)/libvmod_debug_la-vcc_if.Tpo -c -o libvmod_debug_la-vcc_if.lo `test -f 'vcc_if.c' || echo '$(srcdir)/'`vcc_if.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_debug_la-vcc_if.Tpo $(DEPDIR)/libvmod_debug_la-vcc_if.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vcc_if.c' object='libvmod_debug_la-vcc_if.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_debug_la_CFLAGS) $(CFLAGS) -c -o libvmod_debug_la-vcc_if.lo `test -f 'vcc_if.c' || echo '$(srcdir)/'`vcc_if.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -658,9 +705,11 @@ uninstall-am:
 
 
 # BUILT_SOURCES is only a hack and dependency tracking does not help for the first build
-vmod_debug.lo vmod_debug_obj.lo vmod_debug_dyn.lo: vcc_if.h
+$(libvmod_debug_la_OBJECTS):vcc_if.h
 
-vcc_if.c vcc_if.h vmod_debug.rst vmod_debug.man.rst: $(vmodtool) $(vmod_srcdir)/vmod.vcc
+vcc_if.h vmod_debug.rst vmod_debug.man.rst: vcc_if.c
+
+vcc_if.c: $(vmodtool) $(vmod_srcdir)/vmod.vcc
 	@PYTHON@ $(vmodtool) $(vmodtoolargs) $(vmod_srcdir)/vmod.vcc
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

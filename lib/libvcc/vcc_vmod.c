@@ -37,6 +37,7 @@
 
 #include "vcs_version.h"
 
+#include "libvcc.h"
 #include "vfil.h"
 #include "vmod_abi.h"
 #include "vrt.h"
@@ -67,6 +68,7 @@ vcc_ParseImport(struct vcc *tl)
 	struct inifin *ifp;
 	const char * const *spec;
 	struct symbol *sym;
+	struct symbol *msym;
 	const struct symbol *osym;
 	const char *p;
 	// int *modlen;
@@ -79,7 +81,7 @@ vcc_ParseImport(struct vcc *tl)
 	mod = tl->t;
 	vcc_NextToken(tl);
 
-	osym = VCC_FindSymbol(tl, mod, SYM_NONE);
+	osym = VCC_SymbolTok(tl, NULL, mod, SYM_NONE, 0);
 	if (osym != NULL && osym->kind != SYM_VMOD) {
 		VSB_printf(tl->sb, "Module %.*s conflicts with other symbol.\n",
 		    PF(mod));
@@ -96,11 +98,11 @@ vcc_ParseImport(struct vcc *tl)
 	}
 
 	bprintf(fn, "%.*s", PF(mod));
-	sym = VCC_AddSymbolStr(tl, fn, SYM_VMOD);
+	msym = VCC_Symbol(tl, NULL, fn, NULL, SYM_VMOD, 1);
 	ERRCHK(tl);
-	AN(sym);
-	sym->def_b = t1;
-	sym->def_e = tl->t;
+	AN(msym);
+	msym->def_b = t1;
+	msym->def_e = tl->t;
 
 	if (tl->t->tok == ID) {
 		if (!vcc_IdIs(tl->t, "from")) {
@@ -109,7 +111,7 @@ vcc_ParseImport(struct vcc *tl)
 			return;
 		}
 		vcc_NextToken(tl);
-		if (!tl->param->unsafe_path && strchr(tl->t->dec, '/')) {
+		if (!tl->unsafe_path && strchr(tl->t->dec, '/')) {
 			VSB_printf(tl->sb,
 			    "'import ... from path ...' is unsafe.\nAt:");
 			vcc_ErrToken(tl, tl->t);
@@ -129,7 +131,7 @@ vcc_ParseImport(struct vcc *tl)
 
 	SkipToken(tl, ';');
 
-	if (VFIL_searchpath(tl->param->vmod_path,
+	if (VFIL_searchpath(tl->vmod_path,
 	    vcc_path_dlopen, &hdl, fn, &fnpx)) {
 		VSB_printf(tl->sb, "Could not load VMOD %.*s\n", PF(mod));
 		VSB_printf(tl->sb, "\tFile name: %s\n",
@@ -195,22 +197,28 @@ vcc_ParseImport(struct vcc *tl)
 
 	ifp = New_IniFin(tl);
 
-	VSB_printf(ifp->ini, "\tif (VRT_Vmod_Init(&VGC_vmod_%.*s,\n", PF(mod));
+	VSB_printf(ifp->ini, "\tif (VRT_Vmod_Init(ctx,\n");
+	VSB_printf(ifp->ini, "\t    &VGC_vmod_%.*s,\n", PF(mod));
 	VSB_printf(ifp->ini, "\t    &Vmod_%.*s_Func,\n", PF(mod));
 	VSB_printf(ifp->ini, "\t    sizeof(Vmod_%.*s_Func),\n", PF(mod));
 	VSB_printf(ifp->ini, "\t    \"%.*s\",\n", PF(mod));
 	VSB_printf(ifp->ini, "\t    ");
-	EncString(ifp->ini, fnp, NULL, 0);
+	VSB_quote(ifp->ini, fnp, -1, VSB_QUOTE_CSTR);
 	VSB_printf(ifp->ini, ",\n");
 	AN(vmd);
 	AN(vmd->file_id);
 	VSB_printf(ifp->ini, "\t    \"%s\",\n", vmd->file_id);
-	VSB_printf(ifp->ini, "\t    ctx))\n");
+	VSB_printf(ifp->ini, "\t    \"./vmod_cache/_vmod_%.*s.%s\"\n",
+	    PF(mod), vmd->file_id);
+	VSB_printf(ifp->ini, "\t    ))\n");
 	VSB_printf(ifp->ini, "\t\treturn(1);");
 
+	VSB_printf(tl->fi, "%s VMOD %s ./vmod_cache/_vmod_%.*s.%s */\n",
+	    VCC_INFO_PREFIX, fnp, PF(mod), vmd->file_id);
+
 	/* XXX: zero the function pointer structure ?*/
-	VSB_printf(ifp->fin, "\t\tVRT_priv_fini(&vmod_priv_%.*s);", PF(mod));
-	VSB_printf(ifp->fin, "\n\t\tVRT_Vmod_Fini(&VGC_vmod_%.*s);", PF(mod));
+	VSB_printf(ifp->fin, "\t\tVRT_priv_fini(&vmod_priv_%.*s);\n", PF(mod));
+	VSB_printf(ifp->fin, "\t\t\tVRT_Vmod_Fini(&VGC_vmod_%.*s);", PF(mod));
 
 	ifp = NULL;
 
@@ -219,9 +227,10 @@ vcc_ParseImport(struct vcc *tl)
 		p = *spec;
 		if (!strcmp(p, "$OBJ")) {
 			p += strlen(p) + 1;
-			sym = VCC_AddSymbolStr(tl, p, SYM_OBJECT);
+			sym = VCC_Symbol(tl, NULL, p, NULL, SYM_OBJECT, 1);
 			XXXAN(sym);
-			sym->args = p;
+			sym->extra = p;
+			sym->vmod = msym->name;
 		} else if (!strcmp(p, "$EVENT")) {
 			p += strlen(p) + 1;
 			if (ifp == NULL)
@@ -232,22 +241,24 @@ vcc_ParseImport(struct vcc *tl)
 			    p, PF(mod));
 			VSB_printf(ifp->fin,
 			    "\t\t(void)%s(ctx, &vmod_priv_%.*s,\n"
-			    "\t\t    VCL_EVENT_DISCARD);\n", p, PF(mod));
+			    "\t\t\t    VCL_EVENT_DISCARD);\n", p, PF(mod));
 			VSB_printf(ifp->event, "\t%s(ctx, &vmod_priv_%.*s, ev)",
 			    p, PF(mod));
-		} else {
-			sym = VCC_AddSymbolStr(tl, p, SYM_FUNC);
+		} else if (!strcmp(p, "$FUNC")) {
+			p += strlen(p) + 1;
+			sym = VCC_Symbol(tl, NULL, p, NULL, SYM_FUNC, 1);
 			ERRCHK(tl);
 			AN(sym);
+			sym->vmod = msym->name;
 			sym->eval = vcc_Eval_SymFunc;
 			p += strlen(p) + 1;
-			sym->cfunc = p;
-			p += strlen(p) + 1;
-			sym->args = p;
-
-			/* Functions which return VOID are procedures */
-			if (!memcmp(p, "VOID\0", 5))
-				sym->kind = SYM_PROC;
+			sym->eval_priv = p;
+			sym->fmt = VCC_Type(p);
+			AN(sym->fmt);
+		} else {
+			VSB_printf(tl->sb, "Internal spec error (%s)\n", p);
+			vcc_ErrWhere(tl, mod);
+			return;
 		}
 	}
 
@@ -256,4 +267,83 @@ vcc_ParseImport(struct vcc *tl)
 	Fh(tl, 0, "static struct vmod_priv vmod_priv_%.*s;\n", PF(mod));
 	Fh(tl, 0, "\n%s\n", vmd->proto);
 	Fh(tl, 0, "\n/* --- END VMOD %.*s --- */\n\n", PF(mod));
+}
+
+void
+vcc_ParseNew(struct vcc *tl)
+{
+	struct symbol *sy1, *sy2, *sy3;
+	struct inifin *ifp;
+	const char *p, *s_obj;
+	char buf1[128];
+	char buf2[128];
+
+	vcc_NextToken(tl);
+	ExpectErr(tl, ID);
+	vcc_ExpectCid(tl, "VCL object");
+	ERRCHK(tl);
+	sy1 = VCC_HandleSymbol(tl, tl->t, INSTANCE, "XXX");
+	ERRCHK(tl);
+
+	/* We allow implicit use of VMOD objects:  Pretend it's ref'ed */
+	sy1->nref++;
+
+	vcc_NextToken(tl);
+
+	ExpectErr(tl, '=');
+	vcc_NextToken(tl);
+
+	ExpectErr(tl, ID);
+	sy2 = VCC_SymbolTok(tl, NULL, tl->t, SYM_OBJECT, 0);
+	if (sy2 == NULL) {
+		VSB_printf(tl->sb, "Symbol not found: ");
+		vcc_ErrToken(tl, tl->t);
+		VSB_printf(tl->sb, " at ");
+		vcc_ErrWhere(tl, tl->t);
+		return;
+	}
+	vcc_NextToken(tl);
+
+	p = sy2->extra;
+
+	s_obj = p;
+	p += strlen(p) + 1;
+
+	Fh(tl, 0, "static %s *vo_%s;\n\n", p, sy1->name);
+	p += strlen(p) + 1;
+
+	bprintf(buf1, ", &vo_%s, \"%s\"", sy1->name, sy1->name);
+	vcc_Eval_Func(tl, p, buf1, sy2);
+	ExpectErr(tl, ';');
+
+	while (p[0] != '\0' || p[1] != '\0' || p[2] != '\0')
+		p++;
+	p += 3;
+
+	ifp = New_IniFin(tl);
+	p += strlen(p) + 1;
+	VSB_printf(ifp->fin, "\t\t%s(&vo_%s);", p, sy1->name);
+
+	while (p[0] != '\0' || p[1] != '\0' || p[2] != '\0')
+		p++;
+	p += 3;
+
+	/* Instantiate symbols for the methods */
+	bprintf(buf1, ", vo_%s", sy1->name);
+	while (*p != '\0') {
+		p += strlen(s_obj);
+		bprintf(buf2, "%s%s", sy1->name, p);
+		sy3 = VCC_Symbol(tl, NULL, buf2, NULL, SYM_FUNC, 1);
+		AN(sy3);
+		sy3->eval = vcc_Eval_SymFunc;
+		p += strlen(p) + 1;
+		sy3->eval_priv = p;
+		sy3->fmt = VCC_Type(p);
+		sy3->extra = TlDup(tl, buf1);
+		sy3->vmod = sy2->vmod;
+		while (p[0] != '\0' || p[1] != '\0' || p[2] != '\0')
+			p++;
+		p += 3;
+	}
+	sy1->def_e = tl->t;
 }

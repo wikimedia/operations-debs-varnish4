@@ -22,6 +22,11 @@ bereq.backend
 
 	
 	This is the backend or director we attempt to fetch from.
+	When set to a director, reading this variable returns
+	an actual backend if the director has resolved immediately,
+	or the director otherwise.
+	When used in string context, returns the name of the director
+	or backend, respectively.
 	
 
 bereq.between_bytes_timeout
@@ -35,6 +40,16 @@ bereq.between_bytes_timeout
 	
 	The time in seconds to wait between each received byte from the
 	backend.  Not available in pipe mode.
+	
+
+bereq.body
+
+	Type: BODY
+
+	Writable from: vcl_backend_fetch
+
+	
+	The request body.
 	
 
 bereq.connect_timeout
@@ -116,8 +131,8 @@ bereq.uncacheable
 
 	
 	Indicates whether this request is uncacheable due
-	to a pass in the client side or a hit on an existing
-	uncacheable object (aka hit-for-pass).
+	to a pass in the client side or a hit on an hit-for-pass
+	object.
 	
 
 bereq.url
@@ -175,6 +190,7 @@ beresp.backend
 	This is the backend we fetched from.  If bereq.backend
 	was set to a director, this will be the backend selected
 	by the director.
+	When used in string context, returns its name.
 	
 
 beresp.backend.ip
@@ -195,6 +211,17 @@ beresp.backend.name
 
 	
 	Name of the backend this response was fetched from.
+	Same as beresp.backend.
+	
+
+beresp.body
+
+	Type: BODY
+
+	Writable from: vcl_backend_error
+
+	
+	The response body.
 	
 
 beresp.do_esi
@@ -332,6 +359,21 @@ beresp.status
 	
 	The HTTP status code returned by the server.
 	
+	Status codes >1000 can be set for vcl-internal
+	purposes and will be taken modulo 1000 on delivery.
+	
+
+beresp.storage
+
+	Type: STEVEDORE
+
+	Readable from: vcl_backend_response, vcl_backend_error
+
+	Writable from: vcl_backend_response, vcl_backend_error
+
+	
+	The storage backend to use to save this object.
+	
 
 beresp.storage_hint
 
@@ -342,8 +384,9 @@ beresp.storage_hint
 	Writable from: vcl_backend_response, vcl_backend_error
 
 	
-	Hint to Varnish that you want to save this object to a
-	particular storage backend.
+	Deprecated. Hint to Varnish that you want to
+	save this object to a particular storage backend.
+	Use beresp.storage instead.
 	
 
 beresp.ttl
@@ -370,7 +413,7 @@ beresp.uncacheable
 	Inherited from bereq.uncacheable, see there.
 	
 	Setting this variable makes the object uncacheable, which may
-	get stored as a hit-for-pass object in the cache.
+	get stored as a hit-for-miss object in the cache.
 	
 	Clearing the variable has no effect and will log the warning
 	"Ignoring attempt to reset beresp.uncacheable".
@@ -401,14 +444,15 @@ client.identity
 
 	
 	Identification of the client, used to load balance
-	in the client director.
+	in the client director. Defaults to the client's IP
+	address.
 	
 
 client.ip
 
 	Type: IP
 
-	Readable from: client
+	Readable from: client, backend
 
 	
 	The client's IP address.
@@ -421,7 +465,7 @@ local.ip
 
 	Type: IP
 
-	Readable from: client
+	Readable from: client, backend
 
 	
 	The IP address of the local end of the TCP connection.
@@ -448,7 +492,7 @@ obj.age
 
 	Type: DURATION
 
-	Readable from: vcl_hit
+	Readable from: vcl_hit, vcl_deliver
 
 	
 	The age of the object.
@@ -458,7 +502,7 @@ obj.grace
 
 	Type: DURATION
 
-	Readable from: vcl_hit
+	Readable from: vcl_hit, vcl_deliver
 
 	
 	The object's remaining grace period in seconds.
@@ -489,7 +533,7 @@ obj.keep
 
 	Type: DURATION
 
-	Readable from: vcl_hit
+	Readable from: vcl_hit, vcl_deliver
 
 	
 	The object's remaining keep period in seconds.
@@ -502,7 +546,7 @@ obj.proto
 	Readable from: vcl_hit
 
 	
-	The HTTP protocol version used when the object was retrieved.
+	The HTTP protocol version stored with the object.
 	
 
 obj.reason
@@ -512,7 +556,7 @@ obj.reason
 	Readable from: vcl_hit
 
 	
-	The HTTP status message returned by the server.
+	The HTTP reason phrase stored with the object.
 	
 
 obj.status
@@ -522,14 +566,14 @@ obj.status
 	Readable from: vcl_hit
 
 	
-	The HTTP status code returned by the server.
+	The HTTP status code stored with the object.
 	
 
 obj.ttl
 
 	Type: DURATION
 
-	Readable from: vcl_hit
+	Readable from: vcl_hit, vcl_deliver
 
 	
 	The object's remaining time to live, in seconds.
@@ -542,7 +586,8 @@ obj.uncacheable
 	Readable from: vcl_deliver
 
 	
-	Whether the object is uncacheable (pass or hit-for-pass).
+	Whether the object is uncacheable (pass, hit-for-pass or
+	hit-for-miss).
 	
 
 remote
@@ -552,7 +597,7 @@ remote.ip
 
 	Type: IP
 
-	Readable from: client
+	Readable from: client, backend
 
 	
 	The IP address of the other end of the TCP connection.
@@ -583,6 +628,11 @@ req.backend_hint
 
 	
 	Set bereq.backend to this if we attempt to fetch.
+	When set to a director, reading this variable returns
+	an actual backend if the director has resolved immediately,
+	or the director otherwise.
+	When used in string context, returns the name of the director
+	or backend, respectively.
 	
 
 req.can_gzip
@@ -694,6 +744,18 @@ req.restarts
 	A count of how many times this request has been restarted.
 	
 
+req.storage
+
+	Type: STEVEDORE
+
+	Readable from: vcl_recv
+
+	Writable from: vcl_recv
+
+	
+	The storage backend to use to save this request body.
+	
+
 req.ttl
 
 	Type: DURATION
@@ -703,6 +765,14 @@ req.ttl
 	Writable from: client
 
 	
+	Upper limit on the object age for cache lookups to return hit.
+	
+	Usage of req.ttl should be replaced with a check on
+	obj.ttl in vcl_hit, returning miss when needed, but
+	this currently hits bug #1799, so an additional
+	workaround is required.
+	
+	Deprecated and scheduled for removal with varnish release 7.
 	
 
 req.url
@@ -790,6 +860,16 @@ resp
 	The entire response HTTP data structure.
 	
 
+resp.body
+
+	Type: BODY
+
+	Writable from: vcl_synth
+
+	
+	The response body.
+	
+
 resp.http.
 
 	Type: HEADER
@@ -851,6 +931,10 @@ resp.status
 	Assigning a HTTP standardized code to resp.status will also
 	set resp.reason to the corresponding status message.
 	
+	resp.status 200 will get changed into 304 by core code after
+	a return(deliver) from vcl_deliver for conditional requests
+	to cached content if validation succeeds.
+	
 
 server
 ~~~~~~
@@ -882,7 +966,7 @@ server.ip
 
 	Type: IP
 
-	Readable from: client
+	Readable from: client, backend
 
 	
 	The IP address of the socket on which the client

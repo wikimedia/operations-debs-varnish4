@@ -93,7 +93,8 @@ host_triplet = @host@
 target_triplet = @target@
 subdir = etc
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/varnish.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
 	$(top_srcdir)/m4/ax_lib_readline.m4 \
 	$(top_srcdir)/m4/ax_pthread.m4 \
@@ -104,7 +105,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-DIST_COMMON = $(srcdir)/Makefile.am $(dist_doc_DATA) \
+DIST_COMMON = $(srcdir)/Makefile.am $(dist_doc_DATA) $(dist_vcl_DATA) \
 	$(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
@@ -156,8 +157,8 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(docdir)"
-DATA = $(dist_doc_DATA)
+am__installdirs = "$(DESTDIR)$(docdir)" "$(DESTDIR)$(vcldir)"
+DATA = $(dist_doc_DATA) $(dist_vcl_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -189,6 +190,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTCFLAGS = @EXTCFLAGS@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -205,7 +207,6 @@ LIBM = @LIBM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
-LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -217,6 +218,7 @@ MKDIR_P = @MKDIR_P@
 NET_LIBS = @NET_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NSL_LIBS = @NSL_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -239,13 +241,20 @@ PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 PYTHON = @PYTHON@
+PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
+PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PREFIX = @PYTHON_PREFIX@
+PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
 RST2HTML = @RST2HTML@
 RST2MAN = @RST2MAN@
 RT_LIBS = @RT_LIBS@
+SAN_CFLAGS = @SAN_CFLAGS@
+SAN_LDFLAGS = @SAN_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VARNISH_STATE_DIR = @VARNISH_STATE_DIR@
 VCC_CC = @VCC_CC@
@@ -294,9 +303,14 @@ mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
+pkgpyexecdir = @pkgpyexecdir@
+pkgpythondir = @pkgpythondir@
+pkgsysconfdir = @pkgsysconfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+pyexecdir = @pyexecdir@
+pythondir = @pythondir@
 runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
@@ -310,11 +324,12 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-varnishconfdir = @varnishconfdir@
 DISTCLEANFILES = builtin.vcl
 dist_doc_DATA = builtin.vcl \
 		example.vcl
 
+vcldir = $(datarootdir)/varnish/vcl
+dist_vcl_DATA = devicedetect.vcl
 all: all-am
 
 .SUFFIXES:
@@ -374,6 +389,27 @@ uninstall-dist_docDATA:
 	@list='$(dist_doc_DATA)'; test -n "$(docdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	dir='$(DESTDIR)$(docdir)'; $(am__uninstall_files_from_dir)
+install-dist_vclDATA: $(dist_vcl_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_vcl_DATA)'; test -n "$(vcldir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(vcldir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(vcldir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(vcldir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(vcldir)" || exit $$?; \
+	done
+
+uninstall-dist_vclDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_vcl_DATA)'; test -n "$(vcldir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(vcldir)'; $(am__uninstall_files_from_dir)
 tags TAGS:
 
 ctags CTAGS:
@@ -415,7 +451,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(docdir)"; do \
+	for dir in "$(DESTDIR)$(docdir)" "$(DESTDIR)$(vcldir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -469,7 +505,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-dist_docDATA
+install-data-am: install-dist_docDATA install-dist_vclDATA
 
 install-dvi: install-dvi-am
 
@@ -513,7 +549,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-dist_docDATA
+uninstall-am: uninstall-dist_docDATA uninstall-dist_vclDATA
 
 .MAKE: install-am install-strip
 
@@ -521,14 +557,15 @@ uninstall-am: uninstall-dist_docDATA
 	cscopelist-am ctags-am distclean distclean-generic \
 	distclean-libtool distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am \
-	install-dist_docDATA install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags-am uninstall \
-	uninstall-am uninstall-dist_docDATA
+	install-dist_docDATA install-dist_vclDATA install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags-am uninstall uninstall-am uninstall-dist_docDATA \
+	uninstall-dist_vclDATA
 
 .PRECIOUS: Makefile
 

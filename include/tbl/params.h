@@ -30,6 +30,15 @@
 
 /*lint -save -e525 -e539 */
 
+#if defined(XYZZY)
+  #error "Temporary macro XYZZY already defined"
+#endif
+
+#if defined(HAVE_ACCEPT_FILTERS)
+  #define XYZZY MUST_RESTART
+#else
+  #define XYZZY NOT_IMPLEMENTED
+#endif
 PARAM(
 	/* name */	accept_filter,
 	/* typ */	bool,
@@ -37,12 +46,13 @@ PARAM(
 	/* max */	NULL,
 	/* default */	"on",
 	/* units */	"bool",
-	/* flags */	MUST_RESTART,
+	/* flags */	XYZZY,
 	/* s-text */
-	"Enable kernel accept-filters (if available in the kernel).",
+	"Enable kernel accept-filters.",
 	/* l-text */	NULL,
 	/* func */	NULL
 )
+#undef XYZZY
 
 PARAM(
 	/* name */	acceptor_sleep_decay,
@@ -127,6 +137,30 @@ PARAM(
 )
 
 PARAM(
+	/* name */	ban_cutoff,
+	/* typ */	uint,
+	/* min */	"0",
+	/* max */	NULL,
+	/* default */	"0",
+	/* units */	"bans",
+	/* flags */	EXPERIMENTAL,
+	/* s-text */
+	"Expurge long tail content from the cache to keep the number of bans "
+	"below this value. 0 disables.\n"
+	"This is a safety net to avoid bad response times due to bans being "
+	"tested at lookup time. Setting a cutoff trades response time for "
+	"cache efficiency. The recommended value is proportional to "
+	"rate(bans_lurker_tests_tested) / n_objects while the ban lurker is "
+	"working, which is the number of bans the system can sustain. The "
+	"additional latency due to request ban testing is in the order of "
+	"ban_cutoff / rate(bans_lurker_tests_tested). For example, for "
+	"rate(bans_lurker_tests_tested) = 2M/s and a tolerable latency of "
+	"100ms, a good value for ban_cutoff may be 200K.",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+PARAM(
 	/* name */	ban_lurker_age,
 	/* typ */	timeout,
 	/* min */	"0",
@@ -137,8 +171,10 @@ PARAM(
 	/* s-text */
 	"The ban lurker will ignore bans until they are this old.  "
 	"When a ban is added, the active traffic will be tested against it "
-	"as part of object lookup.  This parameter "
-	"holds the ban-lurker off, until the rush is over.",
+	"as part of object lookup.  Because many applications issue bans in "
+	"bursts, this parameter holds the ban-lurker off until the rush is "
+	"over.\n"
+	"This should be set to the approximate time which a ban-burst takes.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -172,6 +208,21 @@ PARAM(
 	"objects."
 	"  Use this to pace the ban-lurker if it eats too many resources.\n"
 	"A value of zero will disable the ban lurker entirely.",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+PARAM(
+	/* name */	ban_lurker_holdoff,
+	/* typ */	timeout,
+	/* min */	"0",
+	/* max */	NULL,
+	/* default */	"0.010",
+	/* units */	"seconds",
+	/* flags */	EXPERIMENTAL,
+	/* s-text */
+	"How long the ban lurker sleeps when giving way to lookup"
+	" due to lock contention.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -919,23 +970,6 @@ PARAM(
 )
 
 PARAM(
-	/* name */	session_max,
-	/* typ */	uint,
-	/* min */	"1000",
-	/* max */	NULL,
-	/* default */	"100000",
-	/* units */	"sessions",
-	/* flags */	0,
-	/* s-text */
-	"Maximum number of sessions we will allocate from one pool before "
-	"just dropping connections.\n"
-	"This is mostly an anti-DoS measure, and setting it plenty high "
-	"should not hurt, as long as you have the memory for it.",
-	/* l-text */	"",
-	/* func */	NULL
-)
-
-PARAM(
 	/* name */	shm_reclen,
 	/* typ */	vsl_reclen,
 	/* min */	"16b",
@@ -993,6 +1027,11 @@ PARAM(
 	/* func */	NULL
 )
 
+#if defined(HAVE_TCP_FASTOPEN)
+  #define XYZZY MUST_RESTART
+#else
+  #define XYZZY NOT_IMPLEMENTED
+#endif
 PARAM(
 	/* name */	tcp_fastopen,
 	/* typ */	bool,
@@ -1000,38 +1039,41 @@ PARAM(
 	/* max */	NULL,
 	/* default */	"off",
 	/* units */	"bool",
-	/* flags */	MUST_RESTART,
+	/* flags */	XYZZY,
 	/* s-text */
-	"Enable TCP Fast Open extension (if available in the kernel).",
+	"Enable TCP Fast Open extension.",
 	/* l-text */	NULL,
 	/* func */	NULL
 )
+#undef XYZZY
 
-#if 0
-/* actual location mgt_param_tcp.c */
+#if defined(HAVE_TCP_KEEP)
+  #define XYZZY	EXPERIMENTAL
+#else
+  #define XYZZY	NOT_IMPLEMENTED
+#endif
 PARAM(
 	/* name */	tcp_keepalive_intvl,
 	/* typ */	timeout,
-	/* min */	"1.000",
-	/* max */	"100.000",
-	/* default */	"5.000",
+	/* min */	"1",
+	/* max */	"100",
+	/* default */	"",
 	/* units */	"seconds",
-	/* flags */	EXPERIMENTAL,
+	/* flags */	XYZZY,
 	/* s-text */
 	"The number of seconds between TCP keep-alive probes.",
 	/* l-text */	"",
 	/* func */	NULL
 )
 
-/* actual location mgt_param_tcp.c */
 PARAM(
 	/* name */	tcp_keepalive_probes,
 	/* typ */	uint,
 	/* min */	"1",
 	/* max */	"100",
-	/* default */	"5",
+	/* default */	"",
 	/* units */	"probes",
-	/* flags */	EXPERIMENTAL,
+	/* flags */	XYZZY,
 	/* s-text */
 	"The maximum number of TCP keep-alive probes to send before giving "
 	"up and killing the connection if no response is obtained from the "
@@ -1040,22 +1082,23 @@ PARAM(
 	/* func */	NULL
 )
 
-/* actual location mgt_param_tcp.c */
 PARAM(
 	/* name */	tcp_keepalive_time,
 	/* typ */	timeout,
-	/* min */	"1.000",
-	/* max */	"7200.000",
-	/* default */	"600.000",
+	/* min */	"1",
+	/* max */	"7200",
+	/* default */	"",
 	/* units */	"seconds",
-	/* flags */	EXPERIMENTAL,
+	/* flags */	XYZZY,
 	/* s-text */
 	"The number of seconds a connection needs to be idle before TCP "
 	"begins sending out keep-alive probes.",
 	/* l-text */	"",
 	/* func */	NULL
 )
+#undef XYZZY
 
+#if 0
 /* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_add_delay,
@@ -1072,7 +1115,7 @@ PARAM(
 	"creating threads.\n"
 	"Set this to a few milliseconds if you see the 'threads_failed' "
 	"counter grow too much.\n"
-	"Setting this too high results in insuffient worker threads.",
+	"Setting this too high results in insufficient worker threads.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1157,6 +1200,7 @@ PARAM(
 	/* l-text */	"",
 	/* func */	NULL
 )
+
 /* actual location mgt_pool.c */
 PARAM(
 	/* name */	thread_pool_reserve,
@@ -1409,7 +1453,7 @@ PARAM(
 	/* typ */	string,
 	/* min */	NULL,
 	/* max */	NULL,
-	/* default */	/opt/varnish/etc/varnish,
+	/* default */	"/opt/varnish/etc/varnish",
 	/* units */	NULL,
 	/* flags */	0,
 	/* s-text */
@@ -1425,11 +1469,11 @@ PARAM(
 	/* typ */	string,
 	/* min */	NULL,
 	/* max */	NULL,
-	/* default */	/opt/varnish/lib/varnish/vmods,
+	/* default */	"/opt/varnish/lib/varnish/vmods",
 	/* units */	NULL,
 	/* flags */	0,
 	/* s-text */
-	"Directory where VCL modules are to be found.",
+	"Directory where Varnish modules are to be found.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1446,6 +1490,8 @@ PARAM(
 	/* s-text */
 	"Bytes of (req-/backend-)workspace dedicated to buffering VSL "
 	"records.\n"
+	"When this parameter is adjusted, most likely workspace_client "
+	"and workspace_backend will have to be adjusted by the same amount.\n\n"
 	"Setting this too high costs memory, setting it too low will cause "
 	"more VSL flushes and likely increase lock-contention on the VSL "
 	"mutex.\n\n"
@@ -1494,7 +1540,7 @@ PARAM(
 	/* name */	vsl_space,
 	/* typ */	bytes,
 	/* min */	"1M",
-	/* max */	NULL,
+	/* max */	"4G",
 	/* default */	"80M",
 	/* units */	"bytes",
 	/* flags */	MUST_RESTART,
@@ -1511,7 +1557,7 @@ PARAM(
 	/* name */	vsm_space,
 	/* typ */	bytes,
 	/* min */	"1M",
-	/* max */	NULL,
+	/* max */	"4G",
 	/* default */	"1M",
 	/* units */	"bytes",
 	/* flags */	MUST_RESTART,
@@ -1530,7 +1576,7 @@ PARAM(
 	/* typ */	waiter,
 	/* min */	NULL,
 	/* max */	NULL,
-	/* default */	kqueue (possible values: kqueue, poll),
+	/* default */	"kqueue (possible values: kqueue, poll)",
 	/* units */	NULL,
 	/* flags */	MUST_RESTART| WIZARD,
 	/* s-text */
@@ -1564,8 +1610,12 @@ PARAM(
 	/* units */	"bytes",
 	/* flags */	DELAYED_EFFECT,
 	/* s-text */
-	"Bytes of HTTP protocol workspace for clients HTTP req/resp.  If "
-	"larger than 4k, use a multiple of 4k for VM efficiency.",
+	"Bytes of HTTP protocol workspace for clients HTTP req/resp.  Use a "
+	"multiple of 4k for VM efficiency.\n"
+	"For HTTP/2 compliance this must be at least 20k, in order to "
+	"receive fullsize (=16k) frames from the client.   That usually "
+	"happens only in POST/PUT bodies.  For other traffic-patterns "
+	"smaller values work just fine.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1604,5 +1654,39 @@ PARAM(
 	/* l-text */	"",
 	/* func */	NULL
 )
+
+PARAM(
+	/* name */	h2_rx_window_low_water,
+	/* typ */	bytes_u,
+	/* min */	"65535",
+	/* max */	"1G",
+	/* default */	"10M",
+	/* units */	"bytes",
+	/* flags */	WIZARD,
+	/* s-text */
+	"HTTP2 Receive Window low water mark.\n"
+	"We try to keep the window at least this big\n"
+	"Only affects incoming request bodies (ie: POST, PUT etc.)",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+PARAM(
+	/* name */	h2_rx_window_increment,
+	/* typ */	bytes_u,
+	/* min */	"1M",
+	/* max */	"1G",
+	/* default */	"1M",
+	/* units */	"bytes",
+	/* flags */	WIZARD,
+	/* s-text */
+	"HTTP2 Receive Window Increments.\n"
+	"How big credits we send in WINDOW_UPDATE frames\n"
+	"Only affects incoming request bodies (ie: POST, PUT etc.)",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+#undef PARAM
 
 /*lint -restore */

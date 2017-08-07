@@ -95,7 +95,8 @@ bin_PROGRAMS = varnishstat$(EXEEXT)
 noinst_PROGRAMS = vsc2rst$(EXEEXT)
 subdir = bin/varnishstat
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/varnish.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
 	$(top_srcdir)/m4/ax_lib_readline.m4 \
 	$(top_srcdir)/m4/ax_pthread.m4 \
@@ -113,13 +114,12 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
-am_varnishstat_OBJECTS = varnishstat.$(OBJEXT) \
-	varnishstat_curses.$(OBJEXT) vas.$(OBJEXT) version.$(OBJEXT) \
-	vtim.$(OBJEXT)
+am_varnishstat_OBJECTS = varnishstat-varnishstat.$(OBJEXT) \
+	varnishstat-varnishstat_curses.$(OBJEXT) \
+	varnishstat-varnishstat_options.$(OBJEXT)
 varnishstat_OBJECTS = $(am_varnishstat_OBJECTS)
 am__DEPENDENCIES_1 =
 varnishstat_DEPENDENCIES =  \
-	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1)
@@ -127,6 +127,9 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+varnishstat_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(varnishstat_CFLAGS) \
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_vsc2rst_OBJECTS = vsc2rst.$(OBJEXT)
 vsc2rst_OBJECTS = $(am_vsc2rst_OBJECTS)
 vsc2rst_LDADD = $(LDADD)
@@ -221,6 +224,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTCFLAGS = @EXTCFLAGS@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -237,7 +241,6 @@ LIBM = @LIBM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
-LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -249,6 +252,7 @@ MKDIR_P = @MKDIR_P@
 NET_LIBS = @NET_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NSL_LIBS = @NSL_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -271,13 +275,20 @@ PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 PYTHON = @PYTHON@
+PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
+PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PREFIX = @PYTHON_PREFIX@
+PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
 RST2HTML = @RST2HTML@
 RST2MAN = @RST2MAN@
 RT_LIBS = @RT_LIBS@
+SAN_CFLAGS = @SAN_CFLAGS@
+SAN_LDFLAGS = @SAN_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VARNISH_STATE_DIR = @VARNISH_STATE_DIR@
 VCC_CC = @VCC_CC@
@@ -326,9 +337,14 @@ mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
+pkgpyexecdir = @pkgpyexecdir@
+pkgpythondir = @pkgpythondir@
+pkgsysconfdir = @pkgsysconfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+pyexecdir = @pyexecdir@
+pythondir = @pythondir@
 runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
@@ -342,23 +358,23 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-varnishconfdir = @varnishconfdir@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)/include
 
 varnishstat_SOURCES = \
 	varnishstat.h \
-	\
 	varnishstat.c \
 	varnishstat_curses.c \
-	$(top_srcdir)/lib/libvarnish/vas.c \
-	$(top_srcdir)/lib/libvarnish/version.c \
-	$(top_srcdir)/lib/libvarnish/vtim.c
+	varnishstat_options.h \
+	varnishstat_options.c
+
+varnishstat_CFLAGS = \
+	@SAN_CFLAGS@
 
 varnishstat_LDADD = \
-	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
+	@SAN_LDFLAGS@ \
 	@CURSES_LIB@ ${RT_LIBS} ${LIBM} ${PTHREAD_LIBS}
 
 vsc2rst_SOURCES = vsc2rst.c $(top_srcdir)/include/tbl/vsc_fields.h
@@ -456,7 +472,7 @@ clean-noinstPROGRAMS:
 
 varnishstat$(EXEEXT): $(varnishstat_OBJECTS) $(varnishstat_DEPENDENCIES) $(EXTRA_varnishstat_DEPENDENCIES) 
 	@rm -f varnishstat$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(varnishstat_OBJECTS) $(varnishstat_LDADD) $(LIBS)
+	$(AM_V_CCLD)$(varnishstat_LINK) $(varnishstat_OBJECTS) $(varnishstat_LDADD) $(LIBS)
 
 vsc2rst$(EXEEXT): $(vsc2rst_OBJECTS) $(vsc2rst_DEPENDENCIES) $(EXTRA_vsc2rst_DEPENDENCIES) 
 	@rm -f vsc2rst$(EXEEXT)
@@ -468,12 +484,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishstat.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishstat_curses.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vas.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/version.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishstat-varnishstat.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishstat-varnishstat_curses.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/varnishstat-varnishstat_options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vsc2rst.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vtim.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -496,47 +510,47 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
 
-vas.o: $(top_srcdir)/lib/libvarnish/vas.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT vas.o -MD -MP -MF $(DEPDIR)/vas.Tpo -c -o vas.o `test -f '$(top_srcdir)/lib/libvarnish/vas.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vas.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/vas.Tpo $(DEPDIR)/vas.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vas.c' object='vas.o' libtool=no @AMDEPBACKSLASH@
+varnishstat-varnishstat.o: varnishstat.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -MT varnishstat-varnishstat.o -MD -MP -MF $(DEPDIR)/varnishstat-varnishstat.Tpo -c -o varnishstat-varnishstat.o `test -f 'varnishstat.c' || echo '$(srcdir)/'`varnishstat.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishstat-varnishstat.Tpo $(DEPDIR)/varnishstat-varnishstat.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='varnishstat.c' object='varnishstat-varnishstat.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o vas.o `test -f '$(top_srcdir)/lib/libvarnish/vas.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vas.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -c -o varnishstat-varnishstat.o `test -f 'varnishstat.c' || echo '$(srcdir)/'`varnishstat.c
 
-vas.obj: $(top_srcdir)/lib/libvarnish/vas.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT vas.obj -MD -MP -MF $(DEPDIR)/vas.Tpo -c -o vas.obj `if test -f '$(top_srcdir)/lib/libvarnish/vas.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vas.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vas.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/vas.Tpo $(DEPDIR)/vas.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vas.c' object='vas.obj' libtool=no @AMDEPBACKSLASH@
+varnishstat-varnishstat.obj: varnishstat.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -MT varnishstat-varnishstat.obj -MD -MP -MF $(DEPDIR)/varnishstat-varnishstat.Tpo -c -o varnishstat-varnishstat.obj `if test -f 'varnishstat.c'; then $(CYGPATH_W) 'varnishstat.c'; else $(CYGPATH_W) '$(srcdir)/varnishstat.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishstat-varnishstat.Tpo $(DEPDIR)/varnishstat-varnishstat.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='varnishstat.c' object='varnishstat-varnishstat.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o vas.obj `if test -f '$(top_srcdir)/lib/libvarnish/vas.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vas.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vas.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -c -o varnishstat-varnishstat.obj `if test -f 'varnishstat.c'; then $(CYGPATH_W) 'varnishstat.c'; else $(CYGPATH_W) '$(srcdir)/varnishstat.c'; fi`
 
-version.o: $(top_srcdir)/lib/libvarnish/version.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT version.o -MD -MP -MF $(DEPDIR)/version.Tpo -c -o version.o `test -f '$(top_srcdir)/lib/libvarnish/version.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/version.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/version.Tpo $(DEPDIR)/version.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/version.c' object='version.o' libtool=no @AMDEPBACKSLASH@
+varnishstat-varnishstat_curses.o: varnishstat_curses.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -MT varnishstat-varnishstat_curses.o -MD -MP -MF $(DEPDIR)/varnishstat-varnishstat_curses.Tpo -c -o varnishstat-varnishstat_curses.o `test -f 'varnishstat_curses.c' || echo '$(srcdir)/'`varnishstat_curses.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishstat-varnishstat_curses.Tpo $(DEPDIR)/varnishstat-varnishstat_curses.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='varnishstat_curses.c' object='varnishstat-varnishstat_curses.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o version.o `test -f '$(top_srcdir)/lib/libvarnish/version.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/version.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -c -o varnishstat-varnishstat_curses.o `test -f 'varnishstat_curses.c' || echo '$(srcdir)/'`varnishstat_curses.c
 
-version.obj: $(top_srcdir)/lib/libvarnish/version.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT version.obj -MD -MP -MF $(DEPDIR)/version.Tpo -c -o version.obj `if test -f '$(top_srcdir)/lib/libvarnish/version.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/version.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/version.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/version.Tpo $(DEPDIR)/version.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/version.c' object='version.obj' libtool=no @AMDEPBACKSLASH@
+varnishstat-varnishstat_curses.obj: varnishstat_curses.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -MT varnishstat-varnishstat_curses.obj -MD -MP -MF $(DEPDIR)/varnishstat-varnishstat_curses.Tpo -c -o varnishstat-varnishstat_curses.obj `if test -f 'varnishstat_curses.c'; then $(CYGPATH_W) 'varnishstat_curses.c'; else $(CYGPATH_W) '$(srcdir)/varnishstat_curses.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishstat-varnishstat_curses.Tpo $(DEPDIR)/varnishstat-varnishstat_curses.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='varnishstat_curses.c' object='varnishstat-varnishstat_curses.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o version.obj `if test -f '$(top_srcdir)/lib/libvarnish/version.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/version.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/version.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -c -o varnishstat-varnishstat_curses.obj `if test -f 'varnishstat_curses.c'; then $(CYGPATH_W) 'varnishstat_curses.c'; else $(CYGPATH_W) '$(srcdir)/varnishstat_curses.c'; fi`
 
-vtim.o: $(top_srcdir)/lib/libvarnish/vtim.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT vtim.o -MD -MP -MF $(DEPDIR)/vtim.Tpo -c -o vtim.o `test -f '$(top_srcdir)/lib/libvarnish/vtim.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vtim.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/vtim.Tpo $(DEPDIR)/vtim.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vtim.c' object='vtim.o' libtool=no @AMDEPBACKSLASH@
+varnishstat-varnishstat_options.o: varnishstat_options.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -MT varnishstat-varnishstat_options.o -MD -MP -MF $(DEPDIR)/varnishstat-varnishstat_options.Tpo -c -o varnishstat-varnishstat_options.o `test -f 'varnishstat_options.c' || echo '$(srcdir)/'`varnishstat_options.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishstat-varnishstat_options.Tpo $(DEPDIR)/varnishstat-varnishstat_options.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='varnishstat_options.c' object='varnishstat-varnishstat_options.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o vtim.o `test -f '$(top_srcdir)/lib/libvarnish/vtim.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/libvarnish/vtim.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -c -o varnishstat-varnishstat_options.o `test -f 'varnishstat_options.c' || echo '$(srcdir)/'`varnishstat_options.c
 
-vtim.obj: $(top_srcdir)/lib/libvarnish/vtim.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT vtim.obj -MD -MP -MF $(DEPDIR)/vtim.Tpo -c -o vtim.obj `if test -f '$(top_srcdir)/lib/libvarnish/vtim.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vtim.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vtim.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/vtim.Tpo $(DEPDIR)/vtim.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/lib/libvarnish/vtim.c' object='vtim.obj' libtool=no @AMDEPBACKSLASH@
+varnishstat-varnishstat_options.obj: varnishstat_options.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -MT varnishstat-varnishstat_options.obj -MD -MP -MF $(DEPDIR)/varnishstat-varnishstat_options.Tpo -c -o varnishstat-varnishstat_options.obj `if test -f 'varnishstat_options.c'; then $(CYGPATH_W) 'varnishstat_options.c'; else $(CYGPATH_W) '$(srcdir)/varnishstat_options.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/varnishstat-varnishstat_options.Tpo $(DEPDIR)/varnishstat-varnishstat_options.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='varnishstat_options.c' object='varnishstat-varnishstat_options.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o vtim.obj `if test -f '$(top_srcdir)/lib/libvarnish/vtim.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/libvarnish/vtim.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/libvarnish/vtim.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(varnishstat_CFLAGS) $(CFLAGS) -c -o varnishstat-varnishstat_options.obj `if test -f 'varnishstat_options.c'; then $(CYGPATH_W) 'varnishstat_options.c'; else $(CYGPATH_W) '$(srcdir)/varnishstat_options.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

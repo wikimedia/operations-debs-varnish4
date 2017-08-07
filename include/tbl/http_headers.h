@@ -36,15 +36,7 @@
  *
  */
 
-
 /*lint -save -e525 -e539 */
-
-#ifndef HTTPH_R_PASS
-#define HTTPH_R_PASS	(1 << 0)	/* Request (c->b) in pass mode */
-#define HTTPH_R_FETCH	(1 << 1)	/* Request (c->b) for fetch */
-#define HTTPH_A_INS	(1 << 2)	/* Response (b->o) for insert */
-#define HTTPH_A_PASS	(1 << 3)	/* Response (b->o) for pass */
-#endif
 
 /* Shorthand for this file only, to keep table narrow */
 
@@ -71,7 +63,7 @@ H("Cache-Control",	H_Cache_Control,	  F    )	// 2616 14.9
 H("Connection",		H_Connection,		P|F|I|S)	// 2616 14.10
 H("Content-Encoding",	H_Content_Encoding,	0      )	// 2616 14.11
 H("Content-Language",	H_Content_Language,	0      )	// 2616 14.12
-H("Content-Length",	H_Content_Length,	  F    )	// 2616 14.13
+H("Content-Length",	H_Content_Length,	0      )	// 2616 14.13
 H("Content-Location",	H_Content_Location,	0      )	// 2616 14.14
 H("Content-MD5",	H_Content_MD5,		0      )	// 2616 14.15
 H("Content-Range",	H_Content_Range,	  F|I  )	// 2616 14.16
@@ -83,7 +75,7 @@ H("Expect",		H_Expect,		0      )	// 2616 14.20
 H("Expires",		H_Expires,		0      )	// 2616 14.21
 H("From",		H_From,			0      )	// 2616 14.22
 H("Host",		H_Host,			0      )	// 2616 14.23
-H("HTTP2-Settings",	H_HTTP2_Settings,	P|F|I|S)	// httpbis-http2-16.txt
+H("HTTP2-Settings",	H_HTTP2_Settings,	P|F|I|S)	// 7540 3.2.1
 H("If-Match",		H_If_Match,		  F    )	// 2616 14.24
 H("If-Modified-Since",	H_If_Modified_Since,	  F    )	// 2616 14.25
 H("If-None-Match",	H_If_None_Match,	  F    )	// 2616 14.26
@@ -116,5 +108,6 @@ H("X-Forwarded-For",	H_X_Forwarded_For,	0      )	// No RFC
 #undef I
 #undef S
 #undef H
+#undef HTTPH
 
 /*lint -restore */

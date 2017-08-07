@@ -59,8 +59,6 @@ struct tcp_pool {
 	int			refcnt;
 	struct lock		mtx;
 
-	struct waitfor		waitfor;
-
 	VTAILQ_HEAD(, vbc)	connlist;
 	int			n_conn;
 
@@ -71,7 +69,6 @@ struct tcp_pool {
 
 };
 
-static struct lock		pools_mtx;
 static VTAILQ_HEAD(, tcp_pool)	pools = VTAILQ_HEAD_INITIALIZER(pools);
 
 /*--------------------------------------------------------------------
@@ -84,7 +81,7 @@ tcp_handle(struct waited *w, enum wait_event ev, double now)
 	struct vbc *vbc;
 	struct tcp_pool *tp;
 
-	CAST_OBJ_NOTNULL(vbc, w->ptr, VBC_MAGIC);
+	CAST_OBJ_NOTNULL(vbc, w->priv1, VBC_MAGIC);
 	(void)ev;
 	(void)now;
 	CHECK_OBJ_NOTNULL(vbc->tcp_pool, TCP_POOL_MAGIC);
@@ -92,7 +89,7 @@ tcp_handle(struct waited *w, enum wait_event ev, double now)
 
 	Lck_Lock(&tp->mtx);
 
-	switch(vbc->state) {
+	switch (vbc->state) {
 	case VBC_STATE_STOLEN:
 		vbc->state = VBC_STATE_USED;
 		VTAILQ_REMOVE(&tp->connlist, vbc, list);
@@ -128,7 +125,6 @@ VBT_Ref(const struct suckaddr *ip4, const struct suckaddr *ip6)
 {
 	struct tcp_pool *tp;
 
-	Lck_Lock(&pools_mtx);
 	VTAILQ_FOREACH(tp, &pools, list) {
 		assert(tp->refcnt > 0);
 		if (ip4 == NULL) {
@@ -150,10 +146,8 @@ VBT_Ref(const struct suckaddr *ip4, const struct suckaddr *ip6)
 				continue;
 		}
 		tp->refcnt++;
-		Lck_Unlock(&pools_mtx);
 		return (tp);
 	}
-	Lck_Unlock(&pools_mtx);
 
 	ALLOC_OBJ(tp, TCP_POOL_MAGIC);
 	AN(tp);
@@ -165,14 +159,7 @@ VBT_Ref(const struct suckaddr *ip4, const struct suckaddr *ip6)
 	Lck_New(&tp->mtx, lck_backend_tcp);
 	VTAILQ_INIT(&tp->connlist);
 	VTAILQ_INIT(&tp->killlist);
-	INIT_OBJ(&tp->waitfor, WAITFOR_MAGIC);
-	tp->waitfor.func = tcp_handle;
-	tp->waitfor.tmo = &cache_param->backend_idle_timeout;
-
-	Lck_Lock(&pools_mtx);
 	VTAILQ_INSERT_HEAD(&pools, tp, list);
-	Lck_Unlock(&pools_mtx);
-
 	return (tp);
 }
 
@@ -186,20 +173,12 @@ VBT_Rel(struct tcp_pool **tpp)
 	struct tcp_pool *tp;
 	struct vbc *vbc, *vbc2;
 
-	AN(tpp);
-	tp = *tpp;
-	*tpp = NULL;
-	CHECK_OBJ_NOTNULL(tp, TCP_POOL_MAGIC);
-	Lck_Lock(&pools_mtx);
+	TAKE_OBJ_NOTNULL(tp, tpp, TCP_POOL_MAGIC);
 	assert(tp->refcnt > 0);
-	if (--tp->refcnt > 0) {
-		Lck_Unlock(&pools_mtx);
+	if (--tp->refcnt > 0)
 		return;
-	}
 	AZ(tp->n_used);
 	VTAILQ_REMOVE(&pools, tp, list);
-	Lck_Unlock(&pools_mtx);
-
 	free(tp->name);
 	free(tp->ip4);
 	free(tp->ip6);
@@ -244,7 +223,7 @@ VBT_Open(const struct tcp_pool *tp, double tmo, const struct suckaddr **sa)
 		*sa = tp->ip6;
 		s = VTCP_connect(tp->ip6, msec);
 		if (s >= 0)
-			return(s);
+			return (s);
 	}
 	*sa = tp->ip4;
 	s = VTCP_connect(tp->ip4, msec);
@@ -252,7 +231,7 @@ VBT_Open(const struct tcp_pool *tp, double tmo, const struct suckaddr **sa)
 		*sa = tp->ip6;
 		s = VTCP_connect(tp->ip6, msec);
 	}
-	return(s);
+	return (s);
 }
 
 /*--------------------------------------------------------------------
@@ -277,11 +256,12 @@ VBT_Recycle(const struct worker *wrk, struct tcp_pool *tp, struct vbc **vbcp)
 	Lck_Lock(&tp->mtx);
 	tp->n_used--;
 
-	vbc->waited->ptr = vbc;
+	vbc->waited->priv1 = vbc;
 	vbc->waited->fd = vbc->fd;
 	vbc->waited->idle = VTIM_real();
 	vbc->state = VBC_STATE_AVAIL;
-	vbc->waited->waitfor =  &tp->waitfor;
+	vbc->waited->func = tcp_handle;
+	vbc->waited->tmo = &cache_param->backend_idle_timeout;
 	if (Wait_Enter(wrk->pool->waiter, vbc->waited)) {
 		VTCP_close(&vbc->fd);
 		memset(vbc, 0x33, sizeof *vbc);
@@ -373,7 +353,7 @@ VBT_Get(struct tcp_pool *tp, double tmo, const struct backend *be,
 		VTAILQ_REMOVE(&tp->connlist, vbc, list);
 		VTAILQ_INSERT_TAIL(&tp->connlist, vbc, list);
 		tp->n_conn--;
-		VSC_C_main->backend_reuse += 1;
+		VSC_C_main->backend_reuse++;
 		vbc->state = VBC_STATE_STOLEN;
 		vbc->cond = &wrk->cond;
 	}
@@ -389,9 +369,8 @@ VBT_Get(struct tcp_pool *tp, double tmo, const struct backend *be,
 	vbc->state = VBC_STATE_USED;
 	vbc->tcp_pool = tp;
 	vbc->fd = VBT_Open(tp, tmo, &vbc->addr);
-	if (vbc->fd < 0)
+	if (vbc->fd < 0) {
 		FREE_OBJ(vbc);
-	if (vbc == NULL) {
 		Lck_Lock(&tp->mtx);
 		tp->n_used--;		// Nope, didn't work after all.
 		Lck_Unlock(&tp->mtx);
@@ -420,12 +399,4 @@ VBT_Wait(struct worker *wrk, struct vbc *vbc)
 	assert(vbc->state == VBC_STATE_USED);
 	vbc->cond = NULL;
 	Lck_Unlock(&tp->mtx);
-}
-
-/*--------------------------------------------------------------------*/
-
-void
-VBT_Init(void)
-{
-	Lck_New(&pools_mtx, lck_backend);
 }

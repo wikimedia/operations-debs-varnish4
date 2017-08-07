@@ -64,23 +64,20 @@ struct barrier {
 	/* fields below are only for BARRIER_SOCK */
 	pthread_t		thread;
 	volatile unsigned	active;
+	volatile unsigned	need_join;
 };
 
-static pthread_mutex_t		barrier_mtx;
 static VTAILQ_HEAD(, barrier)	barriers = VTAILQ_HEAD_INITIALIZER(barriers);
 
 static struct barrier *
-barrier_new(char *name, struct vtclog *vl)
+barrier_new(const char *name, struct vtclog *vl)
 {
 	struct barrier *b;
 
 	ALLOC_OBJ(b, BARRIER_MAGIC);
 	AN(b);
-	AN(name);
-	if (*name != 'b')
-		vtc_log(vl, 0, "Barrier name must start with 'b' (%s)", name);
 	if (pthread_self() != vtc_thread)
-		vtc_log(vl, 0,
+		vtc_fatal(vl,
 		    "Barrier %s can only be created on the top thread", name);
 	REPLACE(b->name, name);
 
@@ -102,14 +99,14 @@ barrier_expect(struct barrier *b, const char *av, struct vtclog *vl)
 	unsigned expected;
 
 	if (b->type != BARRIER_NONE)
-		vtc_log(vl, 0,
+		vtc_fatal(vl,
 		    "Barrier(%s) use error: already initialized", b->name);
 
 	AZ(b->expected);
 	AZ(b->waiters);
 	expected = strtoul(av, NULL, 0);
 	if (expected < 2)
-		vtc_log(vl, 0,
+		vtc_fatal(vl,
 		    "Barrier(%s) use error: wrong expectation (%u)",
 		    b->name, expected);
 
@@ -148,7 +145,7 @@ barrier_sock_thread(void *priv)
 	if (sock < 0) {
 		AZ(pthread_cond_signal(&b->cond));
 		AZ(pthread_mutex_unlock(&b->mtx));
-		vtc_log(vl, 0, "Barrier(%s) %s fails: %s (errno=%d)",
+		vtc_fatal(vl, "Barrier(%s) %s fails: %s (errno=%d)",
 		    b->name, err, strerror(errno), errno);
 	}
 	assert(sock > 0);
@@ -177,23 +174,23 @@ barrier_sock_thread(void *priv)
 		if (i < 0) {
 			if (errno == EINTR)
 				continue;
-			AZ(close(sock));
-			vtc_log(vl, 0,
+			closefd(&sock);
+			vtc_fatal(vl,
 			    "Barrier(%s) select fails: %s (errno=%d)",
 			    b->name, strerror(errno), errno);
 		}
 		assert(i == 1);
 		assert(b->waiters <= b->expected);
 		if (b->waiters == b->expected)
-			vtc_log(vl, 0,
+			vtc_fatal(vl,
 			    "Barrier(%s) use error: "
 			    "more waiters than the %u expected",
 			    b->name, b->expected);
 
 		i = accept(sock, NULL, NULL);
 		if (i < 0) {
-			AZ(close(sock));
-			vtc_log(vl, 0,
+			closefd(&sock);
+			vtc_fatal(vl,
 			    "Barrier(%s) accept fails: %s (errno=%d)",
 			    b->name, strerror(errno), errno);
 		}
@@ -211,7 +208,7 @@ barrier_sock_thread(void *priv)
 
 		vtc_log(vl, 4, "Barrier(%s) wake %u", b->name, b->expected);
 		for (i = 0; i < b->expected; i++)
-			AZ(close(conns[i]));
+			closefd(&conns[i]);
 
 		if (b->cyclic)
 			b->waiters = 0;
@@ -222,7 +219,7 @@ barrier_sock_thread(void *priv)
 	macro_undef(vl, b->name, "addr");
 	macro_undef(vl, b->name, "port");
 	macro_undef(vl, b->name, "sock");
-	AZ(close(sock));
+	closefd(&sock);
 	free(conns);
 
 	return (NULL);
@@ -236,6 +233,7 @@ barrier_sock(struct barrier *b, const char *av, struct vtclog *vl)
 	barrier_expect(b, av, vl);
 	b->type = BARRIER_SOCK;
 	b->active = 1;
+	b->need_join = 1;
 
 	/* NB. We can use the BARRIER_COND's pthread_cond_t to wait until the
 	 *     socket is ready for convenience.
@@ -251,11 +249,11 @@ barrier_cyclic(struct barrier *b, struct vtclog *vl)
 	CHECK_OBJ_NOTNULL(b, BARRIER_MAGIC);
 
 	if (b->type == BARRIER_NONE)
-		vtc_log(vl, 0,
+		vtc_fatal(vl,
 		    "Barrier(%s) use error: not initialized", b->name);
 
 	if (b->waiters != 0)
-		vtc_log(vl, 0,
+		vtc_fatal(vl,
 		    "Barrier(%s) use error: already in use", b->name);
 
 	b->cyclic = 1;
@@ -274,7 +272,7 @@ barrier_cond_sync(struct barrier *b, struct vtclog *vl)
 
 	assert(b->waiters <= b->expected);
 	if (b->waiters == b->expected)
-		vtc_log(vl, 0,
+		vtc_fatal(vl,
 		    "Barrier(%s) use error: more waiters than the %u expected",
 		    b->name, b->expected);
 
@@ -311,7 +309,7 @@ barrier_sock_sync(struct barrier *b, struct vtclog *vl)
 
 	sock = VTCP_open(VSB_data(vsb), NULL, 0., &err);
 	if (sock < 0)
-		vtc_log(vl, 0, "Barrier(%s) connection failed: %s",
+		vtc_fatal(vl, "Barrier(%s) connection failed: %s",
 		    b->name, err);
 
 	VSB_delete(vsb);
@@ -322,13 +320,13 @@ barrier_sock_sync(struct barrier *b, struct vtclog *vl)
 	AZ(pthread_mutex_lock(&b->mtx));
 
 	i = errno;
-	AZ(close(sock));
+	closefd(&sock);
 
 	if (sz < 0)
-		vtc_log(vl, 0, "Barrier(%s) read failed: %s (errno=%d)",
+		vtc_fatal(vl, "Barrier(%s) read failed: %s (errno=%d)",
 		    b->name, strerror(i), i);
 	if (sz > 0)
-		vtc_log(vl, 0, "Barrier(%s) unexpected data (%zdB)",
+		vtc_fatal(vl, "Barrier(%s) unexpected data (%zdB)",
 		    b->name, sz);
 }
 
@@ -340,7 +338,7 @@ barrier_sync(struct barrier *b, struct vtclog *vl)
 
 	switch (b->type) {
 	case BARRIER_NONE:
-		vtc_log(vl, 0,
+		vtc_fatal(vl,
 		    "Barrier(%s) use error: not initialized", b->name);
 		break;
 	case BARRIER_COND:
@@ -354,56 +352,98 @@ barrier_sync(struct barrier *b, struct vtclog *vl)
 	}
 }
 
-/**********************************************************************
- * Barrier command dispatch
+/* SECTION: barrier barrier
+ *
+ * NOTE: this can be used from the top-level as well as from client and server
+ * specifications.
+ *
+ * Barriers allows you to synchronize different threads to make sure events
+ * occur in the right order. It's even possible to use them in VCL.
+ *
+ * First, it's necessary to declare the barrier::
+ *
+ *         barrier bNAME TYPE NUMBER [-cyclic]
+ *
+ * With the arguments being:
+ *
+ * bNAME
+ *         this is the name of the barrier, used to identify it when you'll
+ *         create sync points. It must start with 'b'.
+ *
+ * TYPE
+ *         it can be "cond" (mutex) or "sock" (socket) and sets internal
+ *         behavior. If you don't need VCL synchronization, use cond.
+ *
+ * NUMBER
+ *         number of sync point needed to go through the barrier.
+ *
+ * \-cyclic
+ *         if present, the barrier will reset itself and be ready for another
+ *         round once gotten through.
+ *
+ * Then, to add a sync point::
+ *
+ *         barrier bNAME sync
+ *
+ * This will block the parent thread until the number of sync points for bNAME
+ * reaches the NUMBER given in the barrier declaration.
+ *
+ * If you wish to synchronize the VCL, you need to declare a "sock" barrier.
+ * This will emit a macro definition named "bNAME_sock" that you can use in
+ * VCL (after importing the debug vmod)::
+ *
+ *         debug.barrier_sync("${bNAME_sock}");
+ *
+ * This function returns 0 if everything went well and is the equivalent of
+ * ``barrier bNAME sync`` at the VTC top-level.
+ *
+ *
  */
 
 void
 cmd_barrier(CMD_ARGS)
 {
 	struct barrier *b, *b2;
+	int r;
 
 	(void)priv;
 	(void)cmd;
 
 	if (av == NULL) {
-		AZ(pthread_mutex_lock(&barrier_mtx));
 		/* Reset and free */
 		VTAILQ_FOREACH_SAFE(b, &barriers, list, b2) {
-			AZ(pthread_mutex_lock(&b->mtx));
+			r = pthread_mutex_trylock(&b->mtx);
+			assert(r == 0 || r == EBUSY);
 			switch (b->type) {
 			case BARRIER_COND:
-				if (b->cyclic)
-					AZ(b->waiters);
-				else
-					assert(b->waiters == b->expected);
 				break;
 			case BARRIER_SOCK:
-				b->active = 0;
-				AZ(pthread_join(b->thread, NULL));
+				if (b->need_join) {
+					b->active = 0;
+					AZ(pthread_join(b->thread, NULL));
+					b->need_join = 0;
+				}
 				break;
 			default:
 				WRONG("Wrong barrier type");
 			}
 			AZ(pthread_mutex_unlock(&b->mtx));
 		}
-		AZ(pthread_mutex_unlock(&barrier_mtx));
 		return;
 	}
 
 	AZ(strcmp(av[0], "barrier"));
 	av++;
 
-	AZ(pthread_mutex_lock(&barrier_mtx));
+	VTC_CHECK_NAME(vl, av[0], "Barrier", 'b');
 	VTAILQ_FOREACH(b, &barriers, list)
 		if (!strcmp(b->name, av[0]))
 			break;
 	if (b == NULL)
 		b = barrier_new(av[0], vl);
 	av++;
-	AZ(pthread_mutex_lock(&b->mtx));
-	AZ(pthread_mutex_unlock(&barrier_mtx));
 
+	AZ(pthread_mutex_lock(&b->mtx));
 	for (; *av != NULL; av++) {
 		if (!strcmp(*av, "cond")) {
 			av++;
@@ -425,14 +465,7 @@ cmd_barrier(CMD_ARGS)
 			barrier_cyclic(b, vl);
 			continue;
 		}
-		vtc_log(vl, 0, "Unknown barrier argument: %s", *av);
+		vtc_fatal(vl, "Unknown barrier argument: %s", *av);
 	}
 	AZ(pthread_mutex_unlock(&b->mtx));
-}
-
-void
-init_barrier(void)
-{
-
-	AZ(pthread_mutex_init(&barrier_mtx, NULL));
 }

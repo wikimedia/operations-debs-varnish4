@@ -46,6 +46,8 @@
 #include "config.h"
 
 #include "cache/cache.h"
+#include "cache/cache_transport.h"
+
 #include "cache_http1.h"
 
 #include "vct.h"
@@ -66,22 +68,28 @@ enum htc_status_e __match_proto__(htc_complete_f)
 HTTP1_Complete(struct http_conn *htc)
 {
 	char *p;
+	enum htc_status_e retval;
 
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
-	AZ(htc->pipeline_b);
-	AZ(htc->pipeline_e);
 
 	assert(htc->rxbuf_e >= htc->rxbuf_b);
-	assert(*htc->rxbuf_e == '\0');
+	assert(htc->rxbuf_e <= htc->ws->r);
+
+	if (htc->rxbuf_e == htc->ws->r)
+		return (HTC_S_OVERFLOW);		// No space for NUL
+	*htc->rxbuf_e = '\0';
 
 	/* Skip any leading white space */
 	for (p = htc->rxbuf_b ; vct_islws(*p); p++)
 		continue;
-	if (p == htc->rxbuf_e) {
-		/* All white space */
-		htc->rxbuf_e = htc->rxbuf_b;
+	if (p == htc->rxbuf_e)
 		return (HTC_S_EMPTY);
-	}
+
+	/* Do not return a partial H2 connection preface */
+	retval = H2_prism_complete(htc);
+	if (retval != HTC_S_JUNK)
+		return (retval);
+
 	/*
 	 * Here we just look for NL[CR]NL to see that reception
 	 * is completed.  More stringent validation happens later.
@@ -105,7 +113,8 @@ HTTP1_Complete(struct http_conn *htc)
  */
 
 static uint16_t
-http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc)
+http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc,
+    unsigned maxhdr)
 {
 	char *q, *r;
 
@@ -146,7 +155,7 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc)
 				*q++ = ' ';
 		}
 
-		if (q - p > htc->maxhdr) {
+		if (q - p > maxhdr) {
 			VSLb(hp->vsl, SLT_BogoHeader, "Header too long: %.*s",
 			    (int)(q - p > 20 ? 20 : q - p), p);
 			return (400);
@@ -203,11 +212,8 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc)
 	}
 	if (p < htc->rxbuf_e)
 		p += vct_skipcrlf(p);
-	if (p < htc->rxbuf_e) {
-		htc->pipeline_b = p;
-		htc->pipeline_e = htc->rxbuf_e;
-		htc->rxbuf_e = p;
-	}
+	HTC_RxPipeline(htc, p);
+	htc->rxbuf_e = p;
 	return (0);
 }
 
@@ -216,7 +222,8 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc)
  */
 
 static uint16_t
-http1_splitline(struct http *hp, struct http_conn *htc, const int *hf)
+http1_splitline(struct http *hp, struct http_conn *htc, const int *hf,
+    unsigned maxhdr)
 {
 	char *p;
 	int i;
@@ -282,7 +289,9 @@ http1_splitline(struct http *hp, struct http_conn *htc, const int *hf)
 	*p = '\0';
 	p += i;
 
-	return (http1_dissect_hdrs(hp, p, htc));
+	http_Proto(hp);
+
+	return (http1_dissect_hdrs(hp, p, htc, maxhdr));
 }
 
 /*--------------------------------------------------------------------*/
@@ -337,19 +346,6 @@ http1_body_status(const struct http *hp, struct http_conn *htc, int request)
 
 /*--------------------------------------------------------------------*/
 
-static int8_t
-http1_proto_ver(const struct http *hp)
-{
-	if (!strcasecmp(hp->hd[HTTP_HDR_PROTO].b, "HTTP/1.0"))
-		return (10);
-	else if (!strcasecmp(hp->hd[HTTP_HDR_PROTO].b, "HTTP/1.1"))
-		return (11);
-	else
-		return (0);
-}
-
-/*--------------------------------------------------------------------*/
-
 uint16_t
 HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 {
@@ -360,11 +356,12 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 
-	retval = http1_splitline(hp, htc, HTTP1_Req);
+	retval = http1_splitline(hp, htc,
+	    HTTP1_Req, cache_param->http_req_hdr_len);
 	if (retval != 0)
 		return (retval);
-	hp->protover = http1_proto_ver(hp);
-	if (hp->protover == 0)
+
+	if (hp->protover < 10 || hp->protover > 11)
 		return (400);
 
 	if (http_CountHdr(hp, H_Host) > 1)
@@ -375,14 +372,13 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 
 	/* RFC2616, section 5.2, point 1 */
 	if (!strncasecmp(hp->hd[HTTP_HDR_URL].b, "http://", 7))
-		b = e = hp->hd[HTTP_HDR_URL].b + 7;
+		b = hp->hd[HTTP_HDR_URL].b + 7;
 	else if (FEATURE(FEATURE_HTTPS_SCHEME) &&
-			!strncasecmp(hp->hd[HTTP_HDR_URL].b, "https://", 8))
-		b = e = hp->hd[HTTP_HDR_URL].b + 8;
+	    !strncasecmp(hp->hd[HTTP_HDR_URL].b, "https://", 8))
+		b = hp->hd[HTTP_HDR_URL].b + 8;
 	if (b) {
-		while (*e != '/' && *e != '\0')
-			e++;
-		if (*e == '/') {
+		e = strchr(b, '/');
+		if (e) {
 			http_Unset(hp, H_Host);
 			http_PrintfHeader(hp, "Host: %.*s", (int)(e - b), b);
 			hp->hd[HTTP_HDR_URL].b = e;
@@ -415,28 +411,24 @@ HTTP1_DissectRequest(struct http_conn *htc, struct http *hp)
 
 uint16_t
 HTTP1_DissectResponse(struct http_conn *htc, struct http *hp,
-    const struct http *req)
+    const struct http *rhttp)
 {
 	uint16_t retval = 0;
 	const char *p;
-	int8_t rv;
-
 
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
-	CHECK_OBJ_NOTNULL(req, HTTP_MAGIC);
+	CHECK_OBJ_NOTNULL(rhttp, HTTP_MAGIC);
 
-	if (http1_splitline(hp, htc, HTTP1_Resp))
+	if (http1_splitline(hp, htc,
+	    HTTP1_Resp, cache_param->http_resp_hdr_len))
 		retval = 503;
 
-	if (retval == 0) {
-		hp->protover = http1_proto_ver(hp);
-		if (hp->protover == 0)
-			retval = 503;
-		rv = http1_proto_ver(req);
-		if (hp->protover > rv)
-			hp->protover = rv;
-	}
+	if (retval == 0 && hp->protover < 10)
+		retval = 503;
+
+	if (retval == 0 && hp->protover > rhttp->protover)
+		http_SetH(hp, HTTP_HDR_PROTO, rhttp->hd[HTTP_HDR_PROTO].b);
 
 	if (retval == 0 && Tlen(hp->hd[HTTP_HDR_STATUS]) != 3)
 		retval = 503;
@@ -458,14 +450,14 @@ HTTP1_DissectResponse(struct http_conn *htc, struct http *hp,
 		    (int)(htc->rxbuf_e - htc->rxbuf_b), htc->rxbuf_b);
 		assert(retval >= 100 && retval <= 999);
 		assert(retval == 503);
-		hp->status = retval;
-		http_SetH(hp, HTTP_HDR_STATUS, "503");
-		http_SetH(hp, HTTP_HDR_REASON, http_Status2Reason(retval));
+		http_SetStatus(hp, 503);
 	}
 
 	if (hp->hd[HTTP_HDR_REASON].b == NULL ||
-	    !Tlen(hp->hd[HTTP_HDR_REASON]))
-		http_SetH(hp, HTTP_HDR_REASON, http_Status2Reason(hp->status));
+	    !Tlen(hp->hd[HTTP_HDR_REASON])) {
+		http_SetH(hp, HTTP_HDR_REASON,
+		    http_Status2Reason(hp->status, NULL));
+	}
 
 	htc->body_status = http1_body_status(hp, htc, 0);
 

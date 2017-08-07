@@ -77,9 +77,9 @@ static unsigned *bucket_miss;
 static unsigned *bucket_hit;
 static char *format;
 static int match_tag;
-double timebend = 0, t0;
-double vsl_t0 = 0, vsl_to, vsl_ts = 0;
-pthread_cond_t timebend_cv;
+static double timebend = 0, t0;
+static double vsl_t0 = 0, vsl_to, vsl_ts = 0;
+static pthread_cond_t timebend_cv;
 static double log_ten;
 
 static int scales[] = {
@@ -106,7 +106,7 @@ static int scales[] = {
 	INT_MAX
 };
 
-struct profile {
+static struct profile {
 	const char *name;
 	char VSL_arg;
 	enum VSL_tag_e tag;
@@ -130,6 +130,8 @@ profiles[] = {
 #undef HIS_PROF
 
 static struct profile *active_profile;
+
+volatile sig_atomic_t quit = 0;
 
 static void
 update(void)
@@ -310,12 +312,6 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 		if (tsp)
 			upd_vsl_ts(tsp);
 
-		/*
-		 * only parse the last tsp seen in this transaction -
-		 * it should be the latest.
-		 */
-		upd_vsl_ts(tsp);
-
 		/* phase out old data */
 		if (nhist == HIST_N) {
 			u = rr_hist[next_hist];
@@ -361,10 +357,10 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	if (vsl_ts > vsl_to) {
 		double when = VTIM_real() + vsl_ts - vsl_to;
 		struct timespec ts;
-		// Lck_CondWait
 		ts.tv_nsec = (long)(modf(when, &t) * 1e9);
 		ts.tv_sec = (long)t;
-		(void)pthread_cond_timedwait(&timebend_cv, &mtx, &ts);
+		i = pthread_cond_timedwait(&timebend_cv, &mtx, &ts);
+		assert(i == 0 || i == ETIMEDOUT);
 	}
 	AZ(pthread_mutex_unlock(&mtx));
 
@@ -374,7 +370,8 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 static int __match_proto__(VUT_cb_f)
 sighup(void)
 {
-	exit(1);
+	quit = 1;
+	return (1);
 }
 
 static void *
@@ -390,7 +387,7 @@ do_curses(void *arg)
 	intrflush(stdscr, FALSE);
 	curs_set(0);
 	erase();
-	for (;;) {
+	while (!quit) {
 		AZ(pthread_mutex_lock(&mtx));
 		update();
 		AZ(pthread_mutex_unlock(&mtx));
@@ -419,7 +416,7 @@ do_curses(void *arg)
 		case 'q':
 			raise(SIGINT);
 			endwin();
-			pthread_exit(NULL);
+			return (NULL);
 		case '0':
 		case '1':
 		case '2':
@@ -450,7 +447,7 @@ do_curses(void *arg)
 		}
 
 		if (ch == '<' || ch == '>') {
-			pthread_mutex_lock(&mtx);
+			AZ(pthread_mutex_lock(&mtx));
 			vsl_to = vsl_t0 = vsl_ts;
 			t0 = VTIM_mono();
 			if (timebend == 0)
@@ -459,23 +456,24 @@ do_curses(void *arg)
 				timebend /= 2;
 			else
 				timebend *= 2;
-			pthread_cond_broadcast(&timebend_cv);
-			pthread_mutex_unlock(&mtx);
+			AZ(pthread_cond_broadcast(&timebend_cv));
+			AZ(pthread_mutex_unlock(&mtx));
 		}
 	}
-	pthread_exit(NULL);
+	endwin();
+	return (NULL);
 }
 
 /*--------------------------------------------------------------------*/
 
-static void
+static void __attribute__((__noreturn__))
 usage(int status)
 {
 	const char **opt;
 
 	fprintf(stderr, "Usage: %s <options>\n\n", progname);
 	fprintf(stderr, "Options:\n");
-	for (opt = vopt_usage; *opt != NULL; opt +=2)
+	for (opt = vopt_spec.vopt_usage; *opt != NULL; opt += 2)
 		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
 	exit(status);
 }
@@ -499,10 +497,10 @@ main(int argc, char **argv)
 	struct profile cli_p = {0};
 	cli_p.name = 0;
 
-	VUT_Init(progname);
+	VUT_Init(progname, argc, argv, &vopt_spec);
 	AZ(pthread_cond_init(&timebend_cv, NULL));
 
-	while ((i = getopt(argc, argv, vopt_optstring)) != -1) {
+	while ((i = getopt(argc, argv, vopt_spec.vopt_optstring)) != -1) {
 		switch (i) {
 		case 'h':
 			/* Usage help */
@@ -566,6 +564,10 @@ main(int argc, char **argv)
 				usage(1);
 		}
 	}
+
+	if (optind != argc)
+		usage(1);
+
 	/* Check for valid grouping mode */
 	assert(VUT.g_arg < VSL_g__MAX);
 	if (VUT.g_arg != VSL_g_vxid && VUT.g_arg != VSL_g_request)

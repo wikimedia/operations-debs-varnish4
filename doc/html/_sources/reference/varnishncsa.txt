@@ -156,12 +156,12 @@ Supported formatters are:
     sent to the backend to the entire header had been received.
 
   Varnish:hitmiss
-    Whether the request was a cache hit or miss. Pipe and pass are
-    considered misses.
+    One of the 'hit' or 'miss' strings, depending on whether the request
+    was a cache hit or miss. Pipe, pass and synth are considered misses.
 
   Varnish:handling
-    How the request was handled, whether it was a cache hit, miss,
-    pass, pipe or synth.
+    One of the 'hit', 'miss', 'pass', 'pipe' or 'synth' strings indicating
+    how the request was handled.
 
   Varnish:side
     Backend or client side. One of two values, 'b' or 'c', depending
@@ -172,33 +172,24 @@ Supported formatters are:
     The VXID of the varnish transaction.
 
   VCL_Log:key
-    Output value set by std.log("key:value") in VCL.
+    The value set by std.log("key:value") in VCL.
 
-  VSL:tag:record-prefix[field]
-    The value of the VSL entry for the given tag-record prefix-field
-    combination. Tag is mandatory, the other components are optional.
-
-    The record prefix will limit the matches to those records that
-    have this prefix as the first part of the record content followed
-    by a colon.
-
-    The field will, if present, treat the log record as a white
-    space separated list of fields, and only the nth part of the
-    record will be matched against. Fields start counting at 1.
-
-    Defaults to '-' when the tag is not seen, the record prefix
-    does not match or the field is out of bounds. If a tag appears
-    multiple times in a single transaction, the first occurrence
-    is used.
+  VSL:tag[field]
+    The value of the VSL entry for the given tag. The field will,
+    if present, treat the log record as a white space separated list
+    of fields, and only the nth part of the record will be matched
+    against. Fields start counting at 1. Defaults to '-' when the tag
+    is not seen, or when the field is out of bounds. If a tag appears
+    multiple times in a single transaction, the first occurrence is used.
 
 SIGNALS
 =======
 
 SIGHUP
-  Rotate the log file (see -w option)
+  Rotate the log file (see -w option).
 
 SIGUSR1
-  Flush any outstanding transactions
+  Flush any outstanding transactions.
 
 NOTES
 =====
@@ -211,14 +202,10 @@ multiple times in a single transaction, the first occurrence is used.
 EXAMPLE
 =======
 
-Log the second field of the Begin record, corresponding to the VXID
-of the parent transaction::
+Log the second field of the Begin tag, corresponding to the VXID of the
+parent transaction::
 
   varnishncsa -F "%{VSL:Begin[2]}x"
-
-Log the entire Timestamp record associated with the processing length::
-
-  varnishncsa -F "%{VSL:Timestamp:Process}x"
 
 SEE ALSO
 ========

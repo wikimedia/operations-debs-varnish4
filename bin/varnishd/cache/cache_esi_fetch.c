@@ -95,8 +95,10 @@ vfp_vep_callback(struct vfp_ctx *vc, void *priv, ssize_t l, enum vgz_flag flg)
 		VGZ_Obuf(vef->vgz, ptr, dl);
 		i = VGZ_Gzip(vef->vgz, &dp, &dl, flg);
 		VGZ_UpdateObj(vc, vef->vgz, VUA_UPDATE);
-		vef->tot += dl;
-		VBO_extend(vc->bo, dl);
+		if (dl > 0) {
+			vef->tot += dl;
+			VFP_Extend(vc, dl);
+		}
 	} while (i != VGZ_ERROR &&
 	    (!VGZ_IbufEmpty(vef->vgz) || VGZ_ObufFull(vef->vgz)));
 	assert(i == VGZ_ERROR || VGZ_IbufEmpty(vef->vgz));
@@ -121,14 +123,14 @@ vfp_esi_end(struct vfp_ctx *vc, struct vef_priv *vef,
 		if (retval == VFP_END) {
 			l = VSB_len(vsb);
 			assert(l > 0);
-			p = ObjSetattr(vc->wrk, vc->oc,
+			p = ObjSetAttr(vc->wrk, vc->oc,
 			    OA_ESIDATA, l, VSB_data(vsb));
 			if (p == NULL) {
 				retval = VFP_Error(vc,
 				    "Could not allocate storage for esidata");
 			}
 		}
-		VSB_delete(vsb);
+		VSB_destroy(&vsb);
 	}
 
 	if (vef->vgz != NULL) {

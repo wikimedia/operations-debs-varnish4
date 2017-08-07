@@ -1,7 +1,7 @@
 /*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Edit and run generate.py instead
+ * Edit and run lib/libvarnishapi/generate.py instead
  */
 
 

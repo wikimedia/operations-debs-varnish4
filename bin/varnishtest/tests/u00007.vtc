@@ -1,0 +1,29 @@
+varnishtest "varnishhist coverage"
+
+server s1 {
+	rxreq
+	txresp
+} -start
+
+varnish v1 -vcl+backend {} -start
+
+shell -expect "Usage: varnishhist <options>" \
+	"varnishhist -h"
+shell -expect "Copyright (c) 2006 Verdens Gang AS" \
+	"varnishhist -V"
+shell -err -expect "Usage: varnishhist <options>" \
+	"varnishhist extra"
+shell -err -expect "-p: invalid '0'" \
+	"varnishhist -p 0"
+shell -err -expect "-B: being able to bend time does not mean we can stop it" \
+	"varnishhist -B 0"
+shell -err -expect "-B: being able to bend time does not mean we can make it go backwards" \
+	"varnishhist -B -1"
+shell -err -expect "Invalid grouping mode: raw" \
+	"varnishhist -g raw"
+shell -err -expect "-P: No such profile 'foo'" \
+	"varnishhist -P foo"
+shell -err -expect "-P: 'foo:bar' is not a valid profile name or definition" \
+	"varnishhist -P foo:bar"
+shell -err -expect "-P: 'foo:0:0:0' is not a valid tag name" \
+	"varnishhist -P foo:0:0:0"

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>VSL &#8212; Varnish version 4.1.8 documentation</title>
+    <title>VSL &#8212; Varnish version 5.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.8',
+        VERSION:     '5.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="vsl-query" href="vsl-query.html" />
     <link rel="prev" title="varnish-counters" href="varnish-counters.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -292,12 +292,22 @@ logging tools supplied with Varnish.</p>
 </pre></div>
 </div>
 </dd>
+<dt>H2RxBody - Received HTTP2 frame body</dt>
+<dd>Binary data</dd>
+<dt>H2RxHdr - Received HTTP2 frame header</dt>
+<dd>Binary data</dd>
+<dt>H2TxBody - Transmitted HTTP2 frame body</dt>
+<dd>Binary data</dd>
+<dt>H2TxHdr - Transmitted HTTP2 frame header</dt>
+<dd>Binary data</dd>
 <dt>Hash - Value added to hash</dt>
 <dd><p class="first">This value was added to the object lookup hash.</p>
 <p class="last">NB: This log record is masked by default.</p>
 </dd>
 <dt>Hit - Hit object in cache</dt>
 <dd>Object looked up in cache. Shows the VXID of the object.</dd>
+<dt>HitMiss - Hit for miss object in cache.</dt>
+<dd>Hit-for-miss object looked up in cache. Shows the VXID of the hit-for-miss object.</dd>
 <dt>HitPass - Hit for pass object in cache.</dt>
 <dd>Hit-for-pass object looked up in cache. Shows the VXID of the hit-for-pass object.</dd>
 <dt>HttpGarbage - Unparseable HTTP request</dt>
@@ -431,14 +441,14 @@ The format is:</p>
 <dt>SessOpen - Client connection opened</dt>
 <dd><p class="first">The first record for a client connection, with the socket-endpoints of the connection.</p>
 <p>The format is:</p>
-<div class="last highlight-default"><div class="highlight"><pre><span></span>%s %d %s %s %s %d
-|  |  |  |  |  |
-|  |  |  |  |  +- File descriptor number
-|  |  |  |  +---- Local TCP port (&#39;-&#39; if !$log_local_addr)
-|  |  |  +------- Local IPv4/6 address (&#39;-&#39; if !$log_local_addr)
-|  |  +---------- Listen socket (-a argument)
-|  +------------- Remote TCP port
-+---------------- Remote IPv4/6 address
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">s</span> <span class="o">%</span><span class="n">d</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-</span> <span class="n">File</span> <span class="n">descriptor</span> <span class="n">number</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+----</span> <span class="n">Local</span> <span class="n">TCP</span> <span class="n">port</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+-------</span> <span class="n">Local</span> <span class="n">IPv4</span><span class="o">/</span><span class="mi">6</span> <span class="n">address</span>
+<span class="o">|</span>  <span class="o">|</span>  <span class="o">+----------</span> <span class="n">Listen</span> <span class="n">socket</span> <span class="p">(</span><span class="o">-</span><span class="n">a</span> <span class="n">argument</span><span class="p">)</span>
+<span class="o">|</span>  <span class="o">+-------------</span> <span class="n">Remote</span> <span class="n">TCP</span> <span class="n">port</span>
+<span class="o">+----------------</span> <span class="n">Remote</span> <span class="n">IPv4</span><span class="o">/</span><span class="mi">6</span> <span class="n">address</span>
 </pre></div>
 </div>
 </dd>
@@ -465,19 +475,20 @@ The format is:</p>
 <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>  <span class="o">+------------------</span> <span class="n">Keep</span>
 <span class="o">|</span>  <span class="o">|</span>  <span class="o">+---------------------</span> <span class="n">Grace</span>
 <span class="o">|</span>  <span class="o">+------------------------</span> <span class="n">TTL</span>
-<span class="o">+---------------------------</span> <span class="s2">&quot;RFC&quot;</span> <span class="ow">or</span> <span class="s2">&quot;VCL&quot;</span>
+<span class="o">+---------------------------</span> <span class="s2">&quot;RFC&quot;</span><span class="p">,</span> <span class="s2">&quot;VCL&quot;</span> <span class="ow">or</span> <span class="s2">&quot;HFP&quot;</span>
 </pre></div>
 </div>
 <p>The last four fields are only present in &quot;RFC&quot; headers.</p>
 <p>Examples:</p>
 <div class="last highlight-default"><div class="highlight"><pre><span></span><span class="n">RFC</span> <span class="mi">60</span> <span class="mi">10</span> <span class="o">-</span><span class="mi">1</span> <span class="mi">1312966109</span> <span class="mi">1312966109</span> <span class="mi">1312966109</span> <span class="mi">0</span> <span class="mi">60</span>
 <span class="n">VCL</span> <span class="mi">120</span> <span class="mi">10</span> <span class="mi">0</span> <span class="mi">1312966111</span>
+<span class="n">HFP</span> <span class="mi">2</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">1312966113</span>
 </pre></div>
 </div>
 </dd>
 <dt>Timestamp - Timing information</dt>
 <dd><p class="first">Contains timing information for the Varnish worker threads.</p>
-<p>Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See the TIMESTAMPS section below for information about the individual time stamps.</p>
+<p>Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.</p>
 <p>The format is:</p>
 <div class="last highlight-default"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">s</span><span class="p">:</span> <span class="o">%</span><span class="n">f</span> <span class="o">%</span><span class="n">f</span> <span class="o">%</span><span class="n">f</span>
 <span class="o">|</span>   <span class="o">|</span>  <span class="o">|</span>  <span class="o">|</span>
@@ -511,7 +522,7 @@ The format is:</p>
 <p class="last">NB: This log record is masked by default.</p>
 </dd>
 <dt>VSL - VSL API warnings and error message</dt>
-<dd>Warnings and error messages genererated by the VSL API while reading the shared memory log.</dd>
+<dd>Warnings and error messages generated by the VSL API while reading the shared memory log.</dd>
 <dt>VfpAcct - Fetch filter accounting</dt>
 <dd><p class="first">Contains name of VFP and statistics.</p>
 <p>The format is:</p>
@@ -699,7 +710,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

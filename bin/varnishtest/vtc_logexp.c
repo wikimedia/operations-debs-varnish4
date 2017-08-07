@@ -26,33 +26,85 @@
  * SUCH DAMAGE.
  */
 
-/*
- * Synopsis:
- *   -v <varnish-instance>
- *   -d <0|1> (head/tail mode)
- *   -g <grouping-mode>
- *   -q <query>
+/* SECTION: logexpect logexpect
  *
- *   vsl arguments (vsl_arg.c)
- *   -b                   Only display backend records
- *   -c                   Only display client records
- *   -C                   Caseless regular expressions
- *   -i <taglist>         Include tags
- *   -I <[taglist:]regex> Include by regex
- *   -L <limit>           Incomplete transaction limit
- *   -T <seconds>         Transaction end timeout
+ * Reads the VSL and looks for records matching a given specification. It will
+ * process records trying to match the first pattern, and when done, will
+ * continue processing, trying to match the following pattern. If a pattern
+ * isn't matched, the test will fail.
  *
+ * logexpect threads are declared this way::
  *
- * logexpect lN -v <id> [-g <grouping>] [-d 0|1] [-q query] [vsl arguments] {
- *    expect <skip> <vxid> <tag> <regex>
- * }
+ *         logexpect lNAME -v <id> [-g <grouping>] [-d 0|1] [-q query] \
+ *                 [vsl arguments] {
+ *                         expect <skip> <vxid> <tag> <regex>
+ *                         expect <skip> <vxid> <tag> <regex>
+ *                         ...
+ *                 } [-start|-wait]
  *
- * skip: [uint|*]		Max number of record to skip
- * vxid: [uint|*|=]		vxid to match
- * tag:  [tagname|*|=]		Tag to match against
- * regex:			regular expression to match against (optional)
- * *:				Match anything
- * =:				Match value of last successfully matched record
+ * And once declared, you can start them, or wait on them::
+ *
+ *         logexpect lNAME <-start|-wait>
+ *
+ * With:
+ *
+ * lNAME
+ *         Name the logexpect thread, it must start with 'l'.
+ *
+ * \-v id
+ *         Specify the varnish instance to use (most of the time, id=v1).
+ *
+ * \-g <session|request|vxid|raw
+ *         Decide how records are grouped, see -g in ``man varnishlog`` for more
+ *         information.
+ *
+ * \-d <0|1>
+ *         Start processing log records at the head of the log instead of the
+ *         tail.
+ *
+ * \-q query
+ *         Filter records using a query expression, see ``man vsl-query`` for
+ *         more information.
+ *
+ * \-start
+ *         Start the logexpect thread in the background.
+ *
+ * \-wait
+ *         Wait for the logexpect thread to finish
+ *
+ * VSL arguments (similar to the varnishlog options):
+ *
+ * \-b|-c
+ *         Process only backend/client records.
+ *
+ * \-C
+ *         Use caseless regex
+ *
+ * \-i <taglist>
+ *         Include tags
+ *
+ * \-I <[taglist:]regex>
+ *         Include by regex
+ *
+ * \-T <seconds>
+ *         Transaction end timeout
+ *
+ * And the arguments of the specifications lines are:
+ *
+ * skip: [uint|*]
+ *         Max number of record to skip
+ *
+ * vxid: [uint|*|=]
+ *         vxid to match
+ *
+ * tag:  [tagname|*|=]
+ *         Tag to match against
+ *
+ * regex:
+ *         regular expression to match against (optional)
+ *
+ * For skip, vxid and tag, '*' matches anything, '=' expects the value of the
+ * previous matched record.
  */
 
 #include "config.h"
@@ -122,7 +174,7 @@ logexp_delete_tests(struct logexp *le)
 	while ((test = VTAILQ_FIRST(&le->tests))) {
 		CHECK_OBJ_NOTNULL(test, LOGEXP_TEST_MAGIC);
 		VTAILQ_REMOVE(&le->tests, test, list);
-		VSB_delete(test->str);
+		VSB_destroy(&test->str);
 		if (test->vre)
 			VRE_free(&test->vre);
 		FREE_OBJ(test);
@@ -142,7 +194,7 @@ logexp_delete(struct logexp *le)
 	free(le->query);
 	VSM_Delete(le->vsm);
 	if (le->n_arg)
-		VSB_delete(le->n_arg);
+		VSB_destroy(&le->n_arg);
 	FREE_OBJ(le);
 }
 
@@ -151,7 +203,6 @@ logexp_new(const char *name)
 {
 	struct logexp *le;
 
-	AN(name);
 	ALLOC_OBJ(le, LOGEXP_MAGIC);
 	AN(le);
 	REPLACE(le->name, name);
@@ -182,7 +233,7 @@ logexp_next(struct logexp *le)
 
 	CHECK_OBJ_ORNULL(le->test, LOGEXP_TEST_MAGIC);
 	if (le->test)
-		vtc_log(le->vl, 3, "waitfor| %s", VSB_data(le->test->str));
+		vtc_log(le->vl, 3, "expecting| %s", VSB_data(le->test->str));
 }
 
 static int __match_proto__(VSLQ_dispatch_f)
@@ -286,16 +337,16 @@ logexp_thread(void *priv)
 	AN(le->vslq);
 
 	AZ(le->test);
-	vtc_log(le->vl, 4, "beg|");
+	vtc_log(le->vl, 4, "begin|");
 	if (le->query != NULL)
 		vtc_log(le->vl, 4, "qry| %s", le->query);
 	logexp_next(le);
 	while (le->test) {
 		i = VSLQ_Dispatch(le->vslq, logexp_dispatch, le);
 		if (i == 2)
-			vtc_log(le->vl, 0, "bad| expectation failed");
+			vtc_fatal(le->vl, "bad| expectation failed");
 		else if (i < 0)
-			vtc_log(le->vl, 0, "bad| dispatch failed (%d)", i);
+			vtc_fatal(le->vl, "bad| dispatch failed (%d)", i);
 		else if (i == 0 && le->test)
 			VTIM_sleep(0.01);
 	}
@@ -325,34 +376,22 @@ logexp_start(struct logexp *le)
 	AN(le->vsl);
 	AZ(le->vslq);
 
-	if (le->n_arg == NULL) {
-		vtc_log(le->vl, 0, "-v argument not given");
-		return;
-	}
-	if (VSM_n_Arg(le->vsm, VSB_data(le->n_arg)) <= 0) {
-		vtc_log(le->vl, 0, "-v argument error: %s",
+	if (le->n_arg == NULL)
+		vtc_fatal(le->vl, "-v argument not given");
+	if (VSM_n_Arg(le->vsm, VSB_data(le->n_arg)) <= 0)
+		vtc_fatal(le->vl, "-v argument error: %s",
 		    VSM_Error(le->vsm));
-		return;
-	}
-	if (VSM_Open(le->vsm)) {
-		vtc_log(le->vl, 0, "VSM_Open: %s", VSM_Error(le->vsm));
-		return;
-	}
+	if (VSM_Open(le->vsm))
+		vtc_fatal(le->vl, "VSM_Open: %s", VSM_Error(le->vsm));
 	AN(le->vsl);
 	c = VSL_CursorVSM(le->vsl, le->vsm,
 	    (le->d_arg ? 0 : VSL_COPT_TAIL) | VSL_COPT_BATCH);
-	if (c == NULL) {
-		vtc_log(le->vl, 0, "VSL_CursorVSM: %s", VSL_Error(le->vsl));
-		logexp_close(le);
-		return;
-	}
+	if (c == NULL)
+		vtc_fatal(le->vl, "VSL_CursorVSM: %s", VSL_Error(le->vsl));
 	le->vslq = VSLQ_New(le->vsl, &c, le->g_arg, le->query);
 	if (le->vslq == NULL) {
 		VSL_DeleteCursor(c);
-		vtc_log(le->vl, 0, "VSLQ_New: %s", VSL_Error(le->vsl));
-		AZ(le->vslq);
-		logexp_close(le);
-		return;
+		vtc_fatal(le->vl, "VSLQ_New: %s", VSL_Error(le->vsl));
 	}
 	AZ(c);
 
@@ -373,7 +412,7 @@ logexp_wait(struct logexp *le)
 	AZ(pthread_join(le->tp, &res));
 	logexp_close(le);
 	if (res != NULL && !vtc_stop)
-		vtc_log(le->vl, 0, "logexp returned \"%p\"", (char *)res);
+		vtc_fatal(le->vl, "logexp returned \"%p\"", (char *)res);
 	le->run = 0;
 }
 
@@ -392,19 +431,18 @@ cmd_logexp_expect(CMD_ARGS)
 
 	(void)cmd;
 	CAST_OBJ_NOTNULL(le, priv, LOGEXP_MAGIC);
-	if (av[1] == NULL || av[2] == NULL || av[3] == NULL) {
-		vtc_log(vl, 0, "Syntax error");
-		return;
-	}
+	if (av[1] == NULL || av[2] == NULL || av[3] == NULL)
+		vtc_fatal(vl, "Syntax error");
+
+	if (av[4] != NULL && av[5] != NULL)
+		vtc_fatal(vl, "Syntax error");
 
 	if (!strcmp(av[1], "*"))
 		skip_max = LE_ANY;
 	else {
 		skip_max = (int)strtol(av[1], &end, 10);
-		if (*end != '\0' || skip_max < 0) {
-			vtc_log(vl, 0, "Not a positive integer: '%s'", av[1]);
-			return;
-		}
+		if (*end != '\0' || skip_max < 0)
+			vtc_fatal(vl, "Not a positive integer: '%s'", av[1]);
 	}
 	if (!strcmp(av[2], "*"))
 		vxid = LE_ANY;
@@ -412,10 +450,8 @@ cmd_logexp_expect(CMD_ARGS)
 		vxid = LE_LAST;
 	else {
 		vxid = (int)strtol(av[2], &end, 10);
-		if (*end != '\0' || vxid < 0) {
-			vtc_log(vl, 0, "Not a positive integer: '%s'", av[2]);
-			return;
-		}
+		if (*end != '\0' || vxid < 0)
+			vtc_fatal(vl, "Not a positive integer: '%s'", av[2]);
 	}
 	if (!strcmp(av[3], "*"))
 		tag = LE_ANY;
@@ -423,19 +459,15 @@ cmd_logexp_expect(CMD_ARGS)
 		tag = LE_LAST;
 	else {
 		tag = VSL_Name2Tag(av[3], strlen(av[3]));
-		if (tag < 0) {
-			vtc_log(vl, 0, "Unknown tag name: '%s'", av[3]);
-			return;
-		}
+		if (tag < 0)
+			vtc_fatal(vl, "Unknown tag name: '%s'", av[3]);
 	}
 	vre = NULL;
 	if (av[4]) {
 		vre = VRE_compile(av[4], 0, &err, &pos);
-		if (vre == NULL) {
-			vtc_log(vl, 0, "Regex error (%s): '%s' pos %d",
+		if (vre == NULL)
+			vtc_fatal(vl, "Regex error (%s): '%s' pos %d",
 			    err, av[4], pos);
-			return;
-		}
 	}
 
 	ALLOC_OBJ(test, LOGEXP_TEST_MAGIC);
@@ -469,7 +501,7 @@ logexp_spec(struct logexp *le, const char *spec)
 }
 
 void
-cmd_logexp(CMD_ARGS)
+cmd_logexpect(CMD_ARGS)
 {
 	struct logexp *le, *le2;
 	const char tmpdir[] = "${tmpdir}";
@@ -477,7 +509,6 @@ cmd_logexp(CMD_ARGS)
 
 	(void)priv;
 	(void)cmd;
-	(void)vl;
 
 	if (av == NULL) {
 		/* Reset and free */
@@ -496,6 +527,7 @@ cmd_logexp(CMD_ARGS)
 	AZ(strcmp(av[0], "logexpect"));
 	av++;
 
+	VTC_CHECK_NAME(vl, av[0], "Logexpect", 'l');
 	VTAILQ_FOREACH(le, &logexps, list) {
 		if (!strcmp(le->name, av[0]))
 			break;
@@ -508,11 +540,9 @@ cmd_logexp(CMD_ARGS)
 		if (vtc_error)
 			break;
 		if (!strcmp(*av, "-wait")) {
-			if (!le->run) {
-				vtc_log(le->vl, 0, "logexp not -started '%s'",
+			if (!le->run)
+				vtc_fatal(le->vl, "logexp not -started '%s'",
 					*av);
-				return;
-			}
 			logexp_wait(le);
 			continue;
 		}
@@ -526,53 +556,41 @@ cmd_logexp(CMD_ARGS)
 		AZ(le->run);
 
 		if (!strcmp(*av, "-v")) {
-			if (av[1] == NULL) {
-				vtc_log(le->vl, 0, "Missing -v argument");
-				return;
-			}
-			if (le->n_arg != NULL) {
-				VSB_delete(le->n_arg);
-				le->n_arg = NULL;
-			}
+			if (av[1] == NULL)
+				vtc_fatal(le->vl, "Missing -v argument");
+			if (le->n_arg != NULL)
+				VSB_destroy(&le->n_arg);
 			vsb = VSB_new_auto();
 			AN(vsb);
 			AZ(VSB_printf(vsb, "%s/%s", tmpdir, av[1]));
 			AZ(VSB_finish(vsb));
 			le->n_arg = macro_expand(le->vl, VSB_data(vsb));
-			VSB_delete(vsb);
+			VSB_destroy(&vsb);
 			if (le->n_arg == NULL)
 				return;
 			av++;
 			continue;
 		}
 		if (!strcmp(*av, "-d")) {
-			if (av[1] == NULL) {
-				vtc_log(le->vl, 0, "Missing -d argument");
-				return;
-			}
+			if (av[1] == NULL)
+				vtc_fatal(le->vl, "Missing -d argument");
 			le->d_arg = atoi(av[1]);
 			av++;
 			continue;
 		}
 		if (!strcmp(*av, "-g")) {
-			if (av[1] == NULL) {
-				vtc_log(le->vl, 0, "Missing -g argument");
-				return;
-			}
+			if (av[1] == NULL)
+				vtc_fatal(le->vl, "Missing -g argument");
 			le->g_arg = VSLQ_Name2Grouping(av[1], strlen(av[1]));
-			if (le->g_arg < 0) {
-				vtc_log(le->vl, 0, "Unknown grouping '%s'",
+			if (le->g_arg < 0)
+				vtc_fatal(le->vl, "Unknown grouping '%s'",
 				    av[1]);
-				return;
-			}
 			av++;
 			continue;
 		}
 		if (!strcmp(*av, "-q")) {
-			if (av[1] == NULL) {
-				vtc_log(le->vl, 0, "Missing -q argument");
-				return;
-			}
+			if (av[1] == NULL)
+				vtc_fatal(le->vl, "Missing -q argument");
 			REPLACE(le->query, av[1]);
 			av++;
 			continue;
@@ -592,11 +610,9 @@ cmd_logexp(CMD_ARGS)
 					av++;
 					continue;
 				}
-				vtc_log(le->vl, 0, "%s", VSL_Error(le->vsl));
-				return;
+				vtc_fatal(le->vl, "%s", VSL_Error(le->vsl));
 			}
-			vtc_log(le->vl, 0, "Unknown logexp argument: %s", *av);
-			return;
+			vtc_fatal(le->vl, "Unknown logexp argument: %s", *av);
 		}
 		logexp_spec(le, *av);
 	}

@@ -54,14 +54,17 @@
 
 #include "config.h"
 
+#include <time.h>
 #include <sys/time.h>
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
+#ifdef __MACH__
+#include <mach/mach_time.h>
+#endif
 
 #include "vas.h"
 #include "vtim.h"
@@ -87,6 +90,29 @@ static const int days_before_month[] = {
 	0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
 };
 
+#ifdef __MACH__
+// http://stackoverflow.com/a/21352348
+static uint64_t mt_base;
+static double   mt_scale;
+
+static void
+mach_time_init(void)
+{
+	mach_timebase_info_data_t timebase;
+
+	mt_base = mach_absolute_time();
+
+	AZ(mach_timebase_info(&timebase));
+	mt_scale = (double)timebase.numer / (double)timebase.denom * 1e-9;
+}
+
+static __attribute__((constructor)) void
+init(void)
+{
+	mach_time_init();
+}
+#endif
+
 /*
  * Note on Solaris: for some reason, clock_gettime(CLOCK_MONOTONIC, &ts) is not
  * implemented in assembly, but falls into a syscall, while gethrtime() doesn't,
@@ -103,11 +129,12 @@ VTIM_mono(void)
 
 	AZ(clock_gettime(CLOCK_MONOTONIC, &ts));
 	return (ts.tv_sec + 1e-9 * ts.tv_nsec);
-#else
-	struct timeval tv;
+#elif  defined(__MACH__)
+	uint64_t mt = mach_absolute_time() - mt_base;
 
-	AZ(gettimeofday(&tv, NULL));
-	return (tv.tv_sec + 1e-6 * tv.tv_usec);
+	return (mt * mt_scale);
+#else
+#error Varnish needs some monotonic time source
 #endif
 }
 
@@ -166,7 +193,7 @@ VTIM_format(double t, char *p)
 #define WEEKDAY()						\
 	do {							\
 		int i;						\
-		for(i = 0; i < 7; i++) {			\
+		for (i = 0; i < 7; i++) {			\
 			if (!memcmp(p, weekday_name[i], 3)) {	\
 				weekday = i;			\
 				break;				\
@@ -181,7 +208,7 @@ VTIM_format(double t, char *p)
 #define MONTH()							\
 	do {							\
 		int i;						\
-		for(i = 0; i < 12; i++) {			\
+		for (i = 0; i < 12; i++) {			\
 			if (!memcmp(p, month_name[i], 3)) {	\
 				month = i + 1;			\
 				break;				\
@@ -461,9 +488,32 @@ tst_delta()
 	err += tst_delta_check("VTIM_real", r_begin, r_end, ref);
 
 	if (err) {
-		printf("%d time delta test errors\n", err);
+		printf("%d time delta test errrors\n", err);
 		exit(4);
 	}
+}
+
+static void
+bench()
+{
+	double s, e, t;
+	int i;
+
+	t = 0;
+	s = VTIM_real();
+	for (i=0; i<100000; i++)
+		t += VTIM_real();
+	e = VTIM_real();
+	printf("real: %fs / %d = %fns - tst val %f\n",
+	    e - s, i, 1e9 * (e - s) / i, t);
+
+	t = 0;
+	s = VTIM_real();
+	for (i=0; i<100000; i++)
+		t += VTIM_mono();
+	e = VTIM_real();
+	printf("mono: %fs / %d = %fns - tst val %f\n",
+	    e - s, i, 1e9 * (e - s) / i, t);
 }
 
 int
@@ -477,6 +527,8 @@ main(int argc, char **argv)
 
 	AZ(setenv("TZ", "UTC", 1));
 	assert(sizeof t >= 8);
+
+	bench();
 
 	/* Brute force test against libc version */
 	for (t = -2209852800; t < 20000000000; t += 3599) {

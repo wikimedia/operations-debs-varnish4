@@ -29,13 +29,12 @@
 
 #include "config.h"
 
+#include "cache/cache.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
-
-#include "vcli_priv.h"
 #include "vrt.h"
 #include "vtcp.h"
 #include "vtim.h"
@@ -48,17 +47,16 @@
  * Pass the request body to the backend
  */
 
-static int __match_proto__(req_body_iter_f)
-vbf_iter_req_body(struct req *req, void *priv, void *ptr, size_t l)
+static int __match_proto__(objiterate_f)
+vbf_iter_req_body(void *priv, int flush, const void *ptr, ssize_t l)
 {
 	struct busyobj *bo;
 
-	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	CAST_OBJ_NOTNULL(bo, priv, BUSYOBJ_MAGIC);
 
 	if (l > 0) {
 		bo->acct.bereq_bodybytes += V1L_Write(bo->wrk, ptr, l);
-		if (V1L_Flush(bo->wrk))
+		if (flush && V1L_Flush(bo->wrk))
 			return (-1);
 	}
 	return (0);
@@ -90,6 +88,7 @@ V1F_SendReq(struct worker *wrk, struct busyobj *bo, uint64_t *ctr,
 	CHECK_OBJ_ORNULL(bo->req, REQ_MAGIC);
 
 	htc = bo->htc;
+	assert(*htc->rfd > 0);
 	hp = bo->bereq;
 
 	if (bo->req != NULL &&
@@ -98,11 +97,11 @@ V1F_SendReq(struct worker *wrk, struct busyobj *bo, uint64_t *ctr,
 		do_chunked = 1;
 	}
 
-	VTCP_hisname(htc->fd, abuf, sizeof abuf, pbuf, sizeof pbuf);
+	VTCP_hisname(*htc->rfd, abuf, sizeof abuf, pbuf, sizeof pbuf);
 	VSLb(bo->vsl, SLT_BackendStart, "%s %s", abuf, pbuf);
 
-	(void)VTCP_blocking(htc->fd);	/* XXX: we should timeout instead */
-	V1L_Reserve(wrk, wrk->aws, &htc->fd, bo->vsl, bo->t_prev);
+	(void)VTCP_blocking(*htc->rfd);	/* XXX: we should timeout instead */
+	V1L_Reserve(wrk, wrk->aws, htc->rfd, bo->vsl, bo->t_prev);
 	*ctr += HTTP1_Write(wrk, hp, HTTP1_Req);
 
 	/* Deal with any message-body the request might (still) have */
@@ -142,59 +141,57 @@ V1F_FetchRespHdr(struct busyobj *bo)
 {
 
 	struct http *hp;
-	int first, i;
+	int i;
+	double t;
 	struct http_conn *htc;
+	enum htc_status_e hs;
 
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_NOTNULL(bo->htc, HTTP_CONN_MAGIC);
 	CHECK_OBJ_ORNULL(bo->req, REQ_MAGIC);
 
 	htc = bo->htc;
+	assert(*htc->rfd > 0);
 
 	VSC_C_main->backend_req++;
 
 	/* Receive response */
 
-	SES_RxInit(htc, bo->ws, cache_param->http_resp_size,
-	    cache_param->http_resp_hdr_len);
+	HTC_RxInit(htc, bo->ws);
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
 	CHECK_OBJ_NOTNULL(bo->htc, HTTP_CONN_MAGIC);
 
-	VTCP_set_read_timeout(htc->fd, htc->first_byte_timeout);
-
-	first = 1;
-	do {
-		i = (htc->ws->r - htc->rxbuf_e) - 1;	/* space for NUL */
-		if (i <= 0) {
-			bo->acct.beresp_hdrbytes +=
-			    htc->rxbuf_e - htc->rxbuf_b;
-			WS_ReleaseP(htc->ws, htc->rxbuf_b);
-			VSLb(bo->vsl, SLT_FetchError,
-			    "http %sread error: overflow",
-			    first ? "first " : "");
-			htc->doclose = SC_RX_OVERFLOW;
-			return (-1);
-		}
-		i = read(htc->fd, htc->rxbuf_e, i);
-		if (i <= 0) {
-			bo->acct.beresp_hdrbytes +=
-			    htc->rxbuf_e - htc->rxbuf_b;
-			WS_ReleaseP(htc->ws, htc->rxbuf_b);
-			VSLb(bo->vsl, SLT_FetchError, "http %sread error: EOF",
-			    first ? "first " : "");
+	t = VTIM_real() + htc->first_byte_timeout;
+	hs = HTC_RxStuff(htc, HTTP1_Complete, NULL, NULL,
+	    t, t + htc->between_bytes_timeout, cache_param->http_resp_size);
+	if (hs != HTC_S_COMPLETE) {
+		bo->acct.beresp_hdrbytes +=
+		    htc->rxbuf_e - htc->rxbuf_b;
+		switch (hs) {
+		case HTC_S_JUNK:
+			VSLb(bo->vsl, SLT_FetchError, "Received junk");
+			htc->doclose = SC_RX_JUNK;
+			break;
+		case HTC_S_CLOSE:
+			VSLb(bo->vsl, SLT_FetchError, "backend closed");
+			htc->doclose = SC_RESP_CLOSE;
+			break;
+		case HTC_S_TIMEOUT:
+			VSLb(bo->vsl, SLT_FetchError, "timeout");
 			htc->doclose = SC_RX_TIMEOUT;
-			return (first ? 1 : -1);
+			break;
+		case HTC_S_OVERFLOW:
+			VSLb(bo->vsl, SLT_FetchError, "overflow");
+			htc->doclose = SC_RX_OVERFLOW;
+			break;
+		default:
+			VSLb(bo->vsl, SLT_FetchError, "HTC status %d", hs);
+			htc->doclose = SC_RX_BAD;
+			break;
 		}
-		if (first) {
-			first = 0;
-			VTCP_set_read_timeout(htc->fd,
-			    htc->between_bytes_timeout);
-		}
-		htc->rxbuf_e += i;
-		*htc->rxbuf_e = '\0';
-	} while (HTTP1_Complete(htc) != HTC_S_COMPLETE);
-
-	WS_ReleaseP(htc->ws, htc->rxbuf_e);
+		return (htc->rxbuf_e == htc->rxbuf_b ? 1 : -1);
+	}
+	VTCP_set_read_timeout(*htc->rfd, htc->between_bytes_timeout);
 
 	hp = bo->beresp;
 

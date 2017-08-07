@@ -2,17 +2,21 @@ varnishtest "Test a dynamic backend discard during a request"
 
 # vcl.discard testing inspired by v00006.vtc from commit e1f7207
 
+barrier b1 cond 2
+barrier b2 cond 2
+
 server s1 {
 	rxreq
 	expect req.url == "/foo"
-	sema r1 sync 2
+	barrier b1 sync
+	barrier b2 sync
 	txresp
 } -start
 
 varnish v1 -arg "-p thread_pools=1" -vcl {
-	import ${vmod_debug};
+	import debug;
 
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	backend dummy { .host = "${bad_backend}"; }
 
 	sub vcl_init {
 		new s1 = debug.dyn("${s1_addr}", "${s1_port}");
@@ -38,10 +42,12 @@ server s2 {
 	txresp
 } -start
 
-varnish v1 -vcl {
-	import ${vmod_debug};
+barrier b1 sync
 
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+varnish v1 -vcl {
+	import debug;
+
+	backend dummy { .host = "${bad_backend}"; }
 
 	sub vcl_init {
 		new s2 = debug.dyn("${s2_addr}", "${s2_port}");
@@ -53,7 +59,7 @@ varnish v1 -vcl {
 }
 
 varnish v1 -cli "vcl.discard vcl1"
-sema r1 sync 2
+barrier b2 sync
 
 client c1 -wait
 delay 2

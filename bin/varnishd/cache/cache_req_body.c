@@ -33,10 +33,132 @@
 #include <stdlib.h>
 
 #include "cache.h"
-#include "http1/cache_http1.h"
 #include "cache_filter.h"
 #include "vtim.h"
 #include "hash/hash_slinger.h"
+#include "storage/storage.h"
+#include "cache_transport.h"
+
+/*----------------------------------------------------------------------
+ * Pull the req.body in via/into a objcore
+ *
+ * This can be called only once per request
+ *
+ */
+
+static ssize_t
+vrb_pull(struct req *req, ssize_t maxsize, objiterate_f *func, void *priv)
+{
+	ssize_t l, r = 0, yet;
+	struct vfp_ctx *vfc;
+	uint8_t *ptr;
+	enum vfp_status vfps = VFP_ERROR;
+	const struct stevedore *stv;
+
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+
+	CHECK_OBJ_NOTNULL(req->htc, HTTP_CONN_MAGIC);
+	CHECK_OBJ_NOTNULL(req->vfc, VFP_CTX_MAGIC);
+	vfc = req->vfc;
+
+	req->body_oc = HSH_Private(req->wrk);
+	AN(req->body_oc);
+
+	if (req->storage != NULL)
+		stv = req->storage;
+	else
+		stv = stv_transient;
+
+	req->storage = NULL;
+
+	XXXAN(STV_NewObject(req->wrk, req->body_oc, stv, 8));
+
+	vfc->oc = req->body_oc;
+
+	if (VFP_Open(vfc) < 0) {
+		req->req_body_status = REQ_BODY_FAIL;
+		HSH_DerefBoc(req->wrk, req->body_oc);
+		AZ(HSH_DerefObjCore(req->wrk, &req->body_oc, 0));
+		return (-1);
+	}
+
+	AZ(req->req_bodybytes);
+	AN(req->htc);
+	yet = req->htc->content_length;
+	if (yet != 0 && req->want100cont) {
+		req->want100cont = 0;
+		(void)req->transport->minimal_response(req, 100);
+	}
+	if (yet < 0)
+		yet = 0;
+	do {
+		AZ(vfc->failed);
+		if (maxsize >= 0 && req->req_bodybytes > maxsize) {
+			(void)VFP_Error(vfc, "Request body too big to cache");
+			break;
+		}
+		l = yet;
+		if (VFP_GetStorage(vfc, &l, &ptr) != VFP_OK)
+			break;
+		AZ(vfc->failed);
+		AN(ptr);
+		AN(l);
+		vfps = VFP_Suck(vfc, ptr, &l);
+		if (l > 0 && vfps != VFP_ERROR) {
+			req->req_bodybytes += l;
+			req->acct.req_bodybytes += l;
+			if (yet >= l)
+				yet -= l;
+			if (func != NULL) {
+				r = func(priv, 1, ptr, l);
+				if (r)
+					break;
+			} else {
+				ObjExtend(req->wrk, req->body_oc, l);
+			}
+		}
+
+	} while (vfps == VFP_OK);
+	VFP_Close(vfc);
+	VSLb_ts_req(req, "ReqBody", VTIM_real());
+	if (func != NULL) {
+		HSH_DerefBoc(req->wrk, req->body_oc);
+		AZ(HSH_DerefObjCore(req->wrk, &req->body_oc, 0));
+		if (vfps != VFP_END) {
+			req->req_body_status = REQ_BODY_FAIL;
+			if (r == 0)
+				r = -1;
+		}
+		return (r);
+	}
+
+	ObjTrimStore(req->wrk, req->body_oc);
+	AZ(ObjSetU64(req->wrk, req->body_oc, OA_LEN, req->req_bodybytes));
+	HSH_DerefBoc(req->wrk, req->body_oc);
+
+	if (vfps != VFP_END) {
+		req->req_body_status = REQ_BODY_FAIL;
+		AZ(HSH_DerefObjCore(req->wrk, &req->body_oc, 0));
+		return (-1);
+	}
+
+	assert(req->req_bodybytes >= 0);
+	if (req->req_bodybytes != req->htc->content_length) {
+		/* We must update also the "pristine" req.* copy */
+		http_Unset(req->http0, H_Content_Length);
+		http_Unset(req->http0, H_Transfer_Encoding);
+		http_PrintfHeader(req->http0, "Content-Length: %ju",
+		    (uintmax_t)req->req_bodybytes);
+
+		http_Unset(req->http, H_Content_Length);
+		http_Unset(req->http, H_Transfer_Encoding);
+		http_PrintfHeader(req->http, "Content-Length: %ju",
+		    (uintmax_t)req->req_bodybytes);
+	}
+
+	req->req_body_status = REQ_BODY_CACHED;
+	return (req->req_bodybytes);
+}
 
 /*----------------------------------------------------------------------
  * Iterate over the req.body.
@@ -48,32 +170,19 @@
  */
 
 ssize_t
-VRB_Iterate(struct req *req, req_body_iter_f *func, void *priv)
+VRB_Iterate(struct req *req, objiterate_f *func, void *priv)
 {
-	char buf[8192];
-	ssize_t l, ll = 0;
-	void *p;
 	int i;
-	struct vfp_ctx *vfc;
-	enum vfp_status vfps = VFP_ERROR;
-	void *oi;
-	enum objiter_status ois;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	AN(func);
 
-	switch(req->req_body_status) {
+	switch (req->req_body_status) {
 	case REQ_BODY_CACHED:
-		oi = ObjIterBegin(req->wrk, req->body_oc);
-		AN(oi);
-		do {
-			ois = ObjIter(req->body_oc, oi, &p, &l);
-			ll += l;
-			if (l > 0 && func(req, priv, p, l))
-				break;
-		} while (ois == OIS_DATA);
-		ObjIterEnd(req->body_oc, &oi);
-		return (ois == OIS_DONE ? ll : -1);
+		if (req->req_bodybytes > 0 &&
+		    ObjIterate(req->wrk, req->body_oc, priv, func, 0))
+			return (-1);
+		return (0);
 	case REQ_BODY_NONE:
 		return (0);
 	case REQ_BODY_WITH_LEN:
@@ -88,7 +197,7 @@ VRB_Iterate(struct req *req, req_body_iter_f *func, void *priv)
 		    "Had failed reading req.body before.");
 		return (-1);
 	default:
-		WRONG("Wrong req_body_status in VRB_IterateReqBody()");
+		WRONG("Wrong req_body_status in VRB_Iterate()");
 	}
 	Lck_Lock(&req->sp->mtx);
 	if (req->req_body_status == REQ_BODY_WITH_LEN ||
@@ -103,59 +212,23 @@ VRB_Iterate(struct req *req, req_body_iter_f *func, void *priv)
 		    "Multiple attempts to access non-cached req.body");
 		return (i);
 	}
-
-	CHECK_OBJ_NOTNULL(req->htc, HTTP_CONN_MAGIC);
-	vfc = req->htc->vfc;
-	VFP_Setup(vfc);
-	vfc->http = req->http;
-	vfc->wrk = req->wrk;
-	if (V1F_Setup_Fetch(vfc, req->htc) != 0) {
-		VSLb(req->vsl, SLT_FetchError, "Fetch Pipeline Setup failed -"
-		    "out of workspace?");
-		return (-1);
-	}
-	if (VFP_Open(vfc) < 0) {
-		VSLb(req->vsl, SLT_FetchError, "Could not open Fetch Pipeline");
-		return (-1);
-	}
-
-	do {
-		l = sizeof buf;
-		vfps = VFP_Suck(vfc, buf, &l);
-		if (vfps == VFP_ERROR) {
-			req->req_body_status = REQ_BODY_FAIL;
-			ll = -1;
-			break;
-		} else if (l > 0) {
-			req->req_bodybytes += l;
-			req->acct.req_bodybytes += l;
-			ll += l;
-			l = func(req, priv, buf, l);
-			if (l) {
-				req->req_body_status = REQ_BODY_FAIL;
-				ll = -1;
-				break;
-			}
-		}
-	} while (vfps == VFP_OK);
-	VFP_Close(vfc);
-	VSLb_ts_req(req, "ReqBody", VTIM_real());
-
-	return (ll);
+	return (vrb_pull(req, -1, func, priv));
 }
 
 /*----------------------------------------------------------------------
- * DiscardReqBody() is a dedicated function, because we might
+ * VRB_Ignore() is a dedicated function, because we might
  * be able to disuade or terminate its transmission in some protocols.
- * For HTTP1 we have no such luck, and we just iterate it into oblivion.
+ *
+ * For HTTP1, we do nothing if we are going to close the connection anyway or
+ * just iterate it into oblivion.
  */
 
-static int __match_proto__(req_body_iter_f)
-httpq_req_body_discard(struct req *req, void *priv, void *ptr, size_t len)
+static int __match_proto__(objiterate_f)
+httpq_req_body_discard(void *priv, int flush, const void *ptr, ssize_t len)
 {
 
-	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	(void)priv;
+	(void)flush;
 	(void)ptr;
 	(void)len;
 	return (0);
@@ -167,6 +240,8 @@ VRB_Ignore(struct req *req)
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 
+	if (req->doclose)
+		return (0);
 	if (req->req_body_status == REQ_BODY_WITH_LEN ||
 	    req->req_body_status == REQ_BODY_WITHOUT_LEN)
 		(void)VRB_Iterate(req, httpq_req_body_discard, NULL);
@@ -183,7 +258,7 @@ VRB_Free(struct req *req)
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 
 	if (req->body_oc != NULL)
-		AZ(HSH_DerefObjCore(req->wrk, &req->body_oc));
+		AZ(HSH_DerefObjCore(req->wrk, &req->body_oc, 0));
 }
 
 /*----------------------------------------------------------------------
@@ -196,12 +271,9 @@ VRB_Free(struct req *req)
 ssize_t
 VRB_Cache(struct req *req, ssize_t maxsize)
 {
-	ssize_t l, yet;
-	struct vfp_ctx *vfc;
-	uint8_t *ptr;
-	enum vfp_status vfps = VFP_ERROR;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	assert(maxsize >= 0);
 
 	/*
 	 * We only allow caching to happen the first time through vcl_recv{}
@@ -212,7 +284,7 @@ VRB_Cache(struct req *req, ssize_t maxsize)
 		return (-1);
 
 	assert (req->req_step == R_STP_RECV);
-	switch(req->req_body_status) {
+	switch (req->req_body_status) {
 	case REQ_BODY_CACHED:
 		return (req->req_bodybytes);
 	case REQ_BODY_FAIL:
@@ -226,91 +298,11 @@ VRB_Cache(struct req *req, ssize_t maxsize)
 		WRONG("Wrong req_body_status in VRB_Cache()");
 	}
 
-	CHECK_OBJ_NOTNULL(req->htc, HTTP_CONN_MAGIC);
-	vfc = req->htc->vfc;
-	VFP_Setup(vfc);
-	vfc->wrk = req->wrk;
-
 	if (req->htc->content_length > maxsize) {
 		req->req_body_status = REQ_BODY_FAIL;
-		(void)VFP_Error(vfc, "Request body too big to cache");
+		(void)VFP_Error(req->vfc, "Request body too big to cache");
 		return (-1);
 	}
 
-	req->body_oc = HSH_Private(req->wrk);
-	AN(req->body_oc);
-	XXXAN(STV_NewObject(req->body_oc, req->wrk, TRANSIENT_STORAGE, 8));
-
-	vfc->http = req->http;
-	vfc->oc = req->body_oc;
-	if (V1F_Setup_Fetch(vfc, req->htc) != 0) {
-		(void)VFP_Error(vfc, "Fetch Pipeline Setup failed -"
-		    "out of workspace?");
-		req->req_body_status = REQ_BODY_FAIL;
-		return (-1);
-	}
-
-	if (VFP_Open(vfc) < 0) {
-		req->req_body_status = REQ_BODY_FAIL;
-		return (-1);
-	}
-
-	AZ(req->req_bodybytes);
-	AN(req->htc);
-	yet = req->htc->content_length;
-	if (yet < 0)
-		yet = 0;
-	do {
-		AZ(vfc->failed);
-		if (req->req_bodybytes > maxsize) {
-			req->req_body_status = REQ_BODY_FAIL;
-			(void)VFP_Error(vfc, "Request body too big to cache");
-			VFP_Close(vfc);
-			return(-1);
-		}
-		l = yet;
-		if (VFP_GetStorage(vfc, &l, &ptr) != VFP_OK)
-			break;
-		AZ(vfc->failed);
-		AN(ptr);
-		AN(l);
-		vfps = VFP_Suck(vfc, ptr, &l);
-		if (l > 0 && vfps != VFP_ERROR) {
-			req->req_bodybytes += l;
-			req->acct.req_bodybytes += l;
-			if (yet >= l)
-				yet -= l;
-			ObjExtend(req->wrk, req->body_oc, l);
-		}
-
-	} while (vfps == VFP_OK);
-	VFP_Close(vfc);
-	ObjTrimStore(req->wrk, req->body_oc);
-
-	/* XXX: check missing:
-	    if (req->htc->content_length >= 0)
-		MUSTBE (req->req_bodybytes == req->htc->content_length);
-	*/
-
-	if (vfps == VFP_END) {
-		assert(req->req_bodybytes >= 0);
-		if (req->req_bodybytes != req->htc->content_length) {
-			/* We must update also the "pristine" req.* copy */
-			http_Unset(req->http0, H_Content_Length);
-			http_Unset(req->http0, H_Transfer_Encoding);
-			http_PrintfHeader(req->http0, "Content-Length: %ju",
-			    (uintmax_t)req->req_bodybytes);
-
-			http_Unset(req->http, H_Content_Length);
-			http_Unset(req->http, H_Transfer_Encoding);
-			http_PrintfHeader(req->http, "Content-Length: %ju",
-			    (uintmax_t)req->req_bodybytes);
-		}
-
-		req->req_body_status = REQ_BODY_CACHED;
-	} else {
-		req->req_body_status = REQ_BODY_FAIL;
-	}
-	VSLb_ts_req(req, "ReqBody", VTIM_real());
-	return (vfps == VFP_END ? req->req_bodybytes : -1);
+	return (vrb_pull(req, maxsize, NULL, NULL));
 }

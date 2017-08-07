@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnish-counters &#8212; Varnish version 4.1.8 documentation</title>
+    <title>varnish-counters &#8212; Varnish version 5.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.8',
+        VERSION:     '5.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="VSL" href="vsl.html" />
     <link rel="prev" title="Writing a Director" href="directors.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="directors.html" title="Writing a Director"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -86,7 +86,7 @@
 <dt>sess_drop – Sessions dropped (INFO)</dt>
 <dd>Count of sessions silently dropped due to lack of worker thread.</dd>
 <dt>sess_fail – Session accept failures (INFO)</dt>
-<dd>Count of failures to accept TCP connection.  Either the client changed its mind, or the kernel ran out of some resource like file descriptors.</dd>
+<dd>Count of failures to accept TCP connection. Either the client changed its mind, or the kernel ran out of some resource like file descriptors.</dd>
 <dt>client_req_400 – Client requests received, subject to 400 errors (INFO)</dt>
 <dd>400 means we couldn't make sense of the request, it was malformed in some drastic way.</dd>
 <dt>client_req_417 – Client requests received, subject to 417 errors (INFO)</dt>
@@ -94,11 +94,13 @@
 <dt>client_req – Good client requests received (INFO)</dt>
 <dd>The count of parseable client requests seen.</dd>
 <dt>cache_hit – Cache hits (INFO)</dt>
-<dd>Count of cache hits.   A cache hit indicates that an object has been delivered to a  client without fetching it from a backend server.</dd>
-<dt>cache_hitpass – Cache hits for pass (INFO)</dt>
-<dd>Count of hits for pass  A cache hit for pass indicates that Varnish is going to  pass the request to the backend and this decision has been   cached in it self. This counts how many times the cached   decision is being used.</dd>
+<dd>Count of cache hits.  A cache hit indicates that an object has been delivered to a client without fetching it from a backend server.</dd>
+<dt>cache_hitpass – Cache hits for pass. (INFO)</dt>
+<dd>Count of hits for pass. A cache hit for pass indicates that Varnish is going to pass the request to the backend and this decision has been cached in it self. This counts how many times the cached decision is being used.</dd>
+<dt>cache_hitmiss – Cache hits for miss. (INFO)</dt>
+<dd>Count of hits for miss. A cache hit for miss indicates that Varnish is going to proceed as for a cache miss without request coalescing, and this decision has been cached. This counts how many times the cached decision is being used.</dd>
 <dt>cache_miss – Cache misses (INFO)</dt>
-<dd>Count of misses  A cache miss indicates the object was fetched from the  backend before delivering it to the client.</dd>
+<dd>Count of misses. A cache miss indicates the object was fetched from the backend before delivering it to the client.</dd>
 <dt>backend_conn – Backend conn. success (INFO)</dt>
 <dd>How many backend connections have successfully been established.</dd>
 </dl>
@@ -107,9 +109,9 @@
 <p>backend_fail – Backend conn. failures (INFO)</p>
 <dl class="docutils">
 <dt>backend_reuse – Backend conn. reuses (INFO)</dt>
-<dd>Count of backend connection reuses  This counter is increased whenever we reuse a recycled connection.</dd>
+<dd>Count of backend connection reuses. This counter is increased whenever we reuse a recycled connection.</dd>
 <dt>backend_recycle – Backend conn. recycles (INFO)</dt>
-<dd>Count of backend connection recycles  This counter is increased whenever we have a keep-alive  connection that is put back into the pool of connections.  It has not yet been used, but it might be, unless the backend  closes it.</dd>
+<dd>Count of backend connection recycles. This counter is increased whenever we have a keep-alive connection that is put back into the pool of connections. It has not yet been used, but it might be, unless the backend closes it.</dd>
 </dl>
 <p>backend_retry – Backend conn. retry (INFO)</p>
 <dl class="docutils">
@@ -136,39 +138,37 @@
 <dt>fetch_no_thread – Fetch failed (no thread) (INFO)</dt>
 <dd>beresp fetch failed, no thread available.</dd>
 <dt>pools – Number of thread pools (INFO)</dt>
-<dd>Number of thread pools.  See also parameter thread_pools.  NB: Presently pools cannot be removed once created.</dd>
+<dd>Number of thread pools. See also parameter thread_pools. NB: Presently pools cannot be removed once created.</dd>
 <dt>threads – Total number of threads (INFO)</dt>
-<dd>Number of threads in all pools.  See also parameters thread_pools, thread_pool_min and thread_pool_max.</dd>
+<dd>Number of threads in all pools. See also parameters thread_pools, thread_pool_min and thread_pool_max.</dd>
 <dt>threads_limited – Threads hit max (INFO)</dt>
-<dd>Number of times more threads were needed, but limit was reached in a thread pool.  See also parameter thread_pool_max.</dd>
+<dd>Number of times more threads were needed, but limit was reached in a thread pool. See also parameter thread_pool_max.</dd>
 <dt>threads_created – Threads created (INFO)</dt>
 <dd>Total number of threads created in all pools.</dd>
 <dt>threads_destroyed – Threads destroyed (INFO)</dt>
 <dd>Total number of threads destroyed in all pools.</dd>
 <dt>threads_failed – Thread creation failed (INFO)</dt>
-<dd>Number of times creating a thread failed.  See VSL::Debug for diagnostics.  See also parameter thread_fail_delay.</dd>
+<dd>Number of times creating a thread failed. See VSL::Debug for diagnostics. See also parameter thread_fail_delay.</dd>
 <dt>thread_queue_len – Length of session queue (INFO)</dt>
-<dd>Length of session queue waiting for threads.  NB: Only updates once per second.  See also parameter thread_queue_limit.</dd>
+<dd>Length of session queue waiting for threads. NB: Only updates once per second. See also parameter thread_queue_limit.</dd>
 <dt>busy_sleep – Number of requests sent to sleep on busy objhdr (INFO)</dt>
 <dd>Number of requests sent to sleep without a worker thread because they found a busy object.</dd>
 <dt>busy_wakeup – Number of requests woken after sleep on busy objhdr (INFO)</dt>
-<dd>Number of requests taken of the busy object sleep list and and rescheduled.</dd>
+<dd>Number of requests taken off the busy object sleep list and rescheduled.</dd>
 <dt>busy_killed – Number of requests killed after sleep on busy objhdr (INFO)</dt>
 <dd>Number of requests killed from the busy object sleep list due to lack of resources.</dd>
 <dt>sess_queued – Sessions queued for thread (INFO)</dt>
-<dd>Number of times session was queued waiting for a thread.  See also parameter thread_queue_limit.</dd>
+<dd>Number of times session was queued waiting for a thread. See also parameter thread_queue_limit.</dd>
 <dt>sess_dropped – Sessions dropped for thread (INFO)</dt>
 <dd>Number of times session was dropped because the queue were too long already. See also parameter thread_queue_limit.</dd>
 <dt>n_object – object structs made (INFO)</dt>
-<dd>Number of object structs made</dd>
+<dd>Approximate number of HTTP objects (headers + body, if present) in the cache.</dd>
 <dt>n_vampireobject – unresurrected objects (DIAG)</dt>
 <dd>Number of unresurrected objects</dd>
 <dt>n_objectcore – objectcore structs made (INFO)</dt>
-<dd>Number of objectcore structs made</dd>
+<dd>Approximate number of object metadata elements in the cache. Each object needs an objectcore, extra objectcores are for hit-for-miss, hit-for-pass and busy objects.</dd>
 <dt>n_objecthead – objecthead structs made (INFO)</dt>
-<dd>Number of objecthead structs made</dd>
-<dt>n_waitinglist – waitinglist structs made (DEBUG)</dt>
-<dd>Number of waitinglist structs made</dd>
+<dd>Approximate number of different hash entries in the cache.</dd>
 <dt>n_backend – Number of backends (INFO)</dt>
 <dd>Number of backends known to us.</dd>
 <dt>n_expired – Number of expired objects (INFO)</dt>
@@ -240,6 +240,10 @@
 <dd>Number of session closes with Error PIPE_OVERFLOW (Session pipe overflow)</dd>
 <dt>sc_range_short – Session Err RANGE_SHORT (DIAG)</dt>
 <dd>Number of session closes with Error RANGE_SHORT (Insufficient data for range)</dd>
+<dt>sc_req_http20 – Session Err REQ_HTTP20 (DIAG)</dt>
+<dd>Number of session closes with Error REQ_HTTP20 (HTTP2 not accepted)</dd>
+<dt>sc_vcl_failure – Session Err VCL_FAILURE (DIAG)</dt>
+<dd>Number of session closes with Error VCL_FAILURE (VCL failure)</dd>
 </dl>
 <p>shm_records – SHM records (DIAG)</p>
 <p>shm_writes – SHM writes (DIAG)</p>
@@ -251,6 +255,8 @@
 <p>n_vcl_avail – Number of VCLs available (DIAG)</p>
 <p>n_vcl_discard – Number of discarded VCLs (DIAG)</p>
 <dl class="docutils">
+<dt>vcl_fail – VCL failures (INFO)</dt>
+<dd>Count of failures which prevented VCL from completing.</dd>
 <dt>bans – Count of bans (INFO)</dt>
 <dd>Number of all bans in system, including bans superseded by newer bans and bans already checked by the ban-lurker.</dd>
 <dt>bans_completed – Number of bans marked 'completed' (DIAG)</dt>
@@ -270,11 +276,13 @@
 <dt>bans_lurker_tested – Bans tested against objects (lurker) (DIAG)</dt>
 <dd>Count of how many bans and objects have been tested against each other by the ban-lurker.</dd>
 <dt>bans_tests_tested – Ban tests tested against objects (lookup) (DIAG)</dt>
-<dd>Count of how many tests and objects have been tested against each other during lookup.  'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
+<dd>Count of how many tests and objects have been tested against each other during lookup. 'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
 <dt>bans_lurker_tests_tested – Ban tests tested against objects (lurker) (DIAG)</dt>
-<dd>Count of how many tests and objects have been tested against each other by the ban-lurker.  'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
+<dd>Count of how many tests and objects have been tested against each other by the ban-lurker. 'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
 <dt>bans_lurker_obj_killed – Objects killed by bans (lurker) (DIAG)</dt>
-<dd>Number of objects killed by ban-lurker.</dd>
+<dd>Number of objects killed by the ban-lurker.</dd>
+<dt>bans_lurker_obj_killed_cutoff – Objects killed by bans for cutoff (lurker) (DIAG)</dt>
+<dd>Number of objects killed by the ban-lurker to keep the number of bans below ban_cutoff.</dd>
 <dt>bans_dups – Bans superseded by other bans (DIAG)</dt>
 <dd>Count of bans replaced by later identical bans.</dd>
 <dt>bans_lurker_contention – Lurker gave way for lookup (DIAG)</dt>
@@ -301,6 +309,8 @@
 <p>n_gzip – Gzip operations (INFO)</p>
 <p>n_gunzip – Gunzip operations (INFO)</p>
 <dl class="docutils">
+<dt>n_test_gunzip – Test gunzip operations (INFO)</dt>
+<dd>Those operations occur when Varnish receives a compressed object from a backend. They are done to verify the gzip stream while it's inserted in storage.</dd>
 <dt>vsm_free – Free VSM space (DIAG)</dt>
 <dd>Number of bytes free in the shared memory used to communicate with tools like varnishstat, varnishlog etc.</dd>
 <dt>vsm_used – Used VSM space (DIAG)</dt>
@@ -332,8 +342,8 @@
 <dd>Number of times the management process has caught a child panic</dd>
 </dl>
 </div>
-<div class="section" id="per-memory-pool-counters-mempool">
-<h3>PER MEMORY POOL COUNTERS (MEMPOOL.*)<a class="headerlink" href="#per-memory-pool-counters-mempool" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="memory-pool-counters-mempool">
+<h3>MEMORY POOL COUNTERS (MEMPOOL.*)<a class="headerlink" href="#memory-pool-counters-mempool" title="Permalink to this headline">¶</a></h3>
 <p>live – In use (DEBUG)</p>
 <p>pool – In Pool (DEBUG)</p>
 <p>sz_wanted – Size requested (DEBUG)</p>
@@ -346,8 +356,8 @@
 <p>surplus – Too many for pool (DEBUG)</p>
 <p>randry – Pool ran dry (DEBUG)</p>
 </div>
-<div class="section" id="per-malloc-storage-counters-sma">
-<h3>PER MALLOC STORAGE COUNTERS (SMA.*)<a class="headerlink" href="#per-malloc-storage-counters-sma" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="malloc-storage-counters-sma">
+<h3>MALLOC STORAGE COUNTERS (SMA.*)<a class="headerlink" href="#malloc-storage-counters-sma" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
 <dt>c_req – Allocator requests (INFO)</dt>
 <dd>Number of times the storage has been asked to provide a storage segment.</dd>
@@ -365,8 +375,8 @@
 <dd>Number of bytes left in the storage.</dd>
 </dl>
 </div>
-<div class="section" id="per-file-storage-counters-smf">
-<h3>PER FILE STORAGE COUNTERS (SMF.*)<a class="headerlink" href="#per-file-storage-counters-smf" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="file-storage-counters-smf">
+<h3>FILE STORAGE COUNTERS (SMF.*)<a class="headerlink" href="#file-storage-counters-smf" title="Permalink to this headline">¶</a></h3>
 <dl class="docutils">
 <dt>c_req – Allocator requests (INFO)</dt>
 <dd>Number of times the storage has been asked to provide a storage segment.</dd>
@@ -387,8 +397,8 @@
 <p>g_smf_frag – N small free smf (INFO)</p>
 <p>g_smf_large – N large free smf (INFO)</p>
 </div>
-<div class="section" id="per-backend-counters-vbe">
-<h3>PER BACKEND COUNTERS (VBE.*)<a class="headerlink" href="#per-backend-counters-vbe" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="backend-counters-vbe">
+<h3>BACKEND COUNTERS (VBE.*)<a class="headerlink" href="#backend-counters-vbe" title="Permalink to this headline">¶</a></h3>
 <p>happy – Happy health probes (INFO)</p>
 <dl class="docutils">
 <dt>bereq_hdrbytes – Request header bytes (INFO)</dt>
@@ -436,10 +446,10 @@ written by Tollef Fog Heen.</p>
 <li><a class="reference internal" href="#counter-levels">COUNTER LEVELS</a></li>
 <li><a class="reference internal" href="#main-counters-main">MAIN COUNTERS (MAIN.*)</a></li>
 <li><a class="reference internal" href="#management-process-counters-mgt">MANAGEMENT PROCESS COUNTERS (MGT.*)</a></li>
-<li><a class="reference internal" href="#per-memory-pool-counters-mempool">PER MEMORY POOL COUNTERS (MEMPOOL.*)</a></li>
-<li><a class="reference internal" href="#per-malloc-storage-counters-sma">PER MALLOC STORAGE COUNTERS (SMA.*)</a></li>
-<li><a class="reference internal" href="#per-file-storage-counters-smf">PER FILE STORAGE COUNTERS (SMF.*)</a></li>
-<li><a class="reference internal" href="#per-backend-counters-vbe">PER BACKEND COUNTERS (VBE.*)</a></li>
+<li><a class="reference internal" href="#memory-pool-counters-mempool">MEMORY POOL COUNTERS (MEMPOOL.*)</a></li>
+<li><a class="reference internal" href="#malloc-storage-counters-sma">MALLOC STORAGE COUNTERS (SMA.*)</a></li>
+<li><a class="reference internal" href="#file-storage-counters-smf">FILE STORAGE COUNTERS (SMF.*)</a></li>
+<li><a class="reference internal" href="#backend-counters-vbe">BACKEND COUNTERS (VBE.*)</a></li>
 <li><a class="reference internal" href="#lock-counters-lck">LOCK COUNTERS (LCK.*)</a></li>
 <li><a class="reference internal" href="#authors">AUTHORS</a></li>
 </ul>
@@ -487,7 +497,7 @@ written by Tollef Fog Heen.</p>
         <li class="right" >
           <a href="directors.html" title="Writing a Director"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

@@ -1,8 +1,9 @@
 /*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Edit and run generate.py instead
+ * Edit and run lib/libvcc/generate.py instead.
  */
+
 
 struct vrt_ctx;
 #define VRT_CTX const struct vrt_ctx *ctx
@@ -15,7 +16,6 @@ struct worker;
 enum vcl_event_e {
 	VCL_EVENT_LOAD,
 	VCL_EVENT_WARM,
-	VCL_EVENT_USE,
 	VCL_EVENT_COLD,
 	VCL_EVENT_DISCARD,
 };
@@ -23,7 +23,7 @@ enum vcl_event_e {
 typedef int vcl_event_f(VRT_CTX, enum vcl_event_e);
 typedef int vcl_init_f(VRT_CTX);
 typedef void vcl_fini_f(VRT_CTX);
-typedef int vcl_func_f(VRT_CTX);
+typedef void vcl_func_f(VRT_CTX);
 
 /* VCL Methods */
 #define VCL_MET_RECV			(1U << 1)
@@ -46,22 +46,23 @@ typedef int vcl_func_f(VRT_CTX);
 #define VCL_MET_MASK			0x7fff
 
 /* VCL Returns */
-#define VCL_RET_ABANDON			0
-#define VCL_RET_DELIVER			1
-#define VCL_RET_FAIL			2
-#define VCL_RET_FETCH			3
-#define VCL_RET_HASH			4
-#define VCL_RET_LOOKUP			5
-#define VCL_RET_MISS			6
-#define VCL_RET_OK			7
-#define VCL_RET_PASS			8
-#define VCL_RET_PIPE			9
-#define VCL_RET_PURGE			10
-#define VCL_RET_RESTART			11
-#define VCL_RET_RETRY			12
-#define VCL_RET_SYNTH			13
+#define VCL_RET_ABANDON			1
+#define VCL_RET_DELIVER			2
+#define VCL_RET_FAIL			3
+#define VCL_RET_FETCH			4
+#define VCL_RET_HASH			5
+#define VCL_RET_LOOKUP			6
+#define VCL_RET_MISS			7
+#define VCL_RET_OK			8
+#define VCL_RET_PASS			9
+#define VCL_RET_PIPE			10
+#define VCL_RET_PURGE			11
+#define VCL_RET_RESTART			12
+#define VCL_RET_RETRY			13
+#define VCL_RET_SYNTH			14
+#define VCL_RET_VCL			15
 
-#define VCL_RET_MAX			14
+#define VCL_RET_MAX			16
 
 struct VCL_conf {
 	unsigned			magic;

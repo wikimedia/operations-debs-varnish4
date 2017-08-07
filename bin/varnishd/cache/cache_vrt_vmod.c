@@ -31,13 +31,16 @@
 
 #include "config.h"
 
-#include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "cache.h"
 
-#include "vcli_priv.h"
+#include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include "vcli_serve.h"
 #include "vrt.h"
 
 /*--------------------------------------------------------------------
@@ -54,16 +57,21 @@ struct vmod {
 
 	char			*nm;
 	char			*path;
+	char			*backup;
 	void			*hdl;
 	const void		*funcs;
 	int			funclen;
+	const char		*abi;
+	unsigned		vrt_major;
+	unsigned		vrt_minor;
 };
 
 static VTAILQ_HEAD(,vmod)	vmods = VTAILQ_HEAD_INITIALIZER(vmods);
 
+
 int
-VRT_Vmod_Init(struct vmod **hdl, void *ptr, int len, const char *nm,
-    const char *path, const char *file_id, VRT_CTX)
+VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len, const char *nm,
+    const char *path, const char *file_id, const char *backup)
 {
 	struct vmod *v;
 	const struct vmod_data *d;
@@ -76,11 +84,10 @@ VRT_Vmod_Init(struct vmod **hdl, void *ptr, int len, const char *nm,
 	AN(hdl);
 	AZ(*hdl);
 
-	dlhdl = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+	dlhdl = dlopen(backup, RTLD_NOW | RTLD_LOCAL);
 	if (dlhdl == NULL) {
-		VSB_printf(ctx->msg, "Loading VMOD %s from %s:\n", nm, path);
+		VSB_printf(ctx->msg, "Loading vmod %s from %s:\n", nm, backup);
 		VSB_printf(ctx->msg, "dlopen() failed: %s\n", dlerror());
-		VSB_printf(ctx->msg, "Check child process permissions.\n");
 		return (1);
 	}
 
@@ -90,6 +97,7 @@ VRT_Vmod_Init(struct vmod **hdl, void *ptr, int len, const char *nm,
 	if (v == NULL) {
 		ALLOC_OBJ(v, VMOD_MAGIC);
 		AN(v);
+		REPLACE(v->backup, backup);
 
 		v->hdl = dlhdl;
 
@@ -99,7 +107,7 @@ VRT_Vmod_Init(struct vmod **hdl, void *ptr, int len, const char *nm,
 		    d->file_id == NULL ||
 		    strcmp(d->file_id, file_id)) {
 			VSB_printf(ctx->msg,
-			    "Loading VMOD %s from %s:\n", nm, path);
+			    "Loading vmod %s from %s:\n", nm, path);
 			VSB_printf(ctx->msg,
 			    "This is no longer the same file seen by"
 			    " the VCL-compiler.\n");
@@ -126,6 +134,9 @@ VRT_Vmod_Init(struct vmod **hdl, void *ptr, int len, const char *nm,
 
 		v->funclen = d->func_len;
 		v->funcs = d->func;
+		v->abi = d->abi;
+		v->vrt_major = d->vrt_major;
+		v->vrt_minor = d->vrt_minor;
 
 		REPLACE(v->nm, nm);
 		REPLACE(v->path, path);
@@ -149,10 +160,7 @@ VRT_Vmod_Fini(struct vmod **hdl)
 
 	ASSERT_CLI();
 
-	AN(hdl);
-	v = *hdl;
-	*hdl = NULL;
-	CHECK_OBJ_NOTNULL(v, VMOD_MAGIC);
+	TAKE_OBJ_NOTNULL(v, hdl, VMOD_MAGIC);
 
 #ifndef DONT_DLCLOSE_VMODS
 	/*
@@ -166,9 +174,24 @@ VRT_Vmod_Fini(struct vmod **hdl)
 		return;
 	free(v->nm);
 	free(v->path);
+	free(v->backup);
 	VTAILQ_REMOVE(&vmods, v, list);
 	VSC_C_main->vmods--;
 	FREE_OBJ(v);
+}
+
+void
+VMOD_Panic(struct vsb *vsb)
+{
+	struct vmod *v;
+
+	VSB_printf(vsb, "vmods = {\n");
+	VSB_indent(vsb, 2);
+	VTAILQ_FOREACH(v, &vmods, list)
+		VSB_printf(vsb, "%s = {%s, %u.%u},\n",
+		    v->nm, v->abi, v->vrt_major, v->vrt_minor);
+	VSB_indent(vsb, -2);
+	VSB_printf(vsb, "},\n");
 }
 
 /*---------------------------------------------------------------------*/
@@ -186,8 +209,7 @@ ccf_debug_vmod(struct cli *cli, const char * const *av, void *priv)
 }
 
 static struct cli_proto vcl_cmds[] = {
-	{ "debug.vmod", "debug.vmod", "\tShow loaded vmods.", 0, 0,
-		"d", ccf_debug_vmod },
+	{ CLICMD_DEBUG_VMOD,			"d", ccf_debug_vmod },
 	{ NULL }
 };
 

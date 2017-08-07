@@ -93,7 +93,8 @@ host_triplet = @host@
 target_triplet = @target@
 subdir = lib/libvmod_std
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/varnish.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
 	$(top_srcdir)/m4/ax_lib_readline.m4 \
 	$(top_srcdir)/m4/ax_pthread.m4 \
@@ -139,9 +140,11 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(vmoddir)"
 LTLIBRARIES = $(vmod_LTLIBRARIES)
 libvmod_std_la_LIBADD =
-am_libvmod_std_la_OBJECTS = vmod_std.lo vmod_std_conversions.lo \
-	vmod_std_fileread.lo vmod_std_querysort.lo
-nodist_libvmod_std_la_OBJECTS = vcc_if.lo
+am_libvmod_std_la_OBJECTS = libvmod_std_la-vmod_std.lo \
+	libvmod_std_la-vmod_std_conversions.lo \
+	libvmod_std_la-vmod_std_fileread.lo \
+	libvmod_std_la-vmod_std_querysort.lo
+nodist_libvmod_std_la_OBJECTS = libvmod_std_la-vcc_if.lo
 libvmod_std_la_OBJECTS = $(am_libvmod_std_la_OBJECTS) \
 	$(nodist_libvmod_std_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -150,8 +153,8 @@ am__v_lt_0 = --silent
 am__v_lt_1 = 
 libvmod_std_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
-	$(AM_CFLAGS) $(CFLAGS) $(libvmod_std_la_LDFLAGS) $(LDFLAGS) -o \
-	$@
+	$(libvmod_std_la_CFLAGS) $(CFLAGS) $(libvmod_std_la_LDFLAGS) \
+	$(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -243,6 +246,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTCFLAGS = @EXTCFLAGS@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -259,7 +263,6 @@ LIBM = @LIBM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
-LIBUMEM = @LIBUMEM@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -271,6 +274,7 @@ MKDIR_P = @MKDIR_P@
 NET_LIBS = @NET_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NSL_LIBS = @NSL_LIBS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -293,13 +297,20 @@ PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 PYTHON = @PYTHON@
+PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
+PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PREFIX = @PYTHON_PREFIX@
+PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
 RST2HTML = @RST2HTML@
 RST2MAN = @RST2MAN@
 RT_LIBS = @RT_LIBS@
+SAN_CFLAGS = @SAN_CFLAGS@
+SAN_LDFLAGS = @SAN_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VARNISH_STATE_DIR = @VARNISH_STATE_DIR@
 VCC_CC = @VCC_CC@
@@ -348,9 +359,14 @@ mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
+pkgpyexecdir = @pkgpyexecdir@
+pkgpythondir = @pkgpythondir@
+pkgsysconfdir = @pkgsysconfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+pyexecdir = @pyexecdir@
+pythondir = @pythondir@
 runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
@@ -364,7 +380,6 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-varnishconfdir = @varnishconfdir@
 AM_LDFLAGS = $(AM_LT_LDFLAGS)
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/include \
@@ -376,7 +391,12 @@ vmod_srcdir = $(top_srcdir)/lib/libvmod_std
 vmodtool = $(top_srcdir)/lib/libvcc/vmodtool.py
 vmodtoolargs = --strict
 vmod_LTLIBRARIES = libvmod_std.la
-libvmod_std_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared
+libvmod_std_la_CFLAGS = \
+	@SAN_CFLAGS@
+
+libvmod_std_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared \
+	@SAN_LDFLAGS@
+
 libvmod_std_la_SOURCES = \
 	vmod_std.c \
 	vmod_std_conversions.c \
@@ -470,11 +490,11 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vcc_if.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vmod_std.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vmod_std_conversions.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vmod_std_fileread.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vmod_std_querysort.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_std_la-vcc_if.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_std_la-vmod_std.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_std_la-vmod_std_conversions.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_std_la-vmod_std_fileread.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libvmod_std_la-vmod_std_querysort.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -496,6 +516,41 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+libvmod_std_la-vmod_std.lo: vmod_std.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -MT libvmod_std_la-vmod_std.lo -MD -MP -MF $(DEPDIR)/libvmod_std_la-vmod_std.Tpo -c -o libvmod_std_la-vmod_std.lo `test -f 'vmod_std.c' || echo '$(srcdir)/'`vmod_std.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_std_la-vmod_std.Tpo $(DEPDIR)/libvmod_std_la-vmod_std.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_std.c' object='libvmod_std_la-vmod_std.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -c -o libvmod_std_la-vmod_std.lo `test -f 'vmod_std.c' || echo '$(srcdir)/'`vmod_std.c
+
+libvmod_std_la-vmod_std_conversions.lo: vmod_std_conversions.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -MT libvmod_std_la-vmod_std_conversions.lo -MD -MP -MF $(DEPDIR)/libvmod_std_la-vmod_std_conversions.Tpo -c -o libvmod_std_la-vmod_std_conversions.lo `test -f 'vmod_std_conversions.c' || echo '$(srcdir)/'`vmod_std_conversions.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_std_la-vmod_std_conversions.Tpo $(DEPDIR)/libvmod_std_la-vmod_std_conversions.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_std_conversions.c' object='libvmod_std_la-vmod_std_conversions.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -c -o libvmod_std_la-vmod_std_conversions.lo `test -f 'vmod_std_conversions.c' || echo '$(srcdir)/'`vmod_std_conversions.c
+
+libvmod_std_la-vmod_std_fileread.lo: vmod_std_fileread.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -MT libvmod_std_la-vmod_std_fileread.lo -MD -MP -MF $(DEPDIR)/libvmod_std_la-vmod_std_fileread.Tpo -c -o libvmod_std_la-vmod_std_fileread.lo `test -f 'vmod_std_fileread.c' || echo '$(srcdir)/'`vmod_std_fileread.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_std_la-vmod_std_fileread.Tpo $(DEPDIR)/libvmod_std_la-vmod_std_fileread.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_std_fileread.c' object='libvmod_std_la-vmod_std_fileread.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -c -o libvmod_std_la-vmod_std_fileread.lo `test -f 'vmod_std_fileread.c' || echo '$(srcdir)/'`vmod_std_fileread.c
+
+libvmod_std_la-vmod_std_querysort.lo: vmod_std_querysort.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -MT libvmod_std_la-vmod_std_querysort.lo -MD -MP -MF $(DEPDIR)/libvmod_std_la-vmod_std_querysort.Tpo -c -o libvmod_std_la-vmod_std_querysort.lo `test -f 'vmod_std_querysort.c' || echo '$(srcdir)/'`vmod_std_querysort.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_std_la-vmod_std_querysort.Tpo $(DEPDIR)/libvmod_std_la-vmod_std_querysort.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vmod_std_querysort.c' object='libvmod_std_la-vmod_std_querysort.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -c -o libvmod_std_la-vmod_std_querysort.lo `test -f 'vmod_std_querysort.c' || echo '$(srcdir)/'`vmod_std_querysort.c
+
+libvmod_std_la-vcc_if.lo: vcc_if.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -MT libvmod_std_la-vcc_if.lo -MD -MP -MF $(DEPDIR)/libvmod_std_la-vcc_if.Tpo -c -o libvmod_std_la-vcc_if.lo `test -f 'vcc_if.c' || echo '$(srcdir)/'`vcc_if.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libvmod_std_la-vcc_if.Tpo $(DEPDIR)/libvmod_std_la-vcc_if.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vcc_if.c' object='libvmod_std_la-vcc_if.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libvmod_std_la_CFLAGS) $(CFLAGS) -c -o libvmod_std_la-vcc_if.lo `test -f 'vcc_if.c' || echo '$(srcdir)/'`vcc_if.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -716,7 +771,9 @@ uninstall-am: uninstall-vmodLTLIBRARIES
 # BUILT_SOURCES is only a hack and dependency tracking does not help for the first build
 $(libvmod_std_la_OBJECTS): vcc_if.h
 
-vcc_if.c vcc_if.h vmod_std.rst vmod_std.man.rst: $(vmodtool) $(vmod_srcdir)/vmod.vcc
+vcc_if.h vmod_std.rst vmod_std.man.rst: vcc_if.c
+
+vcc_if.c: $(vmodtool) $(vmod_srcdir)/vmod.vcc
 	@PYTHON@ $(vmodtool) $(vmodtoolargs) $(vmod_srcdir)/vmod.vcc
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

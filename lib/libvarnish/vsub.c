@@ -36,12 +36,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "vas.h"
 #include "vdef.h"
+#include "vfil.h"
 #include "vlu.h"
 #include "vsb.h"
 #include "vsub.h"
@@ -107,13 +109,12 @@ VSUB_run(struct vsb *sb, vsub_func_f *func, void *priv, const char *name,
 	if ((pid = fork()) < 0) {
 		VSB_printf(sb, "Starting %s: fork() failed: %s",
 		    name, strerror(errno));
-		AZ(close(p[0]));
-		AZ(close(p[1]));
+		closefd(&p[0]);
+		closefd(&p[1]);
 		return (1);
 	}
 	if (pid == 0) {
-		AZ(close(STDIN_FILENO));
-		assert(open("/dev/null", O_RDONLY) == STDIN_FILENO);
+		VFIL_null_fd(STDIN_FILENO);
 		assert(dup2(p[1], STDOUT_FILENO) == STDOUT_FILENO);
 		assert(dup2(p[1], STDERR_FILENO) == STDERR_FILENO);
 		/* Close all other fds */
@@ -126,11 +127,11 @@ VSUB_run(struct vsb *sb, vsub_func_f *func, void *priv, const char *name,
 		 */
 		_exit(4);
 	}
-	AZ(close(p[1]));
+	closefd(&p[1]);
 	vlu = VLU_New(&sp, vsub_vlu, 0);
 	while (!VLU_Fd(p[0], vlu))
 		continue;
-	AZ(close(p[0]));
+	closefd(&p[0]);
 	VLU_Destroy(vlu);
 	if (sp.maxlines >= 0 && sp.lines > sp.maxlines)
 		VSB_printf(sb, "[%d lines truncated]\n",

@@ -35,11 +35,11 @@
 
 #include "config.h"
 
+#include "cache.h"
+
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#include "cache.h"
 
 struct ilck {
 	unsigned		magic;
@@ -165,25 +165,30 @@ Lck__Trylock(struct lock *lck, const char *p, int l)
 	return (r);
 }
 
-void
-Lck__Assert(const struct lock *lck, int held)
+int
+Lck__Held(const struct lock *lck)
 {
 	struct ilck *ilck;
 
 	CAST_OBJ_NOTNULL(ilck, lck->priv, ILCK_MAGIC);
-	if (held) {
-		assert(ilck->held);
-		assert(pthread_equal(ilck->owner, pthread_self()));
-	} else {
-		AZ(ilck->held);
-		AZ(pthread_equal(ilck->owner, pthread_self()));
-	}
+	return (ilck->held);
+}
+
+int
+Lck__Owned(const struct lock *lck)
+{
+	struct ilck *ilck;
+
+	CAST_OBJ_NOTNULL(ilck, lck->priv, ILCK_MAGIC);
+	AN(ilck->held);
+	return (pthread_equal(ilck->owner, pthread_self()));
 }
 
 int __match_proto__()
 Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double when)
 {
 	struct ilck *ilck;
+	int retval = 0;
 	struct timespec ts;
 	double t;
 
@@ -192,20 +197,20 @@ Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double when)
 	assert(pthread_equal(ilck->owner, pthread_self()));
 	ilck->held = 0;
 	if (when == 0) {
-		errno = pthread_cond_wait(cond, &ilck->mtx);
-		AZ(errno);
+		AZ(pthread_cond_wait(cond, &ilck->mtx));
 	} else {
+		assert(when > 1e9);
 		ts.tv_nsec = (long)(modf(when, &t) * 1e9);
 		ts.tv_sec = (long)t;
-		errno = pthread_cond_timedwait(cond, &ilck->mtx, &ts);
-		assert(errno == 0 ||
-		    errno == ETIMEDOUT ||
-		    errno == EINTR);
+		retval = pthread_cond_timedwait(cond, &ilck->mtx, &ts);
+		assert(retval == 0 ||
+		    retval == ETIMEDOUT ||
+		    retval == EINTR);
 	}
 	AZ(ilck->held);
 	ilck->held = 1;
 	ilck->owner = pthread_self();
-	return (errno);
+	return (retval);
 }
 
 void
@@ -246,7 +251,6 @@ Lck_CreateClass(const char *name)
 
 #define LOCK(nam) struct VSC_C_lck *lck_##nam;
 #include "tbl/locks.h"
-#undef LOCK
 
 void
 LCK_Init(void)
@@ -258,5 +262,4 @@ LCK_Init(void)
 #endif
 #define LOCK(nam)	lck_##nam = Lck_CreateClass(#nam);
 #include "tbl/locks.h"
-#undef LOCK
 }

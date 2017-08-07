@@ -9,22 +9,22 @@ AM_CPPFLAGS = \
 
 lib_LTLIBRARIES = libvarnishapi.la
 
-libvarnishapi_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:4:0
+libvarnishapi_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:6:0
 
 libvarnishapi_la_SOURCES = \
 	vsm_api.h \
 	vsl_api.h \
 	vxp.h \
 	vxp_tokens.h \
-	\
 	../libvarnish/vas.c \
 	../libvarnish/vav.c \
 	../../include/vcs_version.h \
 	../libvarnish/version.c \
-	../libvarnish/cli_common.c \
-	../libvarnish/cli_auth.c \
+	../libvarnish/vcli_proto.c \
+	../libvarnish/vfl.c \
 	../libvarnish/vin.c \
 	../libvarnish/vmb.c \
+	../libvarnish/vpf.c \
 	../libvarnish/vre.c \
 	../libvarnish/vsb.c \
 	../libvarnish/vtim.c \
@@ -37,16 +37,23 @@ libvarnishapi_la_SOURCES = \
 	vsl_query.c \
 	vsl.c \
 	vsc.c \
+	vut.c \
 	vxp.c \
 	vxp_parse.c \
 	vxp_lexer.c \
 	vxp_fixed_token.c \
 	libvarnishapi.map
 
-libvarnishapi_la_CFLAGS = \
-	-DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"'
+if ! HAVE_DAEMON
+libvarnishapi_la_SOURCES += daemon.c
+endif
 
-libvarnishapi_la_LIBADD = @PCRE_LIBS@ @RT_LIBS@
+libvarnishapi_la_CFLAGS = \
+	-DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"' \
+	@SAN_CFLAGS@
+
+libvarnishapi_la_LIBADD = \
+	@SAN_LDFLAGS@ @PCRE_LIBS@ ${RT_LIBS} ${LIBM}
 
 if HAVE_LD_VERSION_SCRIPT
 libvarnishapi_la_LDFLAGS += -Wl,--version-script=$(srcdir)/libvarnishapi.map
@@ -55,20 +62,15 @@ libvarnishapi_la_LDFLAGS += -export-symbols-regex '^V'
 endif
 
 EXTRA_DIST = \
-	generate.py \
-	vsl-tags.rst
+	generate.py
 
 BUILT_SOURCES = \
 	vxp_fixed_token.c \
-	vxp_tokens.h \
-	vsl-tags.rst
+	vxp_tokens.h
 
 CLEANFILES = \
 	$(builddir)/vxp_fixed_token.c \
 	$(builddir)/vxp_tokens.h
-
-MAINTAINERCLEANFILES = \
-	vsl-tags.rst
 
 noinst_PROGRAMS = vsl2rst
 
@@ -76,9 +78,6 @@ vsl2rst_SOURCES = \
 	vsl2rst.c \
 	$(top_srcdir)/include/tbl/vsl_tags.h \
 	$(top_srcdir)/include/tbl/vsl_tags_http.h
-
-vsl-tags.rst: vsl2rst
-	./vsl2rst > $@
 
 vxp_fixed_token.c vxp_tokens.h: \
 	$(srcdir)/generate.py
@@ -103,5 +102,3 @@ vsl_glob_test_SOURCES = \
 vsl_glob_test_LDADD = @PCRE_LIBS@ ${RT_LIBS} ${LIBM} libvarnishapi.la
 
 vsl_glob_test_CFLAGS = -I$(top_srcdir)/include
-
-.NOPATH: $(BUILT_SOURCES)

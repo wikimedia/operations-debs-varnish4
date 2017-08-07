@@ -1,1 +1,7 @@
-#define VMOD_ABI_Version "Varnish 4.1.8 d266ac5c6"
+/*
+ * NB:  This file is machine generated, DO NOT EDIT!
+ *
+ * Edit and run lib/libvcc/generate.py instead.
+ */
+
+#define VMOD_ABI_Version "Varnish 5.1.3 05c5ac6b9"

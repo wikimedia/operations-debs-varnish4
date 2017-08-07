@@ -7,7 +7,7 @@ SPHINXBUILD   = sphinx-build -W -q -N
 PAPER         = a4
 BUILDDIR      = build
 
-ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees -D latex_paper_size=$(PAPER) $(SPHINXOPTS) $(builddir)
+ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees -D latex_elements.papersize=$(PAPER) $(SPHINXOPTS) $(builddir)
 
 .PHONY: help clean html dirhtml pickle json htmlhelp qthelp latex changes linkcheck doctest
 
@@ -32,7 +32,7 @@ clean:
 link_srcdir:
 	if test "x$(srcdir)" != "x$(builddir)" && test ! -f index.rst ; then \
 		d=`pwd`/$(builddir) ; \
-		cd $(srcdir) && find . -type f | cpio -ldmp $${d} ; \
+		cd $(srcdir) && find . -type f | cpio -dmp $${d} || true ; \
 	fi
 
 # work around for make html called within doc/sphinx
@@ -41,6 +41,8 @@ graphviz:
 	cd ../graphviz && $(MAKE) html
 
 sphinx_prereq: link_srcdir graphviz conf.py
+
+all: link_srcdir
 
 html: sphinx_prereq
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
@@ -102,13 +104,15 @@ doctest: sphinx_prereq
 
 EXTRA_DIST = \
 	conf.py \
-	index.rst \
-	include \
+	dev-guide \
 	glossary \
+	include \
+	index.rst \
 	installation \
 	phk \
 	tutorial \
 	users-guide \
+	vtc-syntax.py \
 	whats-new
 
 dist-hook:
@@ -121,9 +125,13 @@ dist-hook:
 distclean-local:
 	rm -rf $(BUILDDIR)
 
+include/cli.rst: $(top_builddir)/bin/varnishd/varnishd
+	$(top_builddir)/bin/varnishd/varnishd -x cli > $@
+BUILT_SOURCES = include/cli.rst
+
 include/params.rst: $(top_builddir)/bin/varnishd/varnishd
-	$(top_builddir)/bin/varnishd/varnishd -x dumprstparam > include/params.rst
-BUILT_SOURCES = include/params.rst
+	$(top_builddir)/bin/varnishd/varnishd -x parameter > $@
+BUILT_SOURCES += include/params.rst
 
 include/counters.rst: $(top_builddir)/bin/varnishstat/vsc2rst
 	$(top_builddir)/bin/varnishstat/vsc2rst > $@
@@ -131,33 +139,55 @@ BUILT_SOURCES += include/counters.rst
 
 # XXX add varnishstat here when it's been _opt2rst'ed
 
-include/varnishncsa_options.rst: $(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst
-	$(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst options > $@
-include/varnishncsa_synopsis.rst: $(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst
-	$(top_builddir)/bin/varnishncsa/varnishncsa_opt2rst synopsis > $@
+include/varnishncsa_options.rst: $(top_builddir)/bin/varnishncsa/varnishncsa
+	$(top_builddir)/bin/varnishncsa/varnishncsa --options > $@
+include/varnishncsa_synopsis.rst: $(top_builddir)/bin/varnishncsa/varnishncsa
+	$(top_builddir)/bin/varnishncsa/varnishncsa --synopsis > $@
 BUILT_SOURCES += include/varnishncsa_options.rst \
 	include/varnishncsa_synopsis.rst
 
-include/varnishlog_options.rst: $(top_builddir)/bin/varnishlog/varnishlog_opt2rst
-	$(top_builddir)/bin/varnishlog/varnishlog_opt2rst options > $@
-include/varnishlog_synopsis.rst: $(top_builddir)/bin/varnishlog/varnishlog_opt2rst
-	$(top_builddir)/bin/varnishlog/varnishlog_opt2rst synopsis > $@
+include/varnishlog_options.rst: $(top_builddir)/bin/varnishlog/varnishlog
+	$(top_builddir)/bin/varnishlog/varnishlog --options > $@
+include/varnishlog_synopsis.rst: $(top_builddir)/bin/varnishlog/varnishlog
+	$(top_builddir)/bin/varnishlog/varnishlog --synopsis > $@
 BUILT_SOURCES += include/varnishlog_options.rst \
 	include/varnishlog_synopsis.rst
 
-include/varnishtop_options.rst: $(top_builddir)/bin/varnishtop/varnishtop_opt2rst
-	$(top_builddir)/bin/varnishtop/varnishtop_opt2rst options > $@
-include/varnishtop_synopsis.rst: $(top_builddir)/bin/varnishtop/varnishtop_opt2rst
-	$(top_builddir)/bin/varnishtop/varnishtop_opt2rst synopsis > $@
+include/varnishtop_options.rst: $(top_builddir)/bin/varnishtop/varnishtop
+	$(top_builddir)/bin/varnishtop/varnishtop --options > $@
+include/varnishtop_synopsis.rst: $(top_builddir)/bin/varnishtop/varnishtop
+	$(top_builddir)/bin/varnishtop/varnishtop --synopsis > $@
 BUILT_SOURCES += include/varnishtop_options.rst \
 	 include/varnishtop_synopsis.rst
 
-include/varnishhist_options.rst: $(top_builddir)/bin/varnishhist/varnishhist_opt2rst
-	$(top_builddir)/bin/varnishhist/varnishhist_opt2rst options > $@
-include/varnishhist_synopsis.rst: $(top_builddir)/bin/varnishhist/varnishhist_opt2rst
-	$(top_builddir)/bin/varnishhist/varnishhist_opt2rst synopsis > $@
+include/varnishhist_options.rst: $(top_builddir)/bin/varnishhist/varnishhist
+	$(top_builddir)/bin/varnishhist/varnishhist --options > $@
+include/varnishhist_synopsis.rst: $(top_builddir)/bin/varnishhist/varnishhist
+	$(top_builddir)/bin/varnishhist/varnishhist --synopsis > $@
 BUILT_SOURCES += include/varnishhist_options.rst \
 	 include/varnishhist_synopsis.rst
+
+include/varnishstat_options.rst: $(top_builddir)/bin/varnishstat/varnishstat
+	$(top_builddir)/bin/varnishstat/varnishstat --options > $@
+include/varnishstat_synopsis.rst: $(top_builddir)/bin/varnishstat/varnishstat
+	$(top_builddir)/bin/varnishstat/varnishstat --synopsis > $@
+BUILT_SOURCES += include/varnishstat_options.rst \
+	 include/varnishstat_synopsis.rst
+
+include/vsl-tags.rst: $(top_builddir)/lib/libvarnishapi/vsl2rst
+	$(top_builddir)/lib/libvarnishapi/vsl2rst > $@
+BUILT_SOURCES += include/vsl-tags.rst
+
+VTCSYN_SRC = $(top_srcdir)/bin/varnishtest/vtc.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_barrier.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_http.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_http2.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_logexp.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_process.c \
+	     $(top_srcdir)/bin/varnishtest/vtc_varnish.c
+include/vtc-syntax.rst: vtc-syntax.py $(VTCSYN_SRC)
+	$(PYTHON) $(top_srcdir)/doc/sphinx/vtc-syntax.py $(VTCSYN_SRC) > $@
+BUILT_SOURCES += include/vtc-syntax.rst
 
 .PHONY: reference
 reference:
@@ -165,11 +195,11 @@ reference:
 BUILT_SOURCES += reference
 
 reference/vmod_std.generated.rst: reference $(top_builddir)/lib/libvmod_std/vmod_std.rst
-	cp $(top_builddir)/lib/libvmod_std/vmod_std.rst $@
+	cp $(top_builddir)/lib/libvmod_std/vmod_std.rst $@ || true
 BUILT_SOURCES += reference/vmod_std.generated.rst
 
 reference/vmod_directors.generated.rst: reference $(top_builddir)/lib/libvmod_directors/vmod_directors.rst
-	cp $(top_builddir)/lib/libvmod_directors/vmod_directors.rst $@
+	cp $(top_builddir)/lib/libvmod_directors/vmod_directors.rst $@ || true
 BUILT_SOURCES += reference/vmod_directors.generated.rst
 
 EXTRA_DIST += $(BUILT_SOURCES)

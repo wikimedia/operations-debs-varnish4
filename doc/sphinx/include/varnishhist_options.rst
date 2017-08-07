@@ -22,9 +22,9 @@
 
 	Sets the upper limit of incomplete transactions kept before the oldest transaction is force completed. A warning record is synthesized when this happens. This setting keeps an upper bound on the memory usage of running queries. Defaults to 1000 transactions.
 
--n <name>
+-n <dir>
 
-	Specify the name of the varnishd instance to get logs from. If -n is not specified, the host name is used.
+	Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.
 
 -N <filename>
 

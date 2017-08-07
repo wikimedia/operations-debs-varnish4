@@ -61,6 +61,7 @@
  *
  */
 
+//lint -e{766}
 #include "config.h"
 
 #if defined(HAVE_PORT_CREATE)
@@ -106,9 +107,10 @@ vws_del(struct vws *vws, int fd)
 }
 
 static inline void
-vws_port_ev(struct vws *vws, struct waiter *w, port_event_t *ev, double now) {
+vws_port_ev(struct vws *vws, struct waiter *w, port_event_t *ev, double now)
+{
 	struct waited *wp;
-	if(ev->portev_source == PORT_SOURCE_USER) {
+	if (ev->portev_source == PORT_SOURCE_USER) {
 		CAST_OBJ_NOTNULL(wp, ev->portev_user, WAITED_MAGIC);
 		assert(wp->fd >= 0);
 		vws->nwaited++;
@@ -181,7 +183,7 @@ vws_thread(void *priv)
 		nevents = 1;
 
 		/*
-		 * see disucssion in
+		 * see discussion in
 		 * - https://issues.apache.org/bugzilla/show_bug.cgi?id=47645
 		 * - http://mail.opensolaris.org/pipermail/\
 		 *       networking-discuss/2009-August/011979.html
@@ -254,7 +256,7 @@ vws_fini(struct waiter *w)
 
 	CAST_OBJ_NOTNULL(vws, w->priv, VWS_MAGIC);
 	vws->die = 1;
-	AZ(close(vws->dport));
+	closefd(&vws->dport);
 	AZ(pthread_join(vws->thread, &vp));
 }
 

@@ -45,6 +45,7 @@
 
 #include "vtc.h"
 
+#include "vdef.h"
 #include "vev.h"
 #include "vfil.h"
 #include "vnum.h"
@@ -56,9 +57,6 @@
 #include "vtcp.h"
 #include "vtim.h"
 #include "vct.h"
-
-#define		MAX_FILESIZE		(1024 * 1024)
-
 
 struct vtc_tst {
 	unsigned		magic;
@@ -80,11 +78,13 @@ struct vtc_job {
 	char			*tmpdir;
 	unsigned		bufsiz;
 	double			t0;
+	struct vsb		*diag;
+	int			killed;
 };
 
 int iflg = 0;
 unsigned vtc_maxdur = 60;
-unsigned vtc_bufsiz = 512 * 1024;
+static unsigned vtc_bufsiz = 512 * 1024;
 
 static VTAILQ_HEAD(, vtc_tst) tst_head = VTAILQ_HEAD_INITIALIZER(tst_head);
 static struct vev_base *vb;
@@ -94,8 +94,11 @@ static int vtc_continue;		/* Continue on error */
 static int vtc_verbosity = 1;		/* Verbosity Level */
 static int vtc_good;
 static int vtc_fail;
+static int vtc_skip;
 static char *tmppath;
 static char *cwd = NULL;
+char *vmod_path = NULL;
+struct vsb *params_vsb = NULL;
 int leave_temp;
 int vtc_witness = 0;
 int feature_dns;
@@ -132,12 +135,13 @@ usage(void)
 	fprintf(stderr, FMT, "-b size",
 	    "Set internal buffer size (default: 512K)");
 	fprintf(stderr, FMT, "-D name=val", "Define macro");
-	fprintf(stderr, FMT, "-i", "Find varnishd in build tree");
+	fprintf(stderr, FMT, "-i", "Find varnish binaries in build tree");
 	fprintf(stderr, FMT, "-j jobs", "Run this many tests in parallel");
 	fprintf(stderr, FMT, "-k", "Continue on test failure");
 	fprintf(stderr, FMT, "-L", "Always leave temporary vtc.*");
 	fprintf(stderr, FMT, "-l", "Leave temporary vtc.* if test fails");
 	fprintf(stderr, FMT, "-n iterations", "Run tests this many times");
+	fprintf(stderr, FMT, "-p name=val", "Pass a varnishd parameter");
 	fprintf(stderr, FMT, "-q", "Quiet mode: report only failures");
 	fprintf(stderr, FMT, "-t duration", "Time tests out after this long");
 	fprintf(stderr, FMT, "-v", "Verbose mode: always report test log");
@@ -155,25 +159,28 @@ tst_cb(const struct vev *ve, int what)
 {
 	struct vtc_job *jp;
 	char buf[BUFSIZ];
+	int ecode;
 	int i, stx;
 	pid_t px;
 	double t;
 	FILE *f;
+	char *p;
+	struct vsb *v;
 
 	CAST_OBJ_NOTNULL(jp, ve->priv, JOB_MAGIC);
 
-	// printf("%p %s %d\n", ve, jp->tst->filename, what);
-	if (what == 0)
+	// printf("CB %p %s %d\n", ve, jp->tst->filename, what);
+	if (what == 0) {
+		jp->killed = 1;
 		AZ(kill(jp->child, SIGKILL)); /* XXX: Timeout */
-	else
+	} else {
 		assert(what & (EV_RD | EV_HUP));
+	}
 
 	*buf = '\0';
-	i = read(ve->fd, buf, sizeof buf - 1);
-	if (i > 0) {
-		buf[i] = '\0';
-		printf("######## %s ########\n%s", jp->tst->filename, buf);
-	}
+	i = read(ve->fd, buf, sizeof buf);
+	if (i > 0)
+		VSB_bcat(jp->diag, buf, i);
 	if (i == 0) {
 		njob--;
 		px = wait4(jp->child, &stx, 0, NULL);
@@ -181,43 +188,65 @@ tst_cb(const struct vev *ve, int what)
 		t = VTIM_mono() - jp->t0;
 		AZ(close(ve->fd));
 
-		if (stx && vtc_verbosity)
-			printf("%s\n", jp->buf);
-		else if (vtc_verbosity > 1)
-			printf("%s\n", jp->buf);
+		ecode = WTERMSIG(stx);
+		if (ecode == 0)
+			ecode = WEXITSTATUS(stx);
 
-		if (stx)
-			vtc_fail++;
-		else
+		AZ(VSB_finish(jp->diag));
+		v = VSB_new_auto();
+		AN(v);
+		VSB_cat(v, jp->buf);
+		p = strchr(jp->buf, '\0');
+		if (p > jp->buf && p[-1] != '\n')
+			VSB_putc(v, '\n');
+		VSB_quote_pfx(v, "*    diag  0.0 ",
+		    VSB_data(jp->diag), -1, VSB_QUOTE_NONL);
+		AZ(VSB_finish(v));
+		VSB_destroy(&jp->diag);
+		AZ(munmap(jp->buf, jp->bufsiz));
+
+		if ((ecode > 1 && vtc_verbosity) || vtc_verbosity > 1)
+			printf("%s", VSB_data(v));
+
+		if (!ecode)
 			vtc_good++;
+		else if (ecode == 1)
+			vtc_skip++;
+		else
+			vtc_fail++;
 
-		if (leave_temp == 0 || (leave_temp == 1 && !stx)) {
+		if (leave_temp == 0 || (leave_temp == 1 && ecode <= 1)) {
 			bprintf(buf, "rm -rf %s", jp->tmpdir);
 			AZ(system(buf));
 		} else {
 			bprintf(buf, "%s/LOG", jp->tmpdir);
 			f = fopen(buf, "w");
 			AN(f);
-			(void)fprintf(f, "%s\n", jp->buf);
+			(void)fprintf(f, "%s\n", VSB_data(v));
 			AZ(fclose(f));
 		}
 		free(jp->tmpdir);
+		VSB_destroy(&v);
 
-		if (stx) {
-			printf("#     top  TEST %s FAILED (%.3f)",
+		if (jp->killed)
+			printf("#    top  TEST %s TIMED OUT (kill -9)\n",
+			    jp->tst->filename);
+		if (ecode > 1) {
+			printf("#    top  TEST %s FAILED (%.3f)",
 			    jp->tst->filename, t);
 			if (WIFSIGNALED(stx))
-				printf(" signal=%d", WTERMSIG(stx));
-			printf(" exit=%d\n", WEXITSTATUS(stx));
+				printf(" signal=%d\n", WTERMSIG(stx));
+			else if (WIFEXITED(stx))
+				printf(" exit=%d\n", WEXITSTATUS(stx));
 			if (!vtc_continue) {
 				/* XXX kill -9 other jobs ? */
 				exit(2);
 			}
 		} else if (vtc_verbosity) {
-			printf("#     top  TEST %s passed (%.3f)\n",
-			    jp->tst->filename, t);
+			printf("#    top  TEST %s %s (%.3f)\n",
+			    jp->tst->filename,
+			    ecode ? "skipped" : "passed", t);
 		}
-		AZ(munmap(jp->buf, jp->bufsiz));
 		if (jp->evt != NULL)
 			vev_del(vb, jp->evt);
 
@@ -242,6 +271,9 @@ start_test(void)
 	ALLOC_OBJ(jp, JOB_MAGIC);
 	AN(jp);
 
+	jp->diag = VSB_new_auto();
+	AN(jp->diag);
+
 	jp->bufsiz = vtc_bufsiz;
 
 	jp->buf = mmap(NULL, jp->bufsiz, PROT_READ|PROT_WRITE,
@@ -249,7 +281,7 @@ start_test(void)
 	assert(jp->buf != MAP_FAILED);
 	memset(jp->buf, 0, jp->bufsiz);
 
-	VRND_Seed();
+	VRND_SeedAll();
 	bprintf(tmpdir, "%s/vtc.%d.%08x", tmppath, (int)getpid(),
 		(unsigned)random());
 	AZ(mkdir(tmpdir, 0711));
@@ -273,8 +305,7 @@ start_test(void)
 	jp->child = fork();
 	assert(jp->child >= 0);
 	if (jp->child == 0) {
-		AZ(close(STDIN_FILENO));
-		assert(open("/dev/null", O_RDONLY) == STDIN_FILENO);
+		VFIL_null_fd(STDIN_FILENO);
 		assert(dup2(p[1], STDOUT_FILENO) == STDOUT_FILENO);
 		assert(dup2(p[1], STDERR_FILENO) == STDERR_FILENO);
 		VSUB_closefrom(STDERR_FILENO + 1);
@@ -282,7 +313,7 @@ start_test(void)
 		    jp->tmpdir, jp->buf, jp->bufsiz);
 		exit(retval);
 	}
-	AZ(close(p[1]));
+	closefd(&p[1]);
 
 	jp->ev = vev_new();
 	AN(jp->ev);
@@ -325,6 +356,7 @@ i_mode(void)
 	 */
 
 	vsb = VSB_new_auto();
+	AN(vsb);
 
 	q = p = VFIL_readfile(NULL, "Makefile", NULL);
 	if (p == NULL) {
@@ -362,37 +394,43 @@ i_mode(void)
 	/*
 	 * Build $PATH which can find all programs in the build tree
 	 */
-	AN(vsb);
 	VSB_printf(vsb, "PATH=");
 	sep = "";
 #define VTC_PROG(l)							\
 	do {								\
-		VSB_printf(vsb, "%s%s/bin/%s/", sep, topbuild, #l);	\
+		VSB_printf(vsb, "%s%s/bin/" #l, sep, topbuild);		\
 		sep = ":";						\
 	} while (0);
 #include "programs.h"
-#undef VTC_PROG
+
 	VSB_printf(vsb, ":%s", getenv("PATH"));
 	AZ(VSB_finish(vsb));
 
 	AZ(putenv(strdup(VSB_data(vsb))));
 
 	/*
-	 * Redefine VMOD macros
+	 * Build vmod_path which can find all VMODs in the build tree
 	 */
+	VSB_clear(vsb);
+	sep = "";
 #define VTC_VMOD(l)							\
 	do {								\
-		VSB_clear(vsb);						\
-		VSB_printf(vsb,						\
-		   "%s from \"%s/lib/libvmod_%s/.libs/libvmod_%s.so\"",	\
-		    #l, topbuild, #l, #l);				\
-		AZ(VSB_finish(vsb));					\
-	    extmacro_def("vmod_" #l, "%s", VSB_data(vsb));		\
+		VSB_printf(vsb, "%s%s/lib/libvmod_" #l "/.libs",	\
+		    sep, topbuild);					\
+		sep = ":";						\
 	} while (0);
 #include "vmods.h"
 #undef VTC_VMOD
+	AZ(VSB_finish(vsb));
+	vmod_path = strdup(VSB_data(vsb));
+	AN(vmod_path);
 	free(topbuild);
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
+
+	/*
+	 * strict jemalloc checking
+	 */
+	AZ(putenv(strdup("MALLOC_CONF=abort:true,redzone:true,junk:true")));
 }
 
 /**********************************************************************
@@ -429,6 +467,51 @@ dns_works(void)
 }
 
 /**********************************************************************
+ * Figure out what IP related magic
+ */
+
+static int __match_proto__(vss_resolved_f)
+bind_cb(void *priv, const struct suckaddr *sa)
+{
+	(void)priv;
+	return (VTCP_bind(sa, NULL));
+}
+
+static void
+ip_magic(void)
+{
+	const char *p;
+	int fd;
+	char abuf[VTCP_ADDRBUFSIZE];
+	char pbuf[VTCP_PORTBUFSIZE];
+
+	/*
+	 * In FreeBSD jails localhost/127.0.0.1 becomes the jails IP#
+	 * XXX: IPv6-only hosts would have similar issue, but it is not
+	 * XXX: obvious how to cope.  Ideally "127.0.0.1" would be
+	 * XXX: "localhost", but that doesn't work out of the box.
+	 * XXX: Things like "prefer_ipv6" parameter complicates things.
+	 */
+	fd = VSS_resolver("127.0.0.1", NULL, &bind_cb, NULL, &p);
+	assert(fd >= 0);
+	VTCP_myname(fd, abuf, sizeof abuf, pbuf, sizeof(pbuf));
+	extmacro_def("localhost", "%s", abuf);
+
+	/* Expose a backend that is forever down. */
+	extmacro_def("bad_backend", "%s %s", abuf, pbuf);
+
+	/*
+	 * We need an IP number which will not repond, ever, and that is a
+	 * lot harder than it sounds.  This IP# is from RFC5737 and a
+	 * C-class broadcast at that.
+	 * If tests involving ${bad_ip} fails and you run linux, you should
+	 * check your /proc/sys/net/ipv4/ip_nonlocal_bind setting.
+	 */
+
+	extmacro_def("bad_ip", "%s", "192.0.2.255");
+}
+
+/**********************************************************************
  * Main
  */
 
@@ -436,7 +519,7 @@ static int
 read_file(const char *fn, int ntest)
 {
 	struct vtc_tst *tp;
-	char *p;
+	char *p, *q;
 
 	p = VFIL_readfile(NULL, fn, NULL);
 	if (p == NULL) {
@@ -444,23 +527,25 @@ read_file(const char *fn, int ntest)
 		    fn, strerror(errno));
 		return (2);
 	}
-	for (;p != NULL && *p != '\0'; p++) {
-		if (vct_islws(*p))
+	for (q = p ;q != NULL && *q != '\0'; q++) {
+		if (vct_islws(*q))
 			continue;
-		if (*p != '#')
+		if (*q != '#')
 			break;
-		p = strchr(p, '\n');
+		q = strchr(q, '\n');
 	}
 
-	if (p == NULL || *p == '\0') {
+	if (q == NULL || *q == '\0') {
 		fprintf(stderr, "File \"%s\" has no content.\n", fn);
+		free(p);
 		return (2);
 	}
 
-	if (strncmp(p, "varnishtest", 11) || !isspace(p[11])) {
+	if (strncmp(q, "varnishtest", 11) || !isspace(q[11])) {
 		fprintf(stderr,
-		    "File \"%s\" doesn't start with 'varnishtest'\n",
-		    fn);
+		    "File \"%s\" doesn't start with 'varnishtest'\n", fn);
+		free(p);
+		vtc_skip++;
 		return(2);
 	}
 	ALLOC_OBJ(tp, TST_MAGIC);
@@ -483,16 +568,6 @@ main(int argc, char * const *argv)
 	int ntest = 1;			/* Run tests this many times */
 	uintmax_t bufsiz;
 
-	/* Default names of programs */
-#define VTC_PROG(l)	extmacro_def(#l, #l);
-#include "programs.h"
-#undef VTC_PROG
-
-	/* Default import spec of vmods */
-#define VTC_VMOD(l)	extmacro_def("vmod_" #l, #l);
-#include "vmods.h"
-#undef VTC_VMOD
-
 	if (getenv("TMPDIR") != NULL)
 		tmppath = strdup(getenv("TMPDIR"));
 	else
@@ -501,9 +576,16 @@ main(int argc, char * const *argv)
 	cwd = getcwd(NULL, PATH_MAX);
 	extmacro_def("pwd", "%s", cwd);
 
+	vmod_path = NULL;
+
+	params_vsb = VSB_new_auto();
+	AN(params_vsb);
+	if (getenv("VARNISHTEST_DURATION"))
+		vtc_maxdur = atoi(getenv("VARNISHTEST_DURATION"));
+
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
-	while ((ch = getopt(argc, argv, "b:D:hij:kLln:qt:vW")) != -1) {
+	while ((ch = getopt(argc, argv, "b:D:hij:kLln:p:qt:vW")) != -1) {
 		switch (ch) {
 		case 'b':
 			if (VNUM_2bytes(optarg, &bufsiz, 0)) {
@@ -543,6 +625,10 @@ main(int argc, char * const *argv)
 		case 'n':
 			ntest = strtoul(optarg, NULL, 0);
 			break;
+		case 'p':
+			VSB_printf(params_vsb, " -p ");
+			VSB_quote(params_vsb, optarg, -1, 0);
+			break;
 		case 'q':
 			if (vtc_verbosity > 0)
 				vtc_verbosity--;
@@ -571,7 +657,10 @@ main(int argc, char * const *argv)
 			exit(2);
 	}
 
+	AZ(VSB_finish(params_vsb));
+
 	feature_dns = dns_works();
+	ip_magic();
 
 	if (iflg)
 		i_mode();
@@ -579,7 +668,7 @@ main(int argc, char * const *argv)
 	vb = vev_new_base();
 
 	i = 0;
-	while(!VTAILQ_EMPTY(&tst_head) || i) {
+	while (!VTAILQ_EMPTY(&tst_head) || i) {
 		if (!VTAILQ_EMPTY(&tst_head) && njob < npar) {
 			start_test();
 			njob++;
@@ -592,9 +681,12 @@ main(int argc, char * const *argv)
 		i = vev_schedule_one(vb);
 	}
 	if (vtc_continue)
-		fprintf(stderr, "%d tests failed, %d tests passed\n",
-		    vtc_fail, vtc_good);
+		fprintf(stderr,
+		    "%d tests failed, %d tests skipped, %d tests passed\n",
+		    vtc_fail, vtc_skip, vtc_good);
 	if (vtc_fail)
 		return (1);
+	if (vtc_skip && !vtc_good)
+		return (77);
 	return (0);
 }

@@ -27,7 +27,7 @@ client c1 {
 	txreq
 	rxresphdrs
 	expect resp.status == 200
-	non-fatal
+	non_fatal
 	rxrespbody
 } -run
 

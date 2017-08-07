@@ -37,14 +37,17 @@
 
 #include "config.h"
 
+#include "cache.h"
+
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache.h"
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include "binary_heap.h"
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 #include "vrt.h"
 #include "vsa.h"
 #include "vtcp.h"
@@ -74,7 +77,6 @@ struct vbp_target {
 	/* Collected statistics */
 #define BITMAP(n, c, t, b)	uint64_t	n;
 #include "tbl/backend_poll.h"
-#undef BITMAP
 
 	double				last;
 	double				avg;
@@ -89,6 +91,11 @@ struct vbp_target {
 static struct lock			vbp_mtx;
 static pthread_cond_t			vbp_cond;
 static struct binheap			*vbp_heap;
+
+static const unsigned char vbp_proxy_local[] = {
+	0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51,
+	0x55, 0x49, 0x54, 0x0a, 0x20, 0x00, 0x00, 0x00,
+};
 
 /*--------------------------------------------------------------------*/
 
@@ -116,7 +123,6 @@ vbp_start_poke(struct vbp_target *vt)
 #define BITMAP(n, c, t, b) \
 	vt->n <<= 1;
 #include "tbl/backend_poll.h"
-#undef BITMAP
 
 	vt->last = 0;
 	vt->resp_buf[0] = '\0';
@@ -161,7 +167,6 @@ vbp_update_backend(struct vbp_target *vt)
 #define BITMAP(n, c, t, b) \
 		bits[i++] = (vt->n & 1) ? c : '-';
 #include "tbl/backend_poll.h"
-#undef BITMAP
 		bits[i] = '\0';
 
 		if (vt->good >= vt->threshold) {
@@ -201,7 +206,6 @@ vbp_reset(struct vbp_target *vt)
 #define BITMAP(n, c, t, b) \
 	vt->n = 0;
 #include "tbl/backend_poll.h"
-#undef BITMAP
 
 	for (u = 0; u < vt->initial; u++) {
 		vbp_start_poke(vt);
@@ -217,10 +221,53 @@ vbp_reset(struct vbp_target *vt)
  * want to measure the backends response without local distractions.
  */
 
+static int
+vbp_write(struct vbp_target *vt, int *sock, const void *buf, size_t len)
+{
+	int i;
+
+	i = write(*sock, buf, len);
+	if (i != len) {
+		if (i < 0)
+			vt->err_xmit |= 1;
+		VTCP_close(sock);
+		return (-1);
+	}
+	return (0);
+}
+
+static int
+vbp_write_proxy_v1(struct vbp_target *vt, int *sock)
+{
+	char buf[105]; /* maximum size for a TCP6 PROXY line with null char */
+	char addr[VTCP_ADDRBUFSIZE];
+	char port[VTCP_PORTBUFSIZE];
+	struct sockaddr_storage ss;
+	struct vsb vsb;
+	socklen_t l;
+
+	VTCP_myname(*sock, addr, sizeof addr, port, sizeof port);
+	AN(VSB_new(&vsb, buf, sizeof buf, VSB_FIXEDLEN));
+	AZ(VSB_cat(&vsb, "PROXY"));
+
+	l = sizeof ss;
+	AZ(getsockname(*sock, (void *)&ss, &l));
+	if (ss.ss_family == AF_INET6)
+		VSB_printf(&vsb, " TCP6 ");
+	else if (ss.ss_family == AF_INET)
+		VSB_printf(&vsb, " TCP4 ");
+	else
+		WRONG("Unknown family");
+	VSB_printf(&vsb, "%s %s %s %s\r\n", addr, addr, port, port);
+	AZ(VSB_finish(&vsb));
+
+	return (vbp_write(vt, sock, VSB_data(&vsb), VSB_len(&vsb)));
+}
+
 static void
 vbp_poke(struct vbp_target *vt)
 {
-	int s, tmo, i;
+	int s, tmo, i, proxy_header;
 	double t_start, t_now, t_end;
 	unsigned rlen, resp;
 	char buf[8192], *p;
@@ -239,7 +286,7 @@ vbp_poke(struct vbp_target *vt)
 	i = VSA_Get_Proto(sa);
 	if (i == AF_INET)
 		vt->good_ipv4 |= 1;
-	else if(i == AF_INET6)
+	else if (i == AF_INET6)
 		vt->good_ipv6 |= 1;
 	else
 		WRONG("Wrong probe protocol family");
@@ -252,14 +299,28 @@ vbp_poke(struct vbp_target *vt)
 		return;
 	}
 
-	/* Send the request */
-	i = write(s, vt->req, vt->req_len);
-	if (i != vt->req_len) {
-		if (i < 0)
-			vt->err_xmit |= 1;
-		VTCP_close(&s);
+	Lck_Lock(&vbp_mtx);
+	if (vt->backend != NULL)
+		proxy_header = vt->backend->proxy_header;
+	else
+		proxy_header = -1;
+	Lck_Unlock(&vbp_mtx);
+
+	if (proxy_header < 0)
 		return;
-	}
+
+	/* Send the PROXY header */
+	assert(proxy_header <= 2);
+	if (proxy_header == 1) {
+		if (vbp_write_proxy_v1(vt, &s) != 0)
+			return;
+	} else if (proxy_header == 2 &&
+	    vbp_write(vt, &s, vbp_proxy_local, sizeof vbp_proxy_local) != 0)
+		return;
+
+	/* Send the request */
+	if (vbp_write(vt, &s, vt->req, vt->req_len) != 0)
+		return;
 	vt->good_xmit |= 1;
 
 	pfd->fd = s;
@@ -308,9 +369,9 @@ vbp_poke(struct vbp_target *vt)
 	if (p != NULL)
 		*p = '\0';
 
-	i = sscanf(vt->resp_buf, "HTTP/%*f %u %s", &resp, buf);
+	i = sscanf(vt->resp_buf, "HTTP/%*f %u ", &resp);
 
-	if ((i == 1 || i == 2) && resp == vt->exp_status)
+	if (i == 1 && resp == vt->exp_status)
 		vt->happy |= 1;
 }
 
@@ -384,8 +445,8 @@ vbp_thread(struct worker *wrk, void *priv)
 			binheap_insert(vbp_heap, vt);
 		}
 	}
-	Lck_Unlock(&vbp_mtx);
-	NEEDLESS_RETURN(NULL);
+	NEEDLESS(Lck_Unlock(&vbp_mtx));
+	NEEDLESS(return NULL);
 }
 
 
@@ -429,7 +490,6 @@ vbp_health_one(struct cli *cli, const struct vbp_target *vt)
 		if ((vt->n != 0) || (b))			\
 			vbp_bitmap(cli, (c), vt->n, (t));
 #include "tbl/backend_poll.h"
-#undef BITMAP
 }
 
 void
@@ -460,7 +520,7 @@ vbp_build_req(struct vbp_target *vt, const struct vrt_backend_probe *vbp,
 	vsb = VSB_new_auto();
 	AN(vsb);
 	VSB_clear(vsb);
-	if(vbp->request != NULL) {
+	if (vbp->request != NULL) {
 		VSB_cat(vsb, vbp->request);
 	} else {
 		VSB_printf(vsb, "GET %s HTTP/1.1\r\n",
@@ -474,7 +534,7 @@ vbp_build_req(struct vbp_target *vt, const struct vrt_backend_probe *vbp,
 	vt->req = strdup(VSB_data(vsb));
 	AN(vt->req);
 	vt->req_len = VSB_len(vsb);
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 }
 
 /*--------------------------------------------------------------------
@@ -627,5 +687,5 @@ VBP_Init(void)
 	vbp_heap = binheap_new(NULL, vbp_cmp, vbp_update);
 	AN(vbp_heap);
 	AZ(pthread_cond_init(&vbp_cond, NULL));
-	WRK_BgThread(&thr, "Backend poller", vbp_thread, NULL);
+	WRK_BgThread(&thr, "backend-poller", vbp_thread, NULL);
 }

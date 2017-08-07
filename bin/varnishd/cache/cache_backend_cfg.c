@@ -32,15 +32,14 @@
 
 #include "config.h"
 
+#include "cache.h"
+
 #include <fnmatch.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache.h"
-
 #include "vcl.h"
-#include "vcli.h"
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 #include "vrt.h"
 #include "vtim.h"
 
@@ -98,7 +97,7 @@ VRT_new_backend(VRT_CTX, const struct vrt_backend *vrt)
 
 	b->display_name = strdup(VSB_data(vsb));
 	AN(b->display_name);
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 
 	b->vcl = vcl;
 
@@ -148,10 +147,7 @@ VRT_delete_backend(VRT_CTX, struct director **dp)
 	struct backend *be;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	AN(dp);
-	d = *dp;
-	*dp = NULL;
-	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
+	TAKE_OBJ_NOTNULL(d, dp, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
 	Lck_Lock(&be->mtx);
 	be->admin_health = vbe_ah_deleted;
@@ -198,6 +194,7 @@ VBE_Event(struct backend *be, enum vcl_event_e ev)
 void
 VBE_Delete(struct backend *be)
 {
+	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(be, BACKEND_MAGIC);
 
 	if (be->probe != NULL)
@@ -318,7 +315,7 @@ backend_find(struct cli *cli, const char *matcher, bf_func *func, void *priv)
 		}
 	}
 	Lck_Unlock(&backends_mtx);
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 	VCL_Rel(&vcc);
 	return (found);
 }
@@ -329,6 +326,7 @@ static int __match_proto__()
 do_list(struct cli *cli, struct backend *b, void *priv)
 {
 	int *probes;
+	char time_str[VTIM_FORMAT_SIZE];
 
 	AN(priv);
 	probes = priv;
@@ -339,16 +337,17 @@ do_list(struct cli *cli, struct backend *b, void *priv)
 	VCLI_Out(cli, " %-10s", b->admin_health);
 
 	if (b->probe == NULL)
-		VCLI_Out(cli, " %s", "Healthy (no probe)");
+		VCLI_Out(cli, " %-20s", "Healthy (no probe)");
 	else {
 		if (b->healthy)
-			VCLI_Out(cli, " %s", "Healthy ");
+			VCLI_Out(cli, " %-20s", "Healthy ");
 		else
-			VCLI_Out(cli, " %s", "Sick ");
+			VCLI_Out(cli, " %-20s", "Sick ");
 		VBP_Status(cli, b, *probes);
 	}
 
-	/* XXX: report b->health_changed */
+	VTIM_format(b->health_changed, time_str);
+	VCLI_Out(cli, " %s", time_str);
 
 	return (0);
 }
@@ -372,7 +371,8 @@ cli_backend_list(struct cli *cli, const char * const *av, void *priv)
 		VCLI_SetResult(cli, CLIS_PARAM);
 		return;
 	}
-	VCLI_Out(cli, "%-30s %-10s %s", "Backend name", "Admin", "Probe");
+	VCLI_Out(cli, "%-30s %-10s %-20s %s", "Backend name", "Admin",
+	    "Probe", "Last updated");
 	(void)backend_find(cli, av[2], do_list, &probes);
 }
 
@@ -425,13 +425,8 @@ cli_backend_set_health(struct cli *cli, const char * const *av, void *priv)
 /*---------------------------------------------------------------------*/
 
 static struct cli_proto backend_cmds[] = {
-	{ "backend.list", "backend.list [-p] [<backend_expression>]",
-	    "\tList backends.",
-	    0, 2, "", cli_backend_list },
-	{ "backend.set_health",
-	    "backend.set_health <backend_expression> <state>",
-	    "\tSet health status on the backends.",
-	    2, 2, "", cli_backend_set_health },
+	{ CLICMD_BACKEND_LIST,		"", cli_backend_list },
+	{ CLICMD_BACKEND_SET_HEALTH,	"", cli_backend_set_health },
 	{ NULL }
 };
 
@@ -443,6 +438,7 @@ VBE_Poll(void)
 	struct backend *be, *be2;
 	double now = VTIM_real();
 
+	ASSERT_CLI();
 	Lck_Lock(&backends_mtx);
 	VTAILQ_FOREACH_SAFE(be, &cool_backends, list, be2) {
 		CHECK_OBJ_NOTNULL(be, BACKEND_MAGIC);

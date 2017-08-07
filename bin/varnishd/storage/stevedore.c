@@ -33,219 +33,40 @@
 
 #include "config.h"
 
+#include "cache/cache.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
+#include "hash/hash_slinger.h"
 
 #include "storage/storage.h"
 #include "vrt.h"
 #include "vrt_obj.h"
 
-static const struct stevedore * volatile stv_next;
-
-/*---------------------------------------------------------------------
- * Default objcore methods
- */
-
-static struct object * __match_proto__(getobj_f)
-default_oc_getobj(struct worker *wrk, struct objcore *oc)
-{
-	struct object *o;
-
-	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
-	if (oc->stobj->priv == NULL)
-		return (NULL);
-	CAST_OBJ_NOTNULL(o, oc->stobj->priv, OBJECT_MAGIC);
-	return (o);
-}
-
-static void __match_proto__(freeobj_f)
-default_oc_freeobj(struct worker *wrk, struct objcore *oc)
-{
-	struct object *o;
-
-	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
-	CHECK_OBJ_NOTNULL(oc->stobj, STOREOBJ_MAGIC);
-	ObjSlim(wrk, oc);
-	CAST_OBJ_NOTNULL(o, oc->stobj->priv, OBJECT_MAGIC);
-	o->magic = 0;
-
-	STV_free(oc->stobj->stevedore, o->objstore);
-
-	memset(oc->stobj, 0, sizeof oc->stobj);
-
-	wrk->stats->n_object--;
-}
-
-static struct lru * __match_proto__(getlru_f)
-default_oc_getlru(const struct objcore *oc)
-{
-	const struct stevedore *stv;
-
-	stv = oc->stobj->stevedore;
-	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
-	return (stv->lru);
-}
-
-const struct storeobj_methods default_oc_methods = {
-	.getobj = default_oc_getobj,
-	.freeobj = default_oc_freeobj,
-	.getlru = default_oc_getlru,
-};
-
-/*--------------------------------------------------------------------
- */
-
-struct lru *
-LRU_Alloc(void)
-{
-	struct lru *l;
-
-	ALLOC_OBJ(l, LRU_MAGIC);
-	AN(l);
-	VTAILQ_INIT(&l->lru_head);
-	Lck_New(&l->mtx, lck_lru);
-	return (l);
-}
-
-void
-LRU_Free(struct lru *lru)
-{
-	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
-	Lck_Delete(&lru->mtx);
-	FREE_OBJ(lru);
-}
 
 /*--------------------------------------------------------------------
  * XXX: trust pointer writes to be atomic
  */
 
-static struct stevedore *
-stv_pick_stevedore(struct vsl_log *vsl, const char **hint)
+const struct stevedore *
+STV_next()
 {
-	struct stevedore *stv;
+	static struct stevedore *stv;
+	struct stevedore *r;
+	static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
-	AN(hint);
-	if (*hint != NULL && **hint != '\0') {
-		VTAILQ_FOREACH(stv, &stv_stevedores, list) {
-			if (!strcmp(stv->ident, *hint))
-				return (stv);
-		}
-		if (!strcmp(TRANSIENT_STORAGE, *hint))
-			return (stv_transient);
-
-		/* Hint was not valid, nuke it */
-		VSLb(vsl, SLT_Debug, "Storage hint not usable");
-		*hint = NULL;
+	AZ(pthread_mutex_lock(&mtx));
+	if (!STV__iter(&stv))
+		AN(STV__iter(&stv));
+	if (stv == stv_transient) {
+		stv = NULL;
+		AN(STV__iter(&stv));
 	}
-	if (stv_next == NULL)
-		return (stv_transient);
-	/* pick a stevedore and bump the head along */
-	stv = VTAILQ_NEXT(stv_next, list);
-	if (stv == NULL)
-		stv = VTAILQ_FIRST(&stv_stevedores);
-	AN(stv);
-	AN(stv->name);
-	stv_next = stv;
-	return (stv);
-}
-
-/*-------------------------------------------------------------------*/
-
-struct storage *
-STV_alloc(const struct stevedore *stv, size_t size, int flags)
-{
-	struct storage *st;
-
-	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
-
-	if (!(flags & LESS_MEM_ALLOCED_IS_OK)) {
-		if (size > cache_param->fetch_maxchunksize)
-			return (NULL);
-		else
-			return (stv->alloc(stv, size));
-	}
-	if (size > cache_param->fetch_maxchunksize)
-		size = cache_param->fetch_maxchunksize;
-
-	assert(size <= UINT_MAX);	/* field limit in struct storage */
-
-	for (;;) {
-		/* try to allocate from it */
-		AN(stv->alloc);
-		st = stv->alloc(stv, size);
-		if (st != NULL)
-			break;
-
-		if (size <= cache_param->fetch_chunksize)
-			break;
-
-		size >>= 1;
-	}
-	CHECK_OBJ_ORNULL(st, STORAGE_MAGIC);
-	return (st);
-}
-
-/*--------------------------------------------------------------------
- * This function is called by stevedores ->allocobj() method, which
- * very often will be stv_default_allocobj() below, to convert a slab
- * of storage into object which the stevedore can then register in its
- * internal state, before returning it to STV_NewObject().
- * As you probably guessed: All this for persistence.
- */
-
-struct object *
-STV_MkObject(const struct stevedore *stv, struct objcore *oc, void *ptr)
-{
-	struct object *o;
-
-	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
-	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
-
-	assert(PAOK(ptr));
-
-	o = ptr;
-	INIT_OBJ(o, OBJECT_MAGIC);
-
-	VTAILQ_INIT(&o->list);
-
-	oc->stobj->magic = STOREOBJ_MAGIC;
-	oc->stobj->stevedore = stv;
-	AN(stv->methods);
-	oc->stobj->priv = o;
-	return (o);
-}
-
-/*--------------------------------------------------------------------
- * This is the default ->allocobj() which all stevedores who do not
- * implement persistent storage can rely on.
- */
-
-int
-stv_default_allocobj(const struct stevedore *stv, struct objcore *oc,
-    unsigned wsl)
-{
-	struct object *o;
-	struct storage *st;
-	unsigned ltot;
-
-	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
-	ltot = sizeof(struct object) + PRNDUP(wsl);
-	st = stv->alloc(stv, ltot);
-	if (st == NULL)
-		return (0);
-	if (st->space < ltot) {
-		stv->free(st);
-		return (0);
-	}
-	o = STV_MkObject(stv, oc, st->ptr);
-	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
-	st->len = sizeof(*o);
-	o->objstore = st;
-	return (1);
+	r = stv;
+	AZ(pthread_mutex_unlock(&mtx));
+	AN(r);
+	return (r);
 }
 
 /*-------------------------------------------------------------------
@@ -255,35 +76,17 @@ stv_default_allocobj(const struct stevedore *stv, struct objcore *oc,
  */
 
 int
-STV_NewObject(struct objcore *oc, struct worker *wrk,
-    const char *hint, unsigned wsl)
+STV_NewObject(struct worker *wrk, struct objcore *oc,
+    const struct stevedore *stv, unsigned wsl)
 {
-	struct stevedore *stv, *stv0;
-	int j;
-
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
 	assert(wsl > 0);
 
 	wrk->strangelove = cache_param->nuke_limit;
-	stv = stv0 = stv_pick_stevedore(wrk->vsl, &hint);
-	AN(stv);
 	AN(stv->allocobj);
-	j = stv->allocobj(stv, oc, wsl);
-	if (j == 0 && hint == NULL) {
-		do {
-			stv = stv_pick_stevedore(wrk->vsl, &hint);
-			AN(stv->allocobj);
-			j = stv->allocobj(stv, oc, wsl);
-		} while (j == 0 && stv != stv0);
-	}
-	while (j == 0) {
-		/* no luck; try to free some space and keep trying */
-		if (EXP_NukeOne(wrk, stv->lru) != 1)
-			break;
-		j = stv->allocobj(stv, oc, wsl);
-	}
-	if (j == 0)
+	if (stv->allocobj(wrk, stv, oc, wsl) == 0)
 		return (0);
 
 	wrk->stats->n_object++;
@@ -295,64 +98,34 @@ STV_NewObject(struct objcore *oc, struct worker *wrk,
 /*-------------------------------------------------------------------*/
 
 void
-STV_trim(const struct stevedore *stv, struct storage *st, size_t size,
-    int move_ok)
-{
-
-	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
-	CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
-	if (stv->trim)
-		stv->trim(st, size, move_ok);
-}
-
-void
-STV_free(const struct stevedore *stv, struct storage *st)
-{
-
-	CHECK_OBJ_NOTNULL(stv, STEVEDORE_MAGIC);
-	CHECK_OBJ_NOTNULL(st, STORAGE_MAGIC);
-	AN(stv->free);
-	stv->free(st);
-}
-
-void
 STV_open(void)
 {
 	struct stevedore *stv;
+	char buf[1024];
 
-	VTAILQ_FOREACH(stv, &stv_stevedores, list) {
-		stv->lru = LRU_Alloc();
+	ASSERT_CLI();
+	STV_Foreach(stv) {
+		bprintf(buf, "storage.%s", stv->ident);
+		stv->vclname = strdup(buf);
+		AN(stv->vclname);
 		if (stv->open != NULL)
 			stv->open(stv);
 	}
-	stv = stv_transient;
-	if (stv->open != NULL) {
-		stv->lru = LRU_Alloc();
-		stv->open(stv);
-	}
-	stv_next = VTAILQ_FIRST(&stv_stevedores);
 }
 
 void
 STV_close(void)
 {
 	struct stevedore *stv;
+	int i;
 
-	/* Signal intent to close */
-	VTAILQ_FOREACH(stv, &stv_stevedores, list)
-		if (stv->signal_close != NULL)
-			stv->signal_close(stv);
-	stv = stv_transient;
-	if (stv->signal_close != NULL)
-		stv->signal_close(stv);
-
-	/* Close each in turn */
-	VTAILQ_FOREACH(stv, &stv_stevedores, list)
-		if (stv->close != NULL)
-			stv->close(stv);
-	stv = stv_transient;
-	if (stv->close != NULL)
-		stv->close(stv);
+	ASSERT_CLI();
+	for (i = 1; i >= 0; i--) {
+		/* First send close warning */
+		STV_Foreach(stv)
+			if (stv->close != NULL)
+				stv->close(stv, i);
+	}
 }
 
 /*-------------------------------------------------------------------
@@ -362,14 +135,27 @@ STV_close(void)
  */
 
 int
-STV_BanInfo(enum baninfo event, const uint8_t *ban, unsigned len)
+STV_BanInfoDrop(const uint8_t *ban, unsigned len)
 {
 	struct stevedore *stv;
 	int r = 0;
 
-	VTAILQ_FOREACH(stv, &stv_stevedores, list)
+	STV_Foreach(stv)
 		if (stv->baninfo != NULL)
-			r |= stv->baninfo(stv, event, ban, len);
+			r |= stv->baninfo(stv, BI_DROP, ban, len);
+
+	return (r);
+}
+
+int
+STV_BanInfoNew(const uint8_t *ban, unsigned len)
+{
+	struct stevedore *stv;
+	int r = 0;
+
+	STV_Foreach(stv)
+		if (stv->baninfo != NULL)
+			r |= stv->baninfo(stv, BI_NEW, ban, len);
 
 	return (r);
 }
@@ -385,7 +171,7 @@ STV_BanExport(const uint8_t *bans, unsigned len)
 {
 	struct stevedore *stv;
 
-	VTAILQ_FOREACH(stv, &stv_stevedores, list)
+	STV_Foreach(stv)
 		if (stv->banexport != NULL)
 			stv->banexport(stv, bans, len);
 }
@@ -394,16 +180,14 @@ STV_BanExport(const uint8_t *bans, unsigned len)
  * VRT functions for stevedores
  */
 
-static const struct stevedore *
-stv_find(const char *nm)
+const struct stevedore *
+STV_find(const char *nm)
 {
-	const struct stevedore *stv;
+	struct stevedore *stv;
 
-	VTAILQ_FOREACH(stv, &stv_stevedores, list)
+	STV_Foreach(stv)
 		if (!strcmp(stv->ident, nm))
 			return (stv);
-	if (!strcmp(TRANSIENT_STORAGE, nm))
-		return (stv_transient);
 	return (NULL);
 }
 
@@ -411,9 +195,24 @@ int
 VRT_Stv(const char *nm)
 {
 
-	if (stv_find(nm) != NULL)
+	if (STV_find(nm) != NULL)
 		return (1);
 	return (0);
+}
+
+const char * __match_proto__()
+VRT_STEVEDORE_string(VCL_STEVEDORE s)
+{
+	if (s == NULL)
+		return (NULL);
+	CHECK_OBJ_NOTNULL(s, STEVEDORE_MAGIC);
+	return (s->vclname);
+}
+
+VCL_STEVEDORE
+VRT_stevedore(const char *nm)
+{
+	return (STV_find(nm));
 }
 
 #define VRTSTVVAR(nm, vtype, ctype, dval)	\
@@ -422,7 +221,7 @@ VRT_Stv_##nm(const char *nm)			\
 {						\
 	const struct stevedore *stv;		\
 						\
-	stv = stv_find(nm);			\
+	stv = STV_find(nm);			\
 	if (stv == NULL)			\
 		return (dval);			\
 	if (stv->var_##nm == NULL)		\
@@ -431,4 +230,3 @@ VRT_Stv_##nm(const char *nm)			\
 }
 
 #include "tbl/vrt_stv_var.h"
-#undef VRTSTVVAR

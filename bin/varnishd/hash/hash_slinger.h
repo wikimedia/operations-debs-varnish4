@@ -31,9 +31,7 @@
 struct sess;
 struct req;
 struct objcore;
-struct busyobj;
 struct worker;
-struct object;
 
 typedef void hash_init_f(int ac, char * const *av);
 typedef void hash_start_f(void);
@@ -62,26 +60,26 @@ enum lookup_e {
 };
 
 /* cache_hash.c */
+struct ban;
 void HSH_Cleanup(struct worker *w);
 enum lookup_e HSH_Lookup(struct req *, struct objcore **, struct objcore **,
-    int wait_for_busy, int always_insert);
+    int always_insert);
 void HSH_Ref(struct objcore *o);
 void HSH_Init(const struct hash_slinger *slinger);
 void HSH_AddString(struct req *, void *ctx, const char *str);
-void HSH_Insert(struct worker *, const void *hash, struct objcore *);
+void HSH_Insert(struct worker *, const void *hash, struct objcore *,
+    struct ban *);
 void HSH_Purge(struct worker *, struct objhead *, double ttl, double grace,
     double keep);
 void HSH_config(const char *h_arg);
-struct busyobj *HSH_RefBusy(const struct objcore *oc);
+struct boc *HSH_RefBoc(const struct objcore *);
+void HSH_DerefBoc(struct worker *wrk, struct objcore *);
 struct objcore *HSH_Private(struct worker *wrk);
+void HSH_Abandon(struct objcore *oc);
+int HSH_Snipe(const struct worker *, struct objcore *);
+void HSH_Kill(struct objcore *);
 
 #ifdef VARNISH_CACHE_CHILD
-
-struct waitinglist {
-	unsigned		magic;
-#define WAITINGLIST_MAGIC	0x063a477a
-	VTAILQ_HEAD(, req)	list;
-};
 
 struct objhead {
 	unsigned		magic;
@@ -91,7 +89,7 @@ struct objhead {
 	struct lock		mtx;
 	VTAILQ_HEAD(,objcore)	objcs;
 	uint8_t			digest[DIGEST_LEN];
-	struct waitinglist	*waitinglist;
+	VTAILQ_HEAD(, req)	waitinglist;
 
 	/*----------------------------------------------------
 	 * The fields below are for the sole private use of
@@ -109,10 +107,11 @@ struct objhead {
 
 void HSH_Fail(struct objcore *);
 void HSH_Unbusy(struct worker *, struct objcore *);
-void HSH_Complete(struct objcore *oc);
-void HSH_DeleteObjHead(struct worker *, struct objhead *oh);
-int HSH_DerefObjHead(struct worker *, struct objhead **poh);
-int HSH_DerefObjCore(struct worker *, struct objcore **ocp);
+void HSH_DeleteObjHead(struct worker *, struct objhead *);
+int HSH_DerefObjHead(struct worker *, struct objhead **);
+int HSH_DerefObjCore(struct worker *, struct objcore **, int);
+#define HSH_RUSH_POLICY -1
+#define HSH_RUSH_ALL	INT_MAX
 #endif /* VARNISH_CACHE_CHILD */
 
 extern const struct hash_slinger hsl_slinger;

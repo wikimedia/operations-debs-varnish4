@@ -62,7 +62,6 @@
 const char * const VSL_tags[SLT__MAX] = {
 #  define SLTM(foo,flags,sdesc,ldesc)       [SLT_##foo] = #foo,
 #  include "tbl/vsl_tags.h"
-#  undef SLTM
 };
 
 const unsigned VSL_tagflags[SLT__MAX] = {
@@ -101,8 +100,8 @@ VSL_New(void)
 
 	vsl->L_opt = 1000;
 	vsl->T_opt = 120.;
-	vsl->vbm_select = vbit_init(SLT__MAX);
-	vsl->vbm_supress = vbit_init(SLT__MAX);
+	vsl->vbm_select = vbit_new(SLT__MAX);
+	vsl->vbm_supress = vbit_new(SLT__MAX);
 	VTAILQ_INIT(&vsl->vslf_select);
 	VTAILQ_INIT(&vsl->vslf_suppress);
 
@@ -160,8 +159,7 @@ VSL_ResetError(struct VSL_data *vsl)
 
 	if (vsl->diag == NULL)
 		return;
-	VSB_delete(vsl->diag);
-	vsl->diag = NULL;
+	VSB_destroy(&vsl->diag);
 }
 
 static int

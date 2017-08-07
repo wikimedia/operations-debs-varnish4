@@ -255,108 +255,188 @@ Other pitfalls include variable expansion of the shell invoking \fBvarnishadm\fP
 but this is not directly related to the Varnish CLI. If you get the quoting
 right you should be fine even with complex commands.
 .SS Commands
+.SS auth <response>
 .INDENT 0.0
-.TP
-.B help [<command>]
-Show command/protocol help.
-.TP
-.B ping [<timestamp>]
-Keep connection alive.
-.TP
-.B auth <response>
+.INDENT 3.5
 Authenticate.
-.TP
-.B quit
-Close connection.
-.TP
-.B banner
-Print welcome banner.
-.TP
-.B status
-Check status of Varnish cache process.
-.TP
-.B start
-Start the Varnish cache process.
-.TP
-.B stop
-Stop the Varnish cache process.
-.TP
-.B vcl.load <configname> <filename> [auto|cold|warm]
-Compile and load the VCL file under the name provided.
-.TP
-.B vcl.inline <configname> <quoted_VCLstring> [auto|cold|warm]
-Compile and load the VCL data under the name provided.
-.TP
-.B vcl.use <configname>
-Switch to the named configuration immediately.
-.TP
-.B vcl.discard <configname>
-Unload the named configuration (when possible).
-.TP
-.B vcl.list
-List all loaded configuration.
-.TP
-.B vcl.show [\-v] <configname>
-Display the source code for the specified configuration.
-.TP
-.B vcl.state <configname> <state>
-Force the state of the specified configuration.
-State is any of auto, warm or cold values.
-.TP
-.B param.show [\-l] [<param>]
-Show parameters and their values.
-.TP
-.B param.set <param> <value>
-Set parameter value.
-.TP
-.B panic.show
-Return the last panic, if any.
-.TP
-.B panic.clear [\-z]
-Clear the last panic, if any. \-z will clear related varnishstat counter(s).
-.TP
-.B storage.list
-List storage devices.
-.TP
-.B backend.list [\-p] [<backend_expression>]
-List backends.
-.TP
-.B backend.set_health <backend_expression> <state>
+.UNINDENT
+.UNINDENT
+.SS backend.list [\-p] [<backend_pattern>]
+.INDENT 0.0
+.INDENT 3.5
+List backends.  \-p also shows probe status.
+.UNINDENT
+.UNINDENT
+.SS backend.set_health <backend_pattern> [auto|healthy|sick]
+.INDENT 0.0
+.INDENT 3.5
 Set health status on the backends.
-State is any of auto, healthy or sick values.
-.TP
-.B ban <field> <operator> <arg> [&& <field> <oper> <arg> ...]
+.UNINDENT
+.UNINDENT
+.SS ban <field> <operator> <arg> [&& <field> <oper> <arg> ...]
+.INDENT 0.0
+.INDENT 3.5
 Mark obsolete all objects where all the conditions match.
-.TP
-.B ban.list
-List the active bans. The output format is:
-.INDENT 7.0
+.UNINDENT
+.UNINDENT
+.sp
+See \fIvcl(7)_ban\fP for details
+.SS ban.list
+.INDENT 0.0
+.INDENT 3.5
+List the active bans.
+.sp
+The output format is:
+.INDENT 0.0
 .IP \(bu 2
-time the ban was issued
+Time the ban was issued.
 .IP \(bu 2
-reference count
+Objects referencing this ban.
 .IP \(bu 2
-\fBC\fP for completed bans (replaced by a newer ban) or \fB\-\fP
+\fBC\fP if ban is completed = no further testing against it.
 .IP \(bu 2
-if \fBlurker\fP debugging is enabled
+if \fBlurker\fP debugging is enabled:
 .INDENT 2.0
 .IP \(bu 2
-\fBR\fP for bans on request properties or \fB\-\fP
+\fBR\fP for req.* tests
 .IP \(bu 2
-\fBO\fP for bans on object properties or \fB\-\fP
+\fBO\fP for obj.* tests
 .IP \(bu 2
-pointer to the ban object
+Pointer to ban object
 .UNINDENT
 .IP \(bu 2
-ban specification
+Ban specification
 .UNINDENT
 .UNINDENT
-.SS Backend Expression
+.UNINDENT
+.SS banner
+.INDENT 0.0
+.INDENT 3.5
+Print welcome banner.
+.UNINDENT
+.UNINDENT
+.SS help [<command>]
+.INDENT 0.0
+.INDENT 3.5
+Show command/protocol help.
+.UNINDENT
+.UNINDENT
+.SS panic.clear [\-z]
+.INDENT 0.0
+.INDENT 3.5
+Clear the last panic, if any, \-z will clear related varnishstat counter(s)
+.UNINDENT
+.UNINDENT
+.SS panic.show
+.INDENT 0.0
+.INDENT 3.5
+Return the last panic, if any.
+.UNINDENT
+.UNINDENT
+.SS param.set <param> <value>
+.INDENT 0.0
+.INDENT 3.5
+Set parameter value.
+.UNINDENT
+.UNINDENT
+.SS param.show [\-l] [<param>]
+.INDENT 0.0
+.INDENT 3.5
+Show parameters and their values.
+.UNINDENT
+.UNINDENT
+.SS ping [<timestamp>]
+.INDENT 0.0
+.INDENT 3.5
+Keep connection alive.
+.UNINDENT
+.UNINDENT
+.SS quit
+.INDENT 0.0
+.INDENT 3.5
+Close connection.
+.UNINDENT
+.UNINDENT
+.SS start
+.INDENT 0.0
+.INDENT 3.5
+Start the Varnish cache process.
+.UNINDENT
+.UNINDENT
+.SS status
+.INDENT 0.0
+.INDENT 3.5
+Check status of Varnish cache process.
+.UNINDENT
+.UNINDENT
+.SS stop
+.INDENT 0.0
+.INDENT 3.5
+Stop the Varnish cache process.
+.UNINDENT
+.UNINDENT
+.SS storage.list
+.INDENT 0.0
+.INDENT 3.5
+List storage devices.
+.UNINDENT
+.UNINDENT
+.SS vcl.discard <configname|label>
+.INDENT 0.0
+.INDENT 3.5
+Unload the named configuration (when possible).
+.UNINDENT
+.UNINDENT
+.SS vcl.inline <configname> <quoted_VCLstring> [auto|cold|warm]
+.INDENT 0.0
+.INDENT 3.5
+Compile and load the VCL data under the name provided.
 .sp
-A backend expression can be a backend name or a combination of backend
-name, IP address and port in "name(IP address:port)" format. All fields
-are optional. If no exact matching backend is found, partial matching
-will be attempted based on the provided name, IP address and port fields.
+Multi\-line VCL can be input using the here document \fIref_syntax\fP\&.
+.UNINDENT
+.UNINDENT
+.SS vcl.label <label> <configname>
+.INDENT 0.0
+.INDENT 3.5
+Apply label to configuration.
+.UNINDENT
+.UNINDENT
+.SS vcl.list
+.INDENT 0.0
+.INDENT 3.5
+List all loaded configuration.
+.UNINDENT
+.UNINDENT
+.SS vcl.load <configname> <filename> [auto|cold|warm]
+.INDENT 0.0
+.INDENT 3.5
+Compile and load the VCL file under the name provided.
+.UNINDENT
+.UNINDENT
+.SS vcl.show [\-v] <configname>
+.INDENT 0.0
+.INDENT 3.5
+Display the source code for the specified configuration.
+.UNINDENT
+.UNINDENT
+.SS vcl.state <configname> [auto|cold|warm]
+.INDENT 0.0
+.INDENT 3.5
+Force the state of the named configuration.
+.UNINDENT
+.UNINDENT
+.SS vcl.use <configname|label>
+.INDENT 0.0
+.INDENT 3.5
+Switch to the named configuration immediately.
+.UNINDENT
+.UNINDENT
+.SS Backend Pattern
+.sp
+A backend pattern can be a backend name or a combination of a VCL name
+and backend name in "VCL.backend" format.  If the VCL name is omitted,
+the active VCL is assumed.  Partial matching on the backend and VCL
+names is supported using shell\-style wilcards, e.g. asterisk (*).
 .sp
 Examples:
 .INDENT 0.0
@@ -365,6 +445,7 @@ Examples:
 .nf
 .ft C
 backend.list def*
+backend.list b*.def*
 backend.set_health default sick
 backend.set_health def* healthy
 backend.set_health * auto
@@ -390,20 +471,22 @@ Integers can have "KB", "MB", "GB" or "TB" appended for size related
 fields.
 .SS VCL Temperature
 .sp
-A VCL program goes through several states related to the different commands: it
-can be loaded, used, and later discarded. You can load several VCL programs and
-switch at any time from one to another. There is only one active VCL, but the
-previous active VCL will be maintained active until all its transactions are
-over.
+A VCL program goes through several states related to the different
+commands: it can be loaded, used, and later discarded. You can load
+several VCL programs and switch at any time from one to another. There
+is only one active VCL, but the previous active VCL will be maintained
+active until all its transactions are over.
 .sp
-Over time, if you often refresh your VCL and keep the previous versions around,
-resource consumption will increase, you can\(aqt escape that. However, most of the
-time you want only one to pay the price only for the active VCL and keep older
-VCLs in case you\(aqd need to rollback to a previous version.
+Over time, if you often refresh your VCL and keep the previous
+versions around, resource consumption will increase, you can\(aqt escape
+that. However, most of the time you want only one to pay the price only
+for the active VCL and keep older VCLs in case you\(aqd need to rollback
+to a previous version.
 .sp
-The VCL temperature allows you to minimize the footprint of inactive VCLs. Once
-a VCL becomes cold, Varnish will release all the resources that can be be later
-reacquired. You can manually set the temperature of a VCL or let varnish
+The VCL temperature allows you to minimize the footprint of inactive
+VCLs. Once a VCL becomes cold, Varnish will release all the resources
+that can be be later reacquired. You can manually set the temperature
+of a VCL or let varnish
 automatically handle it.
 .SS Scripting
 .sp
@@ -414,9 +497,9 @@ One particular magic number to know, is that the line with the status
 code and length field always is exactly 13 characters long, including
 the NL character.
 .sp
-For your reference the sourcefile lib/libvarnish/cli_common.h contains
-the functions Varnish code uses to read and write CLI response.
-.SS How \-S/PSK Authentication Works
+The varnishapi library contains functions to implement the basics of
+the CLI protocol, see the \fIvcli.h\fP include file.
+.SS Authentication with \-S
 .sp
 If the \-S secret\-file is given as argument to varnishd, all network
 CLI connections must authenticate, by proving they know the contents
@@ -445,10 +528,13 @@ ixslvvxrgkjptxmcgnnsdxsvdmvfympg
 Authentication required.
 
 auth 455ce847f0073c7ab3b1465f74507b75d3dc064c1e7de3b71e00de9092fdc89a
-200 193
+200 279
 \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
-Varnish HTTP accelerator CLI.
+Varnish Cache CLI 1.0
 \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+Linux,4.4.0\-1\-amd64,x86_64,\-jnone,\-smalloc,\-smalloc,\-hcritbit
+varnish\-trunk revision dc360a4
+
 Type \(aqhelp\(aq for command list.
 Type \(aqquit\(aq to close CLI session.
 Type \(aqstart\(aq to launch worker process.
@@ -514,37 +600,55 @@ which calculates the response, given an open filedescriptor to the
 secret file, and the challenge string.
 .SH EXAMPLES
 .sp
-Simple example: All requests where req.url exactly matches the string
-/news are banned from the cache:
+Load a multi\-line VCL using shell\-style \fIhere document\fP:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-req.url == "/news"
+vcl.inline example << EOF
+vcl 4.0;
+
+backend www {
+    .host = "127.0.0.1";
+    .port = "8080";
+}
+EOF
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-Example: Ban all documents where the serving host is "example.com"
-or "www.example.com", and where the Set\-Cookie header received from
-the backend contains "USERID=1663":
+Ban all requests where req.url exactly matches the string /news:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-req.http.host ~ "^(?i)(www\e.)example.com$" && obj.http.set\-cookie ~ "USERID=1663"
+ban req.url == "/news"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Ban all documents where the serving host is "example.com" or
+"www.example.com", and where the Set\-Cookie header received from the
+backend contains "USERID=1663":
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ban req.http.host ~ "^(?i)(www\e\e.)example.com$" && obj.http.set\-cookie ~ "USERID=1663"
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .SH AUTHORS
 .sp
-This manual page was originally written by Per Buer and later modified by
-Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and Poul\-Henning
-Kamp.
+This manual page was originally written by Per Buer and later modified
+by Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and
+Poul\-Henning Kamp.
 .SH SEE ALSO
 .INDENT 0.0
 .IP \(bu 2

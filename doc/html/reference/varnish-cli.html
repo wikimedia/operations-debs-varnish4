@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>varnish-cli &#8212; Varnish version 4.1.8 documentation</title>
+    <title>varnish-cli &#8212; Varnish version 5.1.3 documentation</title>
     
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '4.1.8',
+        VERSION:     '5.1.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 4.1.8 documentation" href="../index.html" />
+    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
     <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishadm" href="varnishadm.html" />
     <link rel="prev" title="Varnish Processing States" href="states.html" /> 
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -94,7 +94,7 @@ available. In debug mode (-d) the CLI will be in the foreground, with
 varnishd will connect back to a listening service <em>pushing</em> the CLI to
 that service. Please see <a class="reference internal" href="varnishd.html#varnishd-1"><span class="std std-ref">varnishd</span></a> for details.</p>
 <div class="section" id="syntax">
-<h4>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h4>
+<span id="ref-syntax"></span><h4>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h4>
 <p>The Varnish CLI is similar to another command line interface, the Bourne
 Shell. Commands are usually terminated with a newline, and they may take
 arguments. The command and its arguments are <em>tokenized</em> before parsing,
@@ -210,80 +210,158 @@ right you should be fine even with complex commands.</p>
 </div>
 <div class="section" id="commands">
 <h4>Commands<a class="headerlink" href="#commands" title="Permalink to this headline">¶</a></h4>
-<dl class="docutils">
-<dt>help [&lt;command&gt;]</dt>
-<dd>Show command/protocol help.</dd>
-<dt>ping [&lt;timestamp&gt;]</dt>
-<dd>Keep connection alive.</dd>
-<dt>auth &lt;response&gt;</dt>
-<dd>Authenticate.</dd>
-<dt>quit</dt>
-<dd>Close connection.</dd>
-<dt>banner</dt>
-<dd>Print welcome banner.</dd>
-<dt>status</dt>
-<dd>Check status of Varnish cache process.</dd>
-<dt>start</dt>
-<dd>Start the Varnish cache process.</dd>
-<dt>stop</dt>
-<dd>Stop the Varnish cache process.</dd>
-<dt>vcl.load &lt;configname&gt; &lt;filename&gt; [auto|cold|warm]</dt>
-<dd>Compile and load the VCL file under the name provided.</dd>
-<dt>vcl.inline &lt;configname&gt; &lt;quoted_VCLstring&gt; [auto|cold|warm]</dt>
-<dd>Compile and load the VCL data under the name provided.</dd>
-<dt>vcl.use &lt;configname&gt;</dt>
-<dd>Switch to the named configuration immediately.</dd>
-<dt>vcl.discard &lt;configname&gt;</dt>
-<dd>Unload the named configuration (when possible).</dd>
-<dt>vcl.list</dt>
-<dd>List all loaded configuration.</dd>
-<dt>vcl.show [-v] &lt;configname&gt;</dt>
-<dd>Display the source code for the specified configuration.</dd>
-<dt>vcl.state &lt;configname&gt; &lt;state&gt;</dt>
-<dd>Force the state of the specified configuration.
-State is any of auto, warm or cold values.</dd>
-<dt>param.show [-l] [&lt;param&gt;]</dt>
-<dd>Show parameters and their values.</dd>
-<dt>param.set &lt;param&gt; &lt;value&gt;</dt>
-<dd>Set parameter value.</dd>
-<dt>panic.show</dt>
-<dd>Return the last panic, if any.</dd>
-<dt>panic.clear [-z]</dt>
-<dd>Clear the last panic, if any. -z will clear related varnishstat counter(s).</dd>
-<dt>storage.list</dt>
-<dd>List storage devices.</dd>
-<dt>backend.list [-p] [&lt;backend_expression&gt;]</dt>
-<dd>List backends.</dd>
-<dt>backend.set_health &lt;backend_expression&gt; &lt;state&gt;</dt>
-<dd>Set health status on the backends.
-State is any of auto, healthy or sick values.</dd>
-<dt>ban &lt;field&gt; &lt;operator&gt; &lt;arg&gt; [&amp;&amp; &lt;field&gt; &lt;oper&gt; &lt;arg&gt; ...]</dt>
-<dd>Mark obsolete all objects where all the conditions match.</dd>
-<dt>ban.list</dt>
-<dd><p class="first">List the active bans. The output format is:</p>
-<ul class="last simple">
-<li>time the ban was issued</li>
-<li>reference count</li>
-<li><code class="docutils literal"><span class="pre">C</span></code> for completed bans (replaced by a newer ban) or <code class="docutils literal"><span class="pre">-</span></code></li>
-<li>if <code class="docutils literal"><span class="pre">lurker</span></code> debugging is enabled<ul>
-<li><code class="docutils literal"><span class="pre">R</span></code> for bans on request properties or <code class="docutils literal"><span class="pre">-</span></code></li>
-<li><code class="docutils literal"><span class="pre">O</span></code> for bans on object properties or <code class="docutils literal"><span class="pre">-</span></code></li>
-<li>pointer to the ban object</li>
+<div class="section" id="auth-response">
+<span id="ref-cli-auth-response"></span><h5>auth &lt;response&gt;<a class="headerlink" href="#auth-response" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Authenticate.</div></blockquote>
+</div>
+<div class="section" id="backend-list-p-backend-pattern">
+<span id="ref-cli-backend-list-p-backend-pattern"></span><h5>backend.list [-p] [&lt;backend_pattern&gt;]<a class="headerlink" href="#backend-list-p-backend-pattern" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>List backends.  -p also shows probe status.</div></blockquote>
+</div>
+<div class="section" id="backend-set-health-backend-pattern-auto-healthy-sick">
+<span id="ref-cli-backend-set-health-backend-pattern-auto-healthy-sick"></span><h5>backend.set_health &lt;backend_pattern&gt; [auto|healthy|sick]<a class="headerlink" href="#backend-set-health-backend-pattern-auto-healthy-sick" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Set health status on the backends.</div></blockquote>
+</div>
+<div class="section" id="ban-field-operator-arg-field-oper-arg">
+<span id="ref-cli-ban-field-operator-arg-field-oper-arg"></span><h5>ban &lt;field&gt; &lt;operator&gt; &lt;arg&gt; [&amp;&amp; &lt;field&gt; &lt;oper&gt; &lt;arg&gt; ...]<a class="headerlink" href="#ban-field-operator-arg-field-oper-arg" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Mark obsolete all objects where all the conditions match.</div></blockquote>
+<p>See <a class="reference internal" href="vcl.html#vcl-7-ban"><span class="std std-ref">ban(STRING)</span></a> for details</p>
+</div>
+<div class="section" id="ban-list">
+<span id="ref-cli-ban-list"></span><h5>ban.list<a class="headerlink" href="#ban-list" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><p>List the active bans.</p>
+<p>The output format is:</p>
+<ul class="simple">
+<li>Time the ban was issued.</li>
+<li>Objects referencing this ban.</li>
+<li><code class="docutils literal"><span class="pre">C</span></code> if ban is completed = no further testing against it.</li>
+<li>if <code class="docutils literal"><span class="pre">lurker</span></code> debugging is enabled:<ul>
+<li><code class="docutils literal"><span class="pre">R</span></code> for req.* tests</li>
+<li><code class="docutils literal"><span class="pre">O</span></code> for obj.* tests</li>
+<li>Pointer to ban object</li>
 </ul>
 </li>
-<li>ban specification</li>
+<li>Ban specification</li>
 </ul>
-</dd>
-</dl>
+</div></blockquote>
 </div>
-<div class="section" id="backend-expression">
-<h4>Backend Expression<a class="headerlink" href="#backend-expression" title="Permalink to this headline">¶</a></h4>
-<p>A backend expression can be a backend name or a combination of backend
-name, IP address and port in &quot;name(IP address:port)&quot; format. All fields
-are optional. If no exact matching backend is found, partial matching
-will be attempted based on the provided name, IP address and port fields.</p>
+<div class="section" id="banner">
+<span id="ref-cli-banner"></span><h5>banner<a class="headerlink" href="#banner" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Print welcome banner.</div></blockquote>
+</div>
+<div class="section" id="help-command">
+<span id="ref-cli-help-command"></span><h5>help [&lt;command&gt;]<a class="headerlink" href="#help-command" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Show command/protocol help.</div></blockquote>
+</div>
+<div class="section" id="panic-clear-z">
+<span id="ref-cli-panic-clear-z"></span><h5>panic.clear [-z]<a class="headerlink" href="#panic-clear-z" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Clear the last panic, if any, -z will clear related varnishstat counter(s)</div></blockquote>
+</div>
+<div class="section" id="panic-show">
+<span id="ref-cli-panic-show"></span><h5>panic.show<a class="headerlink" href="#panic-show" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Return the last panic, if any.</div></blockquote>
+</div>
+<div class="section" id="param-set-param-value">
+<span id="ref-cli-param-set-param-value"></span><h5>param.set &lt;param&gt; &lt;value&gt;<a class="headerlink" href="#param-set-param-value" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Set parameter value.</div></blockquote>
+</div>
+<div class="section" id="param-show-l-param">
+<span id="ref-cli-param-show-l-param"></span><h5>param.show [-l] [&lt;param&gt;]<a class="headerlink" href="#param-show-l-param" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Show parameters and their values.</div></blockquote>
+</div>
+<div class="section" id="ping-timestamp">
+<span id="ref-cli-ping-timestamp"></span><h5>ping [&lt;timestamp&gt;]<a class="headerlink" href="#ping-timestamp" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Keep connection alive.</div></blockquote>
+</div>
+<div class="section" id="quit">
+<span id="ref-cli-quit"></span><h5>quit<a class="headerlink" href="#quit" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Close connection.</div></blockquote>
+</div>
+<div class="section" id="start">
+<span id="ref-cli-start"></span><h5>start<a class="headerlink" href="#start" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Start the Varnish cache process.</div></blockquote>
+</div>
+<div class="section" id="status">
+<span id="ref-cli-status"></span><h5>status<a class="headerlink" href="#status" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Check status of Varnish cache process.</div></blockquote>
+</div>
+<div class="section" id="stop">
+<span id="ref-cli-stop"></span><h5>stop<a class="headerlink" href="#stop" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Stop the Varnish cache process.</div></blockquote>
+</div>
+<div class="section" id="storage-list">
+<span id="ref-cli-storage-list"></span><h5>storage.list<a class="headerlink" href="#storage-list" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>List storage devices.</div></blockquote>
+</div>
+<div class="section" id="vcl-discard-configname-label">
+<span id="ref-cli-vcl-discard-configname-label"></span><h5>vcl.discard &lt;configname|label&gt;<a class="headerlink" href="#vcl-discard-configname-label" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Unload the named configuration (when possible).</div></blockquote>
+</div>
+<div class="section" id="vcl-inline-configname-quoted-vclstring-auto-cold-warm">
+<span id="ref-cli-vcl-inline-configname-quoted-vclstring-auto-cold-warm"></span><h5>vcl.inline &lt;configname&gt; &lt;quoted_VCLstring&gt; [auto|cold|warm]<a class="headerlink" href="#vcl-inline-configname-quoted-vclstring-auto-cold-warm" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><p>Compile and load the VCL data under the name provided.</p>
+<p>Multi-line VCL can be input using the here document <a class="reference internal" href="#ref-syntax"><span class="std std-ref">Syntax</span></a>.</p>
+</div></blockquote>
+</div>
+<div class="section" id="vcl-label-label-configname">
+<span id="ref-cli-vcl-label-label-configname"></span><h5>vcl.label &lt;label&gt; &lt;configname&gt;<a class="headerlink" href="#vcl-label-label-configname" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Apply label to configuration.</div></blockquote>
+</div>
+<div class="section" id="vcl-list">
+<span id="ref-cli-vcl-list"></span><h5>vcl.list<a class="headerlink" href="#vcl-list" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>List all loaded configuration.</div></blockquote>
+</div>
+<div class="section" id="vcl-load-configname-filename-auto-cold-warm">
+<span id="ref-cli-vcl-load-configname-filename-auto-cold-warm"></span><h5>vcl.load &lt;configname&gt; &lt;filename&gt; [auto|cold|warm]<a class="headerlink" href="#vcl-load-configname-filename-auto-cold-warm" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Compile and load the VCL file under the name provided.</div></blockquote>
+</div>
+<div class="section" id="vcl-show-v-configname">
+<span id="ref-cli-vcl-show-v-configname"></span><h5>vcl.show [-v] &lt;configname&gt;<a class="headerlink" href="#vcl-show-v-configname" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Display the source code for the specified configuration.</div></blockquote>
+</div>
+<div class="section" id="vcl-state-configname-auto-cold-warm">
+<span id="ref-cli-vcl-state-configname-auto-cold-warm"></span><h5>vcl.state &lt;configname&gt; [auto|cold|warm]<a class="headerlink" href="#vcl-state-configname-auto-cold-warm" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Force the state of the named configuration.</div></blockquote>
+</div>
+<div class="section" id="vcl-use-configname-label">
+<span id="ref-cli-vcl-use-configname-label"></span><h5>vcl.use &lt;configname|label&gt;<a class="headerlink" href="#vcl-use-configname-label" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div>Switch to the named configuration immediately.</div></blockquote>
+</div>
+</div>
+<div class="section" id="backend-pattern">
+<h4>Backend Pattern<a class="headerlink" href="#backend-pattern" title="Permalink to this headline">¶</a></h4>
+<p>A backend pattern can be a backend name or a combination of a VCL name
+and backend name in &quot;VCL.backend&quot; format.  If the VCL name is omitted,
+the active VCL is assumed.  Partial matching on the backend and VCL
+names is supported using shell-style wilcards, e.g. asterisk (*).</p>
 <p>Examples:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">backend</span><span class="o">.</span><span class="n">list</span> <span class="n">def</span><span class="o">*</span>
+<span class="n">backend</span><span class="o">.</span><span class="n">list</span> <span class="n">b</span><span class="o">*.</span><span class="n">def</span><span class="o">*</span>
 <span class="n">backend</span><span class="o">.</span><span class="n">set_health</span> <span class="n">default</span> <span class="n">sick</span>
 <span class="n">backend</span><span class="o">.</span><span class="n">set_health</span> <span class="n">def</span><span class="o">*</span> <span class="n">healthy</span>
 <span class="n">backend</span><span class="o">.</span><span class="n">set_health</span> <span class="o">*</span> <span class="n">auto</span>
@@ -306,18 +384,20 @@ fields.</p>
 </div>
 <div class="section" id="vcl-temperature">
 <span id="ref-vcl-temperature"></span><h4>VCL Temperature<a class="headerlink" href="#vcl-temperature" title="Permalink to this headline">¶</a></h4>
-<p>A VCL program goes through several states related to the different commands: it
-can be loaded, used, and later discarded. You can load several VCL programs and
-switch at any time from one to another. There is only one active VCL, but the
-previous active VCL will be maintained active until all its transactions are
-over.</p>
-<p>Over time, if you often refresh your VCL and keep the previous versions around,
-resource consumption will increase, you can't escape that. However, most of the
-time you want only one to pay the price only for the active VCL and keep older
-VCLs in case you'd need to rollback to a previous version.</p>
-<p>The VCL temperature allows you to minimize the footprint of inactive VCLs. Once
-a VCL becomes cold, Varnish will release all the resources that can be be later
-reacquired. You can manually set the temperature of a VCL or let varnish
+<p>A VCL program goes through several states related to the different
+commands: it can be loaded, used, and later discarded. You can load
+several VCL programs and switch at any time from one to another. There
+is only one active VCL, but the previous active VCL will be maintained
+active until all its transactions are over.</p>
+<p>Over time, if you often refresh your VCL and keep the previous
+versions around, resource consumption will increase, you can't escape
+that. However, most of the time you want only one to pay the price only
+for the active VCL and keep older VCLs in case you'd need to rollback
+to a previous version.</p>
+<p>The VCL temperature allows you to minimize the footprint of inactive
+VCLs. Once a VCL becomes cold, Varnish will release all the resources
+that can be be later reacquired. You can manually set the temperature
+of a VCL or let varnish
 automatically handle it.</p>
 </div>
 <div class="section" id="scripting">
@@ -327,11 +407,11 @@ include/cli.h contains the relevant magic numbers.</p>
 <p>One particular magic number to know, is that the line with the status
 code and length field always is exactly 13 characters long, including
 the NL character.</p>
-<p>For your reference the sourcefile lib/libvarnish/cli_common.h contains
-the functions Varnish code uses to read and write CLI response.</p>
+<p>The varnishapi library contains functions to implement the basics of
+the CLI protocol, see the <cite>vcli.h</cite> include file.</p>
 </div>
-<div class="section" id="how-s-psk-authentication-works">
-<span id="ref-psk-auth"></span><h4>How -S/PSK Authentication Works<a class="headerlink" href="#how-s-psk-authentication-works" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="authentication-with-s">
+<span id="ref-psk-auth"></span><h4>Authentication with -S<a class="headerlink" href="#authentication-with-s" title="Permalink to this headline">¶</a></h4>
 <p>If the -S secret-file is given as argument to varnishd, all network
 CLI connections must authenticate, by proving they know the contents
 of that file.</p>
@@ -351,10 +431,13 @@ file on the fly.</p>
 <span class="n">Authentication</span> <span class="n">required</span><span class="o">.</span>
 
 <span class="n">auth</span> <span class="mi">455</span><span class="n">ce847f0073c7ab3b1465f74507b75d3dc064c1e7de3b71e00de9092fdc89a</span>
-<span class="mi">200</span> <span class="mi">193</span>
+<span class="mi">200</span> <span class="mi">279</span>
 <span class="o">-----------------------------</span>
-<span class="n">Varnish</span> <span class="n">HTTP</span> <span class="n">accelerator</span> <span class="n">CLI</span><span class="o">.</span>
+<span class="n">Varnish</span> <span class="n">Cache</span> <span class="n">CLI</span> <span class="mf">1.0</span>
 <span class="o">-----------------------------</span>
+<span class="n">Linux</span><span class="p">,</span><span class="mf">4.4</span><span class="o">.</span><span class="mi">0</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">amd64</span><span class="p">,</span><span class="n">x86_64</span><span class="p">,</span><span class="o">-</span><span class="n">jnone</span><span class="p">,</span><span class="o">-</span><span class="n">smalloc</span><span class="p">,</span><span class="o">-</span><span class="n">smalloc</span><span class="p">,</span><span class="o">-</span><span class="n">hcritbit</span>
+<span class="n">varnish</span><span class="o">-</span><span class="n">trunk</span> <span class="n">revision</span> <span class="n">dc360a4</span>
+
 <span class="n">Type</span> <span class="s1">&#39;help&#39;</span> <span class="k">for</span> <span class="n">command</span> <span class="nb">list</span><span class="o">.</span>
 <span class="n">Type</span> <span class="s1">&#39;quit&#39;</span> <span class="n">to</span> <span class="n">close</span> <span class="n">CLI</span> <span class="n">session</span><span class="o">.</span>
 <span class="n">Type</span> <span class="s1">&#39;start&#39;</span> <span class="n">to</span> <span class="n">launch</span> <span class="n">worker</span> <span class="n">process</span><span class="o">.</span>
@@ -402,23 +485,33 @@ secret file, and the challenge string.</p>
 </div>
 <div class="section" id="examples">
 <h3>EXAMPLES<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h3>
-<p>Simple example: All requests where req.url exactly matches the string
-/news are banned from the cache:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">req</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;/news&quot;</span>
+<p>Load a multi-line VCL using shell-style <em>here document</em>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">vcl</span><span class="o">.</span><span class="n">inline</span> <span class="n">example</span> <span class="o">&lt;&lt;</span> <span class="n">EOF</span>
+<span class="n">vcl</span> <span class="mf">4.0</span><span class="p">;</span>
+
+<span class="n">backend</span> <span class="n">www</span> <span class="p">{</span>
+    <span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s2">&quot;127.0.0.1&quot;</span><span class="p">;</span>
+    <span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="s2">&quot;8080&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">EOF</span>
 </pre></div>
 </div>
-<p>Example: Ban all documents where the serving host is &quot;example.com&quot;
-or &quot;www.example.com&quot;, and where the Set-Cookie header received from
-the backend contains &quot;USERID=1663&quot;:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">host</span> <span class="o">~</span> <span class="s2">&quot;^(?i)(www\.)example.com$&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">obj</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">set</span><span class="o">-</span><span class="n">cookie</span> <span class="o">~</span> <span class="s2">&quot;USERID=1663&quot;</span>
+<p>Ban all requests where req.url exactly matches the string /news:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">ban</span> <span class="n">req</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;/news&quot;</span>
+</pre></div>
+</div>
+<p>Ban all documents where the serving host is &quot;example.com&quot; or
+&quot;www.example.com&quot;, and where the Set-Cookie header received from the
+backend contains &quot;USERID=1663&quot;:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">ban</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">host</span> <span class="o">~</span> <span class="s2">&quot;^(?i)(www</span><span class="se">\\</span><span class="s2">.)example.com$&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">obj</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">set</span><span class="o">-</span><span class="n">cookie</span> <span class="o">~</span> <span class="s2">&quot;USERID=1663&quot;</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="authors">
 <h3>AUTHORS<a class="headerlink" href="#authors" title="Permalink to this headline">¶</a></h3>
-<p>This manual page was originally written by Per Buer and later modified by
-Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and Poul-Henning
-Kamp.</p>
+<p>This manual page was originally written by Per Buer and later modified
+by Federico G. Schwindt, Dridi Boukelmoune, Lasse Karstensen and
+Poul-Henning Kamp.</p>
 </div>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
@@ -444,12 +537,39 @@ Kamp.</p>
 <li><a class="reference internal" href="#description">DESCRIPTION</a><ul>
 <li><a class="reference internal" href="#syntax">Syntax</a></li>
 <li><a class="reference internal" href="#quoting-pitfalls">Quoting pitfalls</a></li>
-<li><a class="reference internal" href="#commands">Commands</a></li>
-<li><a class="reference internal" href="#backend-expression">Backend Expression</a></li>
+<li><a class="reference internal" href="#commands">Commands</a><ul>
+<li><a class="reference internal" href="#auth-response">auth &lt;response&gt;</a></li>
+<li><a class="reference internal" href="#backend-list-p-backend-pattern">backend.list [-p] [&lt;backend_pattern&gt;]</a></li>
+<li><a class="reference internal" href="#backend-set-health-backend-pattern-auto-healthy-sick">backend.set_health &lt;backend_pattern&gt; [auto|healthy|sick]</a></li>
+<li><a class="reference internal" href="#ban-field-operator-arg-field-oper-arg">ban &lt;field&gt; &lt;operator&gt; &lt;arg&gt; [&amp;&amp; &lt;field&gt; &lt;oper&gt; &lt;arg&gt; ...]</a></li>
+<li><a class="reference internal" href="#ban-list">ban.list</a></li>
+<li><a class="reference internal" href="#banner">banner</a></li>
+<li><a class="reference internal" href="#help-command">help [&lt;command&gt;]</a></li>
+<li><a class="reference internal" href="#panic-clear-z">panic.clear [-z]</a></li>
+<li><a class="reference internal" href="#panic-show">panic.show</a></li>
+<li><a class="reference internal" href="#param-set-param-value">param.set &lt;param&gt; &lt;value&gt;</a></li>
+<li><a class="reference internal" href="#param-show-l-param">param.show [-l] [&lt;param&gt;]</a></li>
+<li><a class="reference internal" href="#ping-timestamp">ping [&lt;timestamp&gt;]</a></li>
+<li><a class="reference internal" href="#quit">quit</a></li>
+<li><a class="reference internal" href="#start">start</a></li>
+<li><a class="reference internal" href="#status">status</a></li>
+<li><a class="reference internal" href="#stop">stop</a></li>
+<li><a class="reference internal" href="#storage-list">storage.list</a></li>
+<li><a class="reference internal" href="#vcl-discard-configname-label">vcl.discard &lt;configname|label&gt;</a></li>
+<li><a class="reference internal" href="#vcl-inline-configname-quoted-vclstring-auto-cold-warm">vcl.inline &lt;configname&gt; &lt;quoted_VCLstring&gt; [auto|cold|warm]</a></li>
+<li><a class="reference internal" href="#vcl-label-label-configname">vcl.label &lt;label&gt; &lt;configname&gt;</a></li>
+<li><a class="reference internal" href="#vcl-list">vcl.list</a></li>
+<li><a class="reference internal" href="#vcl-load-configname-filename-auto-cold-warm">vcl.load &lt;configname&gt; &lt;filename&gt; [auto|cold|warm]</a></li>
+<li><a class="reference internal" href="#vcl-show-v-configname">vcl.show [-v] &lt;configname&gt;</a></li>
+<li><a class="reference internal" href="#vcl-state-configname-auto-cold-warm">vcl.state &lt;configname&gt; [auto|cold|warm]</a></li>
+<li><a class="reference internal" href="#vcl-use-configname-label">vcl.use &lt;configname|label&gt;</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#backend-pattern">Backend Pattern</a></li>
 <li><a class="reference internal" href="#ban-expressions">Ban Expressions</a></li>
 <li><a class="reference internal" href="#vcl-temperature">VCL Temperature</a></li>
 <li><a class="reference internal" href="#scripting">Scripting</a></li>
-<li><a class="reference internal" href="#how-s-psk-authentication-works">How -S/PSK Authentication Works</a></li>
+<li><a class="reference internal" href="#authentication-with-s">Authentication with -S</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#examples">EXAMPLES</a></li>
@@ -500,7 +620,7 @@ Kamp.</p>
         <li class="right" >
           <a href="states.html" title="Varnish Processing States"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 4.1.8 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

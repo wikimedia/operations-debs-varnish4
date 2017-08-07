@@ -44,12 +44,6 @@ struct VSM_fantom;
  * VSC level access functions
  */
 
-#define VSC_ARGS	"f:n:N:"
-#define VSC_n_USAGE	VSM_n_USAGE " " VSM_N_USAGE
-#define VSC_f_USAGE	"[-f field_name,...]"
-#define VSC_USAGE	VSC_n_USAGE \
-			VSC_f_USAGE
-
 int VSC_Arg(struct VSM_data *vd, int arg, const char *opt);
 	/*
 	 * Handle standard stat-presenter arguments
@@ -191,12 +185,9 @@ const struct VSC_level_desc *VSC_LevelDesc(unsigned level);
 #include "tbl/vsc_types.h"
 #undef VSC_TYPE_F
 
-#define VSC_DO(U,l,t) extern const struct VSC_desc VSC_desc_##l[];
+#define VSC_DO(U,l,t,h) extern const struct VSC_desc VSC_desc_##l[];
 #define VSC_F(n,t,l,s,f,v,d,e)
 #define VSC_DONE(U,l,t)
 #include "tbl/vsc_all.h"
-#undef VSC_DO
-#undef VSC_F
-#undef VSC_DONE
 
 #endif /* VAPI_VSC_H_INCLUDED */

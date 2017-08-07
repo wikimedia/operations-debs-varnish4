@@ -38,7 +38,6 @@
 
 #include "vtc.h"
 
-#include "vss.h"
 #include "vtcp.h"
 
 struct server {
@@ -72,11 +71,11 @@ static VTAILQ_HEAD(, server)	servers =
  */
 
 static struct server *
-server_new(const char *name)
+server_new(const char *name, struct vtclog *vl)
 {
 	struct server *s;
 
-	AN(name);
+	VTC_CHECK_NAME(vl, name, "Server", 's');
 	ALLOC_OBJ(s, SERVER_MAGIC);
 	AN(s);
 	REPLACE(s->name, name);
@@ -127,7 +126,7 @@ server_listen(struct server *s)
 		VTCP_close(&s->sock);
 	s->sock = VTCP_listen_on(s->listen, "0", s->depth, &err);
 	if (err != NULL)
-		vtc_log(s->vl, 0,
+		vtc_fatal(s->vl,
 		    "Server listen address (%s) cannot be resolved: %s",
 		    s->listen, err);
 	assert(s->sock > 0);
@@ -153,6 +152,8 @@ server_thread(void *priv)
 	struct sockaddr_storage addr_s;
 	struct sockaddr *addr;
 	socklen_t l;
+	char abuf[VTCP_ADDRBUFSIZE];
+	char pbuf[VTCP_PORTBUFSIZE];
 
 	CAST_OBJ_NOTNULL(s, priv, SERVER_MAGIC);
 	assert(s->sock >= 0);
@@ -167,13 +168,14 @@ server_thread(void *priv)
 		l = sizeof addr_s;
 		fd = accept(s->sock, addr, &l);
 		if (fd < 0)
-			vtc_log(vl, 0, "Accept failed: %s", strerror(errno));
-		vtc_log(vl, 3, "accepted fd %d", fd);
+			vtc_fatal(vl, "Accept failed: %s", strerror(errno));
+		VTCP_hisname(fd, abuf, sizeof abuf, pbuf, sizeof pbuf);
+		vtc_log(vl, 3, "accepted fd %d %s %s", fd, abuf, pbuf);
 		fd = http_process(vl, s->spec, fd, &s->sock);
 		vtc_log(vl, 3, "shutting fd %d", fd);
 		j = shutdown(fd, SHUT_WR);
 		if (!VTCP_Check(j))
-			vtc_log(vl, 0, "Shutdown failed: %s", strerror(errno));
+			vtc_fatal(vl, "Shutdown failed: %s", strerror(errno));
 		VTCP_close(&fd);
 	}
 	vtc_log(vl, 2, "Ending");
@@ -218,7 +220,7 @@ server_dispatch_wrk(void *priv)
 	vtc_log(vl, 3, "shutting fd %d", fd);
 	j = shutdown(fd, SHUT_WR);
 	if (!VTCP_Check(j))
-		vtc_log(vl, 0, "Shutdown failed: %s", strerror(errno));
+		vtc_fatal(vl, "Shutdown failed: %s", strerror(errno));
 	VTCP_close(&s->fd);
 	vtc_log(vl, 2, "Ending");
 	return (NULL);
@@ -239,6 +241,7 @@ server_dispatch_thread(void *priv)
 	assert(s->sock >= 0);
 
 	vl = vtc_logopen(s->name);
+	AN(vl);
 	vtc_log(vl, 2, "Dispatch started on %s", s->listen);
 
 	while (1) {
@@ -246,17 +249,17 @@ server_dispatch_thread(void *priv)
 		l = sizeof addr_s;
 		fd = accept(s->sock, addr, &l);
 		if (fd < 0)
-			vtc_log(vl, 0, "Accepted failed: %s", strerror(errno));
+			vtc_fatal(vl, "Accepted failed: %s", strerror(errno));
 		bprintf(snbuf, "s%d", sn++);
 		vtc_log(vl, 3, "dispatch fd %d -> %s", fd, snbuf);
-		s2 = server_new(snbuf);
+		s2 = server_new(snbuf, vl);
 		s2->spec = s->spec;
 		strcpy(s2->listen, s->listen);
 		s2->fd = fd;
 		s2->run = 1;
 		AZ(pthread_create(&s2->tp, NULL, server_dispatch_wrk, s2));
 	}
-	return(NULL);
+	NEEDLESS(return(NULL));
 }
 
 static void
@@ -299,7 +302,7 @@ server_wait(struct server *s)
 	vtc_log(s->vl, 2, "Waiting for server (%d/%d)", s->sock, s->fd);
 	AZ(pthread_join(s->tp, &res));
 	if (res != NULL && !vtc_stop)
-		vtc_log(s->vl, 0, "Server returned \"%p\"",
+		vtc_fatal(s->vl, "Server returned \"%p\"",
 		    (char *)res);
 	s->tp = 0;
 	s->run = 0;
@@ -335,7 +338,6 @@ cmd_server(CMD_ARGS)
 
 	(void)priv;
 	(void)cmd;
-	(void)vl;
 
 	if (av == NULL) {
 		/* Reset and free */
@@ -362,19 +364,13 @@ cmd_server(CMD_ARGS)
 	AZ(strcmp(av[0], "server"));
 	av++;
 
-	if (*av[0] != 's') {
-		fprintf(stderr, "Server name must start with 's' (is: %s)\n",
-		    av[0]);
-		exit(1);
-	}
-
 	AZ(pthread_mutex_lock(&server_mtx));
 	VTAILQ_FOREACH(s, &servers, list)
 		if (!strcmp(s->name, av[0]))
 			break;
 	AZ(pthread_mutex_unlock(&server_mtx));
 	if (s == NULL)
-		s = server_new(av[0]);
+		s = server_new(av[0], vl);
 	CHECK_OBJ_NOTNULL(s, SERVER_MAGIC);
 	av++;
 
@@ -383,7 +379,7 @@ cmd_server(CMD_ARGS)
 			break;
 		if (!strcmp(*av, "-wait")) {
 			if (!s->run)
-				vtc_log(s->vl, 0, "Server not -started");
+				vtc_fatal(s->vl, "Server not -started");
 			server_wait(s);
 			continue;
 		}
@@ -418,16 +414,14 @@ cmd_server(CMD_ARGS)
 			continue;
 		}
 		if (!strcmp(*av, "-dispatch")) {
-			if (strcmp(s->name, "s0")) {
-				fprintf(stderr,
-				    "server -dispatch only works on s0\n");
-				exit(1);
-			}
+			if (strcmp(s->name, "s0"))
+				vtc_fatal(s->vl,
+				    "server -dispatch only works on s0");
 			server_dispatch(s);
 			continue;
 		}
 		if (**av == '-')
-			vtc_log(s->vl, 0, "Unknown server argument: %s", *av);
+			vtc_fatal(s->vl, "Unknown server argument: %s", *av);
 		s->spec = *av;
 	}
 }

@@ -35,8 +35,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -44,9 +42,8 @@
 #include "mgt/mgt.h"
 #include "common/heritage.h"
 
-#include "flopen.h"
+#include "vfl.h"
 #include "vsm_priv.h"
-#include "vmb.h"
 #include "vfil.h"
 
 #ifndef MAP_HASSEMAPHORE
@@ -112,7 +109,7 @@ vsm_n_check(void)
 		fprintf(stderr,
 		    "VSM (%s) not a regular file.\n", VSM_FILENAME);
 	} else {
-		i = fltest(fd, &pid);
+		i = VFL_Test(fd, &pid);
 		if (i < 0) {
 			fprintf(stderr,
 			    "Cannot determine locking status of VSM (%s)\n.",
@@ -150,9 +147,9 @@ vsm_zerofile(const char *fn, ssize_t size)
 	int fd;
 	int flags;
 
-	fd = flopen(fn, O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK, 0640);
+	fd = VFL_Open(fn, O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK, 0640);
 	if (fd < 0) {
-		MGT_complain(C_ERR, "Could not create %s: %s",
+		MGT_Complain(C_ERR, "Could not create %s: %s",
 		    fn, strerror(errno));
 		return (-1);
 	}
@@ -162,7 +159,7 @@ vsm_zerofile(const char *fn, ssize_t size)
 	flags &= ~O_NONBLOCK;
 	AZ(fcntl(fd, F_SETFL, flags));
 	if (VFIL_allocate(fd, (off_t)size, 1)) {
-		MGT_complain(C_ERR, "File allocation error %s: %s",
+		MGT_Complain(C_ERR, "File allocation error %s: %s",
 		    fn, strerror(errno));
 		return (-1);
 	}
@@ -221,10 +218,10 @@ mgt_SHM_Create(void)
 	    MAP_HASSEMAPHORE | MAP_NOSYNC | MAP_SHARED,
 	    vsm_fd, 0);
 
-	AZ(close(vsm_fd));
+	closefd(&vsm_fd);
 
 	if (p == MAP_FAILED) {
-		MGT_complain(C_ERR, "Mmap error %s: %s",
+		MGT_Complain(C_ERR, "Mmap error %s: %s",
 		    fnbuf, strerror(errno));
 		mgt_shm_cleanup();
 		exit(1);
@@ -260,28 +257,14 @@ mgt_SHM_Create(void)
 	/* Commit changes, for OS's without coherent VM/buf */
 	AZ(msync(p, getpagesize(), MS_SYNC));
 #endif
-}
-
-/*--------------------------------------------------------------------
- * Commit the VSM
- */
-
-int
-mgt_SHM_Commit(void)
-{
-	char fnbuf[64];
-	int retval = 0;
-
-	bprintf(fnbuf, "%s.%jd", VSM_FILENAME, (intmax_t)getpid());
 	VJ_master(JAIL_MASTER_FILE);
 	if (rename(fnbuf, VSM_FILENAME)) {
-		MGT_complain(C_ERR, "Rename failed %s -> %s: %s\n",
+		MGT_Complain(C_ERR, "Rename failed %s -> %s: %s",
 		    fnbuf, VSM_FILENAME, strerror(errno));
 		(void)unlink(fnbuf);
-		retval = -1;
+		exit(1);
 	}
 	VJ_master(JAIL_MASTER_LOW);
-	return (retval);
 }
 
 /*--------------------------------------------------------------------

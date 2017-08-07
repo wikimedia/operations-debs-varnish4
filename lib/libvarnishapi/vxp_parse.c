@@ -75,7 +75,7 @@ vxp_expr_lhs(struct vxp *vxp, struct vex_lhs **plhs)
 	AZ(*plhs);
 	ALLOC_OBJ(*plhs, VEX_LHS_MAGIC);
 	AN(*plhs);
-	(*plhs)->tags = vbit_init(SLT__MAX);
+	(*plhs)->tags = vbit_new(SLT__MAX);
 	(*plhs)->level = -1;
 
 	if (vxp->t->tok == '{') {
@@ -371,7 +371,7 @@ vxp_expr_cmp(struct vxp *vxp, struct vex **pvex)
 	ERRCHK(vxp);
 
 	/* Value */
-	switch((*pvex)->tok) {
+	switch ((*pvex)->tok) {
 	case '\0':
 		WRONG("Missing token");
 		break;

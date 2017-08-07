@@ -118,7 +118,7 @@ struct watch {
 
 	VTAILQ_ENTRY(watch)	list;
 	char			*key;
-	int			keylen;
+	unsigned		keylen;
 	struct fragment		frag;
 };
 VTAILQ_HEAD(watch_head, watch);
@@ -130,13 +130,11 @@ struct vsl_watch {
 	VTAILQ_ENTRY(vsl_watch)	list;
 	enum VSL_tag_e		tag;
 	int			idx;
-	char			*prefix;
-	int			prefixlen;
 	struct fragment		frag;
 };
 VTAILQ_HEAD(vsl_watch_head, vsl_watch);
 
-struct ctx {
+static struct ctx {
 	/* Options */
 	int			a_opt;
 	int			b_opt;
@@ -160,14 +158,14 @@ struct ctx {
 	int32_t			vxid;
 } CTX;
 
-static void
+static void __attribute__((__noreturn__))
 usage(int status)
 {
 	const char **opt;
 
 	fprintf(stderr, "Usage: %s <options>\n\n", progname);
 	fprintf(stderr, "Options:\n");
-	for (opt = vopt_usage; *opt != NULL; opt += 2)
+	for (opt = vopt_spec.vopt_usage; *opt != NULL; opt += 2)
 		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
 	exit(status);
 }
@@ -393,7 +391,7 @@ format_auth(const struct format *format)
 
 	if (CTX.frag[F_auth].gen != CTX.gen ||
 	    VB64_decode(buf, sizeof buf, CTX.frag[F_auth].b,
-	    CTX.frag[F_auth].e)) {
+		CTX.frag[F_auth].e)) {
 		if (format->string == NULL)
 			return (-1);
 		AZ(vsb_esc_cat(CTX.vsb, format->string,
@@ -487,7 +485,7 @@ addf_int32(int32_t *i)
 }
 
 static void
-addf_time(char type, const char *fmt)
+addf_time(char type, const char *fmt, const char *str)
 {
 	struct format *f;
 
@@ -498,6 +496,10 @@ addf_time(char type, const char *fmt)
 	if (fmt != NULL) {
 		f->time_fmt = strdup(fmt);
 		AN(f->time_fmt);
+	}
+	if (str != NULL) {
+		f->string = strdup(str);
+		AN(f->string);
 	}
 	VTAILQ_INSERT_TAIL(&CTX.format, f, list);
 }
@@ -514,7 +516,7 @@ addf_requestline(void)
 }
 
 static void
-addf_vcl_log(const char *key)
+addf_vcl_log(const char *key, const char *str)
 {
 	struct watch *w;
 	struct format *f;
@@ -522,21 +524,24 @@ addf_vcl_log(const char *key)
 	AN(key);
 	ALLOC_OBJ(w, WATCH_MAGIC);
 	AN(w);
-	w->keylen = asprintf(&w->key, "%s:", key);
-	assert(w->keylen > 0);
+	w->key = strdup(key);
+	AN(w->key);
+	w->keylen = strlen(w->key);
 	VTAILQ_INSERT_TAIL(&CTX.watch_vcl_log, w, list);
 
 	ALLOC_OBJ(f, FORMAT_MAGIC);
 	AN(f);
 	f->func = &format_fragment;
 	f->frag = &w->frag;
-	f->string = strdup("");
-	AN(f->string);
+	if (str != NULL) {
+		f->string = strdup(str);
+		AN(f->string);
+	}
 	VTAILQ_INSERT_TAIL(&CTX.format, f, list);
 }
 
 static void
-addf_hdr(struct watch_head *head, const char *key)
+addf_hdr(struct watch_head *head, const char *key, const char *str)
 {
 	struct watch *w;
 	struct format *f;
@@ -545,21 +550,24 @@ addf_hdr(struct watch_head *head, const char *key)
 	AN(key);
 	ALLOC_OBJ(w, WATCH_MAGIC);
 	AN(w);
-	w->keylen = asprintf(&w->key, "%s:", key);
-	assert(w->keylen > 0);
+	w->key = strdup(key);
+	AN(w->key);
+	w->keylen = strlen(w->key);
 	VTAILQ_INSERT_TAIL(head, w, list);
 
 	ALLOC_OBJ(f, FORMAT_MAGIC);
 	AN(f);
 	f->func = &format_fragment;
 	f->frag = &w->frag;
-	f->string = strdup("-");
-	AN(f->string);
+	if (str != NULL) {
+		f->string = strdup(str);
+		AN(f->string);
+	}
 	VTAILQ_INSERT_TAIL(&CTX.format, f, list);
 }
 
 static void
-addf_vsl(enum VSL_tag_e tag, long i, const char *prefix)
+addf_vsl(enum VSL_tag_e tag, long i)
 {
 	struct vsl_watch *w;
 
@@ -568,24 +576,23 @@ addf_vsl(enum VSL_tag_e tag, long i, const char *prefix)
 	w->tag = tag;
 	assert(i <= INT_MAX);
 	w->idx = i;
-	if (prefix != NULL) {
-		w->prefixlen = asprintf(&w->prefix, "%s:", prefix);
-		assert(w->prefixlen > 0);
-	}
 	VTAILQ_INSERT_TAIL(&CTX.watch_vsl, w, list);
+
 	addf_fragment(&w->frag, "-");
 }
 
 static void
-addf_auth(void)
+addf_auth(const char *str)
 {
 	struct format *f;
 
 	ALLOC_OBJ(f, FORMAT_MAGIC);
 	AN(f);
 	f->func = &format_auth;
-	f->string = strdup("-");
-	AN(f->string);
+	if (str != NULL) {
+		f->string = strdup(str);
+		AN(f->string);
+	}
 	VTAILQ_INSERT_TAIL(&CTX.format, f, list);
 }
 
@@ -594,7 +601,7 @@ parse_x_format(char *buf)
 {
 	char *e, *r, *s;
 	int slt;
-	long i;
+	intmax_t i;
 
 	if (!strcmp(buf, "Varnish:time_firstbyte")) {
 		addf_fragment(&CTX.frag[F_ttfb], "");
@@ -617,7 +624,7 @@ parse_x_format(char *buf)
 		return;
 	}
 	if (!strncmp(buf, "VCL_Log:", 8)) {
-		addf_vcl_log(buf + 8);
+		addf_vcl_log(buf + 8, "");
 		return;
 	}
 	if (!strncmp(buf, "VSL:", 4)) {
@@ -634,7 +641,7 @@ parse_x_format(char *buf)
 			if (r == buf || r[1] == ']')
 				VUT_Error(1, "Syntax error: VSL:%s", buf);
 			e[-1] = '\0';
-			i = strtol(r + 1, &s, 10);
+			i = strtoimax(r + 1, &s, 10);
 			if (s != e - 1)
 				VUT_Error(1, "Syntax error: VSL:%s]", buf);
 			if (i <= 0)
@@ -644,30 +651,21 @@ parse_x_format(char *buf)
 				    buf);
 			if (i > INT_MAX) {
 				VUT_Error(1,
-				    "Field specifier %ld for the tag VSL:%s]"
+				    "Field specifier %jd for the tag VSL:%s]"
 				    " is probably too high",
 				    i, buf);
 			}
 			*r = '\0';
 		} else
 			i = 0;
-		r = buf;
-		while (r < e && *r != ':')
-			r++;
-		if (r != e) {
-			slt = VSL_Name2Tag(buf, r - buf);
-			r++;
-		} else {
-			slt = VSL_Name2Tag(buf, -1);
-			r = NULL;
-		}
+		slt = VSL_Name2Tag(buf, -1);
 		if (slt == -2)
 			VUT_Error(1, "Tag not unique: %s", buf);
 		if (slt == -1)
 			VUT_Error(1, "Unknown log tag: %s", buf);
 		assert(slt >= 0);
 
-		addf_vsl(slt, i, r);
+		addf_vsl(slt, i);
 		return;
 	}
 	VUT_Error(1, "Unknown formatting extension: %s", buf);
@@ -714,7 +712,7 @@ parse_format(const char *format)
 			addf_fragment(&CTX.frag[F_b], "-");
 			break;
 		case 'D':	/* Float request time */
-			addf_time(*p, NULL);
+			addf_time(*p, NULL, NULL);
 			break;
 		case 'h':	/* Client host name / IP Address */
 			addf_fragment(&CTX.frag[F_h], "-");
@@ -744,13 +742,13 @@ parse_format(const char *format)
 			addf_fragment(&CTX.frag[F_s], "-");
 			break;
 		case 't':	/* strftime */
-			addf_time(*p, TIME_FMT);
+			addf_time(*p, TIME_FMT, NULL);
 			break;
 		case 'T':	/* Int request time */
-			addf_time(*p, NULL);
+			addf_time(*p, NULL, NULL);
 			break;
 		case 'u':	/* Remote user from auth */
-			addf_auth();
+			addf_auth("-");
 			break;
 		case 'U':	/* URL */
 			addf_fragment(&CTX.frag[F_U], "-");
@@ -769,13 +767,15 @@ parse_format(const char *format)
 			q++;
 			switch (*q) {
 			case 'i':
-				addf_hdr(&CTX.watch_reqhdr, buf);
+				strcat(buf, ":");
+				addf_hdr(&CTX.watch_reqhdr, buf, "-");
 				break;
 			case 'o':
-				addf_hdr(&CTX.watch_resphdr, buf);
+				strcat(buf, ":");
+				addf_hdr(&CTX.watch_resphdr, buf, "-");
 				break;
 			case 't':
-				addf_time(*q, buf);
+				addf_time(*q, buf, NULL);
 				break;
 			case 'x':
 				parse_x_format(buf);
@@ -800,19 +800,20 @@ parse_format(const char *format)
 		VSB_clear(vsb);
 	}
 
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 }
 
 static int
-isprefix(const char *prefix, size_t len, const char *b,
-    const char *e, const char **next)
+isprefix(const char *prefix, const char *b, const char *e, const char **next)
 {
-	assert(len > 0);
+	size_t len;
+
+	len = strlen(prefix);
 	if (e - b < len || strncasecmp(b, prefix, len))
 		return (0);
 	b += len;
 	if (next) {
-		while (b < e && *b == ' ')
+		while (b < e && *b && *b == ' ')
 			b++;
 		*next = b;
 	}
@@ -876,7 +877,7 @@ frag_line(int force, const char *b, const char *e, struct fragment *f)
 		++b;
 
 	/* Skip trailing space */
-	while (e > b && isspace(e[-1]))
+	while (e > b && isspace(*(e - 1)))
 		--e;
 
 	f->gen = CTX.gen;
@@ -888,34 +889,11 @@ static void
 process_hdr(const struct watch_head *head, const char *b, const char *e)
 {
 	struct watch *w;
-	const char *p;
 
 	VTAILQ_FOREACH(w, head, list) {
-		if (!isprefix(w->key, w->keylen, b, e, &p))
+		if (e - b < w->keylen || strncasecmp(b, w->key, w->keylen))
 			continue;
-		frag_line(1, p, e, &w->frag);
-	}
-}
-
-static void
-process_vsl(const struct vsl_watch_head *head, enum VSL_tag_e tag,
-    const char *b, const char *e)
-{
-	struct vsl_watch *w;
-	const char *p;
-
-	VTAILQ_FOREACH(w, head, list) {
-		CHECK_OBJ_NOTNULL(w, VSL_WATCH_MAGIC);
-		if (tag != w->tag)
-			continue;
-		p = b;
-		if (w->prefixlen > 0 &&
-		    !isprefix(w->prefix, w->prefixlen, b, e, &p))
-			continue;
-		if (w->idx == 0)
-			frag_line(0, p, e, &w->frag);
-		else
-			frag_fields(0, p, e, w->idx, &w->frag, 0, NULL);
+		frag_line(1, b + w->keylen, e, &w->frag);
 	}
 }
 
@@ -927,8 +905,8 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	unsigned tag;
 	const char *b, *e, *p;
 	struct watch *w;
+	struct vsl_watch *vslw;
 	int i, skip, be_mark;
-
 	(void)vsl;
 	(void)priv;
 
@@ -1013,34 +991,32 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				break;
 			case (SLT_Timestamp + BACKEND_MARKER):
 			case SLT_Timestamp:
-#define ISPREFIX(a, b, c, d)	isprefix(a, strlen(a), b, c, d)
-				if (ISPREFIX("Start:", b, e, &p)) {
+				if (isprefix("Start:", b, e, &p)) {
 					frag_fields(0, p, e, 1,
 					    &CTX.frag[F_tstart], 0, NULL);
 
-				} else if (ISPREFIX("Resp:", b, e, &p) ||
-				    ISPREFIX("PipeSess:", b, e, &p) ||
-				    ISPREFIX("BerespBody:", b, e, &p)) {
+				} else if (isprefix("Resp:", b, e, &p) ||
+				    isprefix("PipeSess:", b, e, &p) ||
+				    isprefix("BerespBody:", b, e, &p)) {
 					frag_fields(0, p, e, 1,
 					    &CTX.frag[F_tend], 0, NULL);
 
-				} else if (ISPREFIX("Process:", b, e, &p) ||
-				    ISPREFIX("Pipe:", b, e, &p) ||
-				    ISPREFIX("Beresp:", b, e, &p)) {
+				} else if (isprefix("Process:", b, e, &p) ||
+				    isprefix("Pipe:", b, e, &p) ||
+				    isprefix("Beresp:", b, e, &p)) {
 					frag_fields(0, p, e, 2,
 					    &CTX.frag[F_ttfb], 0, NULL);
 				}
 				break;
 			case (SLT_BereqHeader + BACKEND_MARKER):
 			case SLT_ReqHeader:
-				if (ISPREFIX("Authorization:", b, e, &p) &&
-				    ISPREFIX("basic ", p, e, &p))
+				if (isprefix("Authorization:", b, e, &p) &&
+				    isprefix("basic ", p, e, &p))
 					frag_line(0, p, e,
 					    &CTX.frag[F_auth]);
-				else if (ISPREFIX("Host:", b, e, &p))
+				else if (isprefix("Host:", b, e, &p))
 					frag_line(0, p, e,
 					    &CTX.frag[F_host]);
-#undef ISPREFIX
 				break;
 			case SLT_VCL_call:
 				if (!strcasecmp(b, "recv")) {
@@ -1074,10 +1050,15 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 			case SLT_VCL_Log:
 				VTAILQ_FOREACH(w, &CTX.watch_vcl_log, list) {
 					CHECK_OBJ_NOTNULL(w, WATCH_MAGIC);
-					if (e - b < w->keylen ||
+					if (e - b <= w->keylen ||
 					    strncmp(b, w->key, w->keylen))
 						continue;
 					p = b + w->keylen;
+					if (*p != ':')
+						continue;
+					p++;
+					if (p > e)
+						continue;
 					frag_line(0, p, e, &w->frag);
 				}
 				break;
@@ -1092,7 +1073,18 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 			    (tag == SLT_BerespHeader && CTX.b_opt))
 				process_hdr(&CTX.watch_resphdr, b, e);
 
-			process_vsl(&CTX.watch_vsl, tag, b, e);
+			VTAILQ_FOREACH(vslw, &CTX.watch_vsl, list) {
+				CHECK_OBJ_NOTNULL(vslw, VSL_WATCH_MAGIC);
+				if (tag == vslw->tag) {
+					if (vslw->idx == 0)
+						frag_line(0, b, e,
+						    &vslw->frag);
+					else
+						frag_fields(0, b, e,
+						    vslw->idx, &vslw->frag,
+						    0, NULL);
+				}
+			}
 		}
 		if (skip)
 			continue;
@@ -1143,6 +1135,7 @@ main(int argc, char * const *argv)
 	signed char opt;
 	char *format = NULL;
 
+	VUT_Init(progname, argc, argv, &vopt_spec);
 	memset(&CTX, 0, sizeof CTX);
 	VTAILQ_INIT(&CTX.format);
 	VTAILQ_INIT(&CTX.watch_vcl_log);
@@ -1152,9 +1145,8 @@ main(int argc, char * const *argv)
 	CTX.vsb = VSB_new_auto();
 	AN(CTX.vsb);
 	VB64_init();
-	VUT_Init(progname);
 
-	while ((opt = getopt(argc, argv, vopt_optstring)) != -1) {
+	while ((opt = getopt(argc, argv, vopt_spec.vopt_optstring)) != -1) {
 		switch (opt) {
 		case 'a':
 			/* Append to file */
@@ -1225,10 +1217,10 @@ main(int argc, char * const *argv)
 		openout(CTX.a_opt);
 		AN(CTX.fo);
 		if (VUT.D_opt)
-			VUT.sighup_f = &rotateout;
+			VUT.sighup_f = rotateout;
 	} else
 		CTX.fo = stdout;
-	VUT.idle_f = &flushout;
+	VUT.idle_f = flushout;
 
 	VUT_Setup();
 	VUT_Main();

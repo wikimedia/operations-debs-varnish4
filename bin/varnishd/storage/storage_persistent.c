@@ -35,23 +35,30 @@
 
 #include "config.h"
 
+#include "cache/cache.h"
+
 #include <sys/param.h>
 #include <sys/mman.h>
 
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
+#include "cache/cache_obj.h"
 #include "storage/storage.h"
+#include "storage/storage_simple.h"
 
 #include "hash/hash_slinger.h"
-#include "vcli.h"
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 #include "vsha256.h"
 #include "vtim.h"
 
 #include "storage/storage_persistent.h"
+
+static struct obj_methods smp_oc_realmethods;
+
+static struct VSC_C_lck *lck_smp;
+
+static void smp_init(void);
 
 /*--------------------------------------------------------------------*/
 
@@ -225,11 +232,10 @@ smp_open_segs(struct smp_sc *sc, struct smp_signspace *spc)
 
 	sg1 = NULL;
 	sg2 = NULL;
-	for(; ss <= se; ss++) {
+	for (; ss <= se; ss++) {
 		ALLOC_OBJ(sg, SMP_SEG_MAGIC);
 		AN(sg);
-		sg->lru = LRU_Alloc();
-		CHECK_OBJ_NOTNULL(sg->lru, LRU_MAGIC);
+		VTAILQ_INIT(&sg->objcores);
 		sg->p = *ss;
 
 		sg->flags |= SMP_SEG_MUSTLOAD;
@@ -307,19 +313,22 @@ smp_thread(struct worker *wrk, void *priv)
 	Lck_Unlock(&sc->mtx);
 	pthread_exit(0);
 
-	NEEDLESS_RETURN(NULL);
+	NEEDLESS(return NULL);
 }
 
 /*--------------------------------------------------------------------
  * Open a silo in the worker process
  */
 
-static void
-smp_open(const struct stevedore *st)
+static void __match_proto__(storage_open_f)
+smp_open(struct stevedore *st)
 {
 	struct smp_sc	*sc;
 
 	ASSERT_CLI();
+
+	if (VTAILQ_EMPTY(&silos))
+		smp_init();
 
 	CAST_OBJ_NOTNULL(sc, st->priv, SMP_SC_MAGIC);
 
@@ -363,6 +372,9 @@ smp_open(const struct stevedore *st)
 
 	/* XXX: abandon early segments to make sure we have free space ? */
 
+	(void)ObjSubscribeEvents(smp_oc_event, st,
+	    OEV_BANCHG|OEV_TTLCHG|OEV_INSERT);
+
 	/* Open a new segment, so we are ready to write */
 	smp_new_seg(sc);
 
@@ -377,24 +389,8 @@ smp_open(const struct stevedore *st)
  * Close a silo
  */
 
-static void
-smp_signal_close(const struct stevedore *st)
-{
-	struct smp_sc	*sc;
-
-	ASSERT_CLI();
-
-	CAST_OBJ_NOTNULL(sc, st->priv, SMP_SC_MAGIC);
-	Lck_Lock(&sc->mtx);
-	if (sc->cur_seg != NULL)
-		smp_close_seg(sc, sc->cur_seg);
-	AZ(sc->cur_seg);
-	sc->flags |= SMP_SC_STOP;
-	Lck_Unlock(&sc->mtx);
-}
-
-static void
-smp_close(const struct stevedore *st)
+static void __match_proto__(storage_close_f)
+smp_close(const struct stevedore *st, int warn)
 {
 	struct smp_sc	*sc;
 	void *status;
@@ -402,9 +398,17 @@ smp_close(const struct stevedore *st)
 	ASSERT_CLI();
 
 	CAST_OBJ_NOTNULL(sc, st->priv, SMP_SC_MAGIC);
-
-	AZ(pthread_join(sc->bgthread, &status));
-	AZ(status);
+	if (warn) {
+		Lck_Lock(&sc->mtx);
+		if (sc->cur_seg != NULL)
+			smp_close_seg(sc, sc->cur_seg);
+		AZ(sc->cur_seg);
+		sc->flags |= SMP_SC_STOP;
+		Lck_Unlock(&sc->mtx);
+	} else {
+		AZ(pthread_join(sc->bgthread, &status));
+		AZ(status);
+	}
 }
 
 /*--------------------------------------------------------------------
@@ -470,7 +474,7 @@ smp_allocx(const struct stevedore *st, size_t min_size, size_t max_size,
 			sc->next_top -= sizeof(**so);
 			*so = (void*)(sc->base + sc->next_top);
 			/* Render this smp_object mostly harmless */
-			EXP_Clr(&(*so)->exp);
+			EXP_ZERO((*so));
 			(*so)->ban = 0.;
 			(*so)->ptr = 0;
 			sg->objs = *so;
@@ -499,8 +503,9 @@ smp_allocx(const struct stevedore *st, size_t min_size, size_t max_size,
  * Allocate an object
  */
 
-static int
-smp_allocobj(const struct stevedore *stv, struct objcore *oc, unsigned wsl)
+static int __match_proto__(storage_allocobj_f)
+smp_allocobj(struct worker *wrk, const struct stevedore *stv,
+    struct objcore *oc, unsigned wsl)
 {
 	struct object *o;
 	struct storage *st;
@@ -510,23 +515,42 @@ smp_allocobj(const struct stevedore *stv, struct objcore *oc, unsigned wsl)
 	unsigned objidx;
 	unsigned ltot;
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	CAST_OBJ_NOTNULL(sc, stv->priv, SMP_SC_MAGIC);
 
 	/* Don't entertain already dead objects */
-	if ((oc->exp.ttl + oc->exp.grace + oc->exp.keep) <= 0.)
+	if (oc->flags & OC_F_DYING)
+		return (0);
+	if (oc->t_origin <= 0.)
+		return (0);
+	if (oc->ttl + oc->grace + oc->keep <= 0.)
 		return (0);
 
 	ltot = sizeof(struct object) + PRNDUP(wsl);
 	ltot = IRNUP(sc, ltot);
 
-	st = smp_allocx(stv, ltot, ltot, &so, &objidx, &sg);
+	st = NULL;
+	sg = NULL;
+	so = NULL;
+	objidx = 0;
+
+	do {
+		st = smp_allocx(stv, ltot, ltot, &so, &objidx, &sg);
+		if (st != NULL && st->space < ltot) {
+			stv->sml_free(st);		// NOP
+			st = NULL;
+		}
+	} while (st == NULL && LRU_NukeOne(wrk, stv->lru));
 	if (st == NULL)
 		return (0);
 
+	AN(st);
+	AN(sg);
+	AN(so);
 	assert(st->space >= ltot);
 
-	o = STV_MkObject(stv, oc, st->ptr);
+	o = SML_MkObject(stv, oc, st->ptr);
 	AN(oc->stobj->stevedore);
 	assert(oc->stobj->stevedore == stv);
 	CHECK_OBJ_NOTNULL(o, OBJECT_MAGIC);
@@ -540,12 +564,13 @@ smp_allocobj(const struct stevedore *stv, struct objcore *oc, unsigned wsl)
 	/* We have to do this somewhere, might as well be here... */
 	assert(sizeof so->hash == DIGEST_LEN);
 	memcpy(so->hash, oc->objhead->digest, DIGEST_LEN);
-	so->exp = oc->exp;
+	EXP_COPY(so, oc);
 	so->ptr = (uint8_t*)o - sc->base;
 	so->ban = BAN_Time(oc->ban);
 
 	smp_init_oc(oc, sg, objidx);
 
+	VTAILQ_INSERT_TAIL(&sg->objcores, oc, lru_list);
 	Lck_Unlock(&sc->mtx);
 	return (1);
 }
@@ -554,7 +579,7 @@ smp_allocobj(const struct stevedore *stv, struct objcore *oc, unsigned wsl)
  * Allocate a bite
  */
 
-static struct storage *
+static struct storage * __match_proto__(sml_alloc_f)
 smp_alloc(const struct stevedore *st, size_t size)
 {
 
@@ -562,49 +587,33 @@ smp_alloc(const struct stevedore *st, size_t size)
 	    size > 4096 ? 4096 : size, size, NULL, NULL, NULL));
 }
 
-/*--------------------------------------------------------------------
- * We don't track frees of storage, we track the objects which own the
- * storage and when there are no more objects in in the first segment,
- * it can be reclaimed.
- * XXX: We could free the last allocation, but does that happen ?
- */
-
-static void __match_proto__(storage_free_f)
-smp_free(struct storage *st)
-{
-
-	/* XXX */
-	(void)st;
-}
-
-
 /*--------------------------------------------------------------------*/
 
 const struct stevedore smp_stevedore = {
-	.magic	=	STEVEDORE_MAGIC,
-	.name	=	"deprecated_persistent",
-	.init	=	smp_mgt_init,
-	.open	=	smp_open,
-	.close	=	smp_close,
-	.alloc	=	smp_alloc,
-	.allocobj =	smp_allocobj,
-	.free	=	smp_free,
-	.signal_close = smp_signal_close,
-	.baninfo =	smp_baninfo,
-	.banexport =	smp_banexport,
-	.methods =	&smp_oc_methods,
+	.magic		= STEVEDORE_MAGIC,
+	.name		= "deprecated_persistent",
+	.init		= smp_mgt_init,
+	.open		= smp_open,
+	.close		= smp_close,
+	.allocobj	= smp_allocobj,
+	.baninfo	= smp_baninfo,
+	.banexport	= smp_banexport,
+	.methods	= &smp_oc_realmethods,
+
+	.sml_alloc	= smp_alloc,
+	.sml_free	= NULL,
+	.sml_getobj	= smp_sml_getobj,
 };
 
 /*--------------------------------------------------------------------
- * Persistence is a bear to test unadultered, so we cheat by adding
+ * Persistence is a bear to test unadulterated, so we cheat by adding
  * a cli command we can use to make it do tricks for us.
  */
 
 static void
-debug_report_silo(struct cli *cli, const struct smp_sc *sc, int objs)
+debug_report_silo(struct cli *cli, const struct smp_sc *sc)
 {
 	struct smp_seg *sg;
-	struct objcore *oc;
 
 	VCLI_Out(cli, "Silo: %s (%s)\n",
 	    sc->stevedore->ident, sc->filename);
@@ -619,10 +628,6 @@ debug_report_silo(struct cli *cli, const struct smp_sc *sc, int objs)
 			   (uintmax_t)(sc->next_top - sc->next_bot));
 		VCLI_Out(cli, "    %u nobj, %u alloc, %u lobjlist, %u fixed\n",
 		    sg->nobj, sg->nalloc, sg->p.lobjlist, sg->nfixed);
-		if (objs) {
-			VTAILQ_FOREACH(oc, &sg->lru->lru_head, lru_list)
-				VCLI_Out(cli, "      OC %p\n", oc);
-		}
 	}
 }
 
@@ -635,7 +640,7 @@ debug_persistent(struct cli *cli, const char * const * av, void *priv)
 
 	if (av[2] == NULL) {
 		VTAILQ_FOREACH(sc, &silos, list)
-			debug_report_silo(cli, sc, 0);
+			debug_report_silo(cli, sc);
 		return;
 	}
 	VTAILQ_FOREACH(sc, &silos, list)
@@ -647,7 +652,7 @@ debug_persistent(struct cli *cli, const char * const * av, void *priv)
 		return;
 	}
 	if (av[3] == NULL) {
-		debug_report_silo(cli, sc, 0);
+		debug_report_silo(cli, sc);
 		return;
 	}
 	Lck_Lock(&sc->mtx);
@@ -656,7 +661,7 @@ debug_persistent(struct cli *cli, const char * const * av, void *priv)
 			smp_close_seg(sc, sc->cur_seg);
 		smp_new_seg(sc);
 	} else if (!strcmp(av[3], "dump")) {
-		debug_report_silo(cli, sc, 1);
+		debug_report_silo(cli, sc);
 	} else {
 		VCLI_Out(cli, "Unknown operation\n");
 		VCLI_SetResult(cli, CLIS_PARAM);
@@ -665,23 +670,21 @@ debug_persistent(struct cli *cli, const char * const * av, void *priv)
 }
 
 static struct cli_proto debug_cmds[] = {
-	{ "debug.persistent", "debug.persistent",
-		"Persistent debugging magic:\n"
-		"\tdebug.persistent [<stevedore> [<cmd>]]\n"
-		"With no cmd arg, a summary of the silo is returned.\n"
-		"Possible commands:\n"
-		"\tsync\tClose current segment, open a new one\n"
-		"\tdump\tinclude objcores in silo summary",
-		0, 2, "d", debug_persistent },
+	{ CLICMD_DEBUG_PERSISTENT,		"d", debug_persistent },
 	{ NULL }
 };
 
-/*--------------------------------------------------------------------*/
+/*--------------------------------------------------------------------
+ */
 
-void
-SMP_Init(void)
+static void
+smp_init(void)
 {
+	lck_smp = Lck_CreateClass("smp");
 	CLI_AddFuncs(debug_cmds);
+	smp_oc_realmethods = SML_methods;
+	smp_oc_realmethods.objtouch = NULL;
+	smp_oc_realmethods.objfree = smp_oc_objfree;
 }
 
 /*--------------------------------------------------------------------

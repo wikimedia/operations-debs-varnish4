@@ -9,7 +9,7 @@ server s1 -repeat 20 {
 
 # The debug vmod logs temperature vcl events
 varnish v1 -arg "-p vcl_cooldown=1" -vcl {
-	import ${vmod_debug};
+	import debug;
 	backend default {
 		.host = "${s1_addr}";
 		.probe = { .interval = 1s; .initial = 1;}
@@ -63,7 +63,7 @@ varnish v1 -expect VBE.vcl1.default.happy >= 0
 varnish v1 -expect VBE.vcl2.default.happy >= 0
 
 # You can't freeze the active VCL
-varnish v1 -clierr 106 "vcl.state vcl2 cold"
+varnish v1 -clierr 300 "vcl.state vcl2 cold"
 
 # However a warm event is guaranteed...
 logexpect l1 -v v1 -g raw {

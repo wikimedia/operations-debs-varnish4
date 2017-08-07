@@ -5,7 +5,7 @@
 # 
 # sub vcl_recv {
 #     if (req.method == "PRI") {
-# 	/* We do not support SPDY or HTTP/2.0 */
+# 	/* This will never happen in properly formed traffic (see: RFC7540) */
 # 	return (synth(405));
 #     }
 #     if (req.method != "GET" &&
@@ -14,7 +14,8 @@
 #       req.method != "POST" &&
 #       req.method != "TRACE" &&
 #       req.method != "OPTIONS" &&
-#       req.method != "DELETE") {
+#       req.method != "DELETE" &&
+#       req.method != "PATCH") {
 #         /* Non-RFC2616 or CONNECT which is weird. */
 #         return (pipe);
 #     }
@@ -59,7 +60,7 @@
 # 
 # sub vcl_hit {
 #     if (obj.ttl >= 0s) {
-#         // A pure unadultered hit, deliver it
+#         // A pure unadulterated hit, deliver it
 #         return (deliver);
 #     }
 #     if (obj.ttl + obj.grace > 0s) {
@@ -80,12 +81,12 @@
 # }
 # 
 # /*
-#  * We can come here "invisibly" with the following errors: 413, 417 & 503
+#  * We can come here "invisibly" with the following errors: 500 & 503
 #  */
 # sub vcl_synth {
 #     set resp.http.Content-Type = "text/html; charset=utf-8";
 #     set resp.http.Retry-After = "5";
-#     synthetic( {"<!DOCTYPE html>
+#     set resp.body = {"<!DOCTYPE html>
 # <html>
 #   <head>
 #     <title>"} + resp.status + " " + resp.reason + {"</title>
@@ -99,7 +100,7 @@
 #     <p>Varnish cache server</p>
 #   </body>
 # </html>
-# "} );
+# "};
 #     return (deliver);
 # }
 # 
@@ -107,19 +108,22 @@
 # # Backend Fetch
 # 
 # sub vcl_backend_fetch {
+#     if (bereq.method == "GET") {
+#         unset bereq.body;
+#     }
 #     return (fetch);
 # }
 # 
 # sub vcl_backend_response {
-#     if (beresp.ttl <= 0s ||
+#     if (bereq.uncacheable) {
+#         return (deliver);
+#     } else if (beresp.ttl <= 0s ||
 #       beresp.http.Set-Cookie ||
 #       beresp.http.Surrogate-control ~ "no-store" ||
 #       (!beresp.http.Surrogate-Control &&
 #         beresp.http.Cache-Control ~ "no-cache|no-store|private") ||
 #       beresp.http.Vary == "*") {
-#         /*
-#         * Mark as "Hit-For-Pass" for the next 2 minutes
-#         */
+#         # Mark as "Hit-For-Miss" for the next 2 minutes
 #         set beresp.ttl = 120s;
 #         set beresp.uncacheable = true;
 #     }
@@ -129,7 +133,7 @@
 # sub vcl_backend_error {
 #     set beresp.http.Content-Type = "text/html; charset=utf-8";
 #     set beresp.http.Retry-After = "5";
-#     synthetic( {"<!DOCTYPE html>
+#     set beresp.body = {"<!DOCTYPE html>
 # <html>
 #   <head>
 #     <title>"} + beresp.status + " " + beresp.reason + {"</title>
@@ -143,7 +147,7 @@
 #     <p>Varnish cache server</p>
 #   </body>
 # </html>
-# "} );
+# "};
 #     return (deliver);
 # }
 # 
@@ -151,6 +155,7 @@
 # # Housekeeping
 # 
 # sub vcl_init {
+#     return (ok);
 # }
 # 
 # sub vcl_fini {

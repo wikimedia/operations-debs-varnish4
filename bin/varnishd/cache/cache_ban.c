@@ -36,8 +36,7 @@
 #include "cache_ban.h"
 
 #include "hash/hash_slinger.h"
-#include "vcli.h"
-#include "vcli_priv.h"
+#include "vcli_serve.h"
 #include "vend.h"
 #include "vmb.h"
 
@@ -184,7 +183,8 @@ ban_get_lump(const uint8_t **bs)
 	while (**bs == 0xff)
 		*bs += 1;
 	ln = vbe32dec(*bs);
-	*bs += 4;
+	*bs += PRNDUP(sizeof(uint32_t));
+	assert(PAOK(*bs));
 	r = (const void*)*bs;
 	*bs += ln;
 	return (r);
@@ -249,29 +249,45 @@ BAN_DestroyObj(struct objcore *oc)
 }
 
 /*--------------------------------------------------------------------
- * Find and/or Grab a reference to an objects ban based on timestamp
+ * Find a ban based on a timestamp.
  * Assume we have a BAN_Hold, so list traversal is safe.
  */
 
 struct ban *
-BAN_RefBan(struct objcore *oc, double t0)
+BAN_FindBan(double t0)
 {
 	struct ban *b;
-	double t1 = 0;
+	double t1;
 
+	assert(ban_holds > 0);
 	VTAILQ_FOREACH(b, &ban_head, list) {
 		t1 = ban_time(b->spec);
-		if (t1 <= t0)
+		if (t1 == t0)
+			return (b);
+		if (t1 < t0)
 			break;
 	}
-	AN(b);
-	assert(t1 == t0);
+	return (NULL);
+}
+
+/*--------------------------------------------------------------------
+ * Grab a reference to a ban and associate the objcore with that ban.
+ * Assume we have a BAN_Hold, so list traversal is safe.
+ */
+
+void
+BAN_RefBan(struct objcore *oc, struct ban *b)
+{
+
 	Lck_Lock(&ban_mtx);
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+	AZ(oc->ban);
+	CHECK_OBJ_NOTNULL(b, BAN_MAGIC);
 	assert(ban_holds > 0);
 	b->refcount++;
 	VTAILQ_INSERT_TAIL(&b->objcore, oc, ban_list);
+	oc->ban = b;
 	Lck_Unlock(&ban_mtx);
-	return (b);
 }
 
 /*--------------------------------------------------------------------
@@ -283,37 +299,47 @@ static void
 ban_export(void)
 {
 	struct ban *b;
-	struct vsb vsb;
+	struct vsb *vsb;
 	unsigned ln;
 
 	Lck_AssertHeld(&ban_mtx);
 	ln = VSC_C_main->bans_persisted_bytes -
 	    VSC_C_main->bans_persisted_fragmentation;
-	AN(VSB_new(&vsb, NULL, ln, VSB_AUTOEXTEND));
+	vsb = VSB_new_auto();
+	AN(vsb);
 	VTAILQ_FOREACH_REVERSE(b, &ban_head, banhead_s, list) {
-		AZ(VSB_bcat(&vsb, b->spec, ban_len(b->spec)));
+		AZ(VSB_bcat(vsb, b->spec, ban_len(b->spec)));
 	}
-	AZ(VSB_finish(&vsb));
-	assert(VSB_len(&vsb) == ln);
-	STV_BanExport((const uint8_t *)VSB_data(&vsb), VSB_len(&vsb));
-	VSB_delete(&vsb);
+	AZ(VSB_finish(vsb));
+	assert(VSB_len(vsb) == ln);
+	STV_BanExport((const uint8_t *)VSB_data(vsb), VSB_len(vsb));
+	VSB_destroy(&vsb);
 	VSC_C_main->bans_persisted_bytes = ln;
 	VSC_C_main->bans_persisted_fragmentation = 0;
 }
 
+/*
+ * For both of these we do a full export on info failure to remove
+ * holes in the exported list.
+ * XXX: we should keep track of the size of holes in the last exported list
+ * XXX: check if the ban_export should be batched in ban_cleantail
+ */
 void
-ban_info(enum baninfo event, const uint8_t *ban, unsigned len)
+ban_info_new(const uint8_t *ban, unsigned len)
 {
-	if (STV_BanInfo(event, ban, len)) {
-		/* One or more stevedores reported failure. Export the
-		 * list instead. The exported list should take up less
-		 * space due to drops being purged and completed being
-		 * truncated. */
-		/* XXX: Keep some measure of how much space can be
-		 * saved, and only export if it's worth it. Assert if
-		 * not */
+	/* XXX martin pls review if ban_mtx needs to be held */
+	Lck_AssertHeld(&ban_mtx);
+	if (STV_BanInfoNew(ban, len))
 		ban_export();
-	}
+}
+
+void
+ban_info_drop(const uint8_t *ban, unsigned len)
+{
+	/* XXX martin pls review if ban_mtx needs to be held */
+	Lck_AssertHeld(&ban_mtx);
+	if (STV_BanInfoDrop(ban, len))
+		ban_export();
 }
 
 /*--------------------------------------------------------------------
@@ -509,6 +535,8 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	Lck_AssertHeld(&oc->objhead->mtx);
+	assert(oc->refcnt > 0);
 
 	vsl = req->vsl;
 
@@ -571,12 +599,11 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 
 	if (b == NULL) {
 		/* not banned */
-		ObjUpdateMeta(wrk, oc);
+		ObjSendEvent(wrk, oc, OEV_BANCHG);
 		return (0);
 	} else {
 		VSLb(vsl, SLT_ExpBan, "%u banned lookup", ObjGetXID(wrk, oc));
 		VSC_C_main->bans_obj_killed++;
-		EXP_Rearm(oc, oc->exp.t_origin, 0, 0, 0);	// XXX fake now
 		return (1);
 	}
 }
@@ -722,8 +749,8 @@ ccf_ban_list(struct cli *cli, const char * const *av, void *priv)
 }
 
 static struct cli_proto ban_cmds[] = {
-	{ CLI_BAN,				"", ccf_ban },
-	{ CLI_BAN_LIST,				"", ccf_ban_list },
+	{ CLICMD_BAN,				"", ccf_ban },
+	{ CLICMD_BAN_LIST,			"", ccf_ban_list },
 	{ NULL }
 };
 
@@ -747,7 +774,7 @@ BAN_Compile(void)
 
 	/* Report the place-holder ban */
 	b = VTAILQ_FIRST(&ban_head);
-	AZ(STV_BanInfo(BI_NEW, b->spec, ban_len(b->spec)));
+	ban_info_new(b->spec, ban_len(b->spec));
 
 	ban_export();
 

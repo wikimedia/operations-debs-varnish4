@@ -41,8 +41,18 @@
 #include "vqueue.h"
 #include "vsb.h"
 
+#define VTC_CHECK_NAME(vl, nm, type, chr)				\
+	do {								\
+		AN(nm);							\
+		if (*(nm) != chr)					\
+			vtc_fatal(vl,					\
+			    type " name must start with '%c' (got %s)",	\
+			    chr, nm);					\
+	} while (0)
+
 struct vtclog;
 struct cmds;
+struct suckaddr;
 
 #define CMD_ARGS \
     char * const *av, void *priv, const struct cmds *cmd, struct vtclog *vl
@@ -56,29 +66,35 @@ struct cmds {
 
 void parse_string(const char *spec, const struct cmds *cmd, void *priv,
     struct vtclog *vl);
+int fail_out(void);
 
-cmd_f cmd_delay;
-cmd_f cmd_server;
-cmd_f cmd_client;
-cmd_f cmd_varnish;
-cmd_f cmd_sema;
-cmd_f cmd_barrier;
-cmd_f cmd_logexp;
-cmd_f cmd_process;
+#define CMD(n) cmd_f cmd_##n
+CMD(delay);
+CMD(server);
+CMD(client);
+CMD(varnish);
+CMD(barrier);
+CMD(logexpect);
+CMD(process);
+CMD(shell);
+#undef CMD
 
 extern volatile sig_atomic_t vtc_error; /* Error, bail out */
 extern int vtc_stop;		/* Abandon current test, no error */
 extern pthread_t	vtc_thread;
 extern int iflg;
 extern unsigned vtc_maxdur;
+extern char *vmod_path;
+extern struct vsb *params_vsb;
+extern int leave_temp;
 extern int vtc_witness;
 extern int feature_dns;
 
-void init_sema(void);
-void init_barrier(void);
 void init_server(void);
 
 int http_process(struct vtclog *vl, const char *spec, int sock, int *sfd);
+
+char * synth_body(const char *len, int rnd);
 
 void cmd_server_genvcl(struct vsb *vsb);
 
@@ -87,10 +103,14 @@ struct vtclog *vtc_logopen(const char *id);
 void vtc_logclose(struct vtclog *vl);
 void vtc_log(struct vtclog *vl, int lvl, const char *fmt, ...)
     __v_printflike(3, 4);
+void vtc_fatal(struct vtclog *vl, const char *, ...)
+    __attribute__((__noreturn__)) __v_printflike(2,3);
 void vtc_dump(struct vtclog *vl, int lvl, const char *pfx,
     const char *str, int len);
-void vtc_hexdump(struct vtclog *vl, int lvl, const char *pfx,
-    const unsigned char *str, int len);
+void vtc_hexdump(struct vtclog *, int , const char *, const void *, int );
+
+int vtc_send_proxy(int fd, int version, const struct suckaddr *sac,
+    const struct suckaddr *sas);
 
 int exec_file(const char *fn, const char *script, const char *tmpdir,
     char *logbuf, unsigned loglen);
@@ -103,3 +123,12 @@ struct vsb *macro_expand(struct vtclog *vl, const char *text);
 
 void extmacro_def(const char *name, const char *fmt, ...)
     __v_printflike(2, 3);
+
+struct http;
+void cmd_stream(CMD_ARGS);
+void start_h2(struct http *hp);
+void stop_h2(struct http *hp);
+void b64_settings(const struct http *hp, const char *s);
+
+/* vtc_subr.c */
+struct vsb *vtc_hex_to_bin(struct vtclog *vl, const char *arg);

@@ -104,7 +104,7 @@ struct vep_state {
 	struct vep_match	*match;
 	struct vep_match	*match_hit;
 
-	char			tag[10];
+	char			tag[8];
 	int			tag_i;
 
 	dostuff_f		*dostuff;
@@ -128,9 +128,11 @@ static const char * const VEP_NEXTTAG =		"[NxtTag]";
 static const char * const VEP_NOTMYTAG =	"[NotMyTag]";
 
 static const char * const VEP_STARTTAG =	"[StartTag]";
+static const char * const VEP_COMMENTESI =	"[CommentESI]";
 static const char * const VEP_COMMENT =		"[Comment]";
 static const char * const VEP_CDATA =		"[CDATA]";
 static const char * const VEP_ESITAG =		"[ESITag]";
+static const char * const VEP_ESIENDTAG =	"[/ESITag]";
 
 static const char * const VEP_ESIREMOVE =	"[ESI:Remove]";
 static const char * const VEP_ESIINCLUDE =	"[ESI:Include]";
@@ -153,7 +155,10 @@ static const char * const VEP_MATCH =		"[Match]";
 /*---------------------------------------------------------------------*/
 
 static struct vep_match vep_match_starttag[] = {
+	{ "!--esi",	&VEP_COMMENTESI },
+	{ "!---->",	&VEP_NEXTTAG },
 	{ "!--",	&VEP_COMMENT },
+	{ "/esi:",	&VEP_ESIENDTAG },
 	{ "esi:",	&VEP_ESITAG },
 	{ "![CDATA[",	&VEP_CDATA },
 	{ NULL,		&VEP_NOTMYTAG }
@@ -217,28 +222,21 @@ vep_warn(const struct vep_state *vep, const char *p)
  */
 
 static struct vep_match *
-vep_match(struct vep_state *vep, const char *b, const char *e)
+vep_match(const struct vep_state *vep, const char *b, const char *e)
 {
 	struct vep_match *vm;
 	const char *q, *r;
-	ssize_t l;
 
-	for (vm = vep->match; vm->match; vm++) {
+	for (vm = vep->match; vm->match != NULL; vm++) {
+		assert(strlen(vm->match) <= sizeof (vep->tag));
 		r = b;
-		for (q = vm->match; *q && r < e; q++, r++)
+		for (q = vm->match; *q != '\0' && r < e; q++, r++)
 			if (*q != *r)
 				break;
-		if (*q != '\0' && r == e) {
-			if (b != vep->tag) {
-				l = e - b;
-				assert(l < sizeof vep->tag);
-				memmove(vep->tag, b, l);
-				vep->tag_i = l;
-			}
-			return (NULL);
-		}
 		if (*q == '\0')
-			return (vm);
+			break;
+		if (r == e)
+			return (NULL);
 	}
 	return (vm);
 }
@@ -391,7 +389,6 @@ vep_mark_pending(struct vep_state *vep, const char *p)
 	AN(vep->ver_p);
 	l = p - vep->ver_p;
 	assert(l > 0);
-	assert(l >= 0);
 	vep->crcp = crc32(vep->crcp, (const void *)vep->ver_p, l);
 	vep->ver_p = p;
 
@@ -420,19 +417,14 @@ vep_do_remove(struct vep_state *vep, enum dowhat what)
 	Debug("DO_REMOVE(%d, end %d empty %d remove %d)\n",
 	    what, vep->endtag, vep->emptytag, vep->remove);
 	assert(what == DO_TAG);
-	if (vep->emptytag) {
-		vep_error(vep,
-		    "ESI 1.0 <esi:remove/> not legal");
-	} else {
-		if (vep->remove && !vep->endtag)
-			vep_error(vep,
-			    "ESI 1.0 <esi:remove> already open");
-		else if (!vep->remove && vep->endtag)
-			vep_error(vep,
-			    "ESI 1.0 <esi:remove> not open");
-		else
-			vep->remove = !vep->endtag;
-	}
+	if (vep->emptytag)
+		vep_error(vep, "ESI 1.0 <esi:remove/> not legal");
+	else if (vep->remove && !vep->endtag)
+		vep_error(vep, "ESI 1.0 <esi:remove> already open");
+	else if (!vep->remove && vep->endtag)
+		vep_error(vep, "ESI 1.0 <esi:remove> not open");
+	else
+		vep->remove = !vep->endtag;
 }
 
 /*---------------------------------------------------------------------
@@ -463,11 +455,9 @@ vep_do_include(struct vep_state *vep, enum dowhat what)
 	}
 	assert(what == DO_TAG);
 	if (!vep->emptytag)
-		vep_warn(vep,
-		    "ESI 1.0 <esi:include> lacks final '/'");
+		vep_warn(vep, "ESI 1.0 <esi:include> lacks final '/'");
 	if (vep->include_src == NULL) {
-		vep_error(vep,
-		    "ESI 1.0 <esi:include> lacks src attr");
+		vep_error(vep, "ESI 1.0 <esi:include> lacks src attr");
 		return;
 	}
 
@@ -560,9 +550,7 @@ vep_do_include(struct vep_state *vep, enum dowhat what)
 	}
 #undef R
 	VSB_printf(vep->vsb, "%c", 0);
-
-	VSB_delete(vep->include_src);
-	vep->include_src = NULL;
+	VSB_destroy(&vep->include_src);
 }
 
 /*---------------------------------------------------------------------
@@ -607,14 +595,11 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 
 	while (p < e) {
 		AN(vep->state);
-		i = e - p;
-		if (i > 10)
-			i = 10;
 		Debug("EP %s %d (%.*s) [%.*s]\n",
 		    vep->state,
 		    vep->remove,
 		    vep->tag_i, vep->tag,
-		    i, p);
+		    (e - p) > 10 ? 10 : (int)(e-p), p);
 		assert(p >= vep->ver_p);
 
 		/******************************************************
@@ -692,7 +677,6 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 			 * out for end of EsiCmt if armed.
 			 */
 			vep->emptytag = 0;
-			vep->endtag = 0;
 			vep->attr = NULL;
 			vep->dostuff = NULL;
 			while (p < e && *p != '<') {
@@ -705,8 +689,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 					vep->esicmt_p = vep->esicmt;
 					continue;
 				}
-				if (!vep->remove &&
-				    vep->esicmt_p == vep->esicmt)
+				if (!vep->remove && vep->esicmt_p == vep->esicmt)
 					vep_mark_verbatim(vep, p);
 				p++;
 				if (*++vep->esicmt_p == '\0') {
@@ -735,44 +718,23 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 		 */
 
 		} else if (vep->state == VEP_STARTTAG) {
-			/*
-			 * Start of tag, set up match table
-			 */
-			if (p < e) {
-				if (*p == '/') {
-					vep->endtag = 1;
-					p++;
-				}
-				vep->match = vep_match_starttag;
-				vep->state = VEP_MATCH;
-			}
+			/* Start of tag, set up match table */
+			vep->endtag = 0;
+			vep->match = vep_match_starttag;
+			vep->state = VEP_MATCH;
 		} else if (vep->state == VEP_COMMENT) {
-			/*
-			 * We are in a comment, find out if it is an
-			 * ESI comment or a regular comment
-			 */
-			if (vep->esicmt == NULL)
-				vep->esicmt_p = vep->esicmt = "esi";
-			while (p < e) {
-				if (*p != *vep->esicmt_p) {
-					vep->esicmt_p = vep->esicmt = NULL;
-					vep->until_p = vep->until = "-->";
-					vep->until_s = VEP_NEXTTAG;
-					vep->state = VEP_UNTIL;
-					break;
-				}
-				p++;
-				if (*++vep->esicmt_p != '\0')
-					continue;
-				if (vep->remove)
-					vep_error(vep,
-					    "ESI 1.0 Nested <!--esi"
-					    " element in <esi:remove>");
-				vep->esicmt_p = vep->esicmt = "-->";
-				vep->state = VEP_NEXTTAG;
-				vep_mark_skip(vep, p);
-				break;
-			}
+			vep->esicmt_p = vep->esicmt = NULL;
+			vep->until_p = vep->until = "-->";
+			vep->until_s = VEP_NEXTTAG;
+			vep->state = VEP_UNTIL;
+		} else if (vep->state == VEP_COMMENTESI) {
+			if (vep->remove)
+				vep_error(vep,
+				    "ESI 1.0 Nested <!--esi"
+				    " element in <esi:remove>");
+			vep->esicmt_p = vep->esicmt = "-->";
+			vep->state = VEP_NEXTTAG;
+			vep_mark_skip(vep, p);
 		} else if (vep->state == VEP_CDATA) {
 			/*
 			 * Easy: just look for the end of CDATA
@@ -780,6 +742,9 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 			vep->until_p = vep->until = "]]>";
 			vep->until_s = VEP_NEXTTAG;
 			vep->state = VEP_UNTIL;
+		} else if (vep->state == VEP_ESIENDTAG) {
+			vep->endtag = 1;
+			vep->state = VEP_ESITAG;
 		} else if (vep->state == VEP_ESITAG) {
 			vep->in_esi_tag = 1;
 			vep->esi_found = 1;
@@ -932,8 +897,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 				vep->attr_delim = 0;
 				if (vep->attr_vsb != NULL) {
 					AZ(VSB_finish(vep->attr_vsb));
-					VSB_delete(vep->attr_vsb);
-					vep->attr_vsb = NULL;
+					VSB_destroy(&vep->attr_vsb);
 				}
 			} else if (p < e) {
 				vep->attr_delim = 0;
@@ -964,6 +928,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 				vep->match = NULL;
 				vep->tag_i = 0;
 			} else {
+				assert(e - p <= sizeof(vep->tag));
 				memcpy(vep->tag, p, e - p);
 				vep->tag_i = e - p;
 				vep->state = VEP_MATCHBUF;
@@ -975,28 +940,33 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 			 * sections.
 			 */
 			AN(vep->match);
-			do {
-				if (*p == '>') {
-					for (vm = vep->match;
-					    vm->match != NULL; vm++)
-						continue;
-					AZ(vm->match);
-				} else {
-					vep->tag[vep->tag_i++] = *p++;
-					vm = vep_match(vep,
-					    vep->tag, vep->tag + vep->tag_i);
-					if (vm && vm->match == NULL) {
-						vep->tag_i--;
-						p--;
-					}
-				}
-			} while (vm == NULL && p < e);
-			vep->match_hit = vm;
+			i = sizeof(vep->tag) - vep->tag_i;
+			if (i > e - p)
+				i = e - p;
+			memcpy(vep->tag + vep->tag_i, p, i);
+			vm = vep_match(vep, vep->tag,
+			    vep->tag + vep->tag_i + i);
+			Debug("MB (%.*s) tag_i %d i %d = vm %p match %s\n",
+			    vep->tag_i + i, vep->tag,
+			    vep->tag_i,
+			    i,
+			    vm,
+			    vm ? vm->match : "(nil)");
+
 			if (vm == NULL) {
+				vep->tag_i += i;
+				p += i;
 				assert(p == e);
 			} else {
+				vep->match_hit = vm;
 				vep->state = *vm->state;
+				if (vm->match != NULL) {
+					i = strlen(vm->match);
+					if (i > vep->tag_i)
+						p += i - vep->tag_i;
+				}
 				vep->match = NULL;
+				vep->tag_i = 0;
 			}
 		} else if (vep->state == VEP_UNTIL) {
 			/*
@@ -1014,7 +984,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 				vep_mark_verbatim(vep, p);
 		} else {
 			Debug("*** Unknown state %s\n", vep->state);
-			INCOMPL();
+			WRONG("WRONG ESI PARSER STATE");
 		}
 	}
 	/*
@@ -1035,7 +1005,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 /*---------------------------------------------------------------------
  */
 
-static ssize_t __match_proto__()
+static ssize_t __match_proto__(vep_callback_t)
 vep_default_cb(struct vfp_ctx *vc, void *priv, ssize_t l, enum vgz_flag flg)
 {
 	ssize_t *s;
@@ -1123,7 +1093,7 @@ VEP_Finish(struct vep_state *vep)
 	l = VSB_len(vep->vsb);
 	if (vep->esi_found && l > 0)
 		return (vep->vsb);
-	VSB_delete(vep->vsb);
+	VSB_destroy(&vep->vsb);
 	return (NULL);
 }
 

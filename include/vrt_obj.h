@@ -1,8 +1,9 @@
 /*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Edit and run generate.py instead
+ * Edit and run lib/libvcc/generate.py instead.
  */
+
 
 VCL_HTTP VRT_r_bereq(VRT_CTX);
 
@@ -11,6 +12,8 @@ void VRT_l_bereq_backend(VRT_CTX, VCL_BACKEND);
 
 VCL_DURATION VRT_r_bereq_between_bytes_timeout(VRT_CTX);
 void VRT_l_bereq_between_bytes_timeout(VRT_CTX, VCL_DURATION);
+
+void VRT_l_bereq_body(VRT_CTX, const char *, ...);
 
 VCL_DURATION VRT_r_bereq_connect_timeout(VRT_CTX);
 void VRT_l_bereq_connect_timeout(VRT_CTX, VCL_DURATION);
@@ -44,6 +47,8 @@ VCL_IP VRT_r_beresp_backend_ip(VRT_CTX);
 
 VCL_STRING VRT_r_beresp_backend_name(VRT_CTX);
 
+void VRT_l_beresp_body(VRT_CTX, const char *, ...);
+
 VCL_BOOL VRT_r_beresp_do_esi(VRT_CTX);
 void VRT_l_beresp_do_esi(VRT_CTX, VCL_BOOL);
 
@@ -71,6 +76,9 @@ void VRT_l_beresp_reason(VRT_CTX, const char *, ...);
 
 VCL_INT VRT_r_beresp_status(VRT_CTX);
 void VRT_l_beresp_status(VRT_CTX, VCL_INT);
+
+VCL_STEVEDORE VRT_r_beresp_storage(VRT_CTX);
+void VRT_l_beresp_storage(VRT_CTX, VCL_STEVEDORE);
 
 VCL_STRING VRT_r_beresp_storage_hint(VRT_CTX);
 void VRT_l_beresp_storage_hint(VRT_CTX, const char *, ...);
@@ -140,6 +148,9 @@ void VRT_l_req_proto(VRT_CTX, const char *, ...);
 
 VCL_INT VRT_r_req_restarts(VRT_CTX);
 
+VCL_STEVEDORE VRT_r_req_storage(VRT_CTX);
+void VRT_l_req_storage(VRT_CTX, VCL_STEVEDORE);
+
 VCL_DURATION VRT_r_req_ttl(VRT_CTX);
 void VRT_l_req_ttl(VRT_CTX, VCL_DURATION);
 
@@ -156,6 +167,8 @@ VCL_STRING VRT_r_req_top_proto(VRT_CTX);
 VCL_STRING VRT_r_req_top_url(VRT_CTX);
 
 VCL_HTTP VRT_r_resp(VRT_CTX);
+
+void VRT_l_resp_body(VRT_CTX, const char *, ...);
 
 
 VCL_BOOL VRT_r_resp_is_streaming(VRT_CTX);
@@ -174,7 +187,6 @@ VCL_STRING VRT_r_server_hostname(VRT_CTX);
 VCL_STRING VRT_r_server_identity(VRT_CTX);
 
 VCL_IP VRT_r_server_ip(VRT_CTX);
-
-double VRT_Stv_free_space(const char *);
-double VRT_Stv_used_space(const char *);
+long long VRT_Stv_free_space(const char *);
+long long VRT_Stv_used_space(const char *);
 unsigned VRT_Stv_happy(const char *);
