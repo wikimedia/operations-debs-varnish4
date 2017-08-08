@@ -35,6 +35,9 @@ endif
 %:
 	dh $@ --parallel --with=systemd,autoreconf
 
+override_dh_autoreconf:
+	dh_autoreconf ./autogen.sh
+
 ifeq (,$(filter test,$(LOCAL_BUILD_OPTIONS)))
 # Disable automated build tests
 override_dh_auto_test:
