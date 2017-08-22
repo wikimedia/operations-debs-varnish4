@@ -5,3 +5,4 @@ usr/sbin/*
 usr/share/man
 debian/*.service lib/systemd/system/
 usr/share/doc/varnish/*.vcl
+usr/share/varnish/vcl/*
