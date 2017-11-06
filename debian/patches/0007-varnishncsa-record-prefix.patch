@@ -1,0 +1,212 @@
+diff --git a/bin/varnishncsa/varnishncsa.c b/bin/varnishncsa/varnishncsa.c
+index bec05e590..d7d650735 100644
+--- a/bin/varnishncsa/varnishncsa.c
++++ b/bin/varnishncsa/varnishncsa.c
+@@ -130,6 +130,8 @@ struct vsl_watch {
+ 	VTAILQ_ENTRY(vsl_watch)	list;
+ 	enum VSL_tag_e		tag;
+ 	int			idx;
++	char			*prefix;
++	int			prefixlen;
+ 	struct fragment		frag;
+ };
+ VTAILQ_HEAD(vsl_watch_head, vsl_watch);
+@@ -567,7 +569,7 @@ addf_hdr(struct watch_head *head, const char *key, const char *str)
+ }
+ 
+ static void
+-addf_vsl(enum VSL_tag_e tag, long i)
++addf_vsl(enum VSL_tag_e tag, long i, const char *prefix)
+ {
+ 	struct vsl_watch *w;
+ 
+@@ -576,6 +578,10 @@ addf_vsl(enum VSL_tag_e tag, long i)
+ 	w->tag = tag;
+ 	assert(i <= INT_MAX);
+ 	w->idx = i;
++	if (prefix) {
++		assert(asprintf(&w->prefix, "%s:", prefix) > 0);
++		w->prefixlen = strlen(w->prefix);
++	}
+ 	VTAILQ_INSERT_TAIL(&CTX.watch_vsl, w, list);
+ 
+ 	addf_fragment(&w->frag, "-");
+@@ -658,14 +664,23 @@ parse_x_format(char *buf)
+ 			*r = '\0';
+ 		} else
+ 			i = 0;
+-		slt = VSL_Name2Tag(buf, -1);
++		r = buf;
++		while (r < e && *r != ':')
++			r++;
++		if (r != e) {
++			slt = VSL_Name2Tag(buf, r - buf);
++			r++;
++		} else {
++			slt = VSL_Name2Tag(buf, -1);
++			r = NULL;
++		}
+ 		if (slt == -2)
+ 			VUT_Error(1, "Tag not unique: %s", buf);
+ 		if (slt == -1)
+ 			VUT_Error(1, "Unknown log tag: %s", buf);
+ 		assert(slt >= 0);
+ 
+-		addf_vsl(slt, i);
++		addf_vsl(slt, i, r);
+ 		return;
+ 	}
+ 	VUT_Error(1, "Unknown formatting extension: %s", buf);
+@@ -1076,11 +1091,15 @@ dispatch_f(struct VSL_data *vsl, struct VSL_transaction * const pt[],
+ 			VTAILQ_FOREACH(vslw, &CTX.watch_vsl, list) {
+ 				CHECK_OBJ_NOTNULL(vslw, VSL_WATCH_MAGIC);
+ 				if (tag == vslw->tag) {
++					p = b;
++					if (vslw->prefixlen > 0 &&
++						!isprefix(vslw->prefix, b, e, &p))
++						continue;
+ 					if (vslw->idx == 0)
+-						frag_line(0, b, e,
++						frag_line(0, p, e,
+ 						    &vslw->frag);
+ 					else
+-						frag_fields(0, b, e,
++						frag_fields(0, p, e,
+ 						    vslw->idx, &vslw->frag,
+ 						    0, NULL);
+ 				}
+diff --git a/bin/varnishtest/tests/u00003.vtc b/bin/varnishtest/tests/u00003.vtc
+index d799a51bc..9c43f6229 100644
+--- a/bin/varnishtest/tests/u00003.vtc
++++ b/bin/varnishtest/tests/u00003.vtc
+@@ -5,17 +5,33 @@ server s1 -repeat 2 {
+ 	txresp
+ } -start
+ 
+-varnish v1 -vcl+backend {
+-	import std;
+-	sub vcl_backend_fetch {
+-		std.log("foo:qux");
+-	}
+-} -start
++varnish v1 -vcl+backend {} -start
++
++shell "varnishncsa -n ${v1_name} -D -P ${tmpdir}/ncsa.pid -w ${tmpdir}/ncsa.log"
++
++delay 1
+ 
+-shell {
+-	varnishncsa -n ${v1_name} -D -P ${tmpdir}/ncsa.pid \
+-		-w ${tmpdir}/ncsa.log
+-}
++client c1 {
++	txreq -url /foo
++	rxresp
++} -run
++
++delay 1
++
++shell "mv ${tmpdir}/ncsa.log ${tmpdir}/ncsa.old.log"
++shell "kill -HUP `cat ${tmpdir}/ncsa.pid`"
++
++client c1 {
++	txreq -url /bar
++	rxresp
++} -run
++
++delay 1
++
++shell "kill `cat ${tmpdir}/ncsa.pid`"
++
++shell "grep -q /foo ${tmpdir}/ncsa.old.log"
++shell "grep -q /bar ${tmpdir}/ncsa.log"
+ 
+ shell -expect "Usage: varnishncsa <options>" \
+ 	"varnishncsa -h"
+@@ -58,32 +74,10 @@ shell -err -expect "Empty format file" \
+ #shell -err -expect "Can't read format from file (Is a directory)" \
+ #	{varnishncsa -f ${tmpdir}}
+ 
+-delay 1
+-
+-client c1 {
+-	txreq -url /foo
+-	rxresp
+-} -run
+-
+-delay 1
+-
+-shell "mv ${tmpdir}/ncsa.log ${tmpdir}/ncsa.old.log"
+-shell "kill -HUP `cat ${tmpdir}/ncsa.pid`"
+-
+-client c1 {
+-	txreq -url /bar
+-	rxresp
+-} -run
+-
+-delay 1
+-
+-shell "kill `cat ${tmpdir}/ncsa.pid`"
+-
+-shell "grep -q /foo ${tmpdir}/ncsa.old.log"
+-shell "grep -q /bar ${tmpdir}/ncsa.log"
+-
+ shell {echo "%{VSL:Begin}x %{Varnish:vxid}x %{VCL_Log:foo}x %D %T %{Varnish:handling}x %{%Z}t" >${tmpdir}/format}
+ shell -match "^req 1000 rxreq 1001  [0-9]+ 0 miss [A-Z]{3,}" \
+ 	{varnishncsa -n ${v1_name} -d -f ${tmpdir}/format}
+-shell -match "^bereq 1001 fetch 1002 qux [0-9]+ 0 - [A-Z]{3,}" \
++shell -match "^bereq 1001 fetch 1002  [0-9]+ 0 - [A-Z]{3,}" \
+ 	{varnishncsa -n ${v1_name} -d -f ${tmpdir}/format -b}
++shell -match "\d{10}\.\d{6} \d\.\d{6} \d\.\d{6} - \d{10}\.\d{6}" \
++	{varnishncsa -n ${v1_name} -d -F "%{VSL:Timestamp:Resp}x %{VSL:Timestamp:foo}x %{VSL:Timestamp:Resp[2]}x"}
+diff --git a/doc/sphinx/reference/varnishncsa.rst b/doc/sphinx/reference/varnishncsa.rst
+index ce1b1d97f..2f9492fca 100644
+--- a/doc/sphinx/reference/varnishncsa.rst
++++ b/doc/sphinx/reference/varnishncsa.rst
+@@ -174,13 +174,22 @@ Supported formatters are:
+   VCL_Log:key
+     The value set by std.log("key:value") in VCL.
+ 
+-  VSL:tag[field]
+-    The value of the VSL entry for the given tag. The field will,
+-    if present, treat the log record as a white space separated list
+-    of fields, and only the nth part of the record will be matched
+-    against. Fields start counting at 1. Defaults to '-' when the tag
+-    is not seen, or when the field is out of bounds. If a tag appears
+-    multiple times in a single transaction, the first occurrence is used.
++  VSL:tag:record-prefix[field]
++    The value of the VSL entry for the given tag-record prefix-field
++    combination. Tag is mandatory, the other components are optional.
++
++    The record prefix will limit the matches to those records that
++    have this prefix as the first part of the record content followed
++    by a colon.
++
++    The field will, if present, treat the log record as a white
++    space separated list of fields, and only the nth part of the
++    record will be matched against. Fields start counting at 1.
++
++    Defaults to '-' when the tag is not seen, the record prefix
++    does not match or the field is out of bounds. If a tag appears
++    multiple times in a single transaction, the first occurrence
++    is used.
+ 
+ SIGNALS
+ =======
+@@ -202,11 +211,15 @@ multiple times in a single transaction, the first occurrence is used.
+ EXAMPLE
+ =======
+ 
+-Log the second field of the Begin tag, corresponding to the VXID of the
+-parent transaction::
++Log the second field of the Begin record, corresponding to the VXID
++of the parent transaction::
+ 
+   varnishncsa -F "%{VSL:Begin[2]}x"
+ 
++Log the entire Timestamp record associated with the processing length::
++
++  varnishncsa -F "%{VSL:Timestamp:Process}x"
++
+ SEE ALSO
+ ========

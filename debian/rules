@@ -13,6 +13,8 @@ DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
 # Set local state dir for FHS
 LOCAL_CONFIGURE_FLAGS = --localstatedir=/var/lib
 
+LOCAL_BUILD_OPTIONS = test
+
 # Extract VMOD_ABI version, this is used for building vmods using the official
 # VMOD API
 VMOD_ABI = $(shell printf '\#include "vrt.h"\nvarnishabi- VRT_MAJOR_VERSION . VRT_MINOR_VERSION\n' \

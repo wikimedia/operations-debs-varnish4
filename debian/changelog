@@ -1,3 +1,15 @@
+varnish (5.1.3-1wm2) jessie-wikimedia; urgency=medium
+
+  * Add transaction_timeout: maximum amount of time in seconds for the whole
+    response from the backend to be received
+  * Add lintian override: bad-provided-package-name varnishabi-strict-NOGIT
+  * Backport 'record-prefix support to varnishncsa' for varnish 5.1
+    https://github.com/varnishcache/varnish-cache/commit/ac4f3360
+  * Run VTC tests shipped with the package under bin/varnishtest/tests/ as
+    part of the build process
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Mon, 06 Nov 2017 17:43:14 +0100
+
 varnish (5.1.3-1wm1) jessie-wikimedia; urgency=medium
 
   * Upgrade to Varnish 5.1.3

@@ -4,3 +4,4 @@
 0004-storage-file-off-t.patch
 0005-stats-shortlived.patch
 0006-transaction-timeout.patch
+0007-varnishncsa-record-prefix.patch
