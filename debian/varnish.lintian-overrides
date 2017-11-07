@@ -1,2 +1,3 @@
 varnish: embedded-library usr/bin/*: zlib
 varnish: embedded-library usr/sbin/*: zlib
+varnish: bad-provided-package-name varnishabi-strict-NOGIT
