@@ -5,3 +5,4 @@
 0005-stats-shortlived.patch
 0006-transaction-timeout.patch
 0007-varnishncsa-record-prefix.patch
+0008-vsv00002-5.1.patch
