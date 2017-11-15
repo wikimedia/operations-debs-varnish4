@@ -1,0 +1,33 @@
+From 19a73184c6470a54f843c7c226c641a0b4ac2e8e Mon Sep 17 00:00:00 2001
+From: Martin Blix Grydeland <martin@varnish-software.com>
+Date: Mon, 18 Sep 2017 16:04:53 +0200
+Subject: [PATCH] Avoid buffer read overflow on vcl_error and -sfile
+
+The file stevedore may return a buffer larger than asked for when
+requesting storage. Due to lack of check for this condition, the code
+to copy the synthetic error memory buffer from vcl_error would overrun
+the buffer.
+
+Patch by @shamger
+
+Fixes: #2429
+---
+ bin/varnishd/cache/cache_fetch.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/bin/varnishd/cache/cache_fetch.c b/bin/varnishd/cache/cache_fetch.c
+index d36377c..70f953f 100644
+--- a/bin/varnishd/cache/cache_fetch.c
++++ b/bin/varnishd/cache/cache_fetch.c
+@@ -873,6 +873,8 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
+ 		l = ll;
+ 		if (VFP_GetStorage(bo->vfc, &l, &ptr) != VFP_OK)
+ 			break;
++		if (l > ll)
++			l = ll;
+ 		memcpy(ptr, VSB_data(synth_body) + o, l);
+ 		VBO_extend(bo, l);
+ 		ll -= l;
+-- 
+2.1.4
+
