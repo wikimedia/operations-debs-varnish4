@@ -1,3 +1,11 @@
+varnish (5.1.3-1wm4) jessie-wikimedia; urgency=medium
+
+  * Add upstream patches fixing "extrachance" retries
+    https://github.com/varnishcache/varnish-cache/pull/2490
+    Use those instead of our own 0001-gethdr_extrachance.patch.
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Sun, 11 Mar 2018 00:24:25 +0100
+
 varnish (5.1.3-1wm3) jessie-wikimedia; urgency=medium
 
   * Avoid buffer read overflow on vcl_error and -sfile

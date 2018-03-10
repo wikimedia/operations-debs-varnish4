@@ -1,4 +1,3 @@
-0001-gethdr_extrachance.patch
 0002-exp-thread-realtime.patch
 0003-vsm-perms.patch
 0004-storage-file-off-t.patch
@@ -6,3 +5,5 @@
 0006-transaction-timeout.patch
 0007-varnishncsa-record-prefix.patch
 0008-vsv00002-5.1.patch
+0009-force-fresh.patch
+0010-extrachance-retries.patch
