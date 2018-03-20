@@ -1,3 +1,14 @@
+varnish (5.1.3-1wm6) jessie-wikimedia; urgency=medium
+
+  * Avoid leaking an OH ref on reembark failure (backport varnish commit
+    5cc47eaa8a174d6f072c68d996ff17b38ccd16eb)
+  * Drop upstream patches fixing "extrachance" retries, go back to using our
+    own. Upstream's patch does result in cascading requests through our cache
+    tiers in the "RB case" and similar ones. Our own patch with
+    gethdr_extrachance=0 avoids that.
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Tue, 20 Mar 2018 17:29:04 +0100
+
 varnish (5.1.3-1wm5) jessie-wikimedia; urgency=medium
 
   [ Valentin Gutierrez ]
