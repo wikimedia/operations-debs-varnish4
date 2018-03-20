@@ -1,3 +1,11 @@
+varnish (5.1.3-1wm5) jessie-wikimedia; urgency=medium
+
+  [ Valentin Gutierrez ]
+  * Fix memory leak when discarding labels (backport varnish commit
+    cc5df0ef06caa2fca78ba471a6126fcad03fd6a2)
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Tue, 20 Mar 2018 14:36:14 +0100
+
 varnish (5.1.3-1wm4) jessie-wikimedia; urgency=medium
 
   * Add upstream patches fixing "extrachance" retries
