@@ -1,0 +1,240 @@
+commit c12a3e5e2bc978edafaccfe1c586e5d5dab01fcb
+Author: Pål Hermunn Johansen <hermunn@varnish-software.com>
+Date:   Wed Dec 13 14:06:05 2017 +0100
+
+    Fix issue #1799 for keep
+    
+    This fixes the long-standing #1799 for "keep" objects, and this commit
+    message suggests a way of working around #1799 in the remaining
+    cases. The following is a (long) explanation on how grace and keep
+    works at the moment, how this relates to #1799, and how this commit
+    changes things.
+    
+    1. How does it work now, before this commit?
+    
+    Objects in cache can outlive their TTL, and the typical reason for
+    this is grace. Objects in cache can also linger because of obj.keep or
+    in the (rare but observed) case where the expiry thread have not yet
+    evicted an object. Grace and keep are here to minimize backend load,
+    but #1799 shows that we are not successful in doing this in some
+    important cases.
+    
+    Whenever sub vcl_recv has ended with return (lookup) (which is the
+    default action), we arrive at HSH_Lookup, where varnish sometimes only
+    finds an expired object (that match Vary logic, is not banned,
+    etc). When this happens, we will initiate a background fetch (by
+    adding a "busy object") if and only if there is no busy object on the
+    oh already. Then the expired object is returned with HSH_EXP or
+    HSH_EXPBUSY, depending on whether a busy object was inserted.
+    
+    2. What makes us run into #1799?
+    
+    When we have gotten an expired object, we generally hope that it is in
+    grace, and that sub vcl_hit will return(deliver). However, if grace
+    has expired, then the default action (ie the action from builtin.vcl)
+    is return (miss). It is also possible that the user vcl, for some
+    reason, decides that the stale object should not be delivered, and
+    does return (miss) explicitly. In these cases it is common that the
+    current request is not the one to insert a busy object, and then we
+    run into the issue with a message "vcl_hit{} returns miss without busy
+    object. Doing pass.".
+    
+    Note that normally, if a resource is very popular and has a positive
+    grace, it is unlikely that #1799 will happen. Then a new version will
+    always be available before the grace has run out, and everybody get
+    the latest fetched version with no #1799 problems.
+    
+    However, if a resource is very popular (like a manifest file in a live
+    streaming setup) and has 0s grace, and the expiry thread lags a little
+    bit behind, then vcl_hit can get an expired object even when obj.keep
+    is zero. In these circumstances we can get a surge of requests to the
+    backend, and this is especially bad on a very busy server.
+    
+    Another real world example is where grace is initially set high (48h
+    or similar) and vcl_hit considers the health of the backend, and, if
+    the backend is healthy, explicitly does a return(miss) ensure that the
+    client gets a fresh object. This has been a recommended use of
+    vcl_hit, but, because of #1799, can cause considerable load on the
+    backend.
+    
+    Similarly, we can get #1799 if we use "keep" to facilitate IMS
+    requests to the backend, and we have a stale object for which several
+    requests arrive before the first completes.
+    
+    3. How do we fix this?
+    
+    The main idea is to teach varnish to consider grace during lookup.
+    
+    To be specific, the following changes with this commit: If an expired
+    object is found, the ttl+grace has expired and there already is an
+    ongoing request for the object (ie. there exists a busy object), then
+    the request is put on the waiting list instead of simply returning the
+    object ("without a busy object") to vcl_hit. This choice is made
+    because we anticipate that vcl_hit will do (the default) return (miss)
+    and that it is better to wait for the ongoing request than to initiate
+    a new one with "pass" behavior.
+    
+    The result is that when the ongoing request finishes, we will either
+    be able to go to vcl_hit, start a new request (can happen if there was
+    a Vary mismatch) by inserting a new "busy object", or we lose the race
+    and have to go back to the waiting list (typically unlikely).
+    
+    When grace is in effect we go to vcl_hit even when we did not insert a
+    busy object, anticipating that vcl_hit will return (deliver).
+    
+    This will will fix the cases where the user does not explicitly do a
+    return(miss) in vcl_hit for object where ttl+grace has not
+    expired. However, since this is not an uncommon practice, we also have
+    to change our recommendation on how to use grace and keep. The new
+    recommendation will be:
+    
+    * Set grace to the "normal value" for a working varnish+backend.
+    
+    * Set keep to a high value if the backend is not 100% reliable and you
+      want to use stale objects as a fallback.
+    
+    * Do not explicitly return(miss) in sub vcl_hit{}. The exception is
+      when this only can happen now and then and you are really sure that
+      this is the right thing to do.
+    
+    * In vcl_hit, check if the backend is sick, and then explicitly
+      return(deliver) when appropriate (ie you want an stale object
+      delivered instead of an error message).
+    
+    A test case is included.
+
+diff --git a/bin/varnishd/cache/cache_expire.c b/bin/varnishd/cache/cache_expire.c
+index 3b6f09737..efe3814c6 100644
+--- a/bin/varnishd/cache/cache_expire.c
++++ b/bin/varnishd/cache/cache_expire.c
+@@ -57,7 +57,7 @@ struct exp_priv {
+ static struct exp_priv *exphdl;
+ 
+ /*--------------------------------------------------------------------
+- * Calculate an objects effective ttl time, taking req.ttl into account
++ * Calculate an object's effective ttl time, taking req.ttl into account
+  * if it is available.
+  */
+ 
+diff --git a/bin/varnishd/cache/cache_hash.c b/bin/varnishd/cache/cache_hash.c
+index e62e6c9e0..55a451cf7 100644
+--- a/bin/varnishd/cache/cache_hash.c
++++ b/bin/varnishd/cache/cache_hash.c
+@@ -481,22 +481,33 @@ HSH_Lookup(struct req *req, struct objcore **ocp, struct objcore **bocp,
+ 	if (exp_oc != NULL) {
+ 		assert(oh->refcnt > 1);
+ 		assert(exp_oc->objhead == oh);
+-		exp_oc->refcnt++;
+ 
+ 		if (!busy_found) {
+ 			*bocp = hsh_insert_busyobj(wrk, oh);
+ 			retval = HSH_EXPBUSY;
+ 		} else {
+ 			AZ(req->hash_ignore_busy);
+-			retval = HSH_EXP;
++			/*
++			 * here we have a busy object, but if the stale object
++			 * is not under grace we go to the waiting list
++			 * instead of returning the stale object
++			 */
++			if (EXP_Ttl(req, exp_oc) + exp_oc->grace < req->t_req)
++				retval = HSH_BUSY;
++			else
++				retval = HSH_EXP;
++		}
++		if (retval != HSH_BUSY) {
++			exp_oc->refcnt++;
++
++			if (exp_oc->hits < LONG_MAX)
++				exp_oc->hits++;
++			Lck_Unlock(&oh->mtx);
++			if (retval == HSH_EXP)
++				assert(HSH_DerefObjHead(wrk, &oh));
++			*ocp = exp_oc;
++			return (retval);
+ 		}
+-		if (exp_oc->hits < LONG_MAX)
+-			exp_oc->hits++;
+-		Lck_Unlock(&oh->mtx);
+-		if (retval == HSH_EXP)
+-			assert(HSH_DerefObjHead(wrk, &oh));
+-		*ocp = exp_oc;
+-		return (retval);
+ 	}
+ 
+ 	if (!busy_found) {
+diff --git a/bin/varnishtest/tests/b00098.vtc b/bin/varnishtest/tests/b00098.vtc
+new file mode 100644
+index 000000000..511a4b416
+--- /dev/null
++++ b/bin/varnishtest/tests/b00098.vtc
+@@ -0,0 +1,69 @@
++varnishtest "Test that we properly wait for certain 304 cases"
++
++server s1 {
++	rxreq
++	txresp -hdr "Last-Modified: Wed, 11 Sep 2013 13:36:55 GMT" -body "Geoff Still Rules"
++
++	# The IMS request we will spend some time to process for the sake of
++	# this test.
++	rxreq
++	expect req.http.if-modified-since == "Wed, 11 Sep 2013 13:36:55 GMT"
++	delay 1
++	txresp -status 304
++
++	# Last request, to a different URL to catch it if varnish asks for "/" too many times
++	rxreq
++	expect req.url == "/2"
++	txresp -body "x"
++} -start
++
++varnish v1 -vcl+backend {
++	sub vcl_backend_response {
++		set beresp.ttl = 1s;
++		set beresp.grace = 1s;
++		set beresp.keep = 1m;
++		set beresp.http.was-304 = beresp.was_304;
++	}
++} -start
++
++client c1 {
++	txreq
++	rxresp
++	expect resp.status == 200
++	expect resp.body == "Geoff Still Rules"
++} -run
++
++# let the object's ttl and grace expire
++delay 2.1
++
++# first client to ask for kept object - this should start the second request
++client c2 {
++	txreq
++	rxresp
++	# we did not disable grace in the request, so we should get the graced object here
++	expect resp.status == 200
++	expect resp.body == "Geoff Still Rules"
++} -start
++
++delay .1
++
++# second client to ask for the kept object. Here we want to wait until the backend fetch completes, not do a pass.
++client c3 {
++	txreq
++	rxresp
++	expect resp.status == 200
++	expect resp.body == "Geoff Still Rules"
++} -start
++
++client c2 -wait
++client c3 -wait
++
++# Finally the request to "/2". The expect in the server block makes sure that
++# there were no extra requests to "/" from varnish.
++
++client c4 {
++	txreq -url "/2"
++	rxresp
++	expect resp.status == 200
++	expect resp.body == "x"
++} -run
