@@ -12,3 +12,4 @@
 0014-n_lru_limited-counter.patch
 0015-cache_hit_grace-counter.patch
 0016-expired-objects-ignore-req.ttl.patch
+0017-new-ttl-in-vcl-calculation.patch
