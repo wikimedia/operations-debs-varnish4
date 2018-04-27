@@ -1,5 +1,5 @@
 diff --git a/bin/varnishncsa/varnishncsa.c b/bin/varnishncsa/varnishncsa.c
-index bec05e590..d7d650735 100644
+index bec05e590..3efc42073 100644
 --- a/bin/varnishncsa/varnishncsa.c
 +++ b/bin/varnishncsa/varnishncsa.c
 @@ -130,6 +130,8 @@ struct vsl_watch {
@@ -210,3 +210,4 @@ index ce1b1d97f..2f9492fca 100644
 +
  SEE ALSO
  ========
+ 

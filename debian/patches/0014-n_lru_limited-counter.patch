@@ -1,0 +1,52 @@
+From: Emanuele Rocca <ema@wikimedia.org>
+Date: Fri, 27 Apr 2018 11:58:55 +0200
+Subject: Add n_lru_limited counter
+
+Backport of https://github.com/varnishcache/varnish-cache/pull/2569 to varnish
+5.1.
+
+---
+ bin/varnishd/storage/storage_lru.c | 1 +
+ bin/varnishtest/tests/r01764.vtc   | 2 ++
+ include/tbl/vsc_f_main.h           | 6 ++++++
+ 3 files changed, 9 insertions(+)
+
+diff --git a/bin/varnishd/storage/storage_lru.c b/bin/varnishd/storage/storage_lru.c
+index f3588b1..912b1c4 100644
+--- a/bin/varnishd/storage/storage_lru.c
++++ b/bin/varnishd/storage/storage_lru.c
+@@ -173,6 +173,7 @@ LRU_NukeOne(struct worker *wrk, struct lru *lru)
+ 
+ 	if (wrk->strangelove-- <= 0) {
+ 		VSLb(wrk->vsl, SLT_ExpKill, "LRU_Exhausted");
++		VSC_C_main->n_lru_limited++;
+ 		return (0);
+ 	}
+ 
+diff --git a/bin/varnishtest/tests/r01764.vtc b/bin/varnishtest/tests/r01764.vtc
+index e5b8211..807c29b 100644
+--- a/bin/varnishtest/tests/r01764.vtc
++++ b/bin/varnishtest/tests/r01764.vtc
+@@ -52,3 +52,5 @@ client c1 {
+ 	rxresp
+ 	expect resp.status == 503
+ } -run
++
++varnish v1 -expect n_lru_limited == 1
+diff --git a/include/tbl/vsc_f_main.h b/include/tbl/vsc_f_main.h
+index 406050c..a183aac 100644
+--- a/include/tbl/vsc_f_main.h
++++ b/include/tbl/vsc_f_main.h
+@@ -356,6 +356,12 @@ VSC_FF(n_lru_moved,		uint64_t, 0, 'g', 'i', diag,
+ 	"Number of move operations done on the LRU list."
+ )
+ 
++VSC_FF(n_lru_limited,       uint64_t, 0, 'c', 'i', info,
++    "Reached nuke_limit",
++   "Number of times more storage space were needed, but limit"
++   " was reached in a nuke_limit. See also parameter nuke_limit."
++)
++
+ VSC_FF(losthdr,			uint64_t, 0, 'c', 'i', info,
+     "HTTP header overflows",
+ 	""
