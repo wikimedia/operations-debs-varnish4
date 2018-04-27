@@ -1,0 +1,102 @@
+From: Emanuele Rocca <ema@wikimedia.org>
+Date: Fri, 27 Apr 2018 12:24:12 +0200
+Subject: Add cache_hit_grace counter
+
+Backport of https://github.com/varnishcache/varnish-cache/pull/2455
+
+---
+ bin/varnishd/cache/cache_req_fsm.c |  2 ++
+ bin/varnishtest/tests/b00052b.vtc  | 52 ++++++++++++++++++++++++++++++++++++++
+ include/tbl/vsc_f_main.h           |  7 +++++
+ 3 files changed, 61 insertions(+)
+ create mode 100644 bin/varnishtest/tests/b00052b.vtc
+
+diff --git a/bin/varnishd/cache/cache_req_fsm.c b/bin/varnishd/cache/cache_req_fsm.c
+index cdd443f..af67554 100644
+--- a/bin/varnishd/cache/cache_req_fsm.c
++++ b/bin/varnishd/cache/cache_req_fsm.c
+@@ -522,6 +522,8 @@ cnt_lookup(struct worker *wrk, struct req *req)
+ 		}
+ 		wrk->stats->cache_hit++;
+ 		req->is_hit = 1;
++		if (lr == HSH_EXP || lr == HSH_EXPBUSY)
++			wrk->stats->cache_hit_grace++;
+ 		req->req_step = R_STP_DELIVER;
+ 		return (REQ_FSM_MORE);
+ 	case VCL_RET_MISS:
+diff --git a/bin/varnishtest/tests/b00052b.vtc b/bin/varnishtest/tests/b00052b.vtc
+new file mode 100644
+index 0000000..23cfcf5
+--- /dev/null
++++ b/bin/varnishtest/tests/b00052b.vtc
+@@ -0,0 +1,52 @@
++varnishtest "The cache_hit_grace counter"
++
++server s1 {
++	# normal fetch
++	rxreq
++	expect req.url == "/1"
++	txresp -hdr "Age: 1" -hdr "Cache-Control: max-age=2" -body "1"
++
++	# background fetch:
++	rxreq
++	expect req.url == "/1"
++	txresp -body "2"
++
++	# normal fetch
++	rxreq
++	expect req.url == "/2"
++	txresp
++} -start
++
++varnish v1 -vcl+backend { } -start
++
++client c1 {
++	txreq -url "/1"
++	rxresp
++	expect resp.body == "1"
++} -run
++
++delay 2
++
++# Get a grace hit, will trigger a background fetch
++
++client c2 {
++	txreq -url "/1"
++	rxresp
++	expect resp.body == "1"
++} -run
++
++delay 2
++
++client c3 {
++	txreq -url "/2"
++	rxresp
++	txreq -url "/1"
++	rxresp
++	expect resp.body == "2"
++} -run
++
++# Check that counters are correct:
++
++varnish v1 -expect cache_hit == 2
++varnish v1 -expect cache_hit_grace == 1
++varnish v1 -expect cache_miss == 2
+diff --git a/include/tbl/vsc_f_main.h b/include/tbl/vsc_f_main.h
+index 35dd06b..a21172f 100644
+--- a/include/tbl/vsc_f_main.h
++++ b/include/tbl/vsc_f_main.h
+@@ -90,6 +90,13 @@ VSC_FF(cache_hit,		uint64_t, 1, 'c', 'i', info,
+ 	" client without fetching it from a backend server."
+ )
+ 
++VSC_FF(cache_hit_grace,         uint64_t, 1, 'c', 'i', info,
++    "Cache grace hits",
++       "Count of cache hits with grace. A cache hit with grace is a cache"
++       " hit where the object is expired. Note that such hits are also"
++       " ncluded in the cache_hit counter."
++)
++
+ VSC_FF(cache_hitpass,		uint64_t, 1, 'c', 'i', info,
+     "Cache hits for pass.",
+ 	"Count of hits for pass."
