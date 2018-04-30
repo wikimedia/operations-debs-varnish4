@@ -1,0 +1,25 @@
+From: Emanuele Rocca <ema@wikimedia.org>
+Date: Mon, 30 Apr 2018 12:33:07 +0200
+Subject: Ignore req.ttl when keeping track of expired objects
+
+Forward-port ad92c565109e4850c5ee375160b231a40c6272a4 to 5.1
+
+Change-Id: I5c68b9d4e27f012b1228a81e925558c44ec54788
+---
+ bin/varnishd/cache/cache_hash.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/bin/varnishd/cache/cache_hash.c b/bin/varnishd/cache/cache_hash.c
+index d3e2db6..54e219c 100644
+--- a/bin/varnishd/cache/cache_hash.c
++++ b/bin/varnishd/cache/cache_hash.c
+@@ -459,7 +459,8 @@ HSH_Lookup(struct req *req, struct objcore **ocp, struct objcore **bocp,
+ 			*ocp = oc;
+ 			return (HSH_HIT);
+ 		}
+-		if (oc->t_origin > exp_t_origin) {
++		if (EXP_Ttl(NULL, oc) < req->t_req && /* ignore req.ttl */
++			oc->t_origin > exp_t_origin) {
+ 			/* record the newest object */
+ 			exp_oc = oc;
+ 			exp_t_origin = oc->t_origin;
