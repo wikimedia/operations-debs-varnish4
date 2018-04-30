@@ -1,3 +1,20 @@
+varnish (5.1.3-1wm8) jessie-wikimedia; urgency=medium
+
+  * Introduce ttl_now and the new way of calculating TTLs in VCL
+    33143e05c0720e5be0df4ac5b20a0fcc8a6874e8
+    https://github.com/varnishcache/varnish-cache/pull/2555
+  * Ignore req.ttl when keeping track of expired objects
+    36ae63275be296965be7d49b16e01e7bd8c523fb
+    https://github.com/varnishcache/varnish-cache/pull/2422
+  * Add cache_hit_grace counter
+    dcd62f075f495c697e72bc7c482e244ccad9333d
+    https://github.com/varnishcache/varnish-cache/pull/2455
+  * Add n_lru_limited counter
+    3a1f45d05dcdc0d22a71148c25ae2dedcf93e6ea
+    https://github.com/varnishcache/varnish-cache/pull/2569
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Mon, 30 Apr 2018 18:38:08 +0200
+
 varnish (5.1.3-1wm7) jessie-wikimedia; urgency=medium
 
   * Apply 'Fix issue #1799 for keep' from upstream.
