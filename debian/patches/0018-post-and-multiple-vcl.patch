@@ -1,0 +1,48 @@
+diff --git a/bin/varnishd/cache/cache_req_fsm.c b/bin/varnishd/cache/cache_req_fsm.c
+index cdd443fad..b01d25e94 100644
+--- a/bin/varnishd/cache/cache_req_fsm.c
++++ b/bin/varnishd/cache/cache_req_fsm.c
+@@ -82,7 +82,6 @@ cnt_transport(struct worker *wrk, struct req *req)
+ 	wrk->stats->s_req++;
+ 
+ 	AZ(req->err_code);
+-	req->ws_req = WS_Snapshot(req->ws);
+ 
+ 	req->doclose = http_DoConnection(req->http);
+ 	if (req->doclose == SC_RX_BAD) {
+@@ -98,6 +97,7 @@ cnt_transport(struct worker *wrk, struct req *req)
+ 		req->transport->req_body(req);
+ 	}
+ 
++	req->ws_req = WS_Snapshot(req->ws);
+ 	HTTP_Copy(req->http0, req->http);	// For ESI & restart
+ 	req->req_step = R_STP_RECV;
+ 	return (REQ_FSM_MORE);
+diff --git a/bin/varnishtest/tests/r02367.vtc b/bin/varnishtest/tests/r02367.vtc
+new file mode 100644
+index 000000000..3ae0cb9ef
+--- /dev/null
++++ b/bin/varnishtest/tests/r02367.vtc
+@@ -0,0 +1,22 @@
++varnishtest "POST and return(vcl(..))"
++
++server s1 {
++	rxreq
++	expect req.bodylen == 4
++	txresp
++} -start
++
++varnish v1 -vcl+backend {} -start
++varnish v1 -cliok "vcl.label vclA vcl1"
++
++varnish v1 -vcl+backend {
++	sub vcl_recv {
++		return (vcl(vclA));
++	}
++}
++
++client c1 {
++	txreq -req POST -body "asdf"
++	rxresp
++	expect resp.status == 200
++} -run

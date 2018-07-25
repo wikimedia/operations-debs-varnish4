@@ -1,3 +1,13 @@
+varnish (5.1.3-1wm9) jessie-wikimedia; urgency=medium
+
+  * POST requests (any!) crash Varnish 5.1.3 with separate VCL.
+    Make sure that is not the case.
+    c41ab01506053bf6844a895e9c66219f88460fc6
+    https://github.com/varnishcache/varnish-cache/pull/2385
+    https://github.com/varnishcache/varnish-cache/issues/2367
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Wed, 25 Jul 2018 09:14:18 +0200
+
 varnish (5.1.3-1wm8) jessie-wikimedia; urgency=medium
 
   * Introduce ttl_now and the new way of calculating TTLs in VCL
