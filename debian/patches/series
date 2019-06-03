@@ -15,3 +15,4 @@
 0017-new-ttl-in-vcl-calculation.patch
 0018-post-and-multiple-vcl.patch
 0019-vary-stevedore-mem-leak.patch
+0020-assert-error-http1_minimal_response.patch
