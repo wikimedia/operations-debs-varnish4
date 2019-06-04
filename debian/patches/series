@@ -17,3 +17,4 @@
 0019-vary-stevedore-mem-leak.patch
 0020-assert-error-http1_minimal_response.patch
 0021-dont-test-gunzip-partial.patch
+0022-deref-objcore-synth-err.patch
