@@ -22,3 +22,4 @@
 0025-extrachance-one-retry.patch
 0026-transient-full-cache_req_body-panic.patch
 0027-assert-error-vca_make_session.patch
+0028-panic-return-cond-fetch.patch
