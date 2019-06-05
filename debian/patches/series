@@ -19,3 +19,4 @@
 0022-deref-objcore-synth-err.patch
 0023-pass-delivery-is-no-err.patch
 0024-vbt-get-force-fresh.patch
+0025-extrachance-one-retry.patch
