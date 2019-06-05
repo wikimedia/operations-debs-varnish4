@@ -24,3 +24,4 @@
 0027-assert-error-vca_make_session.patch
 0028-panic-return-cond-fetch.patch
 0029-ban-lurker-bo-backoff.patch
+0030-startup-show-version.patch

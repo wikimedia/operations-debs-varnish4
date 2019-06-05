@@ -1,0 +1,10 @@
+--- a/bin/varnishd/mgt/mgt_main.c	2019-06-05 18:40:14.664780510 +0200
++++ b/bin/varnishd/mgt/mgt_main.c	2019-06-05 18:40:26.100788622 +0200
+@@ -849,6 +849,7 @@
+ 
+ 	assert(pfh == NULL || !VPF_Write(pfh));
+ 
++	MGT_Complain(C_DEBUG, "Version: %s", VCS_version);
+ 	MGT_Complain(C_DEBUG, "Platform: %s", VSB_data(vident) + 1);
+ 
+ 	if (d_flag)
