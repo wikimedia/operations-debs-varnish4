@@ -18,3 +18,4 @@
 0021-dont-test-gunzip-partial.patch
 0022-deref-objcore-synth-err.patch
 0023-pass-delivery-is-no-err.patch
+0024-vbt-get-force-fresh.patch
