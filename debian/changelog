@@ -1,3 +1,32 @@
+varnish (5.1.3-1wm10) stretch-wikimedia; urgency=medium
+
+  * Port patches from Varnish 4.1.10
+    - 0019-vary-stevedore-mem-leak.patch
+    - 0020-assert-error-http1_minimal_response.patch (Bug: T224694)
+      https://github.com/varnishcache/varnish-cache/issues/2582
+    - 0021-dont-test-gunzip-partial.patch
+    - 0022-deref-objcore-synth-err.patch
+    - 0023-pass-delivery-is-no-err.patch
+    - 0024-vbt-get-force-fresh.patch
+    - 0025-extrachance-one-retry.patch
+
+  * Port patches from Varnish 4.1.11
+    - 0026-transient-full-cache_req_body-panic.patch
+    - 0027-assert-error-vca_make_session.patch
+    - 0028-panic-return-cond-fetch.patch
+    - 0029-ban-lurker-bo-backoff.patch
+    - 0030-startup-show-version.patch
+
+  * Drop 0001-gethdr_extrachance.patch and add
+    0025-extrachance-one-retry.patch from upstream (Bug: T150247)
+
+  * Add lintian override: postinst-must-call-ldconfig
+
+  * Depend on lsb-base to fix Lintian error
+    init.d-script-needs-depends-on-lsb-base
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Thu, 06 Jun 2019 10:35:41 +0200
+
 varnish (5.1.3-1wm9) jessie-wikimedia; urgency=medium
 
   * POST requests (any!) crash Varnish 5.1.3 with separate VCL.

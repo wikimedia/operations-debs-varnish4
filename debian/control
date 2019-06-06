@@ -34,6 +34,7 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          adduser,
          gcc,
+         lsb-base,
          libc6-dev | libc6.1-dev | libc-dev
 Suggests: varnish-doc
 Provides: ${Varnish:ABI},
