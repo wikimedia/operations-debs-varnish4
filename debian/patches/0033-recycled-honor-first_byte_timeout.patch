@@ -1,0 +1,161 @@
+commit 9754715a4f357a9eb069b0233bf1f36d75626a3b
+Author: Dag Haavi Finstad <daghf@varnish-software.com>
+Date:   Fri Nov 24 16:22:55 2017 +0100
+
+    Honor first_byte_timeout for recycled backend connections
+    
+    Fixes: #1772
+
+diff --git a/bin/varnishd/cache/cache_backend.c b/bin/varnishd/cache/cache_backend.c
+index 491259c4c..a6358dbef 100644
+--- a/bin/varnishd/cache/cache_backend.c
++++ b/bin/varnishd/cache/cache_backend.c
+@@ -158,7 +158,8 @@
+ 	CAST_OBJ_NOTNULL(vbc, bo->htc->priv, VBC_MAGIC);
+ 	bo->htc->priv = NULL;
+ 	if (vbc->state != VBC_STATE_USED)
+-		assert(bo->htc->doclose == SC_TX_PIPE);
++		assert(bo->htc->doclose == SC_TX_PIPE ||
++            bo->htc->doclose == SC_RX_TIMEOUT);
+ 	if (bo->htc->doclose != SC_NULL || bp->proxy_header != 0) {
+ 		VSLb(bo->vsl, SLT_BackendClose, "%d %s", vbc->fd,
+ 		    bp->display_name);
+@@ -215,17 +216,25 @@
+ 
+ 		i = V1F_SendReq(wrk, bo, &bo->acct.bereq_hdrbytes, 0);
+ 
+-		if (vbc->state != VBC_STATE_USED)
+-			VBT_Wait(wrk, vbc);
+-
+-		assert(vbc->state == VBC_STATE_USED);
+-
+-		if (i == 0)
+-			i = V1F_FetchRespHdr(bo);
+-		if (i == 0) {
+-			AN(bo->htc->priv);
+-			return (0);
+-		}
++        if (vbc->state != VBC_STATE_USED) {
++            if (VBT_Wait(wrk, vbc, VTIM_real() +
++                bo->htc->first_byte_timeout) != 0) {
++                bo->htc->doclose = SC_RX_TIMEOUT;
++                VSLb(bo->vsl, SLT_FetchError,
++                     "Timed out reusing backend connection");
++                extrachance = 0;
++            }
++        }
++
++        if (bo->htc->doclose == SC_NULL) {
++            assert(vbc->state == VBC_STATE_USED);
++            if (i == 0)
++                i = V1F_FetchRespHdr(bo);
++            if (i == 0) {
++                AN(bo->htc->priv);
++                return (0);
++            }
++ 		}
+ 
+ 		/*
+ 		 * If we recycled a backend connection, there is a finite chance
+@@ -234,7 +243,7 @@
+ 		 */
+ 		vbe_dir_finish(d, wrk, bo);
+ 		AZ(bo->htc);
+-		if (i < 0)
++		if (i < 0 || extrachance == 0)
+ 			break;
+ 		if (bo->req != NULL &&
+ 		    bo->req->req_body_status != REQ_BODY_NONE &&
+diff --git a/bin/varnishd/cache/cache_backend.h b/bin/varnishd/cache/cache_backend.h
+index d52f2dae0..65905ed79 100644
+--- a/bin/varnishd/cache/cache_backend.h
++++ b/bin/varnishd/cache/cache_backend.h
+@@ -127,7 +127,7 @@ void VBT_Recycle(const struct worker *, struct tcp_pool *, struct vbc **);
+ void VBT_Close(struct tcp_pool *tp, struct vbc **vbc);
+ struct vbc *VBT_Get(struct tcp_pool *, double tmo, const struct backend *,
+     struct worker *, unsigned force_fresh);
+-void VBT_Wait(struct worker *, struct vbc *);
++int VBT_Wait(struct worker *, struct vbc *, double tmo);
+ 
+ /* cache_vcl.c */
+ int VCL_AddBackend(struct vcl *, struct backend *);
+diff --git a/bin/varnishd/cache/cache_backend_tcp.c b/bin/varnishd/cache/cache_backend_tcp.c
+index e80b3c773..49d3175e2 100644
+--- a/bin/varnishd/cache/cache_backend_tcp.c
++++ b/bin/varnishd/cache/cache_backend_tcp.c
+@@ -34,6 +34,7 @@
+ 
+ #include "config.h"
+ 
++#include <errno.h>
+ #include <stdlib.h>
+ 
+ #include "cache.h"
+@@ -384,10 +385,11 @@
+ /*--------------------------------------------------------------------
+  */
+ 
+-void
+-VBT_Wait(struct worker *wrk, struct vbc *vbc)
++int
++VBT_Wait(struct worker *wrk, struct vbc *vbc, double tmo)
+ {
+ 	struct tcp_pool *tp;
++	int r;
+ 
+ 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+ 	CHECK_OBJ_NOTNULL(vbc, VBC_MAGIC);
+@@ -395,9 +397,21 @@
+ 	CHECK_OBJ_NOTNULL(tp, TCP_POOL_MAGIC);
+ 	assert(vbc->cond == &wrk->cond);
+ 	Lck_Lock(&tp->mtx);
+-	while (vbc->state == VBC_STATE_STOLEN)
+-		AZ(Lck_CondWait(&wrk->cond, &tp->mtx, 0));
++
++	while (vbc->state == VBC_STATE_STOLEN) {
++		r = Lck_CondWait(&wrk->cond, &tp->mtx, tmo);
++		if (r != 0) {
++			if (r == EINTR)
++				continue;
++			assert(r == ETIMEDOUT);
++			Lck_Unlock(&tp->mtx);
++			return (1);
++		}
++	}
++
+ 	assert(vbc->state == VBC_STATE_USED);
+ 	vbc->cond = NULL;
+ 	Lck_Unlock(&tp->mtx);
++
++	return (0);
+ }
+diff --git a/bin/varnishtest/tests/r01772.vtc b/bin/varnishtest/tests/r01772.vtc
+new file mode 100644
+index 000000000..93c5e1b4b
+--- /dev/null
++++ b/bin/varnishtest/tests/r01772.vtc
+@@ -0,0 +1,24 @@
++varnishtest "#1772: Honor first_byte_timeout on a recycled connection"
++
++server s1 {
++	rxreq
++	expect req.url == "/first"
++	txresp
++
++	rxreq
++	expect req.url == "/second"
++	delay 2
++	txresp
++} -start
++
++varnish v1 -arg "-p first_byte_timeout=1" -vcl+backend {} -start
++
++client c1 {
++	txreq -url "/first"
++	rxresp
++	expect resp.status == 200
++
++	txreq -url "/second"
++	rxresp
++	expect resp.status == 503
++} -run

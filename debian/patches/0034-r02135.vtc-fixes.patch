@@ -1,0 +1,37 @@
+commit 9b614844386c24c41a224857c44d85ba4d088afc
+Author: Dag Haavi Finstad <daghf@varnish-software.com>
+Date:   Thu Nov 23 16:08:40 2017 +0100
+
+    r02135.vtc test case fixes
+    
+    This test case should not rely on
+    first_byte_timeout/between_bytes_timeout.
+
+diff --git a/bin/varnishtest/tests/r02135.vtc b/bin/varnishtest/tests/r02135.vtc
+index 3868bd303..7f9182f89 100644
+--- a/bin/varnishtest/tests/r02135.vtc
++++ b/bin/varnishtest/tests/r02135.vtc
+@@ -7,21 +7,15 @@ server s1 {
+ 	txresp
+ 	rxreq
+ 	expect req.url == "/foo"
+-	delay 2.5
+-	send " "
+-	expect_close
++	close
+ 	accept
+ 	rxreq
+ 	expect req.url == "/foo"
+ 	barrier b1 sync
+-	delay 2.5
+-	send " "
++	close
+ 	expect_close
+ } -start
+ 
+-varnish v1 -cliok "param.set between_bytes_timeout 1"
+-varnish v1 -cliok "param.set first_byte_timeout 1"
+-
+ varnish v1 -vcl+backend {
+ 	sub vcl_backend_error {
+ 		set beresp.http.url = bereq.url;

@@ -1,0 +1,30 @@
+commit 68a35e100ad711415fac16f0db3d9cb4a7e94867
+Author: Dag Haavi Finstad <daghf@varnish-software.com>
+Date:   Thu Nov 23 13:47:44 2017 +0100
+
+    Make VBT_Close capable of dealing with STOLEN vtps
+    
+    The change from shutdown(.., SHUT_WR) to shutdown(.., SHUT_RDWR) is
+    required to make it trigger a waiter event.
+
+Index: varnish4/bin/varnishd/cache/cache_backend_tcp.c
+===================================================================
+--- varnish4.orig/bin/varnishd/cache/cache_backend_tcp.c
++++ varnish4/bin/varnishd/cache/cache_backend_tcp.c
+@@ -309,13 +309,14 @@ VBT_Close(struct tcp_pool *tp, struct vb
+ 	*vbcp = NULL;
+ 	CHECK_OBJ_NOTNULL(vbc, VBC_MAGIC);
+ 
+-	assert(vbc->state == VBC_STATE_USED);
+ 	assert(vbc->fd > 0);
+ 
+ 	Lck_Lock(&tp->mtx);
++	assert(vbc->state == VBC_STATE_USED || vbc->state == VBC_STATE_STOLEN);
+ 	tp->n_used--;
+ 	if (vbc->state == VBC_STATE_STOLEN) {
+-		(void)shutdown(vbc->fd, SHUT_WR);
++		(void)shutdown(vbc->fd, SHUT_RDWR);
++		VTAILQ_REMOVE(&tp->connlist, vbc, list);
+ 		vbc->state = VBC_STATE_CLEANUP;
+ 		VTAILQ_INSERT_HEAD(&tp->killlist, vbc, list);
+ 		tp->n_kill++;

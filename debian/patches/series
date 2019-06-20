@@ -25,3 +25,7 @@
 0028-panic-return-cond-fetch.patch
 0029-ban-lurker-bo-backoff.patch
 0030-startup-show-version.patch
+0031-vbt-close-stolen.patch
+0032-vbe_dir_finish-no-VBT_Wait.patch
+0033-recycled-honor-first_byte_timeout.patch
+0034-r02135.vtc-fixes.patch
