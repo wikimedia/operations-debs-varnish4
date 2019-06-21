@@ -1,3 +1,14 @@
+varnish (5.1.3-1wm11) stretch-wikimedia; urgency=medium
+
+  * Port patches form Varnish 4.1.11 to ensure first_byte_timeout is honored
+    when re-using a backend connection: https://github.com/varnishcache/varnish-cache/issues/1772
+    - 0031-vbt-close-stolen.patch
+    - 0032-vbe_dir_finish-no-VBT_Wait.patch
+    - 0033-recycled-honor-first_byte_timeout.patch (Bug: T226375)
+    - 0034-r02135.vtc-fixes.patch
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Fri, 21 Jun 2019 10:59:50 +0200
+
 varnish (5.1.3-1wm10) stretch-wikimedia; urgency=medium
 
   * Port patches from Varnish 4.1.10
