@@ -5,7 +5,8 @@ Uploaders: Jan Wagner <waja@cyconet.org>,
            Stig Sandbeck Mathisen <ssm@debian.org>,
            Tollef Fog Heen <tfheen@debian.org>,
            Emanuele Rocca <ema@wikimedia.org>,
-           Emanuele Rocca <ema@debian.org>
+           Emanuele Rocca <ema@debian.org>,
+           Valentin Gutierrez <vgutierrez@wikimedia.org>
 Section: web
 Testsuite: autopkgtest
 Priority: optional
