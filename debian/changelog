@@ -1,3 +1,13 @@
+varnish (5.1.3-1wm13) buster-wikimedia; urgency=medium
+
+  * Add 0035-vbf_stp_condfetch_crash.patch to handle fetch error in
+    vbf_stp_condfetch gracefully. (Bug: T249344)
+
+    Backport of d3b6409ea3f52851aa63fde8120af5cfc430db8b to 5.1.x
+    https://github.com/varnishcache/varnish-cache/issues/3273
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Mon, 06 Apr 2020 09:11:08 +0200
+
 varnish (5.1.3-1wm12) buster-wikimedia; urgency=medium
 
   * Bump version and target buster.
