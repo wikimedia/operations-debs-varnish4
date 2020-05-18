@@ -1,7 +1,8 @@
-varnish (5.1.3-1wm15) buster-wikimedia; urgency=medium
+varnish (5.1.3-1wm15) UNRELEASED; urgency=medium
 
   * Add 0037-force-discard.patch. The patch introduces a new optional flag (-f)
     to vcl.discard. (Bug: T236754)
+  * Add 0038-vcl_active-lock.patch. (Bug: T236754)
   * Remove 'export-dir' option from d/gbp.conf
 
  -- Emanuele Rocca <ema@wikimedia.org>  Fri, 15 May 2020 09:14:02 +0200
