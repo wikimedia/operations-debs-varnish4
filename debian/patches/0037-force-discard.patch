@@ -1,10 +1,10 @@
 Origin: WMF
 Description: introduces a new optional flag (-f) to vcl.discard. If the flag is
 specified, immediately discard the given VCL
-Index: varnish4/bin/varnishd/cache/cache_vcl.c
-===================================================================
---- varnish4.orig/bin/varnishd/cache/cache_vcl.c
-+++ varnish4/bin/varnishd/cache/cache_vcl.c
+diff --git a/bin/varnishd/cache/cache_vcl.c b/bin/varnishd/cache/cache_vcl.c
+index 8ae087e14..da24c672d 100644
+--- a/bin/varnishd/cache/cache_vcl.c
++++ b/bin/varnishd/cache/cache_vcl.c
 @@ -180,6 +180,19 @@ vcl_find(const char *name)
  	return (NULL);
  }
@@ -25,7 +25,7 @@ Index: varnish4/bin/varnishd/cache/cache_vcl.c
  /*--------------------------------------------------------------------*/
  
  void
-@@ -893,7 +906,29 @@ vcl_cli_discard(struct cli *cli, const char * const *av, void *priv)
+@@ -893,7 +906,31 @@ vcl_cli_discard(struct cli *cli, const char * const *av, void *priv)
  	ASSERT_CLI();
  	(void)cli;
  	AZ(priv);
@@ -44,40 +44,25 @@ Index: varnish4/bin/varnishd/cache/cache_vcl.c
 +			return;
 +		}
 +
++		Lck_Lock(&vcl_mtx);
 +		if (vcl->discard) {
 +			// the admin is forcing removal of an already discarded VCL. It must be stuck!
-+			vcl->temp = VCL_TEMP_COLD;
++			// Set busy to 0 to cool it down.
 +			vcl->busy = 0;
-+			return;
 +		}
++		Lck_Unlock(&vcl_mtx);
++		return;
 +	} else
 +		vcl = vcl_find(av[2]);
 +
  	AN(vcl);			// MGT ensures this
  	Lck_Lock(&vcl_mtx);
  	assert (vcl != vcl_active);	// MGT ensures this
-Index: varnish4/include/tbl/cli_cmds.h
-===================================================================
---- varnish4.orig/include/tbl/cli_cmds.h
-+++ varnish4/include/tbl/cli_cmds.h
-@@ -94,10 +94,10 @@ CLI_CMD(VCL_STATE,
- 
- CLI_CMD(VCL_DISCARD,
- 	"vcl.discard",
--	"vcl.discard <configname|label>",
-+	"vcl.discard [-f] <configname|label>",
- 	"Unload the named configuration (when possible).",
- 	"",
--	1, 1
-+	1, 2
- )
- 
- CLI_CMD(VCL_LIST,
-Index: varnish4/bin/varnishd/mgt/mgt_vcl.c
-===================================================================
---- varnish4.orig/bin/varnishd/mgt/mgt_vcl.c
-+++ varnish4/bin/varnishd/mgt/mgt_vcl.c
-@@ -699,6 +699,14 @@ mcf_vcl_discard(struct cli *cli, const c
+diff --git a/bin/varnishd/mgt/mgt_vcl.c b/bin/varnishd/mgt/mgt_vcl.c
+index 9a1a42b56..2c5d9c61c 100644
+--- a/bin/varnishd/mgt/mgt_vcl.c
++++ b/bin/varnishd/mgt/mgt_vcl.c
+@@ -699,6 +699,14 @@ mcf_vcl_discard(struct cli *cli, const char * const *av, void *priv)
  	int n;
  
  	(void)priv;
@@ -92,3 +77,20 @@ Index: varnish4/bin/varnishd/mgt/mgt_vcl.c
  	vp = mcf_find_vcl(cli, av[2]);
  	if (vp == NULL)
  		return;
+diff --git a/include/tbl/cli_cmds.h b/include/tbl/cli_cmds.h
+index d162bada5..8aa577edb 100644
+--- a/include/tbl/cli_cmds.h
++++ b/include/tbl/cli_cmds.h
+@@ -94,10 +94,10 @@ CLI_CMD(VCL_STATE,
+ 
+ CLI_CMD(VCL_DISCARD,
+ 	"vcl.discard",
+-	"vcl.discard <configname|label>",
++	"vcl.discard [-f] <configname|label>",
+ 	"Unload the named configuration (when possible).",
+ 	"",
+-	1, 1
++	1, 2
+ )
+ 
+ CLI_CMD(VCL_LIST,
