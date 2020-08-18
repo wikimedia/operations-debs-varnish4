@@ -1,3 +1,6 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/23dcf55bdf6a24cd98f88863b1003b44327a7833
+Description: Deref the objcore before switching to synth on error. This patch
+is shipped as part of varnish 6.0.x and 6.4.x so it can be safely removed
 commit 23dcf55bdf6a24cd98f88863b1003b44327a7833
 Author: Martin Blix Grydeland <martin@varnish-software.com>
 Date:   Fri Nov 24 13:54:01 2017 +0100

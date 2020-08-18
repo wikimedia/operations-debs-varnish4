@@ -1,8 +1,12 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/49ad1b2119eb984280b26551d702cf122fd9eb24 and https://github.com/varnishcache/varnish-cache/commit/6045eaaa6a2f0a51f667d4c2cf23cd7fb43abe9f
 Description: Add error handling for STV_NewObject() in vrb_pull
 
 VTC test case forward-ported from 49ad1b2119eb984280b26551d702cf122fd9eb24
 (with modifications, $vmod_std does not exist in 5.x), code change back-ported
 from 6045eaaa6a2f0a51f667d4c2cf23cd7fb43abe9f.
+
+This patch has been included as part of varnish 6.0.x, 6.2.x and 6.4.x thus
+it can be safely removed
 
 commit 6045eaaa6a2f0a51f667d4c2cf23cd7fb43abe9f
 Author: Dag Haavi Finstad <daghf@varnish-software.com>

@@ -1,3 +1,6 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/1d62f5da43a245966faff82f3ee3e6cff46db0f2
+Description: Add cache_hit_grace counter. This patch has been included in varnish 6.0.x and 6.4.x
+so it can be removed.
 From: Emanuele Rocca <ema@wikimedia.org>
 Date: Fri, 27 Apr 2018 12:24:12 +0200
 Subject: Add cache_hit_grace counter

@@ -1,3 +1,6 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/9b614844386c24c41a224857c44d85ba4d088afc
+Description: r02135.vtc test case fixes. The version provided as d60893d3817ff8a63fba1d370396738165b3451d
+by upstream is included on varnish 6.0 and 6.4 so it can be safely removed.
 commit 9b614844386c24c41a224857c44d85ba4d088afc
 Author: Dag Haavi Finstad <daghf@varnish-software.com>
 Date:   Thu Nov 23 16:08:40 2017 +0100

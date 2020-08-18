@@ -1,3 +1,6 @@
+Origin: https://github.com/varnishcache/varnish-cache/commit/dc6c6520188fa6ffd5b9262cf1cbb86f8e5df4cc
+Description: Add n_lru_limited counter. This patch is shipped as part of varnish 6.0.x and 6.4.x
+so it can be safely removed.
 From: Emanuele Rocca <ema@wikimedia.org>
 Date: Fri, 27 Apr 2018 11:58:55 +0200
 Subject: Add n_lru_limited counter

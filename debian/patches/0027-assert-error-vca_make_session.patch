@@ -1,3 +1,7 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/2fdd68215d673dc396e8bfc65f83d246baab6fdd
+Description: Set the task arguments under the lock. The version provided by upstream
+as dd5ea4a221c8783fd24de1531f3679213322b2c6 is included on varnish 6.0.x so it can
+be safely removed.
 commit 2fdd68215d673dc396e8bfc65f83d246baab6fdd
 Author: Federico G. Schwindt <fgsch@lodoss.net>
 Date:   Fri Jul 13 12:02:23 2018 +0100

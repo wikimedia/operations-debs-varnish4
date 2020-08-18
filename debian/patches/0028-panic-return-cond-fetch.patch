@@ -1,3 +1,8 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/49e6b53c55d48c8fb8eacf5dbe52d1aee7c2e821
+Description: Clear bo->was_304 on return(retry). The version provided by upstream as
+8f2a0d4cc99c42229351c282e798080544883ed9 fixes the issue for varnish 6.0.x and
+2c5dfd8dae37331252c90124f45a3b75d7ab5ea0 for varnish 6.1 - 6.4 so this patch can be
+safely removed
 commit 49e6b53c55d48c8fb8eacf5dbe52d1aee7c2e821
 Author: Dag Haavi Finstad <daghf@varnish-software.com>
 Date:   Tue Jun 5 14:04:57 2018 +0200

@@ -1,3 +1,6 @@
+Origin: WMF
+Issue: https://phabricator.wikimedia.org/T145661
+Description: Do not split -sfile in 2^30 chunks. Used on varnish-be, it could be potentially dropped.
 diff --git a/bin/varnishd/storage/storage_file.c b/bin/varnishd/storage/storage_file.c
 index 143ab9d..58657a9 100644
 --- a/bin/varnishd/storage/storage_file.c

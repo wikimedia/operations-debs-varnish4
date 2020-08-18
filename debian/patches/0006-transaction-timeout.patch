@@ -1,3 +1,8 @@
+Origin: WMF
+Issue: https://phabricator.wikimedia.org/T179156
+Description: Implement a transaction_timeout as the maximum amount of time in seconds for the
+whole response from the backend to be received. It doesn't seem to be currently puppetized,
+so it could be potentially discarded.
 --- a/bin/varnishd/cache/cache.h
 +++ b/bin/varnishd/cache/cache.h
 @@ -232,6 +232,13 @@

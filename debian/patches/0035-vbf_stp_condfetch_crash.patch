@@ -1,3 +1,6 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/d3b6409ea3f52851aa63fde8120af5cfc430db8b
+Description: vbf_stp_condfetch: handle storage error instead of crashing. This patch is shipped as part
+of varnish 6.0 but not as part of 6.4.
 commit d3b6409ea3f52851aa63fde8120af5cfc430db8b
 Author: Emanuele Rocca <ema@wikimedia.org>
 Date:   Fri Apr 3 17:10:22 2020 +0200

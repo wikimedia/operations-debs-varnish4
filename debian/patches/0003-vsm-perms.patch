@@ -1,3 +1,5 @@
+Origin: WMF
+Description: Fix VSM permissions
 diff --git a/bin/varnishd/mgt/mgt_jail_unix.c b/bin/varnishd/mgt/mgt_jail_unix.c
 index 3c9f65806..029c2b068 100644
 --- a/bin/varnishd/mgt/mgt_jail_unix.c

@@ -1,3 +1,8 @@
+Origin: WMF
+Description: Introduce a new counter for shortlived objects creation,
+cache_shortlived, and another one for uncacheable responses,
+cache_uncacheable. They should provide insights when it comes to
+monitoring transient storage usage.
 diff --git a/bin/varnishd/cache/cache_fetch.c b/bin/varnishd/cache/cache_fetch.c
 index 670dc8f..9edbeb4 100644
 --- a/bin/varnishd/cache/cache_fetch.c

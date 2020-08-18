@@ -1,3 +1,6 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/9754715a4f357a9eb069b0233bf1f36d75626a3b
+Description: Honor first_byte_timeout for recycled backend connections. The version provided by upstream
+as eecd409d1 fixes the issue on varnish 6.0.x and 6.4.x allowing a safe removal of this patch.
 commit 9754715a4f357a9eb069b0233bf1f36d75626a3b
 Author: Dag Haavi Finstad <daghf@varnish-software.com>
 Date:   Fri Nov 24 16:22:55 2017 +0100

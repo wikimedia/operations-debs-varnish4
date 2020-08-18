@@ -1,3 +1,8 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/7906a41782a39a407f41d831da05326c4b2d225c
+Description: ban lurker should back off on seeing a busy object. The version provided by
+upstream as 128fbe7c88310c2c69c8f8312c6125ad12806ba6 fixes the issue on varnish 6.1 - 6.4
+and f852f8774bf2f87474c5264ae9251fd29fca2911 fixes it for varnish 6.0 so it
+can be safely removed
 commit 7906a41782a39a407f41d831da05326c4b2d225c
 Author: Nils Goroll <nils.goroll@uplex.de>
 Date:   Thu May 17 17:40:53 2018 +0200

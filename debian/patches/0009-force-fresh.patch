@@ -1,3 +1,6 @@
+Origin: uptream https://github.com/varnishcache/varnish-cache/commit/e0fd9ba67e5234b167214658ba83070cb1b5a3ed
+Description: Add a force_fresh parameter to VBT_Get. This patch isn't
+referenced on debian/patches/series so it can be removed.
 commit e0fd9ba67e5234b167214658ba83070cb1b5a3ed
 Author: Dag Haavi Finstad <daghf@varnish-software.com>
 Date:   Mon Nov 27 16:26:04 2017 +0100

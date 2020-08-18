@@ -1,5 +1,7 @@
 
 Origin: upstream https://github.com/varnishcache/varnish-cache/commit/69e5f47157efe4ba6894173f6966b733fac71830
+Description: Straighten locking wrt vcl_active. The version provided as 606d48563464df01acb692a7a57188bf1eaa8d2c
+by upstream fixes the issue for varnish 6.0 and 6.4 therefore the patch can be safely removed 
 Issue: https://github.com/varnishcache/varnish-cache/issues/2390
 
 commit 606d48563464df01acb692a7a57188bf1eaa8d2c

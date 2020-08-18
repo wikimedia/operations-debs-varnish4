@@ -1,24 +1,27 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/c12a3e5e2bc978edafaccfe1c586e5d5dab01fcb
+Description: Fix issue #1799 for keep. This patch is shipped as part of varnish 6.0.x
+and 6.4.x so it can be safely dropped.
 commit c12a3e5e2bc978edafaccfe1c586e5d5dab01fcb
 Author: Pål Hermunn Johansen <hermunn@varnish-software.com>
 Date:   Wed Dec 13 14:06:05 2017 +0100
 
     Fix issue #1799 for keep
-    
+
     This fixes the long-standing #1799 for "keep" objects, and this commit
     message suggests a way of working around #1799 in the remaining
     cases. The following is a (long) explanation on how grace and keep
     works at the moment, how this relates to #1799, and how this commit
     changes things.
-    
+
     1. How does it work now, before this commit?
-    
+
     Objects in cache can outlive their TTL, and the typical reason for
     this is grace. Objects in cache can also linger because of obj.keep or
     in the (rare but observed) case where the expiry thread have not yet
     evicted an object. Grace and keep are here to minimize backend load,
     but #1799 shows that we are not successful in doing this in some
     important cases.
-    
+
     Whenever sub vcl_recv has ended with return (lookup) (which is the
     default action), we arrive at HSH_Lookup, where varnish sometimes only
     finds an expired object (that match Vary logic, is not banned,
@@ -26,9 +29,9 @@ Date:   Wed Dec 13 14:06:05 2017 +0100
     adding a "busy object") if and only if there is no busy object on the
     oh already. Then the expired object is returned with HSH_EXP or
     HSH_EXPBUSY, depending on whether a busy object was inserted.
-    
+
     2. What makes us run into #1799?
-    
+
     When we have gotten an expired object, we generally hope that it is in
     grace, and that sub vcl_hit will return(deliver). However, if grace
     has expired, then the default action (ie the action from builtin.vcl)
@@ -38,33 +41,33 @@ Date:   Wed Dec 13 14:06:05 2017 +0100
     current request is not the one to insert a busy object, and then we
     run into the issue with a message "vcl_hit{} returns miss without busy
     object. Doing pass.".
-    
+
     Note that normally, if a resource is very popular and has a positive
     grace, it is unlikely that #1799 will happen. Then a new version will
     always be available before the grace has run out, and everybody get
     the latest fetched version with no #1799 problems.
-    
+
     However, if a resource is very popular (like a manifest file in a live
     streaming setup) and has 0s grace, and the expiry thread lags a little
     bit behind, then vcl_hit can get an expired object even when obj.keep
     is zero. In these circumstances we can get a surge of requests to the
     backend, and this is especially bad on a very busy server.
-    
+
     Another real world example is where grace is initially set high (48h
     or similar) and vcl_hit considers the health of the backend, and, if
     the backend is healthy, explicitly does a return(miss) ensure that the
     client gets a fresh object. This has been a recommended use of
     vcl_hit, but, because of #1799, can cause considerable load on the
     backend.
-    
+
     Similarly, we can get #1799 if we use "keep" to facilitate IMS
     requests to the backend, and we have a stale object for which several
     requests arrive before the first completes.
-    
+
     3. How do we fix this?
-    
+
     The main idea is to teach varnish to consider grace during lookup.
-    
+
     To be specific, the following changes with this commit: If an expired
     object is found, the ttl+grace has expired and there already is an
     ongoing request for the object (ie. there exists a busy object), then
@@ -73,34 +76,34 @@ Date:   Wed Dec 13 14:06:05 2017 +0100
     because we anticipate that vcl_hit will do (the default) return (miss)
     and that it is better to wait for the ongoing request than to initiate
     a new one with "pass" behavior.
-    
+
     The result is that when the ongoing request finishes, we will either
     be able to go to vcl_hit, start a new request (can happen if there was
     a Vary mismatch) by inserting a new "busy object", or we lose the race
     and have to go back to the waiting list (typically unlikely).
-    
+
     When grace is in effect we go to vcl_hit even when we did not insert a
     busy object, anticipating that vcl_hit will return (deliver).
-    
+
     This will will fix the cases where the user does not explicitly do a
     return(miss) in vcl_hit for object where ttl+grace has not
     expired. However, since this is not an uncommon practice, we also have
     to change our recommendation on how to use grace and keep. The new
     recommendation will be:
-    
+
     * Set grace to the "normal value" for a working varnish+backend.
-    
+
     * Set keep to a high value if the backend is not 100% reliable and you
       want to use stale objects as a fallback.
-    
+
     * Do not explicitly return(miss) in sub vcl_hit{}. The exception is
       when this only can happen now and then and you are really sure that
       this is the right thing to do.
-    
+
     * In vcl_hit, check if the backend is sick, and then explicitly
       return(deliver) when appropriate (ie you want an stale object
       delivered instead of an error message).
-    
+
     A test case is included.
 
 diff --git a/bin/varnishd/cache/cache_expire.c b/bin/varnishd/cache/cache_expire.c

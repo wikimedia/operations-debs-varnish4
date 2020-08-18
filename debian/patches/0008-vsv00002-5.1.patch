@@ -1,3 +1,6 @@
+Origin: uptream https://github.com/varnishcache/varnish-cache/commit/176f8a075a
+Description: Fix VSV00002 Data leak - ‘-sfile’ Stevedore transient objects. Already shipped as part of
+Varnish 6.0 and 6.4, it can be safely removed on a 6.x release.
 From 6143df703e93f6a599ffcbd8258af7ce45d14576 Mon Sep 17 00:00:00 2001
 From: Martin Blix Grydeland <martin@varnish-software.com>
 Date: Mon, 18 Sep 2017 16:04:53 +0200

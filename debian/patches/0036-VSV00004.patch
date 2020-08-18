@@ -1,4 +1,6 @@
-Description: Backport of upstream commit bd7b3d6d47ccbb5e1747126f8e2a297f38e56b8c
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/bd7b3d6d47ccbb5e1747126f8e2a297f38e56b8c
+Description: Backport of upstream commit bd7b3d6d47ccbb5e1747126f8e2a297f38e56b8c. This commit is included
+as part of varnish 6.4, varnish 6.0 ships 83849e018f22fe0acbf6fc17bc513afaf60749bd to solve the issue.
 Author: Emanuele Rocca <ema@wikimedia.org>
 Last-Update: 2020-04-09
 

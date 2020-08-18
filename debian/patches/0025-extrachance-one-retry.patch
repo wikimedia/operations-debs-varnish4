@@ -1,3 +1,6 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/a8da6ead25479f20acfc23f85e90c1629bfba486
+Description: Limit backend connection retries to a single retry. This is also shipped as part of varnish 6.x
+so it can be safely dropped. This patch is a duplicate of 0010-extrachance-retries.patch
 commit a8da6ead25479f20acfc23f85e90c1629bfba486
 Author: Dag Haavi Finstad <daghf@varnish-software.com>
 Date:   Thu Nov 16 13:09:34 2017 +0100

@@ -1,3 +1,7 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/94a7f427c21d8bd0a91541b29141471c8cab220a
+Description: Don't test gunzip for partial responses. The fix doesn't seem to be required
+on varnish 6.0.x but the regression test is still included, so it should be safe to
+get rid of it.
 commit 94a7f427c21d8bd0a91541b29141471c8cab220a
 Author: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
 Date:   Tue Jan 9 13:29:17 2018 +0100

@@ -1,3 +1,8 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/pull/2450
+Description: Pass delivery abandoned does not qualify as an error. As mentioned in
+https://github.com/varnishcache/varnish-cache/pull/2450#issuecomment-529453494
+this is included in varnish 6.0.x, the very same commit 3c5ed76fea33c98dc5464c8e8ff902172bcd8dbb
+is included in varnish 6.4.x as well. This patch can be safely removed
 --- a/bin/varnishd/cache/cache_fetch.c	2019-06-04 17:19:08.960843919 +0200
 +++ b/bin/varnishd/cache/cache_fetch.c	2019-06-04 17:27:58.689144007 +0200
 @@ -526,8 +526,8 @@

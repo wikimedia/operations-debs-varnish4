@@ -1,3 +1,6 @@
+Origin: upstream https://github.com/varnishcache/varnish-cache/commit/26d52615004730eb28ce603930600d44cafd8202
+Description: Fix memory leak of vary string on stevedore alloc fail. This fix is included
+in varnish 6.0.x and 6.4.x so it can be safely removed.
 commit 26d52615004730eb28ce603930600d44cafd8202
 Author: Martin Blix Grydeland <martin@varnish-software.com>
 Date:   Wed Mar 14 13:52:36 2018 +0100

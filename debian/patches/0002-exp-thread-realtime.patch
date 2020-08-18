@@ -1,3 +1,7 @@
+Origin: WMF
+Description: Add exp_thread_rt and exp_lck_inherit parameters. These parameters have been used in the past
+on varnish-be during the debugging of T145661 and maybe could be dropped.
+Issue: https://phabricator.wikimedia.org/T145661
 diff --git a/bin/varnishd/cache/cache.h b/bin/varnishd/cache/cache.h
 index ee33de0..e0f0f6d 100644
 --- a/bin/varnishd/cache/cache.h
