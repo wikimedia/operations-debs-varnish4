@@ -3,16 +3,14 @@ Description: Introduce a new counter for shortlived objects creation,
 cache_shortlived, and another one for uncacheable responses,
 cache_uncacheable. They should provide insights when it comes to
 monitoring transient storage usage.
-diff --git a/bin/varnishd/cache/cache_fetch.c b/bin/varnishd/cache/cache_fetch.c
-index 670dc8f..9edbeb4 100644
 --- a/bin/varnishd/cache/cache_fetch.c
 +++ b/bin/varnishd/cache/cache_fetch.c
-@@ -56,8 +56,14 @@ vbf_allocobj(struct busyobj *bo, unsigned l)
+@@ -57,8 +57,14 @@ vbf_allocobj(struct busyobj *bo, unsigne
  
  	lifetime = oc->ttl + oc->grace + oc->keep;
  
 -	if (bo->uncacheable || lifetime < cache_param->shortlived)
-+        if (bo->uncacheable) {
++	if (bo->uncacheable) {
 +		bo->wrk->stats->cache_uncacheable++;
  		stv = stv_transient;
 +	}
@@ -23,27 +21,26 @@ index 670dc8f..9edbeb4 100644
  	else
  		stv = bo->storage;
  
-diff --git a/include/tbl/vsc_f_main.h b/include/tbl/vsc_f_main.h
-index 206cd03..406050c 100644
---- a/include/tbl/vsc_f_main.h
-+++ b/include/tbl/vsc_f_main.h
-@@ -115,6 +115,19 @@ VSC_FF(cache_miss,		uint64_t, 1, 'c', 'i', info,
- 	" backend before delivering it to the client."
- )
+--- a/bin/varnishd/VSC_main.vsc
++++ b/bin/varnishd/VSC_main.vsc
+@@ -143,6 +143,20 @@
+ 	Count of misses. A cache miss indicates the object was fetched from
+ 	the backend before delivering it to the client.
  
-+VSC_FF(cache_shortlived,		uint64_t, 1, 'c', 'i', info,
-+    "Shortlived objects",
-+	"Count of shortlived objects"
-+	"  Objects created with (ttl+grace+keep) shorter than the"
-+	"  'shortlived' parameter are always put in transient"
-+	"  storage."
-+)
++.. varnish_vsc:: cache_shortlived
++	:group: wrk
++	:oneliner: Shortlived objects
 +
-+VSC_FF(cache_uncacheable,		uint64_t, 1, 'c', 'i', info,
-+    "Uncacheable objects",
-+	"Count of uncacheable objects"
-+)
++	Count of shortlived objects. Objects created with (ttl+grace+keep)
++	shorter than the 'shortlived' parameter are always put in
++	transient storage.
 +
- /*---------------------------------------------------------------------*/
++.. varnish_vsc:: cache_uncacheable
++	:group: wrk
++	:oneliner: Uncacheable objects
++
++	Count of uncacheable objects.
++
+ .. varnish_vsc:: backend_conn
+ 	:oneliner:	Backend conn. success
  
- VSC_FF(backend_conn,		uint64_t, 0, 'c', 'i', info,
