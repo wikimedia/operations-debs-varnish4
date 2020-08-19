@@ -29,25 +29,21 @@
 
 #include "config.h"
 
-#include <stddef.h>
-
-#include <sys/types.h>
 #include <sys/socket.h>
 
 #include <netinet/in.h>
 
 #include <netdb.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "vcc_compile.h"
 
-#include "vrt.h"
+#define ACL_MAXADDR	(sizeof(struct in6_addr) + 1)
 
 struct acl_e {
 	VTAILQ_ENTRY(acl_e)	list;
-	unsigned char		data[VRT_ACL_MAXADDR + 1];
+	unsigned char		data[ACL_MAXADDR];
 	unsigned		mask;
 	unsigned		not;
 	unsigned		para;
@@ -127,7 +123,8 @@ vcc_acl_add_entry(struct vcc *tl, const struct acl_e *ae, int l,
 	aen->data[0] = fam & 0xff;
 	aen->mask += 8;
 
-	memcpy(aen->data + 1, u, l);
+	assert(l + 1L <= sizeof aen->data);
+	memcpy(aen->data + 1L, u, l);
 
 	VTAILQ_FOREACH(ae2, &tl->acl, list) {
 		i = vcl_acl_cmp(aen, ae2);
@@ -346,31 +343,36 @@ vcc_acl_entry(struct vcc *tl)
  */
 
 static void
-vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
+vcc_acl_emit(struct vcc *tl, const char *name, const char *rname, int anon)
 {
 	struct acl_e *ae;
 	int depth, l, m, i;
-	unsigned at[VRT_ACL_MAXADDR + 1];
+	unsigned at[ACL_MAXADDR];
 	struct token *t;
 	struct inifin *ifp;
+	struct vsb *func;
 
-	Fh(tl, 0, "\nstatic int __match_proto__(acl_match_f)\n");
-	Fh(tl, 0,
-	    "match_acl_%s_%s(VRT_CTX, const VCL_IP p)\n",
-	    anon ? "anon" : "named", acln);
+	func = VSB_new_auto();
+	AN(func);
+	VSB_printf(func, "match_acl_%s_", anon ? "anon" : "named");
+	VCC_PrintCName(func, name, NULL);
+	AZ(VSB_finish(func));
+
+	Fh(tl, 0, "\nstatic int v_matchproto_(acl_match_f)\n");
+	Fh(tl, 0, "%s(VRT_CTX, const VCL_IP p)\n", VSB_data(func));
 	Fh(tl, 0, "{\n");
 	Fh(tl, 0, "\tconst unsigned char *a;\n");
 	Fh(tl, 0, "\tint fam;\n");
 	Fh(tl, 0, "\n");
 	Fh(tl, 0, "\tfam = VRT_VSA_GetPtr(p, &a);\n");
 	Fh(tl, 0, "\tif (fam < 0) {\n");
-	Fh(tl, 0, "\t\tVRT_acl_log(ctx, \"NO_FAM %s\");\n", acln);
+	Fh(tl, 0, "\t\tVRT_acl_log(ctx, \"NO_FAM %s\");\n", name);
 	Fh(tl, 0, "\t\treturn(0);\n");
 	Fh(tl, 0, "\t}\n\n");
 	if (!tl->err_unref && !anon) {
 		ifp = New_IniFin(tl);
 		VSB_printf(ifp->ini,
-			"\tif (0) match_acl_named_%s(0, 0);\n", acln);
+			"\tif (0) %s(0, 0);\n", VSB_data(func));
 	}
 	depth = -1;
 	at[0] = 256;
@@ -389,9 +391,9 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 			depth--;
 		}
 
-		m = ae->mask;
+		m = (int)ae->mask;
+		assert(m >= l*8);
 		m -= l * 8;
-		assert(m >= 0);
 
 		/* Do whole byte compares */
 		for (i = l; m >= 8; m -= 8, i++) {
@@ -414,11 +416,11 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 			depth = i;
 		}
 
-		i = (ae->mask + 7) / 8;
+		i = ((int)ae->mask + 7) / 8;
 
 		if (!anon) {
 			Fh(tl, 0, "\t%*sVRT_acl_log(ctx, \"%sMATCH %s \" ",
-			    -i, "", ae->not ? "NEG_" : "", acln);
+			    -i, "", ae->not ? "NEG_" : "", name);
 			t = ae->t_addr;
 			do {
 				if (t->tok == CSTR) {
@@ -444,53 +446,32 @@ vcc_acl_emit(struct vcc *tl, const char *acln, int anon)
 
 	/* Deny by default */
 	if (!anon)
-		Fh(tl, 0, "\tVRT_acl_log(ctx, \"NO_MATCH %s\");\n", acln);
+		Fh(tl, 0, "\tVRT_acl_log(ctx, \"NO_MATCH %s\");\n", name);
 	Fh(tl, 0, "\treturn (0);\n}\n");
 
-	if (anon)
-		return;
-
-	/* Emit the struct that will be referenced */
-	Fh(tl, 0, "\nconst struct vrt_acl vrt_acl_named_%s = {\n", acln);
-	Fh(tl, 0, "\t.magic = VRT_ACL_MAGIC,\n");
-	Fh(tl, 0, "\t.match = &match_acl_named_%s,\n", acln);
-	Fh(tl, 0, "};\n\n");
-}
-
-void
-vcc_Acl_Hack(struct vcc *tl, char *b, size_t bl)
-{
-	char acln[32];
-	unsigned tcond;
-
-	VTAILQ_INIT(&tl->acl);
-	tcond = tl->t->tok;
-	vcc_NextToken(tl);
-	bprintf(acln, "%u", tl->unique++);
-	vcc_acl_entry(tl);
-	vcc_acl_emit(tl, acln, 1);
-	assert(snprintf(b, bl - 1, "%smatch_acl_anon_%s(ctx, \v1)",
-	    (tcond == T_NEQ ? "!" : ""), acln) < bl - 1);
+	if (!anon) {
+		/* Emit the struct that will be referenced */
+		Fh(tl, 0, "\nconst struct vrt_acl %s[] = {{\n", rname);
+		Fh(tl, 0, "\t.magic = VRT_ACL_MAGIC,\n");
+		Fh(tl, 0, "\t.match = &%s,\n", VSB_data(func));
+		Fh(tl, 0, "}};\n\n");
+	}
+	VSB_destroy(&func);
 }
 
 void
 vcc_ParseAcl(struct vcc *tl)
 {
-	struct token *an;
-	char *acln;
+	struct symbol *sym;
 
 	vcc_NextToken(tl);
 	VTAILQ_INIT(&tl->acl);
 
-	vcc_ExpectCid(tl, "ACL");
+	vcc_ExpectVid(tl, "ACL");
 	ERRCHK(tl);
-	an = tl->t;
-	vcc_NextToken(tl);
-
-	acln = TlDupTok(tl, an);
-
-	(void)VCC_HandleSymbol(tl, an, ACL, "&vrt_acl_named_%s", acln);
+	sym = VCC_HandleSymbol(tl, ACL, ACL_SYMBOL_PREFIX);
 	ERRCHK(tl);
+	AN(sym);
 
 	SkipToken(tl, '{');
 
@@ -501,5 +482,5 @@ vcc_ParseAcl(struct vcc *tl)
 	}
 	SkipToken(tl, '}');
 
-	vcc_acl_emit(tl, acln, 0);
+	vcc_acl_emit(tl, sym->name, sym->rname, 0);
 }

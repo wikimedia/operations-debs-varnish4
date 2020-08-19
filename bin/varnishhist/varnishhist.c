@@ -33,18 +33,18 @@
 
 #include "config.h"
 
-#include <sys/types.h>
-
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
 #include <pthread.h>
-#include <regex.h>
 #include <signal.h>
-#include <stdint.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#define VOPT_DEFINITION
+#define VOPT_INC "varnishhist_options.h"
 
 #include "vdef.h"
 #include "vcurses.h"
@@ -52,24 +52,23 @@
 #include "vapi/vsm.h"
 #include "vapi/voptget.h"
 #include "vas.h"
-#include "vcs.h"
 #include "vut.h"
 #include "vtim.h"
 
 #define HIST_N 2000		/* how far back we remember */
 #define HIST_RES 100		/* bucket resolution */
 
-static const char progname[] = "varnishhist";
+static struct VUT *vut;
 
 static int hist_low;
 static int hist_high;
 static int hist_range;
-static int hist_buckets;
+static unsigned hist_buckets;
 
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
 static int end_of_file = 0;
-static double delay = 1;
+static int ms_delay = 1000;
 static unsigned rr_hist[HIST_N];
 static unsigned nhist;
 static unsigned next_hist;
@@ -81,8 +80,9 @@ static double timebend = 0, t0;
 static double vsl_t0 = 0, vsl_to, vsl_ts = 0;
 static pthread_cond_t timebend_cv;
 static double log_ten;
+static char *ident;
 
-static int scales[] = {
+static const unsigned scales[] = {
 	1,
 	2,
 	3,
@@ -103,10 +103,10 @@ static int scales[] = {
 	25000,
 	50000,
 	100000,
-	INT_MAX
+	UINT_MAX
 };
 
-static struct profile {
+struct profile {
 	const char *name;
 	char VSL_arg;
 	enum VSL_tag_e tag;
@@ -114,13 +114,14 @@ static struct profile {
 	int field;
 	int hist_low;
 	int hist_high;
-}
+};
+
 #define HIS_PROF(name,vsl_arg,tag,prefix,field,hist_low,high_high,doc)	\
 	{name,vsl_arg,tag,prefix,field,hist_low,high_high},
 #define HIS_NO_PREFIX	NULL
 #define HIS_CLIENT	'c'
 #define HIS_BACKEND	'b'
-profiles[] = {
+static const struct profile profiles[] = {
 #include "varnishhist_profiles.h"
 	{ NULL }
 };
@@ -129,20 +130,20 @@ profiles[] = {
 #undef HIS_CLIENT
 #undef HIS_PROF
 
-static struct profile *active_profile;
+static const struct profile *active_profile;
 
-volatile sig_atomic_t quit = 0;
+static volatile sig_atomic_t quit = 0;
 
 static void
 update(void)
 {
 	char t[VTIM_FORMAT_SIZE];
-	unsigned w = COLS / hist_range;
-	unsigned n = w * hist_range;
+	const unsigned w = COLS / hist_range;
+	const unsigned n = w * hist_range;
 	unsigned bm[n], bh[n];
 	unsigned max;
 	unsigned i, j, scale;
-	int k, l;
+	unsigned k, l;
 
 	erase();
 
@@ -157,13 +158,14 @@ update(void)
 	if (end_of_file)
 		mvprintw(0, 0, "%*s", COLS - 1, "EOF");
 	else
-		mvprintw(0, 0, "%*s", COLS - 1, VUT.name);
+		mvprintw(0, 0, "%*s", COLS - 1, ident);
 
 	/* count our flock */
-	for (i = 0; i < n; ++i)
-		bm[i] = bh[i] = 0;
+	memset(bm, 0, sizeof bm);
+	memset(bh, 0, sizeof bh);
 	for (k = 0, max = 1; k < hist_buckets; ++k) {
 		l = k * n / hist_buckets;
+		assert(l < n);
 		bm[l] += bucket_miss[k];
 		bh[l] += bucket_hit[k];
 		if (bm[l] + bh[l] > max)
@@ -179,21 +181,21 @@ update(void)
 	if (vsl_t0 > 0) {
 		VTIM_format(vsl_ts, t);
 
-		mvprintw(0, 0, "1:%d, n = %d, d = %g @ %s x %g",
-		    scale, nhist, delay, t, timebend);
+		mvprintw(0, 0, "1:%u, n = %u, d = %g @ %s x %g",
+		    scale, nhist, 1e-3 * ms_delay, t, timebend);
 	} else
-		mvprintw(0, 0, "1:%d, n = %d, d = %g",
-		    scale, nhist, delay);
+		mvprintw(0, 0, "1:%u, n = %u, d = %g",
+		    scale, nhist, 1e-3 * ms_delay);
 
-	for (j = 2; j < LINES - 3; j += 5)
-		mvprintw(j, 0, "%d_", (LINES - 3 - j) * scale);
+	for (j = 5; j < LINES - 2; j += 5)
+		mvprintw((LINES - 2) - j, 0, "%u_", j * scale);
 
 	/* show them */
 	for (i = 0; i < n; ++i) {
 		for (j = 0; j < bm[i] / scale; ++j)
-			(void)mvaddch(LINES - 3 - j, i, '#');
+			(void)mvaddch((LINES - 3) - j, i, '#');
 		for (; j < (bm[i] + bh[i]) / scale; ++j)
-			(void)mvaddch(LINES - 3 - j, i, '|');
+			(void)mvaddch((LINES - 3) - j, i, '|');
 	}
 
 	refresh();
@@ -218,13 +220,13 @@ upd_vsl_ts(const char *p)
 		vsl_ts = t;
 }
 
-static int /*__match_proto__ (VSLQ_dispatch_f)*/
+static int v_matchproto_ (VSLQ_dispatch_f)
 accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
     void *priv)
 {
 	int i, tag, skip, match, hit;
 	unsigned u;
-	double value;
+	double value = 0;
 	struct VSL_transaction *tr;
 	double t;
 	const char *tsp;
@@ -256,6 +258,9 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 
 			/* get the value we want and register if it's a hit */
 			tag = VSL_TAG(tr->c->rec.ptr);
+
+			if (VSL_tagflags[tag])
+				continue;
 
 			switch (tag) {
 			case SLT_Hit:
@@ -290,11 +295,11 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 			}
 		}
 
-		if (skip || !match)
+		if (skip || !match || value <= 0)
 			continue;
 
 		/* select bucket */
-		i = HIST_RES * (log(value) / log_ten);
+		i = lround(HIST_RES * log(value) / log_ten);
 		if (i < hist_low * HIST_RES)
 			i = hist_low * HIST_RES;
 		if (i >= hist_high * HIST_RES)
@@ -367,14 +372,15 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	return (0);
 }
 
-static int __match_proto__(VUT_cb_f)
-sighup(void)
+static int v_matchproto_(VUT_cb_f)
+sighup(struct VUT *v)
 {
+	assert(v == vut);
 	quit = 1;
 	return (1);
 }
 
-static void *
+static void * v_matchproto_(pthread_t)
 do_curses(void *arg)
 {
 	int ch;
@@ -392,7 +398,8 @@ do_curses(void *arg)
 		update();
 		AZ(pthread_mutex_unlock(&mtx));
 
-		timeout(delay * 1000);
+		assert(ms_delay > 0);
+		timeout(ms_delay);
 		switch ((ch = getch())) {
 		case ERR:
 			break;
@@ -408,15 +415,15 @@ do_curses(void *arg)
 			break;
 		case '\032':	/* Ctrl-Z */
 			endwin();
-			raise(SIGTSTP);
+			AZ(raise(SIGTSTP));
 			break;
 		case '\003':	/* Ctrl-C */
 		case '\021':	/* Ctrl-Q */
 		case 'Q':
 		case 'q':
-			raise(SIGINT);
-			endwin();
-			return (NULL);
+			AZ(raise(SIGINT));
+			quit = 1;
+			break;
 		case '0':
 		case '1':
 		case '2':
@@ -427,15 +434,15 @@ do_curses(void *arg)
 		case '7':
 		case '8':
 		case '9':
-			delay = 1 << (ch - '0');
+			ms_delay = 1000U << (ch - '0');
 			break;
 		case '+':
-			delay /= 2;
-			if (delay < 1e-3)
-				delay = 1e-3;
+			ms_delay /= 2;
+			if (ms_delay < 1)
+				ms_delay = 1;
 			break;
 		case '-':
-			delay *= 2;
+			ms_delay *= 2;
 			break;
 		case '>':
 		case '<':
@@ -466,19 +473,19 @@ do_curses(void *arg)
 
 /*--------------------------------------------------------------------*/
 
-static void __attribute__((__noreturn__))
+static void v_noreturn_
 usage(int status)
 {
 	const char **opt;
 
-	fprintf(stderr, "Usage: %s <options>\n\n", progname);
+	fprintf(stderr, "Usage: %s <options>\n\n", vut->progname);
 	fprintf(stderr, "Options:\n");
 	for (opt = vopt_spec.vopt_usage; *opt != NULL; opt += 2)
 		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
 	exit(status);
 }
 
-static void
+static void v_noreturn_
 profile_error(const char *s)
 {
 	fprintf(stderr, "-P: '%s' is not a valid"
@@ -486,18 +493,26 @@ profile_error(const char *s)
 	exit(1);
 }
 
+static void
+vut_sighandler(int sig)
+{
+
+	if (vut != NULL)
+		VUT_Signaled(vut, sig);
+}
+
 int
 main(int argc, char **argv)
 {
 	int i;
-	const char *colon, *ptag;
-	const char *profile = "responsetime";
+	char *colon;
+	const char *ptag, *profile = "responsetime";
 	pthread_t thr;
-	int fnum = -1;
+	int fnum;
 	struct profile cli_p = {0};
-	cli_p.name = 0;
 
-	VUT_Init(progname, argc, argv, &vopt_spec);
+	vut = VUT_InitProg(argc, argv, &vopt_spec);
+	AN(vut);
 	AZ(pthread_cond_init(&timebend_cv, NULL));
 
 	while ((i = getopt(argc, argv, vopt_spec.vopt_optstring)) != -1) {
@@ -506,9 +521,9 @@ main(int argc, char **argv)
 			/* Usage help */
 			usage(0);
 		case 'p':
-			delay = strtod(optarg, NULL);
-			if (delay <= 0)
-				VUT_Error(1, "-p: invalid '%s'", optarg);
+			ms_delay = lround(1e3 * strtod(optarg, NULL));
+			if (ms_delay <= 0)
+				VUT_Error(vut, 1, "-p: invalid '%s'", optarg);
 			break;
 		case 'P':
 			colon = strchr(optarg, ':');
@@ -517,7 +532,7 @@ main(int argc, char **argv)
 				profile = optarg;
 				break;
 			}
-			/* else it's a definition, we hope */
+			/* else check if valid definition */
 			if (colon == optarg + 1 &&
 			    (*optarg == 'b' || *optarg == 'c')) {
 				cli_p.VSL_arg = *optarg;
@@ -531,36 +546,62 @@ main(int argc, char **argv)
 			}
 
 			assert(colon);
-			if (sscanf(colon + 1, "%d:%d:%d", &cli_p.field,
-			    &cli_p.hist_low, &cli_p.hist_high) != 3)
-				profile_error(optarg);
 
 			match_tag = VSL_Name2Tag(ptag, colon - ptag);
 			if (match_tag < 0)
-				VUT_Error(1,
+				VUT_Error(vut, 1,
 				    "-P: '%s' is not a valid tag name",
 				    optarg);
+
+			if (VSL_tagflags[match_tag])
+				VUT_Error(vut, 1,
+				    "-P: '%s' is an unsafe or binary record",
+				    optarg);
+
+			cli_p.prefix = colon + 1;
+
+			colon = strchr(colon + 1, ':');
+			if (colon == NULL)
+				profile_error(optarg);
+
+			*colon = '\0';
+			if (*cli_p.prefix == '\0')
+				cli_p.prefix = NULL;
+
+			if (sscanf(colon + 1, "%d",  &cli_p.field) != 1)
+				profile_error(optarg);
+
 			cli_p.name = "custom";
-			cli_p.tag = match_tag;
+			cli_p.tag = (enum VSL_tag_e)match_tag;
+			cli_p.hist_low = -6;
+			cli_p.hist_high = 3;
 			profile = NULL;
 			active_profile = &cli_p;
+
+			colon = strchr(colon + 1, ':');
+			if (colon == NULL)
+				break;
+
+			if (sscanf(colon + 1, "%d:%d",  &cli_p.hist_low,
+				   &cli_p.hist_high) != 2)
+				profile_error(optarg);
 
 			break;
 		case 'B':
 			timebend = strtod(optarg, NULL);
 			if (timebend == 0)
-				VUT_Error(1,
+				VUT_Error(vut, 1,
 				    "-B: being able to bend time does not"
 				    " mean we can stop it"
 				    " (invalid factor '%s')", optarg);
 			if (timebend < 0)
-				VUT_Error(1,
+				VUT_Error(vut, 1,
 				    "-B: being able to bend time does not"
 				    " mean we can make it go backwards"
 				    " (invalid factor '%s')", optarg);
 			break;
 		default:
-			if (!VUT_Arg(i, optarg))
+			if (!VUT_Arg(vut, i, optarg))
 				usage(1);
 		}
 	}
@@ -569,11 +610,11 @@ main(int argc, char **argv)
 		usage(1);
 
 	/* Check for valid grouping mode */
-	assert(VUT.g_arg < VSL_g__MAX);
-	if (VUT.g_arg != VSL_g_vxid && VUT.g_arg != VSL_g_request)
-		VUT_Error(1, "Invalid grouping mode: %s"
+	assert(vut->g_arg < VSL_g__MAX);
+	if (vut->g_arg != VSL_g_vxid && vut->g_arg != VSL_g_request)
+		VUT_Error(vut, 1, "Invalid grouping mode: %s"
 		    " (only vxid and request are supported)",
-		    VSLQ_grouping[VUT.g_arg]);
+		    VSLQ_grouping[vut->g_arg]);
 
 	if (profile) {
 		for (active_profile = profiles; active_profile->name;
@@ -582,10 +623,13 @@ main(int argc, char **argv)
 				break;
 		}
 	}
+	AN(active_profile);
 	if (!active_profile->name)
-		VUT_Error(1, "-P: No such profile '%s'", profile);
+		VUT_Error(vut, 1, "-P: No such profile '%s'", profile);
 
-	assert(VUT_Arg(active_profile->VSL_arg, NULL));
+	assert(active_profile->VSL_arg == 'b' ||
+	    active_profile->VSL_arg == 'c');
+	assert(VUT_Arg(vut, active_profile->VSL_arg, NULL));
 	match_tag = active_profile->tag;
 	fnum = active_profile->field;
 	hist_low = active_profile->hist_low;
@@ -593,28 +637,33 @@ main(int argc, char **argv)
 
 	hist_range = hist_high - hist_low;
 	hist_buckets = hist_range * HIST_RES;
-	bucket_hit = calloc(sizeof *bucket_hit, hist_buckets);
-	bucket_miss = calloc(sizeof *bucket_miss, hist_buckets);
+	bucket_hit = calloc(hist_buckets, sizeof *bucket_hit);
+	bucket_miss = calloc(hist_buckets, sizeof *bucket_miss);
 
 	if (timebend > 0)
 		t0 = VTIM_mono();
 
-	format = malloc(4 * fnum);
+	format = malloc(4L * fnum);
+	AN(format);
 	for (i = 0; i < fnum - 1; i++)
 		strcpy(format + 4 * i, "%*s ");
 	strcpy(format + 4 * (fnum - 1), "%lf");
 
 	log_ten = log(10.0);
 
-	VUT_Setup();
-	if (pthread_create(&thr, NULL, do_curses, NULL) != 0)
-		VUT_Error(1, "pthread_create(): %s", strerror(errno));
-	VUT.dispatch_f = &accumulate;
-	VUT.dispatch_priv = NULL;
-	VUT.sighup_f = sighup;
-	VUT_Main();
+	VUT_Signal(vut_sighandler);
+	VUT_Setup(vut);
+	if (vut->vsm)
+		ident = VSM_Dup(vut->vsm, "Arg", "-i");
+	else
+		ident = strdup("");
+	AZ(pthread_create(&thr, NULL, do_curses, NULL));
+	vut->dispatch_f = accumulate;
+	vut->dispatch_priv = NULL;
+	vut->sighup_f = sighup;
+	VUT_Main(vut);
 	end_of_file = 1;
 	AZ(pthread_join(thr, NULL));
-	VUT_Fini();
+	VUT_Fini(&vut);
 	exit(0);
 }

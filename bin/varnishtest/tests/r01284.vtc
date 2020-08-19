@@ -11,7 +11,8 @@ server s1 {
 
 varnish v1 \
 	-arg "-p nuke_limit=0" \
-	-arg "-sTransient=malloc,1m" \
+	-arg "-sTransient=default,1m" \
+	-syntax 4.0 \
 	-vcl+backend {
 	sub vcl_backend_response {
 		set beresp.do_stream = false;
@@ -34,8 +35,8 @@ client c1 {
 
 delay .1
 
-varnish v1 -expect SMA.Transient.g_bytes > 1048000
-varnish v1 -expect SMA.Transient.g_space < 200
+varnish v1 -expect SM?.Transient.g_bytes > 1048000
+varnish v1 -expect SM?.Transient.g_space < 200
 
 client c1 {
 	# No space for this object (more than 256 bytes in headers). Don't wait
@@ -45,7 +46,7 @@ client c1 {
 } -run
 
 # Three failures, one for obj2, one for vcl_backend_error{}, one for synth objcore
-varnish v1 -expect SMA.Transient.c_fail == 3
+varnish v1 -expect SM?.Transient.c_fail == 3
 
 client c1 {
 	# Check that Varnish is still alive

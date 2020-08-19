@@ -37,24 +37,23 @@
 
 #include "config.h"
 
-#include "cache.h"
-
 #include <poll.h>
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 #include <stdlib.h>
 
-#include <netinet/in.h>
-#include <netinet/tcp.h>
+#include "cache_varnishd.h"
 
 #include "binary_heap.h"
 #include "vcli_serve.h"
-#include "vrt.h"
 #include "vsa.h"
 #include "vtcp.h"
 #include "vtim.h"
 
 #include "cache_director.h"
 #include "cache_backend.h"
+#include "cache_tcp_pool.h"
 
 /* Default averaging rate, we want something pretty responsive */
 #define AVG_RATE			4
@@ -75,14 +74,14 @@ struct vbp_target {
 	unsigned			good;
 
 	/* Collected statistics */
-#define BITMAP(n, c, t, b)	uint64_t	n;
+#define BITMAP(n, c, t, b)	uintmax_t	n;
 #include "tbl/backend_poll.h"
 
-	double				last;
-	double				avg;
+	vtim_dur			last;
+	vtim_dur			avg;
 	double				rate;
 
-	double				due;
+	vtim_real			due;
 	int				running;
 	int				heap_idx;
 	struct pool_task		task;
@@ -105,7 +104,7 @@ vbp_delete(struct vbp_target *vt)
 #define DN(x)	/**/
 	VRT_BACKEND_PROBE_HANDLE();
 #undef DN
-	VBT_Rel(&vt->tcp_pool);
+	VTP_Rel(&vt->tcp_pool);
 	free(vt->req);
 	FREE_OBJ(vt);
 }
@@ -168,29 +167,31 @@ vbp_update_backend(struct vbp_target *vt)
 		bits[i++] = (vt->n & 1) ? c : '-';
 #include "tbl/backend_poll.h"
 		bits[i] = '\0';
+		assert(i < sizeof bits);
 
 		if (vt->good >= vt->threshold) {
-			if (vt->backend->healthy)
+			if (vt->backend->director->health)
 				logmsg = "Still healthy";
 			else {
 				logmsg = "Back healthy";
-				vt->backend->health_changed = VTIM_real();
+				vt->backend->director->health_changed =
+				     VTIM_real();
 			}
-			vt->backend->healthy = 1;
+			vt->backend->director->health = 1;
 		} else {
-			if (vt->backend->healthy) {
+			if (vt->backend->director->health) {
 				logmsg = "Went sick";
-				vt->backend->health_changed = VTIM_real();
+				vt->backend->director->health_changed =
+				     VTIM_real();
 			} else
 				logmsg = "Still sick";
-			vt->backend->healthy = 0;
+			vt->backend->director->health = 0;
 		}
 		VSL(SLT_Backend_health, 0, "%s %s %s %u %u %u %.6f %.6f %s",
-		    vt->backend->display_name, logmsg, bits,
+		    vt->backend->director->display_name, logmsg, bits,
 		    vt->good, vt->threshold, vt->window,
 		    vt->last, vt->avg, vt->resp_buf);
-		if (vt->backend != NULL && vt->backend->vsc != NULL)
-			vt->backend->vsc->happy = vt->happy;
+		VBE_SetHappy(vt->backend, vt->happy);
 	}
 	Lck_Unlock(&vbp_mtx);
 }
@@ -228,8 +229,15 @@ vbp_write(struct vbp_target *vt, int *sock, const void *buf, size_t len)
 
 	i = write(*sock, buf, len);
 	if (i != len) {
-		if (i < 0)
+		if (i < 0) {
 			vt->err_xmit |= 1;
+			bprintf(vt->resp_buf, "Write error %d (%s)",
+				errno, strerror(errno));
+		} else {
+			bprintf(vt->resp_buf,
+				"Short write (%d/%zu) error %d (%s)",
+				i, len, errno, strerror(errno));
+		}
 		VTCP_close(sock);
 		return (-1);
 	}
@@ -248,17 +256,15 @@ vbp_write_proxy_v1(struct vbp_target *vt, int *sock)
 
 	VTCP_myname(*sock, addr, sizeof addr, port, sizeof port);
 	AN(VSB_new(&vsb, buf, sizeof buf, VSB_FIXEDLEN));
-	AZ(VSB_cat(&vsb, "PROXY"));
 
 	l = sizeof ss;
 	AZ(getsockname(*sock, (void *)&ss, &l));
-	if (ss.ss_family == AF_INET6)
-		VSB_printf(&vsb, " TCP6 ");
-	else if (ss.ss_family == AF_INET)
-		VSB_printf(&vsb, " TCP4 ");
-	else
-		WRONG("Unknown family");
-	VSB_printf(&vsb, "%s %s %s %s\r\n", addr, addr, port, port);
+	if (ss.ss_family == AF_INET || ss.ss_family == AF_INET6) {
+		VSB_printf(&vsb, "PROXY %s %s %s %s %s\r\n",
+		    ss.ss_family == AF_INET ? "TCP4" : "TCP6",
+		    addr, addr, port, port);
+	} else
+		VSB_cat(&vsb, "PROXY UNKNOWN\r\n");
 	AZ(VSB_finish(&vsb));
 
 	return (vbp_write(vt, sock, VSB_data(&vsb), VSB_len(&vsb)));
@@ -267,8 +273,8 @@ vbp_write_proxy_v1(struct vbp_target *vt, int *sock)
 static void
 vbp_poke(struct vbp_target *vt)
 {
-	int s, tmo, i, proxy_header;
-	double t_start, t_now, t_end;
+	int s, tmo, i, proxy_header, err;
+	vtim_real t_start, t_now, t_end;
 	unsigned rlen, resp;
 	char buf[8192], *p;
 	struct pollfd pfda[1], *pfd = pfda;
@@ -277,14 +283,20 @@ vbp_poke(struct vbp_target *vt)
 	t_start = t_now = VTIM_real();
 	t_end = t_start + vt->timeout;
 
-	s = VBT_Open(vt->tcp_pool, t_end - t_now, &sa);
+	s = VTP_Open(vt->tcp_pool, t_end - t_now, (const void **)&sa, &err);
 	if (s < 0) {
-		/* Got no connection: failed */
+		bprintf(vt->resp_buf, "Open error %d (%s)", err, strerror(err));
+		Lck_Lock(&vbp_mtx);
+		if (vt->backend)
+			VBE_Connect_Error(vt->backend->vsc, err);
+		Lck_Unlock(&vbp_mtx);
 		return;
 	}
 
 	i = VSA_Get_Proto(sa);
-	if (i == AF_INET)
+	if (VSA_Compare(sa, bogo_ip) == 0)
+		vt->good_unix |= 1;
+	else if (i == AF_INET)
 		vt->good_ipv4 |= 1;
 	else if (i == AF_INET6)
 		vt->good_ipv6 |= 1;
@@ -294,7 +306,9 @@ vbp_poke(struct vbp_target *vt)
 	t_now = VTIM_real();
 	tmo = (int)round((t_end - t_now) * 1e3);
 	if (tmo <= 0) {
-		/* Spent too long time getting it */
+		bprintf(vt->resp_buf,
+			"Open timeout %.3fs exceeded by %.3fs",
+			vt->timeout, t_now - t_end);
 		VTCP_close(&s);
 		return;
 	}
@@ -306,8 +320,11 @@ vbp_poke(struct vbp_target *vt)
 		proxy_header = -1;
 	Lck_Unlock(&vbp_mtx);
 
-	if (proxy_header < 0)
+	if (proxy_header < 0) {
+		bprintf(vt->resp_buf, "%s", "No backend");
+		VTCP_close(&s);
 		return;
+	}
 
 	/* Send the PROXY header */
 	assert(proxy_header <= 2);
@@ -325,15 +342,23 @@ vbp_poke(struct vbp_target *vt)
 
 	pfd->fd = s;
 	rlen = 0;
-	do {
+	while (1) {
 		pfd->events = POLLIN;
 		pfd->revents = 0;
 		tmo = (int)round((t_end - t_now) * 1e3);
 		if (tmo > 0)
 			i = poll(pfd, 1, tmo);
-		if (i == 0 || tmo <= 0) {
-			if (i == 0)
-				vt->err_recv |= 1;
+		if (i == 0) {
+			vt->err_recv |= 1;
+			bprintf(vt->resp_buf, "Poll error %d (%s)",
+				errno, strerror(errno));
+			VTCP_close(&s);
+			return;
+		}
+		if (tmo <= 0) {
+			bprintf(vt->resp_buf,
+				"Poll (read) timeout %.3fs exceeded by %.3fs",
+				vt->timeout, t_now - t_end);
 			VTCP_close(&s);
 			return;
 		}
@@ -342,18 +367,27 @@ vbp_poke(struct vbp_target *vt)
 			    sizeof vt->resp_buf - rlen);
 		else
 			i = read(s, buf, sizeof buf);
+		if (i <= 0) {
+			if (i < 0)
+				bprintf(vt->resp_buf, "Read error %d (%s)",
+					errno, strerror(errno));
+			break;
+		}
 		rlen += i;
-	} while (i > 0);
+	}
 
 	VTCP_close(&s);
 
 	if (i < 0) {
+		/* errno reported above */
 		vt->err_recv |= 1;
 		return;
 	}
 
-	if (rlen == 0)
+	if (rlen == 0) {
+		bprintf(vt->resp_buf, "%s", "Empty response");
 		return;
+	}
 
 	/* So we have a good receive ... */
 	t_now = VTIM_real();
@@ -378,7 +412,7 @@ vbp_poke(struct vbp_target *vt)
 /*--------------------------------------------------------------------
  */
 
-static void __match_proto__(task_func_t)
+static void v_matchproto_(task_func_t)
 vbp_task(struct worker *wrk, void *priv)
 {
 	struct vbp_target *vt;
@@ -405,6 +439,7 @@ vbp_task(struct worker *wrk, void *priv)
 			vt->due = VTIM_real() + vt->interval;
 			binheap_delete(vbp_heap, vt->heap_idx);
 			binheap_insert(vbp_heap, vt);
+			AZ(pthread_cond_signal(&vbp_cond));
 		}
 	}
 	Lck_Unlock(&vbp_mtx);
@@ -413,10 +448,10 @@ vbp_task(struct worker *wrk, void *priv)
 /*--------------------------------------------------------------------
  */
 
-static void * __match_proto__()
+static void * v_matchproto_(bgthread_t)
 vbp_thread(struct worker *wrk, void *priv)
 {
-	double now, nxt;
+	vtim_real now, nxt;
 	struct vbp_target *vt;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
@@ -615,6 +650,7 @@ VBP_Insert(struct backend *b, const struct vrt_backend_probe *vp,
 	XXXAN(vt);
 
 	vt->tcp_pool = tp;
+	VTP_AddRef(vt->tcp_pool);
 	vt->backend = b;
 	b->probe = vt;
 
@@ -635,7 +671,7 @@ VBP_Remove(struct backend *be)
 	CHECK_OBJ_NOTNULL(vt, VBP_TARGET_MAGIC);
 
 	Lck_Lock(&vbp_mtx);
-	be->healthy = 1;
+	be->director->health = 1;
 	be->probe = NULL;
 	vt->backend = NULL;
 	if (vt->running) {
@@ -651,7 +687,7 @@ VBP_Remove(struct backend *be)
 
 /*-------------------------------------------------------------------*/
 
-static int __match_proto__(binheap_cmp_t)
+static int v_matchproto_(binheap_cmp_t)
 vbp_cmp(void *priv, const void *a, const void *b)
 {
 	const struct vbp_target *aa, *bb;
@@ -660,13 +696,13 @@ vbp_cmp(void *priv, const void *a, const void *b)
 	CAST_OBJ_NOTNULL(aa, a, VBP_TARGET_MAGIC);
 	CAST_OBJ_NOTNULL(bb, b, VBP_TARGET_MAGIC);
 
-	if (aa->running && !bb->running)
-		return (0);
+	if ((aa->running == 0) != (bb->running == 0))
+		return (aa->running == 0);
 
 	return (aa->due < bb->due);
 }
 
-static void __match_proto__(binheap_update_t)
+static void v_matchproto_(binheap_update_t)
 vbp_update(void *priv, void *p, unsigned u)
 {
 	struct vbp_target *vt;

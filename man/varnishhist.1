@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishhist [\-B <factor>] [\-C] [\-d] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <dir>] [\-N <filename>] [\-p <period>] [\-P responsetime] [\-P size] [\-P Bereqtime] [\-P Beresptime] [\-P BerespBodytime] [\-P Besize] [\-P <[cb:]tag:field_num:min:max>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-V]
+varnishhist [\-B <factor>] [\-C] [\-d] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <dir>] [\-p <period>] [\-P responsetime] [\-P reqbodytime] [\-P size] [\-P Bereqtime] [\-P Beresptime] [\-P BerespBodytime] [\-P Besize] [\-P <[cb:]tag:[prefix]:field_num[:min:max]>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-V]
 .SH DESCRIPTION
 .sp
 The varnishhist utility reads varnishd(1) shared memory logs and
@@ -66,14 +66,14 @@ Sets the upper limit of incomplete transactions kept before the oldest transacti
 .BI \-n \ <dir>
 Specify the varnishd working directory (also known as instance name) to get logs from. If \-n is not specified, the host name is used.
 .TP
-.BI \-N \ <filename>
-Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
-.TP
 .BI \-p \ <period>
 Specified the number of seconds between screen refreshes. Default is 1 second, and can be changed at runtime by pressing the [0\-9] keys (powers of 2 in seconds or + and \- (double/halve the speed).
 .TP
 .BI \-P \ responsetime
 Predefined client profile: graph the total time from start of request processing (first byte received) until ready to deliver the client response (field 3 of SLT_Timestamp Process: VSL tag).
+.TP
+.BI \-P \ reqbodytime
+Predefined client profile: graph the time for reading the request body (field 3 of SLT_Timestamp ReqBody: VSL tag).
 .TP
 .BI \-P \ size
 Predefined client profile: graph the size of responses (field 5 of SLT_ReqAcct  VSL tag).
@@ -90,8 +90,8 @@ Predefined backend profile: graph the time from beginning of backend processing 
 .BI \-P \ Besize
 Predefined backend profile: graph the backend response body size (field 5 of SLT_BereqAcct  VSL tag).
 .TP
-.BI \-P \ <[cb:]tag:field_num:min:max>
-Graph the given custom definition defined as: an optional (c)lient or (b)ackend filter (defaults to client), the tag we\(aqll look for, and the field number of the value we are interested in. min and max are the boundaries of the graph (these are power of ten).
+.BI \-P \ <[cb:]tag:[prefix]:field_num[:min:max]>
+Graph the given custom definition defined as: an optional (c)lient or (b)ackend filter (defaults to client), the tag we\(aqll look for, a prefix to look for (can be empty, but must be terminated by a colon) and the field number of the value we are interested in. min and max are the boundaries of the graph in powers of ten and default to \-6 and 3.
 .TP
 .BI \-q \ <query>
 Specifies the VSL query to use.
@@ -107,6 +107,9 @@ Sets the transaction timeout in seconds. This defines the maximum number of seco
 .TP
 .B \-V
 Print version information and exit.
+.TP
+.B \-\-optstring
+Print the optstring parameter to \fBgetopt(3)\fP to help writing wrapper scripts.
 .UNINDENT
 .SH SEE ALSO
 .INDENT 0.0

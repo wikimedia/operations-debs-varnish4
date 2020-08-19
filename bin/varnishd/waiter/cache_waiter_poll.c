@@ -34,10 +34,10 @@
 #include <poll.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
+#include "waiter/waiter.h"
 #include "waiter/waiter_priv.h"
-#include "waiter/mgt_waiter.h"
 #include "vtim.h"
 
 struct vwp {
@@ -162,6 +162,7 @@ vwp_main(void *priv)
 	int i;
 
 	THR_SetName("cache-poll");
+	THR_Init();
 	CAST_OBJ_NOTNULL(vwp, priv, VWP_MAGIC);
 	w = vwp->waiter;
 
@@ -179,7 +180,6 @@ vwp_main(void *priv)
 		if (vwp->pollfd[0].revents)
 			v--;
 		for (i = 1; i < vwp->hpoll;) {
-VSL(SLT_Debug, vwp->pollfd[i].fd, "POLL loop i=%d revents=0x%x", i, vwp->pollfd[i].revents);
 			assert(vwp->pollfd[i].fd != vwp->pipes[0]);
 			wp = vwp->idx[i];
 			CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
@@ -211,7 +211,7 @@ VSL(SLT_Debug, vwp->pollfd[i].fd, "POLL loop i=%d revents=0x%x", i, vwp->pollfd[
 
 /*--------------------------------------------------------------------*/
 
-static int __match_proto__(waiter_enter_f)
+static int v_matchproto_(waiter_enter_f)
 vwp_enter(void *priv, struct waited *wp)
 {
 	struct vwp *vwp;
@@ -225,7 +225,7 @@ vwp_enter(void *priv, struct waited *wp)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(waiter_init_f)
+static void v_matchproto_(waiter_init_f)
 vwp_init(struct waiter *w)
 {
 	struct vwp *vwp;
@@ -249,7 +249,7 @@ vwp_init(struct waiter *w)
  * fail somehow.
  */
 
-static void __match_proto__(waiter_fini_f)
+static void v_matchproto_(waiter_fini_f)
 vwp_fini(struct waiter *w)
 {
 	struct vwp *vwp;
@@ -269,6 +269,8 @@ vwp_fini(struct waiter *w)
 }
 
 /*--------------------------------------------------------------------*/
+
+#include "waiter/mgt_waiter.h"
 
 const struct waiter_impl waiter_poll = {
 	.name =		"poll",

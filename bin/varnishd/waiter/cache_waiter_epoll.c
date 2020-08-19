@@ -35,15 +35,16 @@
 
 #if defined(HAVE_EPOLL_CTL)
 
+#include <stdlib.h>
+
 #include <sys/epoll.h>
 
-#include <stdlib.h>
 #include <errno.h>
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
+#include "waiter/waiter.h"
 #include "waiter/waiter_priv.h"
-#include "waiter/mgt_waiter.h"
 #include "vtim.h"
 
 #ifndef EPOLLRDHUP
@@ -70,7 +71,7 @@ struct vwe {
 static void *
 vwe_thread(void *priv)
 {
-	struct epoll_event ev[NEEV], *ep;
+	struct epoll_event *ev, *ep;
 	struct waited *wp;
 	struct waiter *w;
 	double now, then;
@@ -82,6 +83,9 @@ vwe_thread(void *priv)
 	w = vwe->waiter;
 	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
 	THR_SetName("cache-epoll");
+	THR_Init();
+	ev = malloc(sizeof(struct epoll_event) * NEEV);
+	AN(ev);
 
 	now = VTIM_real();
 	while (1) {
@@ -146,6 +150,7 @@ vwe_thread(void *priv)
 		if (vwe->nwaited == 0 && vwe->die)
 			break;
 	}
+	free(ev);
 	closefd(&vwe->pipe[0]);
 	closefd(&vwe->pipe[1]);
 	closefd(&vwe->epfd);
@@ -154,7 +159,7 @@ vwe_thread(void *priv)
 
 /*--------------------------------------------------------------------*/
 
-static int __match_proto__(waiter_enter_f)
+static int v_matchproto_(waiter_enter_f)
 vwe_enter(void *priv, struct waited *wp)
 {
 	struct vwe *vwe;
@@ -176,7 +181,7 @@ vwe_enter(void *priv, struct waited *wp)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(waiter_init_f)
+static void v_matchproto_(waiter_init_f)
 vwe_init(struct waiter *w)
 {
 	struct vwe *vwe;
@@ -203,7 +208,7 @@ vwe_init(struct waiter *w)
  * fail somehow.
  */
 
-static void __match_proto__(waiter_fini_f)
+static void v_matchproto_(waiter_fini_f)
 vwe_fini(struct waiter *w)
 {
 	struct vwe *vwe;
@@ -220,6 +225,8 @@ vwe_fini(struct waiter *w)
 }
 
 /*--------------------------------------------------------------------*/
+
+#include "waiter/mgt_waiter.h"
 
 const struct waiter_impl waiter_epoll = {
 	.name =		"epoll",

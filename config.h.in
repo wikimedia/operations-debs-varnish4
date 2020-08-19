@@ -18,7 +18,7 @@
 /* Define to 1 if library supports X/Open Enhanced functions */
 #undef HAVE_CURSES_ENHANCED
 
-/* Define to 1 if <curses.h> is present */
+/* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
 /* Define to 1 if library supports certain obsolete features */
@@ -48,8 +48,20 @@
 /* Define to 1 if you have the `fallocate' function. */
 #undef HAVE_FALLOCATE
 
+/* Define to 1 if you have the `fnmatch' function. */
+#undef HAVE_FNMATCH
+
+/* Define to 1 if you have the <fnmatch.h> header file. */
+#undef HAVE_FNMATCH_H
+
 /* Define to 1 if you have the `gethrtime' function. */
 #undef HAVE_GETHRTIME
+
+/* Define to 1 if you have the `getpeereid' function. */
+#undef HAVE_GETPEEREID
+
+/* Define to 1 if you have the `getpeerucred' function. */
+#undef HAVE_GETPEERUCRED
 
 /* Define to 1 if you have the <history.h> header file. */
 #undef HAVE_HISTORY_H
@@ -90,16 +102,16 @@
 /* Define to 1 if the NcursesW library is present */
 #undef HAVE_NCURSESW
 
-/* Define to 1 if <ncursesw/curses.h> is present */
+/* Define to 1 if you have the <ncursesw/curses.h> header file. */
 #undef HAVE_NCURSESW_CURSES_H
 
-/* Define to 1 if <ncursesw.h> is present */
+/* Define to 1 if you have the <ncursesw.h> header file. */
 #undef HAVE_NCURSESW_H
 
-/* Define to 1 if <ncurses/curses.h> is present */
+/* Define to 1 if you have the <ncurses/curses.h> header file. */
 #undef HAVE_NCURSES_CURSES_H
 
-/* Define to 1 if <ncurses.h> is present */
+/* Define to 1 if you have the <ncurses.h> header file. */
 #undef HAVE_NCURSES_H
 
 /* Define to 1 if you have the `port_create' function. */
@@ -144,6 +156,9 @@
 /* Define to 1 if you have the `setproctitle' function. */
 #undef HAVE_SETPROCTITLE
 
+/* Define to 1 if you have the `sigaltstack' function. */
+#undef HAVE_SIGALTSTACK
+
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
 
@@ -186,6 +201,9 @@
 /* Define if OS supports TCP_KEEP* socket options */
 #undef HAVE_TCP_KEEP
 
+/* Define to 1 if you have the <umem.h> header file. */
+#undef HAVE_UMEM_H
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
@@ -226,6 +244,9 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
+/* Define if gethrtime is preferred */
+#undef USE_GETHRTIME
+
 /* Use the PCRE JIT compiler */
 #undef USE_PCRE_JIT
 
@@ -256,6 +277,9 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Define to 1 to build the deprecated peristent storage. */
+#undef WITH_PERSISTENT_STORAGE
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE

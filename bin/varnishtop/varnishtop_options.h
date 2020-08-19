@@ -37,10 +37,17 @@
 	    " statistics once and exit. Implies ``-d``."		\
 	)
 
+#define TOP_OPT_d							\
+	VOPT("d", "[-d]", "Process old log entries",			\
+	    "Process log records at the head of the log."		\
+	)
+
 #define TOP_OPT_f							\
 	VOPT("f", "[-f]", "First field only",				\
 	    "Sort and group only on the first field of each log entry."	\
-	    " This is useful when displaying e.g. stataddr entries,"	\
+	    " For log entries in the form ``prefix: value`` it is the"	\
+	    " prefix without the colon that is sorted and grouped."	\
+	    " This is useful when displaying e.g. ReqStart entries,"	\
 	    " where the first field is the client IP address."		\
 	)
 
@@ -57,7 +64,7 @@ TOP_OPT_1
 VSL_OPT_b
 VSL_OPT_c
 VSL_OPT_C
-VUT_OPT_d
+TOP_OPT_d
 TOP_OPT_f
 VUT_OPT_g
 VUT_OPT_h
@@ -65,7 +72,6 @@ VSL_OPT_i
 VSL_OPT_I
 VSL_OPT_L
 VUT_OPT_n
-VUT_OPT_N
 TOP_OPT_p
 VUT_OPT_q
 VUT_OPT_r
@@ -73,4 +79,4 @@ VUT_OPT_t
 VSL_OPT_T
 VSL_OPT_x
 VSL_OPT_X
-VUT_OPT_V
+VUT_GLOBAL_OPT_V

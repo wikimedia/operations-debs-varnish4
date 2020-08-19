@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>How GZIP, and GZIP+ESI works in Varnish &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>How GZIP, and GZIP+ESI works in Varnish &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="VCL Expressions" href="vcl_expr.html" />
     <link rel="prev" title="Why no SSL ?" href="ssl.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="ssl.html" title="Why no SSL ?"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
@@ -59,15 +49,15 @@
 parameter:</p>
 <blockquote>
 <div>http_gzip_support</div></blockquote>
-<p>Which defaults to &quot;on&quot; if you do not want Varnish to try to be smart
-about compression, set it to &quot;off&quot; instead.</p>
+<p>Which defaults to “on” if you do not want Varnish to try to be smart
+about compression, set it to “off” instead.</p>
 <div class="section" id="what-does-http-gzip-support-do">
 <h2>What does http_gzip_support do<a class="headerlink" href="#what-does-http-gzip-support-do" title="Permalink to this headline">¶</a></h2>
-<p>A request which is sent into 'pipe' or 'pass' mode from vcl_recv{}
+<p>A request which is sent into ‘pipe’ or ‘pass’ mode from vcl_recv{}
 will not experience any difference, this processing only affects
 cache hit/miss requests.</p>
-<p>Unless vcl_recv{} results in &quot;pipe&quot; or &quot;pass&quot;, we determine if the
-client is capable of receiving gzip'ed content.  The test amounts to:</p>
+<p>Unless vcl_recv{} results in “pipe” or “pass”, we determine if the
+client is capable of receiving gzip’ed content.  The test amounts to:</p>
 <blockquote>
 <div>Is there a Accept-Encoding header that mentions gzip, and if
 is has a q=# number, is it larger than zero.</div></blockquote>
@@ -77,8 +67,8 @@ is has a q=# number, is it larger than zero.</div></blockquote>
 <p>And clients which do not support gzip gets their Accept-Encoding
 header removed.  This ensures conformity with respect to creating
 Vary: strings during object creation.</p>
-<p>During lookup, we ignore any &quot;Accept-encoding&quot; in objects Vary: strings,
-to avoid having a gzip and gunzip'ed version of the object, varnish
+<p>During lookup, we ignore any “Accept-encoding” in objects Vary: strings,
+to avoid having a gzip and gunzip’ed version of the object, varnish
 can gunzip on demand.  (We implement this bit of magic at lookup time,
 so that any objects stored in persistent storage can be used with
 or without gzip support enabled.)</p>
@@ -89,39 +79,39 @@ always set to:</p>
 <blockquote>
 <div>Accept-Encoding: gzip</div></blockquote>
 <p>Even if this particular client does not support</p>
-<p>To always entice the backend into sending us gzip'ed content.</p>
+<p>To always entice the backend into sending us gzip’ed content.</p>
 <p>Varnish will not gzip any content on its own (but see below), we trust
-the backend to know what content can be sensibly gzip'ed (html) and what
+the backend to know what content can be sensibly gzip’ed (html) and what
 can not (jpeg)</p>
 <p>If in vcl_backend_response{} we find out that we are trying to deliver a
-gzip'ed object to a client that has not indicated willingness to receive
+gzip’ed object to a client that has not indicated willingness to receive
 gzip, we will ungzip the object during deliver.</p>
 </div>
 <div class="section" id="tuning-tweaking-and-frobbing">
 <h2>Tuning, tweaking and frobbing<a class="headerlink" href="#tuning-tweaking-and-frobbing" title="Permalink to this headline">¶</a></h2>
-<p>In vcl_recv{} you have a chance to modify the client's
+<p>In vcl_recv{} you have a chance to modify the client’s
 Accept-Encoding: header before anything else happens.</p>
 <p>In vcl_pass{} the clients Accept-Encoding header is copied to the
 backend request unchanged.
 Even if the client does not support gzip, you can force the A-C header
-to &quot;gzip&quot; to save bandwidth between the backend and varnish, varnish will
+to “gzip” to save bandwidth between the backend and varnish, varnish will
 gunzip the object before delivering to the client.</p>
-<p>In vcl_miss{} you can remove the &quot;Accept-Encoding: gzip&quot; header, if you
+<p>In vcl_miss{} you can remove the “Accept-Encoding: gzip” header, if you
 do not want the backend to gzip this object.</p>
 <p>In vcl_backend_response{} two new variables allow you to modify the
 gzip-ness of objects during fetch:</p>
 <blockquote>
 <div>set beresp.do_gunzip = true;</div></blockquote>
-<p>Will make varnish gunzip an already gzip'ed object from the backend during
-fetch.  (I have no idea why/when you would use this...)</p>
+<p>Will make varnish gunzip an already gzip’ed object from the backend during
+fetch.  (I have no idea why/when you would use this…)</p>
 <blockquote>
 <div>set beresp.do_gzip = true;</div></blockquote>
 <p>Will make varnish gzip the object during fetch from the backend, provided
-the backend didn't send us a gzip'ed object.</p>
+the backend didn’t send us a gzip’ed object.</p>
 <p>Remember that a lot of content types cannot sensibly be gziped, most
 notably compressed image formats like jpeg, png and similar, so a
 typical use would be:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">bereq</span><span class="o">.</span><span class="n">url</span> <span class="o">~</span> <span class="s2">&quot;html$&quot;</span><span class="p">)</span> <span class="p">{</span>
                 <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_gzip</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
         <span class="p">}</span>
@@ -132,7 +122,7 @@ typical use would be:</p>
 <div class="section" id="gzip-and-esi">
 <h2>GZIP and ESI<a class="headerlink" href="#gzip-and-esi" title="Permalink to this headline">¶</a></h2>
 <p>First, note the new syntax for activating ESI:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_backend_response</span> <span class="p">{</span>
         <span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">do_esi</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
 <span class="p">}</span>
 </pre></div>
@@ -140,35 +130,35 @@ typical use would be:</p>
 <p>In theory, and hopefully in practice, all you read above should apply also
 when you enable ESI, if not it is a bug you should report.</p>
 <p>But things are vastly more complicated now.  What happens for
-instance, when the backend sends a gzip'ed object we ESI process
-it and it includes another object which is not gzip'ed, and we want
+instance, when the backend sends a gzip’ed object we ESI process
+it and it includes another object which is not gzip’ed, and we want
 to send the result gziped to the client ?</p>
 <p>Things can get really hairy here, so let me explain it in stages.</p>
 <p>Assume we have a ungzipped object we want to ESI process.</p>
 <p>The ESI parser will run through the object looking for the various
-magic strings and produce a byte-stream we call the &quot;VEC&quot; for Varnish
+magic strings and produce a byte-stream we call the “VEC” for Varnish
 ESI Codes.</p>
-<p>The VEC contains instructions like &quot;skip 234 bytes&quot;, &quot;deliver 12919 bytes&quot;,
-&quot;include /foobar&quot;, &quot;deliver 122 bytes&quot; etc and it is stored with the
+<p>The VEC contains instructions like “skip 234 bytes”, “deliver 12919 bytes”,
+“include /foobar”, “deliver 122 bytes” etc and it is stored with the
 object.</p>
 <p>When we deliver an object, and it has a VEC, special esi-delivery code
 interprets the VEC string and sends the output to the client as ordered.</p>
-<p>When the VEC says &quot;include /foobar&quot; we do what amounts to a restart with
+<p>When the VEC says “include /foobar” we do what amounts to a restart with
 the new URL and possibly Host: header, and call vcl_recv{} etc.  You
-can tell that you are in an ESI include by examining the 'req.esi_level'
+can tell that you are in an ESI include by examining the ‘req.esi_level’
 variable in VCL.</p>
-<p>The ESI-parsed object is stored gzip'ed under the same conditions as
-above:  If the backend sends gzip'ed and VCL did not ask for do_gunzip,
-or if the backend sends ungzip'ed and VCL asked for do_gzip.</p>
+<p>The ESI-parsed object is stored gzip’ed under the same conditions as
+above:  If the backend sends gzip’ed and VCL did not ask for do_gunzip,
+or if the backend sends ungzip’ed and VCL asked for do_gzip.</p>
 <p>Please note that since we need to insert flush and reset points in
 the gzip file, it will be slightly larger than a normal gzip file of
 the same object.</p>
-<p>When we encounter gzip'ed include objects which should not be, we
-gunzip them, but when we encounter gunzip'ed objects which should
+<p>When we encounter gzip’ed include objects which should not be, we
+gunzip them, but when we encounter gunzip’ed objects which should
 be, we gzip them, but only at compression level zero.</p>
 <p>So in order to avoid unnecessary work, and in order to get maximum
 compression efficiency, you should:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_miss</span> <span class="p">{</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span> <span class="n">vcl_miss</span> <span class="p">{</span>
         <span class="k">if</span> <span class="p">(</span><span class="nb">object</span> <span class="n">needs</span> <span class="n">ESI</span> <span class="n">processing</span><span class="p">)</span> <span class="p">{</span>
                 <span class="n">unset</span> <span class="n">req</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">accept</span><span class="o">-</span><span class="n">encoding</span><span class="p">;</span>
         <span class="p">}</span>
@@ -195,7 +185,7 @@ by making varnish do it.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">How GZIP, and GZIP+ESI works in Varnish</a><ul>
 <li><a class="reference internal" href="#what-does-http-gzip-support-do">What does http_gzip_support do</a></li>
@@ -214,18 +204,20 @@ by making varnish do it.</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/phk/gzip.txt"
+      <li><a href="../_sources/phk/gzip.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -244,13 +236,13 @@ by making varnish do it.</p>
         <li class="right" >
           <a href="ssl.html" title="Why no SSL ?"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

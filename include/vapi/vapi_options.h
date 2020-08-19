@@ -63,7 +63,7 @@
 	VOPT("I:", "[-I <[taglist:]regex>]", "Include by regex",	\
 	    "Include by regex matching. Output only records matching"	\
 	    " taglist and regular expression. Applies to any tag if"	\
-	    " taglist is absent.\n"					\
+	    " taglist is absent. Multiple -I options may be given.\n"	\
 	    "\n"							\
 	    VSL_iI_PS							\
 	)
@@ -75,6 +75,22 @@
 	    " warning record is synthesized when this happens. This"	\
 	    " setting keeps an upper bound on the memory usage of"	\
 	    " running queries. Defaults to 1000 transactions."		\
+	)
+
+#define VSL_OPT_R							\
+	VOPT("R:", "[-R <limit[/duration]>]", "Output rate limit",	\
+	    "Restrict the output to the specified limit."		\
+	    " Transactions exceeding the limit will be suppressed."	\
+	    " The limit is specified as the maximum number of"		\
+	    " transactions (with respect to the chosen grouping"	\
+	    " method) and an optional time period. If no duration"	\
+	    " is specified, a default of ``s`` is used. The duration"	\
+	    " field can be formatted as in VCL (e.g. ``-R 10/2m``) or"	\
+	    " as a simple time period without the prefix (e.g."		\
+	    " ``-R 5/m``)."						\
+	    " When in ``-g raw`` grouping mode, this setting can"	\
+	    " not be used alongside ``-i``, ``-I``, ``-x`` or "		\
+	    "``-X``, and we advise using ``-q`` instead."		\
 	)
 
 #define VSL_OPT_T							\
@@ -104,5 +120,5 @@
 	VOPT("X:", "[-X <[taglist:]regex>]", "Exclude by regex",	\
 	    "Exclude by regex matching. Do not output records matching"	\
 	    " taglist and regular expression. Applies to any tag if"	\
-	    " taglist is absent."					\
+	    " taglist is absent. Multiple -X options may be given.\n"	\
 	)

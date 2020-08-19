@@ -28,19 +28,23 @@
 
 #include "config.h"
 
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #include <errno.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <poll.h>
+#include <unistd.h>
 
 #include "vtc.h"
 
 #include "vsa.h"
 #include "vss.h"
 #include "vtcp.h"
+#include "vus.h"
 
 struct client {
 	unsigned		magic;
@@ -57,6 +61,7 @@ struct client {
 	int			proxy_version;
 
 	unsigned		repeat;
+	unsigned		keepalive;
 
 	unsigned		running;
 	pthread_t		tp;
@@ -69,21 +74,11 @@ static VTAILQ_HEAD(, client)	clients =
  * Send the proxy header
  */
 
-static int __match_proto__(vss_resolved_f)
-proxy_cb(void *priv, const struct suckaddr *sa)
-{
-	struct suckaddr **addr = priv;
-	*addr = VSA_Clone(sa);
-	return (1);
-}
-
 static void
 client_proxy(struct vtclog *vl, int fd, int version, const char *spec)
 {
 	struct suckaddr *sac, *sas;
-	const char *err;
 	char *p, *p2;
-	int error;
 
 	p = strdup(spec);
 	AN(p);
@@ -91,19 +86,99 @@ client_proxy(struct vtclog *vl, int fd, int version, const char *spec)
 	AN(p2);
 	*p2++ = '\0';
 
-	error = VSS_resolver(p, NULL, proxy_cb, &sac, &err);
-	if (err != NULL)
-		vtc_fatal(vl, "Could not resolve client address: %s", err);
-	assert(error == 1);
-	error = VSS_resolver(p2, NULL, proxy_cb, &sas, &err);
-	if (err != NULL)
-		vtc_fatal(vl, "Could not resolve server address: %s", err);
-	assert(error == 1);
+	sac = VSS_ResolveOne(NULL, p, NULL, 0, SOCK_STREAM, AI_PASSIVE);
+	if (sac == NULL)
+		vtc_fatal(vl, "Could not resolve client address");
+	sas = VSS_ResolveOne(NULL, p2, NULL, 0, SOCK_STREAM, AI_PASSIVE);
+	if (sas == NULL)
+		vtc_fatal(vl, "Could not resolve server address");
 	if (vtc_send_proxy(fd, version, sac, sas))
 		vtc_fatal(vl, "Write failed: %s", strerror(errno));
 	free(p);
 	free(sac);
 	free(sas);
+}
+
+/**********************************************************************
+ * Socket connect.
+ */
+
+static int
+client_tcp_connect(struct vtclog *vl, const char *addr, double tmo,
+		   const char **errp)
+{
+	int fd;
+	char mabuf[32], mpbuf[32];
+
+	AN(addr);
+	AN(errp);
+	fd = VTCP_open(addr, NULL, tmo, errp);
+	if (fd < 0)
+		return fd;
+	VTCP_myname(fd, mabuf, sizeof mabuf, mpbuf, sizeof mpbuf);
+	vtc_log(vl, 3, "connected fd %d from %s %s to %s", fd, mabuf, mpbuf,
+		addr);
+	return fd;
+}
+
+/* cf. VTCP_Open() */
+static int v_matchproto_(vus_resolved_f)
+uds_open(void *priv, const struct sockaddr_un *uds)
+{
+	double *p;
+	int s, i, tmo;
+	struct pollfd fds[1];
+	socklen_t sl = sizeof(*uds);
+
+	AN(priv);
+	AN(uds);
+	p = priv;
+	assert(*p > 0.);
+	tmo = (int)(*p * 1e3);
+
+	s = socket(uds->sun_family, SOCK_STREAM, 0);
+	if (s < 0)
+		return (s);
+
+	VTCP_nonblocking(s);
+	i = connect(s, (const void*)uds, sl);
+	if (i == 0)
+		return(s);
+	if (errno != EINPROGRESS) {
+		closefd(&s);
+		return (-1);
+	}
+
+	fds[0].fd = s;
+	fds[0].events = POLLWRNORM;
+	fds[0].revents = 0;
+	i = poll(fds, 1, tmo);
+
+	if (i == 0) {
+		closefd(&s);
+		errno = ETIMEDOUT;
+		return (-1);
+	}
+
+	return (VTCP_connected(s));
+}
+
+static int
+client_uds_connect(struct vtclog *vl, const char *path, double tmo,
+		   const char **errp)
+{
+	int fd;
+
+	assert(tmo >= 0);
+
+	errno = 0;
+	fd = VUS_resolver(path, uds_open, &tmo, errp);
+	if (fd < 0) {
+		*errp = strerror(errno);
+		return fd;
+	}
+	vtc_log(vl, 3, "connected fd %d to %s", fd, path);
+	return fd;
 }
 
 /**********************************************************************
@@ -118,45 +193,49 @@ client_thread(void *priv)
 	int fd;
 	unsigned u;
 	struct vsb *vsb;
-	char *p;
-	char mabuf[32], mpbuf[32];
 	const char *err;
 
 	CAST_OBJ_NOTNULL(c, priv, CLIENT_MAGIC);
 	AN(*c->connect);
 
 	vl = vtc_logopen(c->name);
+	pthread_cleanup_push(vtc_logclose, vl);
 
-	p = strdup(c->connect);
-	AN(p);
-	vsb = macro_expand(vl, p);
+	vsb = macro_expand(vl, c->connect);
 	AN(vsb);
 
 	if (c->repeat == 0)
 		c->repeat = 1;
 	if (c->repeat != 1)
-		vtc_log(vl, 2, "Started (%u iterations)", c->repeat);
+		vtc_log(vl, 2, "Started (%u iterations%s)", c->repeat,
+			c->keepalive ? " using keepalive" : "");
 	for (u = 0; u < c->repeat; u++) {
-		vtc_log(vl, 3, "Connect to %s", VSB_data(vsb));
-		fd = VTCP_open(VSB_data(vsb), NULL, 10., &err);
+		char *addr = VSB_data(vsb);
+
+		vtc_log(vl, 3, "Connect to %s", addr);
+		if (*addr == '/')
+			fd = client_uds_connect(vl, addr, 10., &err);
+		else
+			fd = client_tcp_connect(vl, VSB_data(vsb), 10., &err);
 		if (fd < 0)
 			vtc_fatal(c->vl, "Failed to open %s: %s",
 			    VSB_data(vsb), err);
-		assert(fd >= 0);
 		/* VTCP_blocking does its own checks, trust it */
-		(void)VTCP_blocking(fd);
-		VTCP_myname(fd, mabuf, sizeof mabuf, mpbuf, sizeof mpbuf);
-		vtc_log(vl, 3, "connected fd %d from %s %s to %s",
-		    fd, mabuf, mpbuf, VSB_data(vsb));
+		VTCP_blocking(fd);
 		if (c->proxy_spec != NULL)
 			client_proxy(vl, fd, c->proxy_version, c->proxy_spec);
-		fd = http_process(vl, c->spec, fd, NULL);
+		if (! c->keepalive)
+			fd = http_process(vl, c->spec, fd, NULL, addr);
+		else
+			while (fd >= 0 && u++ < c->repeat)
+				fd = http_process(vl, c->spec, fd, NULL, addr);
 		vtc_log(vl, 3, "closing fd %d", fd);
 		VTCP_close(&fd);
 	}
 	vtc_log(vl, 2, "Ending");
 	VSB_destroy(&vsb);
-	free(p);
+	pthread_cleanup_pop(0);
+	vtc_logclose(vl);
 	return (NULL);
 }
 
@@ -309,6 +388,10 @@ cmd_client(CMD_ARGS)
 		if (!strcmp(*av, "-repeat")) {
 			c->repeat = atoi(av[1]);
 			av++;
+			continue;
+		}
+		if (!strcmp(*av, "-keepalive")) {
+			c->keepalive = 1;
 			continue;
 		}
 		if (!strcmp(*av, "-start")) {

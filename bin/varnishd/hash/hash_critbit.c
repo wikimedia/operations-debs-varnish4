@@ -34,7 +34,8 @@
 
 #include <stdlib.h>
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
+#include "cache/cache_objhead.h"
 
 #include "hash/hash_slinger.h"
 #include "vmb.h"
@@ -128,7 +129,7 @@ hcb_is_y(uintptr_t u)
 }
 
 static uintptr_t
-hcb_r_node(struct objhead *n)
+hcb_r_node(const struct objhead *n)
 {
 
 	AZ((uintptr_t)n & (HCB_BIT_NODE | HCB_BIT_Y));
@@ -145,7 +146,7 @@ hcb_l_node(uintptr_t u)
 }
 
 static uintptr_t
-hcb_r_y(struct hcb_y *y)
+hcb_r_y(const struct hcb_y *y)
 {
 
 	CHECK_OBJ_NOTNULL(y, HCB_Y_MAGIC);
@@ -273,7 +274,7 @@ hcb_insert(struct worker *wrk, struct hcb_root *root, const uint8_t *digest,
 /*--------------------------------------------------------------------*/
 
 static void
-hcb_delete(struct hcb_root *r, struct objhead *oh)
+hcb_delete(struct hcb_root *r, const struct objhead *oh)
 {
 	struct hcb_y *y;
 	volatile uintptr_t *p;
@@ -304,7 +305,7 @@ hcb_delete(struct hcb_root *r, struct objhead *oh)
 
 /*--------------------------------------------------------------------*/
 
-static void * __match_proto__(bgthread_t)
+static void * v_matchproto_(bgthread_t)
 hcb_cleaner(struct worker *wrk, void *priv)
 {
 	struct hcb_y *y, *y2;
@@ -332,7 +333,7 @@ hcb_cleaner(struct worker *wrk, void *priv)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(hash_start_f)
+static void v_matchproto_(hash_start_f)
 hcb_start(void)
 {
 	struct objhead *oh = NULL;
@@ -345,14 +346,16 @@ hcb_start(void)
 	hcb_build_bittbl();
 }
 
-static int __match_proto__(hash_deref_f)
-hcb_deref(struct objhead *oh)
+static int v_matchproto_(hash_deref_f)
+hcb_deref(struct worker *wrk, struct objhead *oh)
 {
+	int r;
 
+	(void)wrk;
 	CHECK_OBJ_NOTNULL(oh, OBJHEAD_MAGIC);
-	Lck_Lock(&oh->mtx);
+	Lck_AssertHeld(&oh->mtx);
 	assert(oh->refcnt > 0);
-	oh->refcnt--;
+	r = --oh->refcnt;
 	if (oh->refcnt == 0) {
 		Lck_Lock(&hcb_mtx);
 		hcb_delete(&hcb_root, oh);
@@ -363,10 +366,10 @@ hcb_deref(struct objhead *oh)
 #ifdef PHK
 	fprintf(stderr, "hcb_defef %d %d <%s>\n", __LINE__, r, oh->hash);
 #endif
-	return (1);
+	return (r);
 }
 
-static struct objhead * __match_proto__(hash_lookup_f)
+static struct objhead * v_matchproto_(hash_lookup_f)
 hcb_lookup(struct worker *wrk, const void *digest, struct objhead **noh)
 {
 	struct objhead *oh;
@@ -430,7 +433,7 @@ hcb_lookup(struct worker *wrk, const void *digest, struct objhead **noh)
 	}
 }
 
-static void __match_proto__(hash_prep_f)
+static void v_matchproto_(hash_prep_f)
 hcb_prep(struct worker *wrk)
 {
 	struct hcb_y *y;

@@ -33,11 +33,15 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/stat.h>
 #include <errno.h>
-#include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "mgt/mgt.h"
 #include "common/heritage.h"
@@ -47,6 +51,26 @@
 #include "vsa.h"
 #include "vss.h"
 #include "vtcp.h"
+#include "vus.h"
+
+struct listen_arg {
+	unsigned			magic;
+#define LISTEN_ARG_MAGIC		0xbb2fc333
+	VTAILQ_ENTRY(listen_arg)	list;
+	const char			*endpoint;
+	const char			*name;
+	VTAILQ_HEAD(,listen_sock)	socks;
+	const struct transport		*transport;
+	const struct uds_perms		*perms;
+};
+
+struct uds_perms {
+	unsigned	magic;
+#define UDS_PERMS_MAGIC 0x84fb5635
+	mode_t		mode;
+	uid_t		uid;
+	gid_t		gid;
+};
 
 static VTAILQ_HEAD(,listen_arg) listen_args =
     VTAILQ_HEAD_INITIALIZER(listen_args);
@@ -55,17 +79,34 @@ static int
 mac_opensocket(struct listen_sock *ls)
 {
 	int fail;
+	struct sockaddr_un uds;
 
 	CHECK_OBJ_NOTNULL(ls, LISTEN_SOCK_MAGIC);
 	if (ls->sock > 0) {
 		MCH_Fd_Inherit(ls->sock, NULL);
 		closefd(&ls->sock);
 	}
-	ls->sock = VTCP_bind(ls->addr, NULL);
+	if (!ls->uds)
+		ls->sock = VTCP_bind(ls->addr, NULL);
+	else {
+		uds.sun_family = PF_UNIX;
+		bprintf(uds.sun_path, "%s", ls->endpoint);
+		ls->sock = VUS_bind(&uds, NULL);
+	}
 	fail = errno;
 	if (ls->sock < 0) {
 		AN(fail);
 		return (fail);
+	}
+	if (ls->perms != NULL) {
+		CHECK_OBJ(ls->perms, UDS_PERMS_MAGIC);
+		assert(ls->uds);
+		errno = 0;
+		if (ls->perms->mode != 0 &&
+		    chmod(ls->endpoint, ls->perms->mode) != 0)
+			return errno;
+		if (chown(ls->endpoint, ls->perms->uid, ls->perms->gid) != 0)
+			return errno;
 	}
 	MCH_Fd_Inherit(ls->sock, "sock");
 	return (0);
@@ -73,70 +114,84 @@ mac_opensocket(struct listen_sock *ls)
 
 /*=====================================================================
  * Reopen the accept sockets to get rid of listen status.
+ * returns the highest errno encountered, 0 for success
  */
 
-void
-MAC_reopen_sockets(struct cli *cli)
+int
+MAC_reopen_sockets(void)
 {
 	struct listen_sock *ls;
-	int fail;
+	int err, fail = 0;
 
 	VTAILQ_FOREACH(ls, &heritage.socks, list) {
 		VJ_master(JAIL_MASTER_PRIVPORT);
-		fail = mac_opensocket(ls);
+		err = mac_opensocket(ls);
 		VJ_master(JAIL_MASTER_LOW);
-		if (fail == 0)
+		if (err == 0)
 			continue;
-		if (cli == NULL)
-			MGT_Complain(C_ERR,
-			    "Could not reopen listen socket %s: %s",
-			    ls->name, strerror(fail));
-		else
-			VCLI_Out(cli,
-			    "Could not reopen listen socket %s: %s\n",
-			    ls->name, strerror(fail));
+		if (err > fail)
+			fail = err;
+		MGT_Complain(C_ERR,
+		    "Could not reopen listen socket %s: %s",
+		    ls->endpoint, strerror(err));
 	}
+	return fail;
 }
 
 /*--------------------------------------------------------------------*/
 
-static int __match_proto__(vss_resolved_f)
-mac_callback(void *priv, const struct suckaddr *sa)
+static struct listen_sock *
+mk_listen_sock(const struct listen_arg *la, const struct suckaddr *sa)
 {
-	struct listen_arg *la;
 	struct listen_sock *ls;
-	char abuf[VTCP_ADDRBUFSIZE], pbuf[VTCP_PORTBUFSIZE];
-	char nbuf[VTCP_ADDRBUFSIZE+VTCP_PORTBUFSIZE+2];
 	int fail;
 
-	CAST_OBJ_NOTNULL(la, priv, LISTEN_ARG_MAGIC);
-
-	VTAILQ_FOREACH(ls, &heritage.socks, list) {
-		if (!VSA_Compare(sa, ls->addr))
-			ARGV_ERR("-a arguments %s and %s have same address\n",
-			    ls->arg->name, la->name);
-	}
 	ALLOC_OBJ(ls, LISTEN_SOCK_MAGIC);
 	AN(ls);
-	ls->arg = la;
 	ls->sock = -1;
 	ls->addr = VSA_Clone(sa);
 	AN(ls->addr);
-	ls->name = strdup(la->name);
-	AN(ls->name);
+	ls->endpoint = strdup(la->endpoint);
+	AN(ls->endpoint);
+	ls->name = la->name;
 	ls->transport = la->transport;
+	ls->perms = la->perms;
+	if (*la->endpoint == '/')
+		ls->uds = 1;
 	VJ_master(JAIL_MASTER_PRIVPORT);
 	fail = mac_opensocket(ls);
 	VJ_master(JAIL_MASTER_LOW);
 	if (fail) {
 		free(ls->addr);
-		free(ls->name);
+		free(ls->endpoint);
 		FREE_OBJ(ls);
 		if (fail != EAFNOSUPPORT)
 			ARGV_ERR("Could not get socket %s: %s\n",
-			    la->name, strerror(fail));
-		return(0);
+			    la->endpoint, strerror(fail));
+		return(NULL);
 	}
+	return(ls);
+}
+
+static int v_matchproto_(vss_resolved_f)
+mac_tcp(void *priv, const struct suckaddr *sa)
+{
+	struct listen_arg *la;
+	struct listen_sock *ls;
+	char abuf[VTCP_ADDRBUFSIZE], pbuf[VTCP_PORTBUFSIZE];
+	char nbuf[VTCP_ADDRBUFSIZE+VTCP_PORTBUFSIZE+2];
+
+	CAST_OBJ_NOTNULL(la, priv, LISTEN_ARG_MAGIC);
+
+	VTAILQ_FOREACH(ls, &heritage.socks, list) {
+		if (!ls->uds && !VSA_Compare(sa, ls->addr))
+			ARGV_ERR("-a arguments %s and %s have same address\n",
+			    ls->endpoint, la->endpoint);
+	}
+	ls = mk_listen_sock(la, sa);
+	if (ls == NULL)
+		return(0);
+	AZ(ls->uds);
 	if (VSA_Port(ls->addr) == 0) {
 		/*
 		 * If the argv port number is zero, we adopt whatever
@@ -148,47 +203,171 @@ mac_callback(void *priv, const struct suckaddr *sa)
 		VTCP_myname(ls->sock, abuf, sizeof abuf,
 		    pbuf, sizeof pbuf);
 		bprintf(nbuf, "%s:%s", abuf, pbuf);
-		REPLACE(ls->name, nbuf);
+		REPLACE(ls->endpoint, nbuf);
 	}
 	VTAILQ_INSERT_TAIL(&la->socks, ls, arglist);
 	VTAILQ_INSERT_TAIL(&heritage.socks, ls, list);
 	return (0);
 }
 
+static int v_matchproto_(vus_resolved_f)
+mac_uds(void *priv, const struct sockaddr_un *uds)
+{
+	struct listen_arg *la;
+	struct listen_sock *ls;
+
+	CAST_OBJ_NOTNULL(la, priv, LISTEN_ARG_MAGIC);
+
+	VTAILQ_FOREACH(ls, &heritage.socks, list) {
+		if (ls->uds && strcmp(uds->sun_path, ls->endpoint) == 0)
+			ARGV_ERR("-a arguments %s and %s have same address\n",
+			    ls->endpoint, la->endpoint);
+	}
+	ls = mk_listen_sock(la, bogo_ip);
+	if (ls == NULL)
+		return(0);
+	AN(ls->uds);
+	VTAILQ_INSERT_TAIL(&la->socks, ls, arglist);
+	VTAILQ_INSERT_TAIL(&heritage.socks, ls, list);
+	return (0);
+}
+
 void
-MAC_Arg(const char *arg)
+MAC_Arg(const char *spec)
 {
 	char **av;
 	struct listen_arg *la;
 	const char *err;
 	int error;
-	const struct transport *xp;
+	const struct transport *xp = NULL;
+	const char *name;
+	char name_buf[8];
+	static unsigned seq = 0;
+	struct passwd *pwd = NULL;
+	struct group *grp = NULL;
+	mode_t mode = 0;
+	struct uds_perms *perms;
 
-	av = VAV_Parse(arg, NULL, ARGV_COMMA);
-	if (av == NULL)
-		ARGV_ERR("Parse error: out of memory\n");
-	if (av[0] != NULL)
-		ARGV_ERR("%s\n", av[0]);
+	av = MGT_NamedArg(spec, &name, "-a");
+	AN(av);
 
 	ALLOC_OBJ(la, LISTEN_ARG_MAGIC);
 	AN(la);
 	VTAILQ_INIT(&la->socks);
 	VTAILQ_INSERT_TAIL(&listen_args, la, list);
-	la->name = av[1];
+	la->endpoint = av[1];
 
-	if (av[2] == NULL) {
-		xp = XPORT_Find("http/1");
-	} else {
-		xp = XPORT_Find(av[2]);
-		if (xp == NULL)
-			ARGV_ERR("Unknown protocol '%s'\n", av[2]);
-		if (av[3] != NULL)
-			ARGV_ERR("Too many sub-arguments to -a(%s)\n", av[2]);
+	if (name == NULL) {
+		bprintf(name_buf, "a%u", seq++);
+		name = strdup(name_buf);
+		AN(name);
 	}
+	la->name = name;
+
+	if (*la->endpoint != '/' && strchr(la->endpoint, '/') != NULL)
+		ARGV_ERR("Unix domain socket addresses must be"
+		    " absolute paths in -a (%s)\n", la->endpoint);
+
+	if (*la->endpoint == '/' && heritage.min_vcl < 41)
+		heritage.min_vcl = 41;
+
+	for (int i = 2; av[i] != NULL; i++) {
+		char *eq, *val;
+		int len;
+
+		if ((eq = strchr(av[i], '=')) == NULL) {
+			if (xp != NULL)
+				ARGV_ERR("Too many protocol sub-args"
+				    " in -a (%s)\n", av[i]);
+			xp = XPORT_Find(av[i]);
+			if (xp == NULL)
+				ARGV_ERR("Unknown protocol '%s'\n", av[i]);
+			continue;
+		}
+		if (la->endpoint[0] != '/')
+			ARGV_ERR("Invalid sub-arg %s for IP addresses"
+			    " in -a\n", av[i]);
+
+		val = eq + 1;
+		len = eq - av[i];
+		assert(len >= 0);
+		if (len == 0)
+			ARGV_ERR("Invalid sub-arg %s in -a\n", av[i]);
+
+		if (strncmp(av[i], "user", len) == 0) {
+			if (pwd != NULL)
+				ARGV_ERR("Too many user sub-args in -a (%s)\n",
+					 av[i]);
+			pwd = getpwnam(val);
+			if (pwd == NULL)
+				ARGV_ERR("Unknown user %s in -a\n", val);
+			continue;
+		}
+
+		if (strncmp(av[i], "group", len) == 0) {
+			if (grp != NULL)
+				ARGV_ERR("Too many group sub-args in -a (%s)\n",
+					 av[i]);
+			grp = getgrnam(val);
+			if (grp == NULL)
+				ARGV_ERR("Unknown group %s in -a\n", val);
+			continue;
+		}
+
+		if (strncmp(av[i], "mode", len) == 0) {
+			long m;
+			char *p;
+
+			if (mode != 0)
+				ARGV_ERR("Too many mode sub-args in -a (%s)\n",
+					 av[i]);
+			if (*val == '\0')
+				ARGV_ERR("Empty mode sub-arg in -a\n");
+			errno = 0;
+			m = strtol(val, &p, 8);
+			if (*p != '\0')
+				ARGV_ERR("Invalid mode sub-arg %s in -a\n",
+					 val);
+			if (errno)
+				ARGV_ERR("Cannot parse mode sub-arg %s in -a: "
+					 "%s\n", val, strerror(errno));
+			if (m <= 0 || m > 0777)
+				ARGV_ERR("Mode sub-arg %s out of range in -a\n",
+					 val);
+			mode = (mode_t) m;
+			continue;
+		}
+
+		ARGV_ERR("Invalid sub-arg %s in -a\n", av[i]);
+	}
+
+	if (xp == NULL)
+		xp = XPORT_Find("http");
 	AN(xp);
 	la->transport = xp;
 
-	error = VSS_resolver(av[1], "80", mac_callback, la, &err);
+	if (pwd != NULL || grp != NULL || mode != 0) {
+		ALLOC_OBJ(perms, UDS_PERMS_MAGIC);
+		AN(perms);
+		if (pwd != NULL)
+			perms->uid = pwd->pw_uid;
+		else
+			perms->uid = (uid_t) -1;
+		if (grp != NULL)
+			perms->gid = grp->gr_gid;
+		else
+			perms->gid = (gid_t) -1;
+		perms->mode = mode;
+		la->perms = perms;
+	}
+	else
+		AZ(la->perms);
+
+	if (*la->endpoint != '/')
+		error = VSS_resolver(av[1], "80", mac_tcp, la, &err);
+	else
+		error = VUS_resolver(av[1], mac_uds, la, &err);
+
 	if (VTAILQ_EMPTY(&la->socks) || error)
 		ARGV_ERR("Got no socket(s) for %s\n", av[1]);
 	VAV_Free(av);

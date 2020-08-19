@@ -29,13 +29,13 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 #include "cache/cache_filter.h"
 #include "cache_http1.h"
 
 /*--------------------------------------------------------------------*/
 
-static int __match_proto__(vdp_bytes)
+static int v_matchproto_(vdp_bytes_f)
 v1d_bytes(struct req *req, enum vdp_action act, void **priv,
     const void *ptr, ssize_t len)
 {
@@ -43,20 +43,22 @@ v1d_bytes(struct req *req, enum vdp_action act, void **priv,
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	(void)priv;
-	if (act == VDP_INIT || act == VDP_FINI)
-		return (0);
 
-	AZ(req->vdp_nxt);		/* always at the bottom of the pile */
+	AZ(req->vdc->nxt);		/* always at the bottom of the pile */
 
 	if (len > 0)
 		wl = V1L_Write(req->wrk, ptr, len);
-	req->acct.resp_bodybytes += len;
 	if (act > VDP_NULL && V1L_Flush(req->wrk))
 		return (-1);
 	if (len != wl)
 		return (-1);
 	return (0);
 }
+
+static const struct vdp v1d_vdp = {
+	.name =		"V1B",
+	.bytes =	v1d_bytes,
+};
 
 static void
 v1d_error(struct req *req, const char *msg)
@@ -71,6 +73,7 @@ v1d_error(struct req *req, const char *msg)
 	VSLb(req->vsl, SLT_RespStatus, "500");
 	VSLb(req->vsl, SLT_RespReason, "Internal Server Error");
 
+	req->wrk->stats->client_resp_500++;
 	(void)write(req->sp->fd, r_500, sizeof r_500 - 1);
 	req->doclose = SC_TX_EOF;
 }
@@ -78,10 +81,12 @@ v1d_error(struct req *req, const char *msg)
 /*--------------------------------------------------------------------
  */
 
-void __match_proto__(vtr_deliver_f)
+void v_matchproto_(vtr_deliver_f)
 V1D_Deliver(struct req *req, struct boc *boc, int sendbody)
 {
-	int err = 0;
+	int err;
+	unsigned u;
+	uint64_t hdrbytes, bytes;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	CHECK_OBJ_ORNULL(boc, BOC_MAGIC);
@@ -109,31 +114,90 @@ V1D_Deliver(struct req *req, struct boc *boc, int sendbody)
 	} else if (!http_GetHdr(req->resp, H_Connection, NULL))
 		http_SetHeader(req->resp, "Connection: keep-alive");
 
-	if (sendbody && req->resp_len != 0)
-		VDP_push(req, v1d_bytes, NULL, 1, "V1B");
-
-	AZ(req->wrk->v1l);
-	V1L_Reserve(req->wrk, req->ws, &req->sp->fd, req->vsl, req->t_prev);
-
 	if (WS_Overflowed(req->ws)) {
 		v1d_error(req, "workspace_client overflow");
+		return;
+	}
+
+	if (WS_Overflowed(req->sp->ws)) {
+		v1d_error(req, "workspace_session overflow");
+		return;
+	}
+
+	if (req->resp_len == 0)
+		sendbody = 0;
+
+	if (sendbody && VDP_Push(req, &v1d_vdp, NULL)) {
+		v1d_error(req, "workspace_thread overflow");
 		AZ(req->wrk->v1l);
 		return;
 	}
 
-	req->acct.resp_hdrbytes += HTTP1_Write(req->wrk, req->resp, HTTP1_Resp);
+	AZ(req->wrk->v1l);
+	V1L_Open(req->wrk, req->wrk->aws,
+		 &req->sp->fd, req->vsl, req->t_prev, 0);
+
+	if (WS_Overflowed(req->wrk->aws)) {
+		v1d_error(req, "workspace_thread overflow");
+		AZ(req->wrk->v1l);
+		return;
+	}
+
+	hdrbytes = HTTP1_Write(req->wrk, req->resp, HTTP1_Resp);
+
 	if (DO_DEBUG(DBG_FLUSH_HEAD))
 		(void)V1L_Flush(req->wrk);
 
-	if (sendbody && req->resp_len != 0) {
-		if (req->res_mode & RES_CHUNKED)
-			V1L_Chunked(req->wrk);
-		err = VDP_DeliverObj(req);
-		if (!err && (req->res_mode & RES_CHUNKED))
-			V1L_EndChunk(req->wrk);
+	if (!sendbody || req->res_mode & RES_ESI) {
+		if (V1L_Close(req->wrk, &bytes) && req->sp->fd >= 0) {
+			Req_Fail(req, SC_REM_CLOSE);
+			sendbody = 0;
+		}
+
+		/* Charge bytes sent as reported from V1L_Close. Only
+		 * header-bytes have been attempted sent. */
+		req->acct.resp_hdrbytes += bytes;
+		hdrbytes = 0;
 	}
 
-	if ((V1L_FlushRelease(req->wrk) || err) && req->sp->fd >= 0)
+	if (!sendbody) {
+		AZ(req->wrk->v1l);
+		VDP_close(req);
+		return;
+	}
+
+	AN(sendbody);
+	if (req->res_mode & RES_ESI) {
+		AZ(req->wrk->v1l);
+
+		V1L_Open(req->wrk, req->wrk->aws,
+			 &req->sp->fd, req->vsl, req->t_prev,
+			 cache_param->esi_iovs);
+
+		if (WS_Overflowed(req->wrk->aws)) {
+			v1d_error(req, "workspace_thread overflow");
+			AZ(req->wrk->v1l);
+			return;
+		}
+	}
+
+	if (req->res_mode & RES_CHUNKED)
+		V1L_Chunked(req->wrk);
+	err = VDP_DeliverObj(req);
+	if (!err && (req->res_mode & RES_CHUNKED))
+		V1L_EndChunk(req->wrk);
+
+	u = V1L_Close(req->wrk, &bytes);
+
+	/* Bytes accounting */
+	if (bytes < hdrbytes)
+		req->acct.resp_hdrbytes += bytes;
+	else {
+		req->acct.resp_hdrbytes += hdrbytes;
+		req->acct.resp_bodybytes += bytes - hdrbytes;
+	}
+
+	if ((u || err) && req->sp->fd >= 0)
 		Req_Fail(req, SC_REM_CLOSE);
 	AZ(req->wrk->v1l);
 	VDP_close(req);

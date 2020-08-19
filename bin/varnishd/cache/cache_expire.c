@@ -34,31 +34,30 @@
 
 #include <stdlib.h>
 
-#include "cache.h"
+#include "cache_varnishd.h"
+#include "cache_objhead.h"
 
 #include "binary_heap.h"
-#include "hash/hash_slinger.h"
 #include "vtim.h"
 
 struct exp_priv {
 	unsigned			magic;
 #define EXP_PRIV_MAGIC			0x9db22482
+	/* shared */
 	struct lock			mtx;
-
-	struct worker			*wrk;
-	struct vsl_log			vsl;
-
 	VSTAILQ_HEAD(,objcore)		inbox;
-	struct binheap			*heap;
 	pthread_cond_t			condvar;
 
-	pthread_rwlock_t		cb_rwl;
+	/* owned by exp thread */
+	struct worker			*wrk;
+	struct vsl_log			vsl;
+	struct binheap			*heap;
 };
 
 static struct exp_priv *exphdl;
 
 /*--------------------------------------------------------------------
- * Calculate an objects effective ttl time, taking req.ttl into account
+ * Calculate an object's effective ttl time, taking req.ttl into account
  * if it is available.
  */
 
@@ -73,6 +72,24 @@ EXP_Ttl(const struct req *req, const struct objcore *oc)
 	if (req != NULL && req->d_ttl > 0. && req->d_ttl < r)
 		r = req->d_ttl;
 	return (oc->t_origin + r);
+}
+
+/*--------------------------------------------------------------------
+ * Calculate an object's effective ttl+grace time, taking req.grace into
+ * account if it is available.
+ */
+
+double
+EXP_Ttl_grace(const struct req *req, const struct objcore *oc)
+{
+	double g;
+
+	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
+
+	g = oc->grace;
+	if (req != NULL && req->d_grace >= 0. && req->d_grace < g)
+		g = req->d_grace;
+	return (EXP_Ttl(req, oc) + g);
 }
 
 /*--------------------------------------------------------------------
@@ -162,7 +179,7 @@ EXP_Rearm(struct objcore *oc, double now, double ttl, double grace, double keep)
 
 	when = EXP_WHEN(oc);
 
-	VSL(SLT_ExpKill, 0, "EXP_Rearm p=%p E=%.9f e=%.9f f=0x%x", oc,
+	VSL(SLT_ExpKill, 0, "EXP_Rearm p=%p E=%.6f e=%.6f f=0x%x", oc,
 	    oc->timer_when, when, oc->flags);
 
 	if (when < oc->t_origin || when < oc->timer_when)
@@ -181,7 +198,7 @@ exp_inbox(struct exp_priv *ep, struct objcore *oc, unsigned flags)
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	assert(oc->refcnt > 0);
 
-	VSLb(&ep->vsl, SLT_ExpKill, "EXP_Inbox flg=%x p=%p e=%.9f f=0x%x",
+	VSLb(&ep->vsl, SLT_ExpKill, "EXP_Inbox flg=%x p=%p e=%.6f f=0x%x",
 	    flags, oc, oc->timer_when, oc->flags);
 
 	if (flags & OC_EF_REMOVE) {
@@ -202,7 +219,7 @@ exp_inbox(struct exp_priv *ep, struct objcore *oc, unsigned flags)
 		ObjSendEvent(ep->wrk, oc, OEV_TTLCHG);
 	}
 
-	VSLb(&ep->vsl, SLT_ExpKill, "EXP_When p=%p e=%.9f f=0x%x", oc,
+	VSLb(&ep->vsl, SLT_ExpKill, "EXP_When p=%p e=%.6f f=0x%x", oc,
 	    oc->timer_when, flags);
 
 	/*
@@ -238,7 +255,7 @@ exp_expire(struct exp_priv *ep, double now)
 	oc = binheap_root(ep->heap);
 	if (oc == NULL)
 		return (now + 355./113.);
-	VSLb(&ep->vsl, SLT_ExpKill, "EXP_expire p=%p e=%.9f f=0x%x", oc,
+	VSLb(&ep->vsl, SLT_ExpKill, "EXP_expire p=%p e=%.6f f=0x%x", oc,
 	    oc->timer_when - now, oc->flags);
 
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
@@ -280,7 +297,7 @@ exp_expire(struct exp_priv *ep, double now)
  * object expires, accounting also for graceability, it is killed.
  */
 
-static int __match_proto__(binheap_cmp_t)
+static int v_matchproto_(binheap_cmp_t)
 object_cmp(void *priv, const void *a, const void *b)
 {
 	const struct objcore *aa, *bb;
@@ -291,7 +308,7 @@ object_cmp(void *priv, const void *a, const void *b)
 	return (aa->timer_when < bb->timer_when);
 }
 
-static void __match_proto__(binheap_update_t)
+static void v_matchproto_(binheap_update_t)
 object_update(void *priv, void *p, unsigned u)
 {
 	struct objcore *oc;
@@ -301,7 +318,7 @@ object_update(void *priv, void *p, unsigned u)
 	oc->timer_idx = u;
 }
 
-static void * __match_proto__(bgthread_t)
+static void * v_matchproto_(bgthread_t)
 exp_thread(struct worker *wrk, void *priv)
 {
 	struct objcore *oc;
@@ -360,7 +377,6 @@ EXP_Init(void)
 	Lck_New(&ep->mtx, lck_exp);
 	AZ(pthread_cond_init(&ep->condvar, NULL));
 	VSTAILQ_INIT(&ep->inbox);
-	AZ(pthread_rwlock_init(&ep->cb_rwl, NULL));
 	exphdl = ep;
-	WRK_BgThread(&pt, "cache-timeout", exp_thread, ep);
+	WRK_BgThread(&pt, "cache-exp", exp_thread, ep);
 }

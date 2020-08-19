@@ -37,18 +37,11 @@
  *
  */
 
-/*--------------------------------------------------------------------
- * A director is a piece of code which selects one of possibly multiple
- * backends to use.
- */
-
-
 typedef unsigned vdi_healthy_f(const struct director *, const struct busyobj *,
     double *changed);
-
+/* XXX need a VRT_CTX argument */
 typedef const struct director *vdi_resolve_f(const struct director *,
     struct worker *, struct busyobj *);
-
 typedef int vdi_gethdrs_f(const struct director *, struct worker *,
     struct busyobj *);
 typedef int vdi_getbody_f(const struct director *, struct worker *,
@@ -60,6 +53,10 @@ typedef void vdi_finish_f(const struct director *, struct worker *,
 
 typedef enum sess_close vdi_http1pipe_f(const struct director *, struct req *,
     struct busyobj *);
+
+typedef void vdi_event_f(const struct director *, enum vcl_event_e);
+
+typedef void vdi_destroy_f(const struct director *);
 
 typedef void vdi_panic_f(const struct director *, struct vsb *);
 
@@ -75,20 +72,39 @@ struct director {
 	vdi_getbody_f		*getbody;
 	vdi_getip_f		*getip;
 	vdi_finish_f		*finish;
+	vdi_event_f		*event;
+	vdi_destroy_f		*destroy;
 	vdi_panic_f		*panic;
 	void			*priv;
 	const void		*priv2;
+
+	/* Internal Housekeeping fields */
+
+	char			*display_name;
+	VTAILQ_ENTRY(director)	vcl_list;
+	struct vcl		*vcl;
+
+	unsigned		health;
+	const struct vdi_ahealth *admin_health;
+	double			health_changed;
 };
+
+unsigned VDI_Healthy(const struct director *, double *);
+
+/* cache_vcl.c */
+int VCL_AddDirector(struct vcl *, struct director *, const char *);
+void VCL_DelDirector(struct director *);
 
 /* cache_director.c */
 
-int VDI_GetHdr(struct worker *, struct busyobj *);
-int VDI_GetBody(struct worker *, struct busyobj *);
-const struct suckaddr *VDI_GetIP(struct worker *, struct busyobj *);
+#define VBE_AHEALTH_LIST			\
+	VBE_AHEALTH(healthy,	HEALTHY)	\
+	VBE_AHEALTH(sick,	SICK)		\
+	VBE_AHEALTH(probe,	PROBE)		\
+	VBE_AHEALTH(deleted,	DELETED)
 
-void VDI_Finish(struct worker *wrk, struct busyobj *bo);
+#define VBE_AHEALTH(l,u) extern const struct vdi_ahealth * const VDI_AH_##u;
+VBE_AHEALTH_LIST
+#undef VBE_AHEALTH
 
-enum sess_close VDI_Http1Pipe(struct req *, struct busyobj *);
-
-int VDI_Healthy(const struct director *, const struct busyobj *);
-void VDI_Panic(const struct director *, struct vsb *, const char *nm);
+const char *VDI_Ahealth(const struct director *d);

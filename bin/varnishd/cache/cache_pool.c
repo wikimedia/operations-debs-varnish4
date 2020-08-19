@@ -35,10 +35,9 @@
 
 #include "config.h"
 
-#include <errno.h>
 #include <stdlib.h>
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_pool.h"
 
 static pthread_t		thr_pool_herder;
@@ -51,35 +50,22 @@ static VTAILQ_HEAD(,pool)	pools = VTAILQ_HEAD_INITIALIZER(pools);
  * Summing of stats into global stats counters
  */
 
-static void
-pool_sumstat(const struct dstat *src)
-{
-
-	Lck_AssertHeld(&wstat_mtx);
-#define L0(n)
-#define L1(n) (VSC_C_main->n += src->n)
-#define VSC_FF(n,t,l,s,f,v,d,e)	L##l(n);
-#include "tbl/vsc_f_main.h"
-#undef L0
-#undef L1
-}
-
 void
-Pool_Sumstat(struct worker *wrk)
+Pool_Sumstat(const struct worker *wrk)
 {
 
 	Lck_Lock(&wstat_mtx);
-	pool_sumstat(wrk->stats);
+	VSC_main_Summ_wrk(VSC_C_main, wrk->stats);
 	Lck_Unlock(&wstat_mtx);
 	memset(wrk->stats, 0, sizeof *wrk->stats);
 }
 
 int
-Pool_TrySumstat(struct worker *wrk)
+Pool_TrySumstat(const struct worker *wrk)
 {
 	if (Lck_Trylock(&wstat_mtx))
 		return (0);
-	pool_sumstat(wrk->stats);
+	VSC_main_Summ_wrk(VSC_C_main, wrk->stats);
 	Lck_Unlock(&wstat_mtx);
 	memset(wrk->stats, 0, sizeof *wrk->stats);
 	return (1);
@@ -124,17 +110,17 @@ Pool_PurgeStat(unsigned nobj)
  * Special function to summ stats
  */
 
-void __match_proto__(task_func_t)
+void v_matchproto_(task_func_t)
 pool_stat_summ(struct worker *wrk, void *priv)
 {
-	struct dstat *src;
+	struct VSC_main_wrk *src;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(wrk->pool, POOL_MAGIC);
 	AN(priv);
 	src = priv;
 	Lck_Lock(&wstat_mtx);
-	pool_sumstat(src);
+	VSC_main_Summ_wrk(VSC_C_main, src);
 	Lck_Unlock(&wstat_mtx);
 	memset(src, 0, sizeof *src);
 	AZ(wrk->pool->b_stat);
@@ -184,7 +170,7 @@ pool_mkpool(unsigned pool_no)
  * NB: be maintained for params which require action.
  */
 
-static void *
+static void * v_matchproto_()
 pool_poolherder(void *priv)
 {
 	unsigned nwq;
@@ -193,6 +179,7 @@ pool_poolherder(void *priv)
 	void *rvp;
 
 	THR_SetName("pool_poolherder");
+	THR_Init();
 	(void)priv;
 
 	nwq = 0;

@@ -31,31 +31,42 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 
 #include "cache_director.h"
-#include "hash/hash_slinger.h"
+#include "cache_objhead.h"
 #include "vav.h"
 #include "vcl.h"
-#include "vrt.h"
 #include "vrt_obj.h"
 #include "vsa.h"
 #include "vtcp.h"
 #include "vtim.h"
+
+#include "common/heritage.h"
+#include "common/vsmw.h"
 
 const void * const vrt_magic_string_end = &vrt_magic_string_end;
 const void * const vrt_magic_string_unset = &vrt_magic_string_unset;
 
 /*--------------------------------------------------------------------*/
 
-void
-VRT_synth(VRT_CTX, unsigned code, const char *reason)
+VCL_VOID
+VRT_synth(VRT_CTX, VCL_INT code, VCL_STRING reason)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-	if (code < 100)
+	assert(ctx->req != NULL || ctx->bo != NULL);
+	if (code < 100 || code > 65535)
 		code = 503;
+
+	if (ctx->req == NULL) {
+		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
+		ctx->bo->err_code = (uint16_t)code;
+		ctx->bo->err_reason = reason ? reason
+		    : http_Status2Reason(ctx->bo->err_code % 1000, NULL);
+		return;
+	}
+
 	ctx->req->err_code = (uint16_t)code;
 	ctx->req->err_reason = reason ? reason
 	    : http_Status2Reason(ctx->req->err_code % 1000, NULL);
@@ -81,11 +92,17 @@ VRT_acl_match(VRT_CTX, VCL_ACL acl, VCL_IP ip)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(acl, VRT_ACL_MAGIC);
+	if (ip == NULL) {
+		VRT_fail(ctx, "Cannot match a null IP address");
+		return (0);
+	}
 	assert(VSA_Sane(ip));
 	return (acl->match(ctx, ip));
 }
 
-void
+/*--------------------------------------------------------------------*/
+
+VCL_VOID
 VRT_hit_for_pass(VRT_CTX, VCL_DURATION d)
 {
 	struct objcore *oc;
@@ -101,13 +118,13 @@ VRT_hit_for_pass(VRT_CTX, VCL_DURATION d)
 	oc->ttl = d;
 	oc->grace = 0.0;
 	oc->keep = 0.0;
-	VSLb(ctx->vsl, SLT_TTL, "HFP %.0f %.0f %.0f %.0f",
+	VSLb(ctx->vsl, SLT_TTL, "HFP %.0f %.0f %.0f %.0f uncacheable",
 	    oc->ttl, oc->grace, oc->keep, oc->t_origin);
 }
 
 /*--------------------------------------------------------------------*/
 
-struct http *
+VCL_HTTP
 VRT_selecthttp(VRT_CTX, enum gethdr_e where)
 {
 	struct http *hp;
@@ -137,7 +154,7 @@ VRT_selecthttp(VRT_CTX, enum gethdr_e where)
 
 /*--------------------------------------------------------------------*/
 
-const char *
+VCL_STRING
 VRT_GetHdr(VRT_CTX, const struct gethdr_s *hs)
 {
 	const char *p;
@@ -158,6 +175,64 @@ VRT_GetHdr(VRT_CTX, const struct gethdr_s *hs)
 }
 
 /*--------------------------------------------------------------------
+ * Build STRANDS from what is essentially a STRING_LIST
+ */
+
+VCL_STRANDS
+VRT_BundleStrands(int n, struct strands *s, char const **d, const char *f, ...)
+{
+	va_list ap;
+
+	s->n = n;
+	s->p = d;
+	*d++ = f;
+	va_start(ap, f);
+	while(--n)
+		*d++ = va_arg(ap, const char *);
+	assert(va_arg(ap, const char *) == vrt_magic_string_end);
+	va_end(ap);
+	return (s);
+}
+
+/*--------------------------------------------------------------------
+ * Compare two STRANDS
+ */
+
+int
+VRT_CompareStrands(VCL_STRANDS a, VCL_STRANDS b)
+{
+	const char *pa = NULL, *pb = NULL;
+	int na = 0, nb = 0;
+
+	while (1) {
+		if (pa != NULL && *pa == '\0')
+			pa = NULL;
+		if (pb != NULL && *pb == '\0')
+			pb = NULL;
+		if (pa == NULL && na < a->n)
+			pa = a->p[na++];
+		else if (pb == NULL && nb < b->n)
+			pb = b->p[nb++];
+		else if (pa == NULL && pb == NULL)
+			return (0);
+		else if (pa == NULL)
+			return (-1);
+		else if (pb == NULL)
+			return (1);
+		else if (*pa == '\0')
+			pa = NULL;
+		else if (*pb == '\0')
+			pb = NULL;
+		else if (*pa != *pb)
+			return (*pa - *pb);
+		else {
+			pa++;
+			pb++;
+		}
+	}
+}
+
+/*--------------------------------------------------------------------
  * Collapse a STRING_LIST in the space provided, or return NULL
  */
 
@@ -170,7 +245,7 @@ VRT_StringList(char *d, unsigned dl, const char *p, va_list ap)
 	b = d;
 	e = b + dl;
 	while (p != vrt_magic_string_end && b < e) {
-		if (p != NULL) {
+		if (p != NULL && *p != '\0') {
 			x = strlen(p);
 			if (b + x < e)
 				memcpy(b, p, x);
@@ -192,11 +267,51 @@ const char *
 VRT_String(struct ws *ws, const char *h, const char *p, va_list ap)
 {
 	char *b, *e;
+	const char *q;
 	unsigned u, x;
+	va_list aq;
 
-	u = WS_Reserve(ws, 0);
+	u = WS_ReserveAll(ws);
 	e = b = ws->f;
 	e += u;
+
+	va_copy(aq, ap);
+	do
+		q = va_arg(aq, const char *);
+	while (q == NULL || (q != vrt_magic_string_end && *q == '\0'));
+
+	if (h != NULL && p == NULL && q == vrt_magic_string_end &&
+	    WS_Inside(ws, h, NULL)) {
+		va_end(aq);
+		WS_Release(ws, 0);
+		return (h);
+	}
+
+	if (h == NULL && p != NULL && q == vrt_magic_string_end &&
+	    WS_Inside(ws, p, NULL)) {
+		va_end(aq);
+		WS_Release(ws, 0);
+		return (p);
+	}
+
+	if (h == NULL && p == NULL) {
+		if (q == vrt_magic_string_end) {
+			va_end(aq);
+			WS_Release(ws, 0);
+			return ("");
+		}
+		do
+			p = va_arg(aq, const char *);
+		while (p == NULL || (p != vrt_magic_string_end && *p == '\0'));
+		if (p == vrt_magic_string_end && WS_Inside(ws, q, NULL)) {
+			va_end(aq);
+			WS_Release(ws, 0);
+			return (q);
+		}
+		p = NULL;
+		va_end(aq);
+	}
+
 	if (h != NULL) {
 		x = strlen(h);
 		if (b + x < e)
@@ -208,6 +323,7 @@ VRT_String(struct ws *ws, const char *h, const char *p, va_list ap)
 	}
 	b = VRT_StringList(b, e > b ? e - b : 0, p, ap);
 	if (b == NULL || b == e) {
+		WS_MarkOverflow(ws);
 		WS_Release(ws, 0);
 		return (NULL);
 	}
@@ -221,7 +337,7 @@ VRT_String(struct ws *ws, const char *h, const char *p, va_list ap)
  * Copy and merge a STRING_LIST on the current workspace
  */
 
-const char *
+VCL_STRING
 VRT_CollectString(VRT_CTX, const char *p, ...)
 {
 	va_list ap;
@@ -232,12 +348,125 @@ VRT_CollectString(VRT_CTX, const char *p, ...)
 	va_start(ap, p);
 	b = VRT_String(ctx->ws, NULL, p, ap);
 	va_end(ap);
+	if (b == NULL)
+		VRT_fail(ctx, "Workspace overflow");
+	return (b);
+}
+
+/*--------------------------------------------------------------------
+ * Collapse STRANDS into the space provided, or return NULL
+ */
+
+char *
+VRT_Strands(char *d, size_t dl, VCL_STRANDS s)
+{
+	char *b;
+	const char *e;
+	unsigned x;
+
+	AN(d);
+	AN(s);
+	b = d;
+	e = b + dl;
+	for (int i = 0; i < s->n && b < e; i++)
+		if (s->p[i] != NULL && *s->p[i] != '\0') {
+			x = strlen(s->p[i]);
+			if (b + x < e)
+				memcpy(b, s->p[i], x);
+			b += x;
+		}
+	if (b >= e)
+		return (NULL);
+	*b++ = '\0';
+	return (b);
+}
+
+/*--------------------------------------------------------------------
+ * Copy and merge STRANDS into a workspace.
+ */
+
+VCL_STRING
+VRT_StrandsWS(struct ws *ws, const char *h, VCL_STRANDS s)
+{
+	char *b;
+	const char *q = NULL, *e;
+	VCL_STRING r;
+	unsigned u, x;
+	int i;
+
+	AN(s);
+	u = WS_ReserveAll(ws);
+
+	for (i = 0; i < s->n; i++)
+		if (s->p[i] != NULL && *s->p[i] != '\0') {
+			q = s->p[i];
+			break;
+		}
+
+	if (h != NULL && q == NULL && WS_Inside(ws, h, NULL)) {
+		WS_Release(ws, 0);
+		return (h);
+	}
+
+	if (h == NULL) {
+		if (q == NULL) {
+			WS_Release(ws, 0);
+			return ("");
+		}
+		if (WS_Inside(ws, q, NULL)) {
+			for (i++; i < s->n; i++)
+				if (s->p[i] != NULL && *s->p[i] != '\0')
+					break;
+			if (i == s->n) {
+				WS_Release(ws, 0);
+				return (q);
+			}
+		}
+	}
+
+	b = WS_Front(ws);
+	e = b + u;
+
+	if (h != NULL) {
+		x = strlen(h);
+		if (b + x < e)
+			memcpy(b, h, x);
+		b += x;
+		if (b < e)
+			*b = ' ';
+		b++;
+	}
+	r = VRT_Strands(b, e > b ? e - b : 0, s);
+	if (r == NULL || r == e) {
+		WS_MarkOverflow(ws);
+		WS_Release(ws, 0);
+		return (NULL);
+	}
+	b = WS_Front(ws);
+	WS_Release(ws, r - b);
+	return (b);
+}
+
+/*--------------------------------------------------------------------
+ * Copy and merge STRANDS on the current workspace
+ */
+
+VCL_STRING
+VRT_CollectStrands(VRT_CTX, VCL_STRANDS s)
+{
+	const char *b;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
+	b = VRT_StrandsWS(ctx->ws, NULL, s);
+	if (b == NULL)
+		VRT_fail(ctx, "Workspace overflow");
 	return (b);
 }
 
 /*--------------------------------------------------------------------*/
 
-void
+VCL_VOID
 VRT_SetHdr(VRT_CTX , const struct gethdr_s *hs,
     const char *p, ...)
 {
@@ -267,11 +496,13 @@ VRT_SetHdr(VRT_CTX , const struct gethdr_s *hs,
 
 /*--------------------------------------------------------------------*/
 
-void
+VCL_VOID
 VRT_handling(VRT_CTX, unsigned hand)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (ctx->handling == NULL)
+		return;
 	assert(hand > 0);
 	assert(hand < VCL_RET_MAX);
 	// XXX:NOTYET assert(*ctx->handling == 0);
@@ -280,7 +511,7 @@ VRT_handling(VRT_CTX, unsigned hand)
 
 /*--------------------------------------------------------------------*/
 
-void
+VCL_VOID
 VRT_fail(VRT_CTX, const char *fmt, ...)
 {
 	va_list ap;
@@ -302,7 +533,7 @@ VRT_fail(VRT_CTX, const char *fmt, ...)
  * Feed data into the hash calculation
  */
 
-void
+VCL_VOID
 VRT_hashdata(VRT_CTX, const char *str, ...)
 {
 	va_list ap;
@@ -329,7 +560,7 @@ VRT_hashdata(VRT_CTX, const char *str, ...)
 
 /*--------------------------------------------------------------------*/
 
-double
+VCL_TIME
 VRT_r_now(VRT_CTX)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -338,7 +569,7 @@ VRT_r_now(VRT_CTX)
 
 /*--------------------------------------------------------------------*/
 
-char *
+VCL_STRING v_matchproto_()
 VRT_IP_string(VRT_CTX, VCL_IP ip)
 {
 	char *p;
@@ -347,7 +578,7 @@ VRT_IP_string(VRT_CTX, VCL_IP ip)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	if (ip == NULL)
 		return (NULL);
-	len = WS_Reserve(ctx->ws, 0);
+	len = WS_ReserveAll(ctx->ws);
 	if (len == 0) {
 		WS_Release(ctx->ws, 0);
 		return (NULL);
@@ -358,24 +589,24 @@ VRT_IP_string(VRT_CTX, VCL_IP ip)
 	return (p);
 }
 
-char *
-VRT_INT_string(VRT_CTX, long num)
+VCL_STRING v_matchproto_()
+VRT_INT_string(VRT_CTX, VCL_INT num)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	return (WS_Printf(ctx->ws, "%ld", num));
+	return (WS_Printf(ctx->ws, "%jd", (intmax_t)num));
 }
 
-char *
-VRT_REAL_string(VRT_CTX, double num)
+VCL_STRING v_matchproto_()
+VRT_REAL_string(VRT_CTX, VCL_REAL num)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	return (WS_Printf(ctx->ws, "%.3f", num));
 }
 
-char *
-VRT_TIME_string(VRT_CTX, double t)
+VCL_STRING v_matchproto_()
+VRT_TIME_string(VRT_CTX, VCL_TIME t)
 {
 	char *p;
 
@@ -386,7 +617,7 @@ VRT_TIME_string(VRT_CTX, double t)
 	return (p);
 }
 
-const char * __match_proto__()
+VCL_STRING v_matchproto_()
 VRT_BACKEND_string(VCL_BACKEND d)
 {
 	if (d == NULL)
@@ -395,8 +626,8 @@ VRT_BACKEND_string(VCL_BACKEND d)
 	return (d->vcl_name);
 }
 
-const char *
-VRT_BOOL_string(unsigned val)
+VCL_STRING v_matchproto_()
+VRT_BOOL_string(VCL_BOOL val)
 {
 
 	return (val ? "true" : "false");
@@ -404,18 +635,20 @@ VRT_BOOL_string(unsigned val)
 
 /*--------------------------------------------------------------------*/
 
-void
-VRT_Rollback(VRT_CTX, const struct http *hp)
+VCL_VOID
+VRT_Rollback(VRT_CTX, VCL_HTTP hp)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 	if (hp == ctx->http_req) {
 		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-		HTTP_Copy(ctx->req->http, ctx->req->http0);
-		WS_Reset(ctx->req->ws, ctx->req->ws_req);
+		Req_Rollback(ctx->req);
 	} else if (hp == ctx->http_bereq) {
 		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
+		// -> VBO_Rollback ?
+		VCL_TaskLeave(ctx->bo->vcl, ctx->bo->privs);
+		VCL_TaskEnter(ctx->bo->vcl, ctx->bo->privs);
 		HTTP_Copy(ctx->bo->bereq, ctx->bo->bereq0);
 		WS_Reset(ctx->bo->bereq->ws, ctx->bo->ws_bo);
 		WS_Reset(ctx->bo->ws, ctx->bo->ws_bo);
@@ -425,7 +658,7 @@ VRT_Rollback(VRT_CTX, const struct http *hp)
 
 /*--------------------------------------------------------------------*/
 
-void
+VCL_VOID
 VRT_synth_page(VRT_CTX, const char *str, ...)
 {
 	va_list ap;
@@ -438,7 +671,11 @@ VRT_synth_page(VRT_CTX, const char *str, ...)
 	while (p != vrt_magic_string_end) {
 		if (p == NULL)
 			p = "(null)";
-		VSB_cat(vsb, p);
+		if (VSB_cat(vsb, p)) {
+			VRT_fail(ctx, "synthetic(): %s",
+				 strerror(VSB_error(vsb)));
+			break;
+		}
 		p = va_arg(ap, const char *);
 	}
 	va_end(ap);
@@ -446,8 +683,8 @@ VRT_synth_page(VRT_CTX, const char *str, ...)
 
 /*--------------------------------------------------------------------*/
 
-void
-VRT_ban_string(VRT_CTX, const char *str)
+VCL_VOID
+VRT_ban_string(VRT_CTX, VCL_STRING str)
 {
 	char *a1, *a2, *a3;
 	char **av;
@@ -457,7 +694,11 @@ VRT_ban_string(VRT_CTX, const char *str)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	AN(ctx->vsl);
-	AN(str);
+
+	if (str == NULL) {
+		VSLb(ctx->vsl, SLT_VCL_Error, "ban(): Null argument");
+		return;
+	}
 
 	bp = BAN_Build();
 	if (bp == NULL) {
@@ -534,16 +775,51 @@ VRT_CacheReqBody(VRT_CTX, VCL_BYTES maxsize)
  * purges
  */
 
-void
-VRT_purge(VRT_CTX, double ttl, double grace, double keep)
+VCL_INT
+VRT_purge(VRT_CTX, VCL_DURATION ttl, VCL_DURATION grace, VCL_DURATION keep)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+	if ((ctx->method & (VCL_MET_HIT|VCL_MET_MISS)) == 0) {
+		VSLb(ctx->vsl, SLT_VCL_Error,
+		    "purge can only happen in vcl_hit{} or vcl_miss{}");
+		VRT_handling(ctx, VCL_RET_FAIL);
+		return (0);
+	}
+
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->req->wrk, WORKER_MAGIC);
-	if (ctx->method == VCL_MET_HIT || ctx->method == VCL_MET_MISS)
-		HSH_Purge(ctx->req->wrk, ctx->req->objcore->objhead,
-		    ttl, grace, keep);
+	return (HSH_Purge(ctx->req->wrk, ctx->req->objcore->objhead,
+	    ctx->req->t_req, ttl, grace, keep));
+}
+
+/*--------------------------------------------------------------------
+ */
+
+struct vsmw_cluster * v_matchproto_()
+VRT_VSM_Cluster_New(VRT_CTX, size_t sz)
+{
+	struct vsmw_cluster *vc;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	assert(sz > 0);
+	AN(vsc_lock);
+	AN(vsc_unlock);
+	AN(heritage.proc_vsmw);
+	vsc_lock();
+	vc = VSMW_NewCluster(heritage.proc_vsmw, sz, "VSC_cluster");
+	vsc_unlock();
+	return (vc);
+}
+
+void v_matchproto_()
+VRT_VSM_Cluster_Destroy(VRT_CTX, struct vsmw_cluster **vsmcp)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(vsmcp);
+	VSMW_DestroyCluster(heritage.proc_vsmw, vsmcp);
 }
 
 /*--------------------------------------------------------------------
@@ -565,10 +841,34 @@ VRT_memmove(void *dst, const void *src, unsigned len)
 	(void)memmove(dst, src, len);
 }
 
-int
-VRT_ipcmp(const struct suckaddr *sua1, const struct suckaddr *sua2)
+VCL_BOOL
+VRT_ipcmp(VCL_IP sua1, VCL_IP sua2)
 {
 	if (sua1 == NULL || sua2 == NULL)
 		return(1);
 	return (VSA_Compare_IP(sua1, sua2));
+}
+
+VCL_BLOB
+VRT_blob(VRT_CTX, const char *err, const void *src, size_t len)
+{
+	struct vmod_priv *p;
+	void *d;
+
+	p = (void *)WS_Alloc(ctx->ws, sizeof *p);
+	d = WS_Copy(ctx->ws, src, len);
+	if (p == NULL || d == NULL) {
+		VRT_fail(ctx, "Workspace overflow (%s)", err);
+		return (NULL);
+	}
+	memset(p, 0, sizeof *p);
+	p->len = len;
+	p->priv = d;
+	return (p);
+}
+
+int
+VRT_VSA_GetPtr(const struct suckaddr *sua, const unsigned char ** dst)
+{
+	return (VSA_GetPtr(sua, dst));
 }

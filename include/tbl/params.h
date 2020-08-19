@@ -146,10 +146,18 @@ PARAM(
 	/* flags */	EXPERIMENTAL,
 	/* s-text */
 	"Expurge long tail content from the cache to keep the number of bans "
-	"below this value. 0 disables.\n"
-	"This is a safety net to avoid bad response times due to bans being "
-	"tested at lookup time. Setting a cutoff trades response time for "
-	"cache efficiency. The recommended value is proportional to "
+	"below this value. 0 disables.\n\n"
+	"When this parameter is set to a non-zero value, the ban lurker "
+	"continues to work the ban list as usual top to bottom, but when it "
+	"reaches the ban_cutoff-th ban, it treats all objects as if they "
+	"matched a ban and expurges them from cache. As actively used objects "
+	"get tested against the ban list at request time and thus are likely "
+	"to be associated with bans near the top of the ban list, with "
+	"ban_cutoff, least recently accessed objects (the \"long tail\") are "
+	"removed.\n\n"
+	"This parameter is a safety net to avoid bad response times due to "
+	"bans being tested at lookup time. Setting a cutoff trades response "
+	"time for cache efficiency. The recommended value is proportional to "
 	"rate(bans_lurker_tests_tested) / n_objects while the ban lurker is "
 	"working, which is the number of bans the system can sustain. The "
 	"additional latency due to request ban testing is in the order of "
@@ -278,18 +286,40 @@ PARAM(
 )
 
 PARAM(
-	/* name */	cli_buffer,
-	/* typ */	bytes_u,
-	/* min */	"4k",
+	/* name */	backend_local_error_holddown,
+	/* typ */	timeout,
+	/* min */	"0.000",
 	/* max */	NULL,
-	/* default */	"8k",
-	/* units */	"bytes",
-	/* flags */	0,
+	/* default */	"10.000",
+	/* units */	"seconds",
+	/* flags */	EXPERIMENTAL,
 	/* s-text */
-	"Size of buffer for CLI command input.\n"
-	"You may need to increase this if you have big VCL files and use "
-	"the vcl.inline CLI command.\n"
-	"NB: Must be specified with -p to have effect.",
+	"When connecting to backends, certain error codes "
+	"(EADDRNOTAVAIL, EACCESS, EPERM) signal a local resource shortage "
+	"or configuration issue for which retrying connection attempts "
+	"may worsen the situation due to the complexity of the operations "
+	"involved in the kernel.\n"
+	"This parameter prevents repeated connection attempts for the "
+	"configured duration.",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+PARAM(
+	/* name */	backend_remote_error_holddown,
+	/* typ */	timeout,
+	/* min */	"0.000",
+	/* max */	NULL,
+	/* default */	"0.250",
+	/* units */	"seconds",
+	/* flags */	EXPERIMENTAL,
+	/* s-text */
+	"When connecting to backends, certain error codes (ECONNREFUSED, "
+	"ENETUNREACH) signal fundamental connection issues such as the backend "
+	"not accepting connections or routing problems for which repeated "
+	"connection attempts are considered useless\n"
+	"This parameter prevents repeated connection attempts for the "
+	"configured duration.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -467,6 +497,21 @@ PARAM(
 	/* func */	NULL
 )
 
+PARAM(
+	/* name */	esi_iovs,
+	/* typ */	uint,
+	/* min */	"3",
+	/* max */	"1024",	// XXX stringify IOV_MAX
+	/* default */	"10",		// 5 should suffice, add headroom
+	/* units */	"struct iovec",
+	/* flags */	WIZARD,
+	/* s-text */
+	"Number of io vectors to allocate on the thread workspace for "
+	"ESI requests.",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
 #if 0
 /* actual location mgt_param_bits.c*/
 /* See tbl/feature_bits.h */
@@ -592,7 +637,11 @@ PARAM(
 	"\n"
 	"Clients that do not support gzip will have their Accept-Encoding "
 	"header removed. For more information on how gzip is implemented "
-	"please see the chapter on gzip in the Varnish reference.",
+	"please see the chapter on gzip in the Varnish reference.\n"
+	"\n"
+	"When gzip support is disabled the variables beresp.do_gzip and "
+	"beresp.do_gunzip have no effect in VCL.",
+	/* XXX: what about the effect on beresp.filters? */
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -689,14 +738,23 @@ PARAM(
 	/* s-text */
 	"Maximum number of bytes of HTTP backend response we will deal "
 	"with.  This is a limit on all bytes up to the double blank line "
-	"which ends the HTTP request.\n"
-	"The memory for the request is allocated from the backend workspace "
+	"which ends the HTTP response.\n"
+	"The memory for the response is allocated from the backend workspace "
 	"(param: workspace_backend) and this parameter limits how much "
-	"of that the request is allowed to take up.",
+	"of that the response is allowed to take up.",
 	/* l-text */	"",
 	/* func */	NULL
 )
 
+#if defined(XYZZY)
+  #error "Temporary macro XYZZY already defined"
+#endif
+
+#if defined(SO_SNDTIMEO_WORKS)
+  #define XYZZY DELAYED_EFFECT
+#else
+  #define XYZZY NOT_IMPLEMENTED
+#endif
 PARAM(
 	/* name */	idle_send_timeout,
 	/* typ */	timeout,
@@ -704,15 +762,17 @@ PARAM(
 	/* max */	NULL,
 	/* default */	"60.000",
 	/* units */	"seconds",
-	/* flags */	DELAYED_EFFECT,
+	/* flags */	XYZZY,
 	/* s-text */
-	"Time to wait with no data sent. If no data has been transmitted "
-	"in this many\n"
-	"seconds the session is closed.\n"
-	"See setsockopt(2) under SO_SNDTIMEO for more information.",
+	"Send timeout for individual pieces of data on client connections."
+	" May get extended if 'send_timeout' applies.\n\n"
+	"When this timeout is hit, the session is closed.\n\n"
+	"See the man page for `setsockopt(2)` under ``SO_SNDTIMEO`` for more"
+	" information.",
 	/* l-text */	"",
 	/* func */	NULL
 )
+#undef XYZZY
 
 PARAM(
 	/* name */	listen_depth,
@@ -769,9 +829,7 @@ PARAM(
 	/* units */	"restarts",
 	/* flags */	0,
 	/* s-text */
-	"Upper limit on how many times a request can restart.\n"
-	"Be aware that restarts are likely to cause a hit against the "
-	"backend, so don't increase thoughtlessly.",
+	"Upper limit on how many times a request can restart.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -952,6 +1010,15 @@ PARAM(
 	/* func */	NULL
 )
 
+#if defined(XYZZY)
+  #error "Temporary macro XYZZY already defined"
+#endif
+
+#if defined(SO_SNDTIMEO_WORKS)
+  #define XYZZY DELAYED_EFFECT
+#else
+  #define XYZZY NOT_IMPLEMENTED
+#endif
 PARAM(
 	/* name */	send_timeout,
 	/* typ */	timeout,
@@ -959,16 +1026,21 @@ PARAM(
 	/* max */	NULL,
 	/* default */	"600.000",
 	/* units */	"seconds",
-	/* flags */	DELAYED_EFFECT,
+	/* flags */	XYZZY,
 	/* s-text */
-	"Send timeout for client connections. If the HTTP response hasn't "
-	"been transmitted in this many\n"
-	"seconds the session is closed.\n"
-	"See setsockopt(2) under SO_SNDTIMEO for more information.",
+	"Total timeout for ordinary HTTP1 responses. Does not apply to some"
+	" internally generated errors and pipe mode.\n\n"
+	"When 'idle_send_timeout' is hit while sending an HTTP1 response, the"
+	" timeout is extended unless the total time already taken for sending"
+	" the response in its entirety exceeds this many seconds.\n\n"
+	"When this timeout is hit, the session is closed",
 	/* l-text */	"",
 	/* func */	NULL
 )
+#undef XYZZY
 
+#if 0
+/* actual location mgt_param_tbl.c */
 PARAM(
 	/* name */	shm_reclen,
 	/* typ */	vsl_reclen,
@@ -982,6 +1054,7 @@ PARAM(
 	/* l-text */	"",
 	/* func */	NULL
 )
+#endif
 
 PARAM(
 	/* name */	shortlived,
@@ -1061,7 +1134,8 @@ PARAM(
 	/* units */	"seconds",
 	/* flags */	XYZZY,
 	/* s-text */
-	"The number of seconds between TCP keep-alive probes.",
+	"The number of seconds between TCP keep-alive probes. "
+	"Ignored for Unix domain sockets.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1077,7 +1151,7 @@ PARAM(
 	/* s-text */
 	"The maximum number of TCP keep-alive probes to send before giving "
 	"up and killing the connection if no response is obtained from the "
-	"other end.",
+	"other end. Ignored for Unix domain sockets.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1092,7 +1166,8 @@ PARAM(
 	/* flags */	XYZZY,
 	/* s-text */
 	"The number of seconds a connection needs to be idle before TCP "
-	"begins sending out keep-alive probes.",
+	"begins sending out keep-alive probes. "
+	"Ignored for Unix domain sockets.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1116,6 +1191,24 @@ PARAM(
 	"Set this to a few milliseconds if you see the 'threads_failed' "
 	"counter grow too much.\n"
 	"Setting this too high results in insufficient worker threads.",
+	/* l-text */	"",
+	/* func */	NULL
+)
+
+/* actual location mgt_pool.c */
+PARAM(
+	/* name */	thread_pool_watchdog,
+	/* typ */	timeout,
+	/* min */	"0.1",
+	/* max */	NULL,
+	/* default */	"60.000",
+	/* units */	"seconds",
+	/* flags */	EXPERIMENTAL,
+	/* s-text */
+	"Thread queue stuck watchdog.\n"
+	"\n"
+	"If no queued work have been released for this long,"
+	" the worker process panics itself.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1332,6 +1425,15 @@ PARAM(
 )
 #endif
 
+#if defined(XYZZY)
+  #error "Temporary macro XYZZY already defined"
+#endif
+
+#if defined(SO_RCVTIMEO_WORKS)
+  #define XYZZY 0
+#else
+  #define XYZZY NOT_IMPLEMENTED
+#endif
 PARAM(
 	/* name */	timeout_idle,
 	/* typ */	timeout,
@@ -1339,14 +1441,18 @@ PARAM(
 	/* max */	NULL,
 	/* default */	"5.000",
 	/* units */	"seconds",
-	/* flags */	0,
+	/* flags */	XYZZY,
 	/* s-text */
-	"Idle timeout for client connections.\n"
-	"A connection is considered idle, until we have received the full "
-	"request headers.",
+	"Idle timeout for client connections.\n\n"
+	"A connection is considered idle until we have received the full"
+	" request headers.\n\n"
+	"This parameter is particularly relevant for HTTP1 keepalive "
+	" connections which are closed unless the next request is received"
+	" before this timeout is reached.",
 	/* l-text */	"",
 	/* func */	NULL
 )
+#undef XYZZY
 
 PARAM(
 	/* name */	timeout_linger,
@@ -1557,14 +1663,13 @@ PARAM(
 	/* name */	vsm_space,
 	/* typ */	bytes,
 	/* min */	"1M",
-	/* max */	"4G",
+	/* max */	"1G",
 	/* default */	"1M",
 	/* units */	"bytes",
-	/* flags */	MUST_RESTART,
+	/* flags */	0,
 	/* s-text */
-	"The amount of space to allocate for stats counters in the VSM "
-	"memory segment.  If you make this too small, some counters will "
-	"be invisible.  Making it too large just costs memory resources.",
+	"DEPRECATED: This parameter is ignored.\n"
+	"There is no global limit on amount of shared memory now.",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1648,9 +1753,12 @@ PARAM(
 	"Bytes of auxiliary workspace per thread.\n"
 	"This workspace is used for certain temporary data structures "
 	"during the operation of a worker thread.\n"
-	"One use is for the io-vectors for writing requests and responses "
-	"to sockets, having too little space will result in more writev(2) "
-	"system calls, having too much just wastes the space.",
+	"One use is for the IO-vectors used during delivery. Setting "
+	"this parameter too low may increase the number of writev() "
+	"syscalls, setting it too high just wastes space.  ~0.1k + "
+	"UIO_MAXIOV * sizeof(struct iovec) (typically = ~16k for 64bit) "
+	"is considered the maximum sensible value under any known "
+	"circumstances (excluding exotic vmod use).",
 	/* l-text */	"",
 	/* func */	NULL
 )
@@ -1685,6 +1793,80 @@ PARAM(
 	"Only affects incoming request bodies (ie: POST, PUT etc.)",
 	/* l-text */	"",
 	/* func */	NULL
+)
+
+PARAM(
+	/* name */      h2_header_table_size,
+	/* typ */       bytes_u,
+	/* min */       "0b",
+	/* max */       NULL,
+	/* default */   "4k",
+	/* units */     "bytes",
+	/* flags */     0,
+	/* s-text */
+	"HTTP2 header table size.\n"
+	"This is the size that will be used for the HPACK dynamic\n"
+	"decoding table.",
+	/* l-text */    "",
+	/* func */      NULL
+)
+
+PARAM(
+       /* name */      h2_max_concurrent_streams,
+       /* typ */       uint,
+       /* min */       "0",
+       /* max */       NULL,
+       /* default */   "100",
+       /* units */     "streams",
+       /* flags */     0,
+       /* s-text */
+       "HTTP2 Maximum number of concurrent streams.\n"
+       "This is the number of requests that can be active\n"
+       "at the same time for a single HTTP2 connection.",
+       /* l-text */    "",
+       /* func */      NULL
+)
+
+PARAM(
+	/* name */      h2_initial_window_size,
+	/* typ */       bytes_u,
+	/* min */       "0",
+	/* max */       "2147483647b",
+	/* default */   "65535b",
+	/* units */     "bytes",
+	/* flags */     0,
+	/* s-text */
+	"HTTP2 initial flow control window size.",
+	/* l-text */    "",
+	/* func */      NULL
+)
+
+PARAM(
+	/* name */      h2_max_frame_size,
+	/* typ */       bytes_u,
+	/* min */       "16k",
+	/* max */       "16777215b",
+	/* default */   "16k",
+	/* units */     "bytes",
+	/* flags */     0,
+	/* s-text */
+	"HTTP2 maximum per frame payload size we are willing to accept.",
+	/* l-text */    "",
+	/* func */      NULL
+)
+
+PARAM(
+	/* name */      h2_max_header_list_size,
+	/* typ */       bytes_u,
+	/* min */       "0b",
+	/* max */       NULL,
+	/* default */   "2147483647b",
+	/* units */     "bytes",
+	/* flags */     0,
+	/* s-text */
+	"HTTP2 maximum size of an uncompressed header list.",
+	/* l-text */    "",
+	/* func */      NULL
 )
 
 #undef PARAM

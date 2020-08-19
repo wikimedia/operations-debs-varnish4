@@ -6,10 +6,10 @@ AM_CPPFLAGS = \
 
 bin_PROGRAMS = varnishhist
 
-varnishhist_SOURCES = varnishhist.c \
+varnishhist_SOURCES = \
+	varnishhist.c \
 	varnishhist_options.h \
-	varnishhist_profiles.h \
-	varnishhist_options.c
+	varnishhist_profiles.h
 
 varnishhist_CFLAGS = \
 	@SAN_CFLAGS@
@@ -18,4 +18,4 @@ varnishhist_LDADD = \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
 	-lm \
 	@SAN_LDFLAGS@ \
-	@CURSES_LIB@ ${RT_LIBS} ${PTHREAD_LIBS}
+	@CURSES_LIBS@ ${RT_LIBS} ${PTHREAD_LIBS}

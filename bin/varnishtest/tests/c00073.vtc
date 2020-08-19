@@ -14,7 +14,7 @@ server s1 {
 } -start
 
 varnish v1 \
-	-arg "-s malloc,1m" -vcl+backend { } -start
+	-arg "-s default,1m" -vcl+backend { } -start
 
 client c1 {
 	txreq
@@ -22,9 +22,9 @@ client c1 {
 } -start
 
 barrier b1 sync
-varnish v1 -expect SMA.s0.g_bytes > 10000
+varnish v1 -expect SM?.s0.g_bytes > 10000
 
 barrier b2 sync
 
 client c1 -wait
-varnish v1 -expect SMA.s0.g_bytes < 6000
+varnish v1 -expect SM?.s0.g_bytes < 6000

@@ -40,6 +40,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "vdef.h"
+
 #include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
 #include "vfl.h"
 #include "vpf.h"
@@ -70,13 +72,13 @@ vpf_verify(const struct vpf_fh *pfh)
 	return (0);
 }
 
-static int
-vpf_read(const char *path, pid_t *pidptr)
+int
+VPF_read(const char *path, pid_t *pidptr)
 {
 	char buf[16], *endptr;
 	int error, fd, i;
 
-	fd = open(path, O_RDONLY);
+	fd = open(path, O_RDONLY | O_CLOEXEC);
 	if (fd == -1)
 		return (errno);
 
@@ -85,6 +87,10 @@ vpf_read(const char *path, pid_t *pidptr)
 	(void)close(fd);
 	if (i == -1)
 		return (error);
+	else if (i == 0)
+		return (EAGAIN);
+	if (i > 0 && buf[i - 1] == '\n')
+		i--;
 	buf[i] = '\0';
 
 	*pidptr = strtol(buf, &endptr, 10);
@@ -105,17 +111,10 @@ VPF_Open(const char *path, mode_t mode, pid_t *pidptr)
 	if (pfh == NULL)
 		return (NULL);
 
-#if 0
-	if (path == NULL)
-		len = snprintf(pfh->pf_path, sizeof(pfh->pf_path),
-		    "/var/run/%s.pid", getprogname());
-	else
-#endif
-	{
-		assert(path != NULL);
-		len = snprintf(pfh->pf_path, sizeof(pfh->pf_path),
-		    "%s", path);
-	}
+	assert(path != NULL);
+	len = snprintf(pfh->pf_path, sizeof(pfh->pf_path),
+	    "%s", path);
+
 	if (len >= (int)sizeof(pfh->pf_path)) {
 		free(pfh);
 		errno = ENAMETOOLONG;
@@ -124,21 +123,22 @@ VPF_Open(const char *path, mode_t mode, pid_t *pidptr)
 
 	/*
 	 * Open the PID file and obtain exclusive lock.
-	 * We truncate PID file here only to remove old PID immediatelly,
+	 * We truncate PID file here only to remove old PID immediately,
 	 * PID file will be truncated again in VPF_Write(), so
 	 * VPF_Write() can be called multiple times.
 	 */
 	fd = VFL_Open(pfh->pf_path,
-	    O_WRONLY | O_CREAT | O_TRUNC | O_NONBLOCK, mode);
+	    O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NONBLOCK, mode);
 	if (fd == -1) {
 		if (errno == EWOULDBLOCK && pidptr != NULL) {
-			errno = vpf_read(pfh->pf_path, pidptr);
+			errno = VPF_read(pfh->pf_path, pidptr);
 			if (errno == 0)
 				errno = EEXIST;
 		}
 		free(pfh);
 		return (NULL);
 	}
+
 	/*
 	 * Remember file information, so in VPF_Write() we are sure we write
 	 * to the proper descriptor.
@@ -188,7 +188,7 @@ VPF_Write(struct vpf_fh *pfh)
 		return (-1);
 	}
 
-	error = snprintf(pidstr, sizeof(pidstr), "%ju", (uintmax_t)getpid());
+	error = snprintf(pidstr, sizeof(pidstr), "%jd", (intmax_t)getpid());
 	assert(error < sizeof pidstr);
 	if (pwrite(fd, pidstr, strlen(pidstr), 0) != (ssize_t)strlen(pidstr)) {
 		error = errno;

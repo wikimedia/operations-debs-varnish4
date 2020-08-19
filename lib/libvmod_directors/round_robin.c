@@ -29,11 +29,11 @@
 #include "config.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "cache/cache.h"
 #include "cache/cache_director.h"
 
-#include "vrt.h"
 #include "vcc_if.h"
 
 #include "vdir.h"
@@ -45,7 +45,7 @@ struct vmod_directors_round_robin {
 	unsigned				nxt;
 };
 
-static unsigned __match_proto__(vdi_healthy)
+static unsigned v_matchproto_(vdi_healthy)
 vmod_rr_healthy(const struct director *dir, const struct busyobj *bo,
     double *changed)
 {
@@ -55,7 +55,7 @@ vmod_rr_healthy(const struct director *dir, const struct busyobj *bo,
 	return (vdir_any_healthy(rr->vd, bo, changed));
 }
 
-static const struct director * __match_proto__(vdi_resolve_f)
+static const struct director * v_matchproto_(vdi_resolve_f)
 vmod_rr_resolve(const struct director *dir, struct worker *wrk,
     struct busyobj *bo)
 {
@@ -70,9 +70,9 @@ vmod_rr_resolve(const struct director *dir, struct worker *wrk,
 	CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_DIRECTORS_ROUND_ROBIN_MAGIC);
 	vdir_rdlock(rr->vd);
 	for (u = 0; u < rr->vd->n_backend; u++) {
-		nxt = rr->nxt %= rr->vd->n_backend;
+		nxt = rr->nxt % rr->vd->n_backend;
+		rr->nxt = nxt + 1;
 		be = rr->vd->backend[nxt];
-		rr->nxt++;
 		CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
 		if (be->healthy(be, bo, NULL))
 			break;
@@ -83,7 +83,7 @@ vmod_rr_resolve(const struct director *dir, struct worker *wrk,
 	return (be);
 }
 
-VCL_VOID __match_proto__()
+VCL_VOID v_matchproto_()
 vmod_round_robin__init(VRT_CTX,
     struct vmod_directors_round_robin **rrp, const char *vcl_name)
 {
@@ -95,42 +95,44 @@ vmod_round_robin__init(VRT_CTX,
 	ALLOC_OBJ(rr, VMOD_DIRECTORS_ROUND_ROBIN_MAGIC);
 	AN(rr);
 	*rrp = rr;
-	vdir_new(&rr->vd, "round-robin", vcl_name, vmod_rr_healthy,
+	vdir_new(ctx, &rr->vd, "round-robin", vcl_name, vmod_rr_healthy,
 	    vmod_rr_resolve, rr);
 }
 
-VCL_VOID __match_proto__()
+VCL_VOID v_matchproto_()
 vmod_round_robin__fini(struct vmod_directors_round_robin **rrp)
 {
 	struct vmod_directors_round_robin *rr;
 
-	rr = *rrp;
-	*rrp = NULL;
-	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_ROUND_ROBIN_MAGIC);
+	// XXX 2297
+	if (*rrp == NULL)
+		return;
+
+	TAKE_OBJ_NOTNULL(rr, rrp, VMOD_DIRECTORS_ROUND_ROBIN_MAGIC);
 	vdir_delete(&rr->vd);
 	FREE_OBJ(rr);
 }
 
-VCL_VOID __match_proto__()
+VCL_VOID v_matchproto_()
 vmod_round_robin_add_backend(VRT_CTX,
     struct vmod_directors_round_robin *rr, VCL_BACKEND be)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_ROUND_ROBIN_MAGIC);
-	(void)vdir_add_backend(rr->vd, be, 0.0);
+	vdir_add_backend(ctx, rr->vd, be, 0.0);
 }
 
-VCL_VOID __match_proto__()
+VCL_VOID v_matchproto_()
 vmod_round_robin_remove_backend(VRT_CTX,
     struct vmod_directors_round_robin *rr, VCL_BACKEND be)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(rr, VMOD_DIRECTORS_ROUND_ROBIN_MAGIC);
-	vdir_remove_backend(rr->vd, be, NULL);
+	vdir_remove_backend(ctx, rr->vd, be, NULL);
 }
 
-VCL_BACKEND __match_proto__()
+VCL_BACKEND v_matchproto_()
 vmod_round_robin_backend(VRT_CTX,
     struct vmod_directors_round_robin *rr)
 {

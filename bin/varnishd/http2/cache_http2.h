@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2016 Varnish Software AS
+ * Copyright (c) 2016-2019 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -121,17 +121,20 @@ struct h2_req {
 	enum h2_stream_e		state;
 	struct h2_sess			*h2sess;
 	struct req			*req;
+	double				t_send;
+	double				t_winupd;
 	pthread_cond_t			*cond;
 	VTAILQ_ENTRY(h2_req)		list;
 	int64_t				t_window;
 	int64_t				r_window;
-	struct h2h_decode		*decode;
 
 	/* Where to wake this stream up */
 	struct worker			*wrk;
 
 	VTAILQ_ENTRY(h2_req)		tx_list;
 	h2_error			error;
+
+	int				counted;
 };
 
 VTAILQ_HEAD(h2_req_s, h2_req);
@@ -143,14 +146,13 @@ struct h2_sess {
 	pthread_t			rxthr;
 	struct h2_req			*mailcall;
 	pthread_cond_t			*cond;
-
-	int64_t				r_window;
-	int64_t				t_window;
+	pthread_cond_t			winupd_cond[1];
 
 	struct sess			*sess;
 	int				refcnt;
 	uint32_t			highest_stream;
 	int				bogosity;
+	int				do_sweep;
 
 	struct h2_req			*req0;
 
@@ -160,6 +162,7 @@ struct h2_sess {
 	struct ws			*ws;
 	struct http_conn		*htc;
 	struct vsl_log			*vsl;
+	struct h2h_decode		*decode;
 	struct vht_table		dectbl[1];
 
 	unsigned			rxf_len;
@@ -177,6 +180,8 @@ struct h2_sess {
 	VTAILQ_HEAD(,h2_req)		txqueue;
 
 	h2_error			error;
+
+	int				open_streams;
 };
 
 #define ASSERT_RXTHR(h2) do {assert(h2->rxthr == pthread_self());} while(0)
@@ -207,28 +212,31 @@ struct h2h_decode {
 	struct vhd_decode		vhd[1];
 };
 
-void h2h_decode_init(const struct h2_sess *h2, struct h2h_decode *d);
-h2_error h2h_decode_fini(const struct h2_sess *h2, struct h2h_decode *d);
-h2_error h2h_decode_bytes(struct h2_sess *h2, struct h2h_decode *d,
-    const uint8_t *ptr, size_t len);
+void h2h_decode_init(const struct h2_sess *h2);
+h2_error h2h_decode_fini(const struct h2_sess *h2);
+h2_error h2h_decode_bytes(struct h2_sess *h2, const uint8_t *ptr,
+    size_t len);
 
 /* cache_http2_send.c */
 void H2_Send_Get(struct worker *, struct h2_sess *, struct h2_req *);
 void H2_Send_Rel(struct h2_sess *, const struct h2_req *);
 
-h2_error H2_Send_Frame(struct worker *, const struct h2_sess *,
+void H2_Send_Frame(struct worker *, struct h2_sess *,
     h2_frame type, uint8_t flags, uint32_t len, uint32_t stream,
     const void *);
 
-h2_error H2_Send(struct worker *, const struct h2_req *,
-    h2_frame type, uint8_t flags, uint32_t len, const void *);
+void H2_Send_RST(struct worker *wrk, struct h2_sess *h2,
+    const struct h2_req *r2, uint32_t stream, h2_error h2e);
+
+void H2_Send(struct worker *, struct h2_req *, h2_frame type, uint8_t flags,
+    uint32_t len, const void *, uint64_t *acct);
 
 /* cache_http2_proto.c */
 struct h2_req * h2_new_req(const struct worker *, struct h2_sess *,
     unsigned stream, struct req *);
-void h2_del_req(struct worker *, struct h2_req *);
-void h2_kill_req(struct worker *, const struct h2_sess *,
-    struct h2_req *, h2_error);
+int h2_stream_tmo(struct h2_sess *, const struct h2_req *, vtim_real);
+void h2_del_req(struct worker *, const struct h2_req *);
+void h2_kill_req(struct worker *, struct h2_sess *, struct h2_req *, h2_error);
 int h2_rxframe(struct worker *, struct h2_sess *);
 h2_error h2_set_setting(struct h2_sess *, const uint8_t *);
 void h2_req_body(struct req*);

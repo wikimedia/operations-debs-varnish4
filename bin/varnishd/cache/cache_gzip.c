@@ -40,8 +40,9 @@
 
 #include <stdlib.h>
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_filter.h"
+#include "cache_vgz.h"
 #include "vend.h"
 
 #include "vgz.h"
@@ -283,8 +284,58 @@ VGZ_Gzip(struct vgz *vg, const void **pptr, ssize_t *plen, enum vgz_flag flags)
  * VDP for gunzip'ing
  */
 
-int __match_proto__(vdp_bytes)
-VDP_gunzip(struct req *req, enum vdp_action act, void **priv,
+static int v_matchproto_(vdp_init_f)
+vdp_gunzip_init(struct req *req, void **priv)
+{
+	struct vgz *vg;
+	const char *p;
+	ssize_t dl;
+	uint64_t u;
+
+	vg = VGZ_NewGunzip(req->vsl, "U D -");
+	AN(vg);
+	if (vgz_getmbuf(vg)) {
+		(void)VGZ_Destroy(&vg);
+		return (-1);
+	}
+
+	req->res_mode |= RES_GUNZIP;
+	VGZ_Obuf(vg, vg->m_buf, vg->m_sz);
+	*priv = vg;
+
+	http_Unset(req->resp, H_Content_Encoding);
+
+	req->resp_len = -1;
+
+	p = ObjGetAttr(req->wrk, req->objcore, OA_GZIPBITS, &dl);
+	if (p != NULL && dl == 32) {
+		u = vbe64dec(p + 24);
+		/*
+		 * If the size is non-zero AND we are the top VDP
+		 * (ie: no ESI), we know what size the output will be.
+		 */
+		if (u != 0 &&
+		    VTAILQ_FIRST(&req->vdc->vdp)->vdp == &VDP_gunzip)
+			req->resp_len = u;
+	}
+	return (0);
+}
+
+static int v_matchproto_(vdp_fini_f)
+vdp_gunzip_fini(struct req *req, void **priv)
+{
+	struct vgz *vg;
+
+	(void)req;
+	CAST_OBJ_NOTNULL(vg, *priv, VGZ_MAGIC);
+	AN(vg->m_buf);
+	(void)VGZ_Destroy(&vg);
+	*priv = NULL;
+	return (0);
+}
+
+static int v_matchproto_(vdp_bytes_f)
+vdp_gunzip_bytes(struct req *req, enum vdp_action act, void **priv,
     const void *ptr, ssize_t len)
 {
 	enum vgzret_e vr;
@@ -292,56 +343,14 @@ VDP_gunzip(struct req *req, enum vdp_action act, void **priv,
 	const void *dp;
 	struct worker *wrk;
 	struct vgz *vg;
-	const char *p;
-	uint64_t u;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	wrk = req->wrk;
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-
-	if (act == VDP_INIT) {
-		vg = VGZ_NewGunzip(req->vsl, "U D -");
-		AN(vg);
-		if (vgz_getmbuf(vg)) {
-			(void)VGZ_Destroy(&vg);
-			return (-1);
-		}
-
-		req->res_mode |= RES_GUNZIP;
-		VGZ_Obuf(vg, vg->m_buf, vg->m_sz);
-		*priv = vg;
-
-		http_Unset(req->resp, H_Content_Encoding);
-
-		req->resp_len = -1;
-		if (req->objcore->boc != NULL)
-			return (0);	/* No idea about length (yet) */
-
-		p = ObjGetAttr(req->wrk, req->objcore, OA_GZIPBITS, &dl);
-		if (p == NULL || dl != 32)
-			return (0); /* No OA_GZIPBITS yet */
-
-		u = vbe64dec(p + 24);
-		/*
-		 * If the size is non-zero AND we are the top
-		 * VDP (ie: no ESI), we know what size the output will be.
-		 */
-		if (u != 0 && VTAILQ_FIRST(&req->vdp)->func == VDP_gunzip)
-			req->resp_len = u;
-
-		return (0);
-	}
+	(void)act;
 
 	CAST_OBJ_NOTNULL(vg, *priv, VGZ_MAGIC);
 	AN(vg->m_buf);
-
-	if (act == VDP_FINI) {
-		/* NB: Gunzip'ing may or may not have completed successfully. */
-		AZ(len);
-		(void)VGZ_Destroy(&vg);
-		*priv = NULL;
-		return (0);
-	}
 
 	if (len == 0)
 		return (0);
@@ -354,7 +363,7 @@ VDP_gunzip(struct req *req, enum vdp_action act, void **priv,
 			return (-1);
 		if (vg->m_len == vg->m_sz || vr != VGZ_OK) {
 			if (VDP_bytes(req, VDP_FLUSH, vg->m_buf, vg->m_len))
-				return (req->vdp_retval);
+				return (req->vdc->retval);
 			vg->m_len = 0;
 			VGZ_Obuf(vg, vg->m_buf, vg->m_sz);
 		}
@@ -362,6 +371,13 @@ VDP_gunzip(struct req *req, enum vdp_action act, void **priv,
 	assert(vr == VGZ_STUCK || vr == VGZ_OK || vr == VGZ_END);
 	return (0);
 }
+
+const struct vdp VDP_gunzip = {
+	.name =		"gunzip",
+	.init =		vdp_gunzip_init,
+	.bytes =	vdp_gunzip_bytes,
+	.fini =		vdp_gunzip_fini,
+};
 
 /*--------------------------------------------------------------------*/
 
@@ -397,10 +413,7 @@ VGZ_Destroy(struct vgz **vgp)
 	enum vgzret_e vr;
 	int i;
 
-	vg = *vgp;
-	CHECK_OBJ_NOTNULL(vg, VGZ_MAGIC);
-	*vgp = NULL;
-
+	TAKE_OBJ_NOTNULL(vg, vgp, VGZ_MAGIC);
 	AN(vg->id);
 	VSLb(vg->vsl, SLT_Gzip, "%s %jd %jd %jd %jd %jd",
 	    vg->id,
@@ -434,11 +447,7 @@ VGZ_Destroy(struct vgz **vgp)
 
 /*--------------------------------------------------------------------*/
 
-#define VFP_GUNZIP	0
-#define VFP_GZIP	1
-#define VFP_TESTGUNZIP	2
-
-static enum vfp_status __match_proto__(vfp_init_f)
+static enum vfp_status v_matchproto_(vfp_init_f)
 vfp_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
 {
 	struct vgz *vg;
@@ -446,22 +455,29 @@ vfp_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
 
-	if (http_HdrIs(vc->http, H_Content_Length, "0")) {
-		http_Unset(vc->http, H_Content_Encoding);
+	/*
+	 * G(un)zip makes no sence on partial responses, but since
+	 * it is an pure 1:1 transform, we can just ignore it.
+	 */
+	if (http_GetStatus(vc->resp) == 206)
 		return (VFP_NULL);
-	}
 
-	if (vfe->vfp->priv2 == VFP_GZIP) {
-		if (http_GetHdr(vc->http, H_Content_Encoding, NULL))
+	if (vfe->vfp == &VFP_gzip) {
+		if (http_GetHdr(vc->resp, H_Content_Encoding, NULL))
 			return (VFP_NULL);
 		vg = VGZ_NewGzip(vc->wrk->vsl, vfe->vfp->priv1);
+		vc->obj_flags |= OF_GZIPED | OF_CHGGZIP;
 	} else {
-		if (!http_HdrIs(vc->http, H_Content_Encoding, "gzip"))
+		if (!http_HdrIs(vc->resp, H_Content_Encoding, "gzip"))
 			return (VFP_NULL);
-		if (vfe->vfp->priv2 == VFP_GUNZIP)
+		if (vfe->vfp == &VFP_gunzip) {
 			vg = VGZ_NewGunzip(vc->wrk->vsl, vfe->vfp->priv1);
-		else
+			vc->obj_flags &= ~OF_GZIPED;
+			vc->obj_flags |= OF_CHGGZIP;
+		} else {
 			vg = VGZ_NewTestGunzip(vc->wrk->vsl, vfe->vfp->priv1);
+			vc->obj_flags |= OF_GZIPED;
+		}
 	}
 	if (vg == NULL)
 		return (VFP_ERROR);
@@ -471,17 +487,17 @@ vfp_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
 	VGZ_Ibuf(vg, vg->m_buf, 0);
 	AZ(vg->m_len);
 
-	if (vfe->vfp->priv2 == VFP_GUNZIP || vfe->vfp->priv2 == VFP_GZIP) {
-		http_Unset(vc->http, H_Content_Encoding);
-		http_Unset(vc->http, H_Content_Length);
-		RFC2616_Weaken_Etag(vc->http);
+	if (vfe->vfp == &VFP_gunzip || vfe->vfp == &VFP_gzip) {
+		http_Unset(vc->resp, H_Content_Encoding);
+		http_Unset(vc->resp, H_Content_Length);
+		RFC2616_Weaken_Etag(vc->resp);
 	}
 
-	if (vfe->vfp->priv2 == VFP_GZIP)
-		http_SetHeader(vc->http, "Content-Encoding: gzip");
+	if (vfe->vfp == &VFP_gzip)
+		http_SetHeader(vc->resp, "Content-Encoding: gzip");
 
-	if (vfe->vfp->priv2 == VFP_GZIP || vfe->vfp->priv2 == VFP_TESTGUNZIP)
-		RFC2616_Vary_AE(vc->http);
+	if (vfe->vfp == &VFP_gzip || vfe->vfp == &VFP_testgunzip)
+		RFC2616_Vary_AE(vc->resp);
 
 	return (VFP_OK);
 }
@@ -492,7 +508,7 @@ vfp_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
  * A VFP for gunzip'ing an object as we receive it from the backend
  */
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 vfp_gunzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
     ssize_t *lp)
 {
@@ -546,7 +562,7 @@ vfp_gunzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
  * A VFP for gzip'ing an object as we receive it from the backend
  */
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 vfp_gzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
     ssize_t *lp)
 {
@@ -602,7 +618,7 @@ vfp_gzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
  * collecting the magic bits while we're at it.
  */
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 vfp_testgunzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
     ssize_t *lp)
 {
@@ -617,7 +633,6 @@ vfp_testgunzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
 	CAST_OBJ_NOTNULL(vg, vfe->priv1, VGZ_MAGIC);
 	AN(p);
 	AN(lp);
-	CAST_OBJ_NOTNULL(vg, vfe->priv1, VGZ_MAGIC);
 	vp = VFP_Suck(vc, p, lp);
 	if (vp == VFP_ERROR)
 		return (vp);
@@ -644,7 +659,7 @@ vfp_testgunzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(vfp_fini_f)
+static void v_matchproto_(vfp_fini_f)
 vfp_gzip_fini(struct vfp_ctx *vc, struct vfp_entry *vfe)
 {
 	struct vgz *vg;
@@ -661,29 +676,26 @@ vfp_gzip_fini(struct vfp_ctx *vc, struct vfp_entry *vfe)
 
 /*--------------------------------------------------------------------*/
 
-const struct vfp vfp_gunzip = {
-	.name = "GUNZIP",
+const struct vfp VFP_gunzip = {
+	.name = "gunzip",
 	.init = vfp_gzip_init,
 	.pull = vfp_gunzip_pull,
 	.fini = vfp_gzip_fini,
 	.priv1 = "U F -",
-	.priv2 = VFP_GUNZIP,
 };
 
-const struct vfp vfp_gzip = {
-	.name = "GZIP",
+const struct vfp VFP_gzip = {
+	.name = "gzip",
 	.init = vfp_gzip_init,
 	.pull = vfp_gzip_pull,
 	.fini = vfp_gzip_fini,
 	.priv1 = "G F -",
-	.priv2 = VFP_GZIP,
 };
 
-const struct vfp vfp_testgunzip = {
-	.name = "TESTGUNZIP",
+const struct vfp VFP_testgunzip = {
+	.name = "testgunzip",
 	.init = vfp_gzip_init,
 	.pull = vfp_testgunzip_pull,
 	.fini = vfp_gzip_fini,
 	.priv1 = "u F -",
-	.priv2 = VFP_TESTGUNZIP,
 };

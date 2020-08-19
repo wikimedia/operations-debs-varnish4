@@ -33,7 +33,6 @@
  * page) whenever this list changes.
  *
  * XXX: Please add new entries a the end to not break saved log-segments.
- * XXX: we can resort them when we have a major release.
  *
  * Arguments:
  *	Tag-Name
@@ -47,10 +46,17 @@
 #define NODEF_NOTICE \
     "NB: This log record is masked by default.\n\n"
 
-SLTM(Debug, SLT_F_BINARY, "Debug messages",
+#define NOSUP_NOTICE \
+    "\tNOTE: This tag is currently not in use in the Varnish log.\n" \
+    "\tIt is mentioned here to document legacy versions of the log,\n" \
+    "\tor reserved for possible use in future versions.\n\n"
+
+SLTM(Debug, SLT_F_UNSAFE, "Debug messages",
 	"Debug messages can normally be ignored, but are sometimes"
 	" helpful during trouble-shooting.  Most debug messages must"
 	" be explicitly enabled with parameters.\n\n"
+	"Debug messages may be added, changed or removed without"
+	" prior notice and shouldn't be considered stable.\n\n"
 )
 
 SLTM(Error, 0, "Error messages",
@@ -72,7 +78,7 @@ SLTM(SessOpen, 0, "Client connection opened",
 	"\t|  |  |  |  |  +- File descriptor number\n"
 	"\t|  |  |  |  +---- Local TCP port\n"
 	"\t|  |  |  +------- Local IPv4/6 address\n"
-	"\t|  |  +---------- Listen socket (-a argument)\n"
+	"\t|  |  +---------- Socket name (from -a argument)\n"
 	"\t|  +------------- Remote TCP port\n"
 	"\t+---------------- Remote IPv4/6 address\n"
 	"\n"
@@ -126,7 +132,7 @@ SLTM(BackendClose, 0, "Backend connection closed",
 	"\n"
 )
 
-SLTM(HttpGarbage, SLT_F_BINARY, "Unparseable HTTP request",
+SLTM(HttpGarbage, SLT_F_UNSAFE, "Unparseable HTTP request",
 	"Logs the content of unparseable HTTP requests.\n\n"
 )
 
@@ -140,6 +146,8 @@ SLTM(Proxy, 0, "PROXY protocol information",
 	"\t|  |  +------- client port\n"
 	"\t|  +---------- client ip\n"
 	"\t+------------- PROXY protocol version\n"
+	"\t\n"
+	"\tAll fields are \"local\" for PROXY local connections (command 0x0)\n"
 	"\n"
 )
 
@@ -157,15 +165,40 @@ SLTM(Backend, 0, "Backend selected",
 	"\t|  +---- VCL name\n"
 	"\t+------- Connection file descriptor\n"
 	"\n"
+	NOSUP_NOTICE
 )
 
 SLTM(Length, 0, "Size of object body",
 	"Logs the size of a fetch object body.\n\n"
 )
 
+/*
+ * XXX generate HTC info below from tbl include
+ *
+ * #include <stdio.h>
+ * int main(void) {
+ * #define HTC_STATUS(e, n, s, l) \
+ *	printf("\t\"\\t* %s (%d): %s\\n\"\n", s, n, l);
+ * #include "include/tbl/htc.h"
+ *	return (0);
+ * }
+ */
+
 SLTM(FetchError, 0, "Error while fetching object",
 	"Logs the error message of a failed fetch operation.\n\n"
-)
+	"Error messages should be self-explanatory, yet the http connection"
+	"(HTC) class of errors is reported with these symbols:\n\n"
+	"\t* junk (-5): Received unexpected data\n"
+	"\t* close (-4): Connection closed\n"
+	"\t* timeout (-3): Timed out\n"
+	"\t* overflow (-2): Buffer/workspace too small\n"
+	"\t* eof (-1): Unexpected end of input\n"
+	"\t* empty (0): Empty response\n"
+	"\t* more (1): More data required\n"
+	"\t* complete (2): Data complete (no error)\n"
+	"\t* idle (3): Connection was closed while idle\n"
+	"\nNotice that some HTC errors are never emitted."
+	)
 
 #define SLTH(tag, ind, req, resp, sdesc, ldesc) \
 	SLTM(Req##tag, (req ? 0 : SLT_F_UNUSED), "Client request " sdesc, ldesc)
@@ -207,25 +240,27 @@ SLTM(LostHeader, 0, "Failed attempt to set HTTP header",
 
 SLTM(TTL, 0, "TTL set on object",
 	"A TTL record is emitted whenever the ttl, grace or keep"
-	" values for an object is set.\n\n"
+	" values for an object is set as well as whether the object is "
+	" cacheable or not.\n\n"
 	"The format is::\n\n"
-	"\t%s %d %d %d %d [ %d %d %u %u ]\n"
-	"\t|  |  |  |  |    |  |  |  |\n"
-	"\t|  |  |  |  |    |  |  |  +- Max-Age from Cache-Control header\n"
-	"\t|  |  |  |  |    |  |  +---- Expires header\n"
-	"\t|  |  |  |  |    |  +------- Date header\n"
-	"\t|  |  |  |  |    +---------- Age (incl Age: header value)\n"
-	"\t|  |  |  |  +--------------- Reference time for TTL\n"
-	"\t|  |  |  +------------------ Keep\n"
-	"\t|  |  +--------------------- Grace\n"
-	"\t|  +------------------------ TTL\n"
-	"\t+--------------------------- \"RFC\", \"VCL\" or \"HFP\"\n"
+	"\t%s %d %d %d %d [ %d %d %u %u ] %s\n"
+	"\t|  |  |  |  |    |  |  |  |    |\n"
+	"\t|  |  |  |  |    |  |  |  |    +- \"cacheable\" or \"uncacheable\"\n"
+	"\t|  |  |  |  |    |  |  |  +------ Max-Age from Cache-Control header\n"
+	"\t|  |  |  |  |    |  |  +--------- Expires header\n"
+	"\t|  |  |  |  |    |  +------------ Date header\n"
+	"\t|  |  |  |  |    +--------------- Age (incl Age: header value)\n"
+	"\t|  |  |  |  +-------------------- Reference time for TTL\n"
+	"\t|  |  |  +----------------------- Keep\n"
+	"\t|  |  +-------------------------- Grace\n"
+	"\t|  +----------------------------- TTL\n"
+	"\t+-------------------------------- \"RFC\", \"VCL\" or \"HFP\"\n"
 	"\n"
-	"The last four fields are only present in \"RFC\" headers.\n\n"
+	"The four optional fields are only present in \"RFC\" headers.\n\n"
 	"Examples::\n\n"
-	"\tRFC 60 10 -1 1312966109 1312966109 1312966109 0 60\n"
-	"\tVCL 120 10 0 1312966111\n"
-	"\tHFP 2 0 0 1312966113\n"
+	"\tRFC 60 10 -1 1312966109 1312966109 1312966109 0 60 cacheable\n"
+	"\tVCL 120 10 0 1312966111 uncacheable\n"
+	"\tHFP 2 0 0 1312966113 uncacheable\n"
 	"\n"
 )
 
@@ -251,11 +286,13 @@ SLTM(VCL_call, 0, "VCL method called",
 SLTM(VCL_trace, 0, "VCL trace data",
 	"Logs VCL execution trace data.\n\n"
 	"The format is::\n\n"
-	"\t%u %u.%u\n"
-	"\t|  |  |\n"
-	"\t|  |  +- VCL program line position\n"
-	"\t|  +---- VCL program line number\n"
-	"\t+------- VCL trace point index\n"
+	"\t%s %u %u.%u.%u\n"
+	"\t|  |  |  |  |\n"
+	"\t|  |  |  |  +- VCL program line position\n"
+	"\t|  |  |  +---- VCL program line number\n"
+	"\t|  |  +------- VCL program source index\n"
+	"\t|  +---------- VCL trace point index\n"
+	"\t+------------- VCL configname\n"
 	"\n"
 	NODEF_NOTICE
 )
@@ -265,23 +302,37 @@ SLTM(VCL_return, 0, "VCL method return value",
 )
 
 SLTM(ReqStart, 0, "Client request start",
-	"Start of request processing. Logs the client IP address and port"
-	" number.\n\n"
+	"Start of request processing. Logs the client address, port number "
+	" and listener endpoint name (from the -a command-line argument).\n\n"
 	"The format is::\n\n"
-	"\t%s %s\n"
-	"\t|  |\n"
-	"\t|  +- Client Port number\n"
-	"\t+---- Client IP4/6 address\n"
+	"\t%s %s %s\n"
+	"\t|  |  |\n"
+	"\t|  |  +-- Listener name (from -a)\n"
+	"\t|  +----- Client Port number (0 for Unix domain sockets)\n"
+	"\t+-------- Client IP4/6 address (0.0.0.0 for UDS)\n"
 	"\n"
 )
 
 SLTM(Hit, 0, "Hit object in cache",
-	"Object looked up in cache. Shows the VXID of the object.\n\n"
+	"Object looked up in cache.\n\n"
+	"The format is::\n\n"
+	"\t%u %f %f %f\n"
+	"\t|  |  |  |\n"
+	"\t|  |  |  +- Keep period\n"
+	"\t|  |  +---- Grace period\n"
+	"\t|  +------- Remaining TTL\n"
+	"\t+---------- VXID of the object\n"
+	"\n"
 )
 
 SLTM(HitPass, 0, "Hit for pass object in cache.",
-	"Hit-for-pass object looked up in cache. Shows the VXID of the"
-	" hit-for-pass object.\n\n"
+	"Hit-for-pass object looked up in cache.\n\n"
+	"The format is::\n\n"
+	"\t%u %f\n"
+	"\t|  |\n"
+	"\t|  +- Remaining TTL\n"
+	"\t+---- VXID of the object\n"
+	"\n"
 )
 
 SLTM(ExpBan, 0, "Object evicted due to ban",
@@ -345,25 +396,51 @@ SLTM(ESI_xmlerror, 0, "ESI parser error or warning message",
 	" The log record describes the problem encountered."
 )
 
-SLTM(Hash, SLT_F_BINARY, "Value added to hash",
+SLTM(Hash, SLT_F_UNSAFE, "Value added to hash",
 	"This value was added to the object lookup hash.\n\n"
 	NODEF_NOTICE
 )
 
+/*
+ * Probe window bits:
+ *
+ * the documentation below could get auto-generated like so:
+ *
+ * ( echo '#define PROBE_BITS_DOC \' ; \
+ *   $CC -D 'BITMAP(n, c, t, b)="\t" #c ": " t "\n" \' \
+ *       -E ./include/tbl/backend_poll.h | grep -E '^"' ; \
+ *  echo '""' ) >./include/tbl/backend_poll_doc.h
+ *
+ * as this has a hackish feel to it, the documentation is included here as text
+ * until we find a better solution or the above is accepted
+ */
+
 SLTM(Backend_health, 0, "Backend health check",
 	"The result of a backend health probe.\n\n"
 	"The format is::\n\n"
-	"\t%s %s %s %u %u %u %f %f %s\n"
-	"\t|  |  |  |  |  |  |  |  |\n"
-	"\t|  |  |  |  |  |  |  |  +- Probe HTTP response\n"
-	"\t|  |  |  |  |  |  |  +---- Average response time\n"
-	"\t|  |  |  |  |  |  +------- Response time\n"
-	"\t|  |  |  |  |  +---------- Probe window size\n"
-	"\t|  |  |  |  +------------- Probe threshold level\n"
-	"\t|  |  |  +---------------- Number of good probes in window\n"
-	"\t|  |  +------------------- Probe window bits\n"
-	"\t|  +---------------------- Status message\n"
-	"\t+------------------------- Backend name\n"
+	"\t%s %s %s %s %u %u %u %f %f %s\n"
+	"\t|  |  |  |  |  |  |  |  |  |\n"
+	"\t|  |  |  |  |  |  |  |  |  +- Probe HTTP response / error information\n"
+	"\t|  |  |  |  |  |  |  |  +---- Average response time\n"
+	"\t|  |  |  |  |  |  |  +------- Response time\n"
+	"\t|  |  |  |  |  |  +---------- Probe window size\n"
+	"\t|  |  |  |  |  +------------- Probe threshold level\n"
+	"\t|  |  |  |  +---------------- Number of good probes in window\n"
+	"\t|  |  |  +------------------- Probe window bits\n"
+	"\t|  |  +---------------------- \"healthy\" or \"sick\"\n"
+	"\t|  +------------------------- \"Back\", \"Still\" or \"Went\"\n"
+	"\t+---------------------------- Backend name\n"
+	"\n"
+
+	"Probe window bits are::\n\n"
+	"\t" "'4'" ": " "Good IPv4" "\n"
+	"\t" "'6'" ": " "Good IPv6" "\n"
+	"\t" "'U'" ": " "Good UNIX" "\n"
+	"\t" "'x'" ": " "Error Xmit" "\n"
+	"\t" "'X'" ": " "Good Xmit" "\n"
+	"\t" "'r'" ": " "Error Recv" "\n"
+	"\t" "'R'" ": " "Good Recv" "\n"
+	"\t" "'H'" ": " "Happy" "\n"
 	"\n"
 )
 
@@ -444,8 +521,8 @@ SLTM(Timestamp, 0, "Timing information",
 	"Time stamps are issued by Varnish on certain events,"
 	" and show the absolute time of the event, the time spent since the"
 	" start of the work unit, and the time spent since the last timestamp"
-	" was logged. See vsl(7) for information about the individual"
-	" timestamps.\n\n"
+	" was logged. See the TIMESTAMPS section below for information about"
+	" the individual time stamps.\n\n"
 	"The format is::\n\n"
 	"\t%s: %f %f %f\n"
 	"\t|   |  |  |\n"
@@ -458,9 +535,10 @@ SLTM(Timestamp, 0, "Timing information",
 
 SLTM(ReqAcct, 0, "Request handling byte counts",
 	"Contains byte counts for the request handling.\n"
-	"ESI sub-request counts are also added to their parent request.\n"
-	"The body bytes count does not include transmission "
-	"(ie: chunked encoding) overhead.\n"
+	"The body bytes count includes transmission overhead"
+	" (ie: chunked encoding).\n"
+	"ESI sub-requests show the body bytes this ESI fragment including"
+	" any subfragments contributed to the top level request.\n"
 	"The format is::\n\n"
 	"\t%d %d %d %d %d %d\n"
 	"\t|  |  |  |  |  |\n"
@@ -526,27 +604,64 @@ SLTM(BackendStart, 0, "Backend request start",
 	"\n"
 )
 
-SLTM(H2RxHdr, 0, "Received HTTP2 frame header",
+SLTM(H2RxHdr, SLT_F_BINARY, "Received HTTP2 frame header",
 	"Binary data"
 )
 
-SLTM(H2RxBody, 0, "Received HTTP2 frame body",
+SLTM(H2RxBody, SLT_F_BINARY, "Received HTTP2 frame body",
 	"Binary data"
 )
 
-SLTM(H2TxHdr, 0, "Transmitted HTTP2 frame header",
+SLTM(H2TxHdr, SLT_F_BINARY, "Transmitted HTTP2 frame header",
 	"Binary data"
 )
 
-SLTM(H2TxBody, 0, "Transmitted HTTP2 frame body",
+SLTM(H2TxBody, SLT_F_BINARY, "Transmitted HTTP2 frame body",
 	"Binary data"
 )
 
 SLTM(HitMiss, 0, "Hit for miss object in cache.",
-	"Hit-for-miss object looked up in cache. Shows the VXID of the"
-	" hit-for-miss object.\n\n"
+	"Hit-for-miss object looked up in cache.\n\n"
+	"The format is::\n\n"
+	"\t%u %f\n"
+	"\t|  |\n"
+	"\t|  +- Remaining TTL\n"
+	"\t+---- VXID of the object\n"
+	"\n"
 )
 
+SLTM(Filters, 0, "Body filters",
+	"List of filters applied to the body.\n\n"
+	NOSUP_NOTICE
+)
+
+SLTM(SessError, 0, "Client connection accept failed",
+	"Accepting a client connection has failed.\n\n"
+	"The format is::\n\n"
+	"\t%s %s %s %d %d %s\n"
+	"\t|  |  |  |  |  |\n"
+	"\t|  |  |  |  |  +- Detailed error message\n"
+	"\t|  |  |  |  +---- Error Number (errno) from accept(2)\n"
+	"\t|  |  |  +------- File descriptor number\n"
+	"\t|  |  +---------- Local TCP port / 0 for UDS\n"
+	"\t|  +------------- Local IPv4/6 address / 0.0.0.0 for UDS\n"
+	"\t+---------------- Socket name (from -a argument)\n"
+	"\n"
+	NOSUP_NOTICE
+)
+
+SLTM(VCL_use, 0, "VCL in use",
+	"Records the name of the VCL being used.\n\n"
+	"The format is::\n\n"
+	"\t%s [ %s %s ]\n"
+	"\t|    |  |\n"
+	"\t|    |  +- Name of label used to find it\n"
+	"\t|    +---- \"via\"\n"
+	"\t+--------- Name of VCL put in use\n"
+	"\n"
+)
+
+#undef NOSUP_NOTICE
 #undef NODEF_NOTICE
 #undef SLTM
 

@@ -12,33 +12,91 @@ process p1 {
 } -start
 shell {
 	exec varnishlog -n ${v1_name} -D -P ${tmpdir}/vlog.pid \
-	    -w ${tmpdir}/vlog.bin
+	    -w ${tmpdir}/vlog.bin -R 10/s
 }
 
-shell -expect "Usage: varnishlog <options>" \
+shell -match "Usage: .*varnishlog <options>" \
 	"varnishlog -h"
 shell -expect "Copyright (c) 2006 Verdens Gang AS" \
 	"varnishlog -V"
-shell -err -expect "Usage: varnishlog <options>" \
+shell -err -match "Usage: .*varnishlog <options>" \
 	"varnishlog extra"
 shell -err -expect "Missing -w option" \
 	"varnishlog -D"
+shell -err -expect "Ambiguous grouping type: r" \
+	"varnishlog -g r"
+shell -err -expect "Unknown grouping type: foo" \
+	"varnishlog -g foo"
+shell -err -expect "-k: Invalid number 'foo'" \
+	"varnishlog -k foo"
 shell -err -expect "-L: Range error" \
 	"varnishlog -L 0"
+
 shell -err -expect {-i: "foo" matches zero tags} \
 	"varnishlog -i foo"
 shell -err -expect {-i: "Resp" is ambiguous} \
 	"varnishlog -i Resp"
+shell -err -expect {-i: Syntax error in "Re**sp"} \
+	"varnishlog -i Re**sp"
+
 shell -err -expect {-I: "foo" matches zero tags} \
 	"varnishlog -I foo:bar"
 shell -err -expect {-I: "Resp" is ambiguous} \
 	"varnishlog -I Resp:bar"
 shell -err -expect {-I: Regex error at position 4 (missing ))} \
 	{varnishlog -I "(foo"}
+shell -err -expect "-t: Invalid argument" \
+	"varnishlog -t -1"
+shell -err -expect "-t: Invalid argument" \
+	"varnishlog -t foo"
+shell -err -expect "-t: Invalid argument" \
+	"varnishlog -t NaN"
 shell -err -expect {-x: Syntax error in "**"} \
 	{varnishlog -x "**"}
 shell -err -expect {-X: Syntax error in "**"} \
 	{varnishlog -X "**:bar"}
+shell -err -expect "Cannot open output file (No such file or directory)" \
+	{varnishlog -w /nonexistent/file}
+shell -err -expect "Only one of -n and -r options may be used" \
+	{varnishlog -n ${v1_name} -r ${v1_name}/_.vsm}
+
+shell -err -expect "Expected integer got '}" \
+	"varnishlog -q {}"
+shell -err -expect "Expected positive integer" \
+	"varnishlog -q {-1}"
+shell -err -expect "Syntax error in level limit" \
+	"varnishlog -q {1a}"
+shell -err -expect "Expected VSL tag name got '['" \
+	{varnishlog -q "[]"}
+shell -err -expect "Tag name matches zero tags" \
+	"varnishlog -q foo"
+shell -err -expect "Tag name is ambiguous" \
+	"varnishlog -q Resp"
+shell -err -expect "Expected string got '['" \
+	{varnishlog -q "ReqHeader:[]"}
+shell -err -expect "Expected integer got ']'" \
+	{varnishlog -q "ReqHeader:foo[]"}
+shell -err -expect "Expected positive integer" \
+	{varnishlog -q "ReqHeader:foo[a]"}
+
+shell -err -expect "-R: Syntax error" \
+	"varnishlog -R 1foo"
+shell -err -expect "-R: Range error" \
+	"varnishlog -R 0"
+shell -err -expect "-R: Range error" \
+	"varnishlog -R -1"
+shell -err -expect "-R: Range error" \
+	"varnishlog -R 3000000000"
+shell -err -expect "-R: Syntax error: Invalid duration" \
+	"varnishlog -R 10/0s"
+shell -err -expect "-R: Syntax error: Invalid duration" \
+	"varnishlog -R 10/-10s"
+shell -err -expect "-R: Syntax error: Invalid duration" \
+	"varnishlog -R 10/1q"
+shell -err -expect "-R: Syntax error: Invalid duration" \
+	"varnishlog -R 10/11f09s"
+shell -err -expect "-R: Syntax error" \
+	"varnishlog -R 1000000000/1000000000000000000000000000000s"
 
 process p1 -wait
 shell {grep -q "0 CLI" ${tmpdir}/vlog}
@@ -66,13 +124,12 @@ shell "kill `cat ${tmpdir}/vlog.pid`"
 
 shell -match {^\*[ ]+<< Request\s+>>[ ]+1001[ ]+
 -[ ]+1001 ReqURL[ ]+c /foo
-$} {
-	varnishlog -v -r ${tmpdir}/vlog.bin~ -i ReqURL -q "RespStatus == 200"
-}
+$} \
+	{varnishlog -r ${tmpdir}/vlog.bin~ -i ReqURL -v \
+	-q "RespStatus == 200"}
 shell -match "-[ ]+BereqURL[ ]+/bar" \
 	"varnishlog -r ${tmpdir}/vlog.bin -x ReqURL"
 shell -match {^\*[ ]+<< BeReq\s+>>[ ]+1005[ ]+
 -[ ]+BereqURL[ ]+/bar
-$} {
-	varnishlog -r ${tmpdir}/vlog.bin -b -C -I BAR
-}
+$} \
+	"varnishlog -r ${tmpdir}/vlog.bin -b -C -I BAR"

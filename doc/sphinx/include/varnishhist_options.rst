@@ -26,10 +26,6 @@
 
 	Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.
 
--N <filename>
-
-	Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
-
 -p <period>
 
 	Specified the number of seconds between screen refreshes. Default is 1 second, and can be changed at runtime by pressing the [0-9] keys (powers of 2 in seconds or + and - (double/halve the speed).
@@ -37,6 +33,10 @@
 -P responsetime
 
 	Predefined client profile: graph the total time from start of request processing (first byte received) until ready to deliver the client response (field 3 of SLT_Timestamp Process: VSL tag).
+
+-P reqbodytime
+
+	Predefined client profile: graph the time for reading the request body (field 3 of SLT_Timestamp ReqBody: VSL tag).
 
 -P size
 
@@ -58,9 +58,9 @@
 
 	Predefined backend profile: graph the backend response body size (field 5 of SLT_BereqAcct  VSL tag).
 
--P <[cb:]tag:field_num:min:max>
+-P <[cb:]tag:[prefix]:field_num[:min:max]>
 
-	Graph the given custom definition defined as: an optional (c)lient or (b)ackend filter (defaults to client), the tag we'll look for, and the field number of the value we are interested in. min and max are the boundaries of the graph (these are power of ten).
+	Graph the given custom definition defined as: an optional (c)lient or (b)ackend filter (defaults to client), the tag we'll look for, a prefix to look for (can be empty, but must be terminated by a colon) and the field number of the value we are interested in. min and max are the boundaries of the graph in powers of ten and default to -6 and 3.
 
 -q <query>
 
@@ -81,4 +81,7 @@
 -V
 
 	Print version information and exit.
+
+--optstring
+	Print the optstring parameter to ``getopt(3)`` to help writing wrapper scripts.
 

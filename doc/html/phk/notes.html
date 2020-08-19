@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Notes from the Architect &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>Notes from the Architect &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="Varnish Glossary" href="../glossary/index.html" />
     <link rel="prev" title="Why Sphinx and reStructuredText ?" href="sphinx.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="sphinx.html" title="Why Sphinx and reStructuredText ?"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
@@ -62,13 +52,13 @@ that Varnish is not your average run of the mill application.</p>
 rarely did I venture into userland programming, but when I had
 occation to do so, I invariably found that people programmed like
 it was still 1975.</p>
-<p>So when I was approached about the Varnish project I wasn't really
+<p>So when I was approached about the Varnish project I wasn’t really
 interested until I realized that this would be a good opportunity
 to try to put some of all my knowledge of how hardware and kernels
 work to good use, and now that we have reached alpha stage, I can
 say I have really enjoyed it.</p>
 <div class="section" id="so-what-s-wrong-with-1975-programming">
-<h2>So what's wrong with 1975 programming ?<a class="headerlink" href="#so-what-s-wrong-with-1975-programming" title="Permalink to this headline">¶</a></h2>
+<h2>So what’s wrong with 1975 programming ?<a class="headerlink" href="#so-what-s-wrong-with-1975-programming" title="Permalink to this headline">¶</a></h2>
 <p>The really short answer is that computers do not have two kinds of
 storage any more.</p>
 <p>It used to be that you had the primary store, and it was anything
@@ -80,7 +70,7 @@ and these days so small that girls get disappointed if think they
 got hold of something else than the MP3 player you had in your
 pocket.</p>
 <p>And people program this way.</p>
-<p>They have variables in &quot;memory&quot; and move data to and from &quot;disk&quot;.</p>
+<p>They have variables in “memory” and move data to and from “disk”.</p>
 <p>Take Squid for instance, a 1975 program if I ever saw one: You tell
 it how much RAM it can use and how much disk it can use. It will
 then spend inordinate amounts of time keeping track of what HTTP
@@ -93,7 +83,7 @@ disk storage.</p>
 <p>So what happens with squids elaborate memory management is that it
 gets into fights with the kernels elaborate memory management, and
 like any civil war, that never gets anything done.</p>
-<p>What happens is this: Squid creates a HTTP object in &quot;RAM&quot; and it
+<p>What happens is this: Squid creates a HTTP object in “RAM” and it
 gets used some times rapidly after creation. Then after some time
 it get no more hits and the kernel notices this. Then somebody tries
 to get memory from the kernel for something and the kernel decides
@@ -111,15 +101,15 @@ unused, and it decides to move them to disk so the RAM can be used
 for more busy data. So squid goes out, creates a file and then it
 writes the http objects to the file.</p>
 <p>Here we switch to the high-speed camera: Squid calls write(2), the
-address i gives is a &quot;virtual address&quot; and the kernel has it marked
-as &quot;not at home&quot;.</p>
+address i gives is a “virtual address” and the kernel has it marked
+as “not at home”.</p>
 <p>So the CPU hardwares paging unit will raise a trap, a sort of
-interrupt to the operating system telling it &quot;fix the memory please&quot;.</p>
+interrupt to the operating system telling it “fix the memory please”.</p>
 <p>The kernel tries to find a free page, if there are none, it will
 take a little used page from somewhere, likely another little used
 squid object, write it to the paging poll space on the disk (the
-&quot;swap area&quot;) when that write completes, it will read from another
-place in the paging pool the data it &quot;paged out&quot; into the now unused
+“swap area”) when that write completes, it will read from another
+place in the paging pool the data it “paged out” into the now unused
 RAM page, fix up the paging tables, and retry the instruction which
 failed.</p>
 <p>Squid knows nothing about this, for squid it was just a single
@@ -145,7 +135,7 @@ reused elsewhere.</p>
 <p>When Varnish next time refers to the virtual memory, the operating
 system will find a RAM page, possibly freeing one, and read the
 contents in from the backing file.</p>
-<p>And that's it. Varnish doesn't really try to control what is cached
+<p>And that’s it. Varnish doesn’t really try to control what is cached
 in RAM and what is not, the kernel has code and hardware support
 to do a good job at that, and it does a good job.</p>
 <p>Varnish also only has a single file on the disk whereas squid puts
@@ -186,11 +176,11 @@ used. Next check the level two cache, and let us assume that is a
 miss as well.</p>
 <p>If this is a single CPU system, the game ends here, we pick it out
 of RAM and move on.</p>
-<p>On a Multi-CPU system, and it doesn't matter if the CPUs share a
+<p>On a Multi-CPU system, and it doesn’t matter if the CPUs share a
 socket or have their own, we first have to check if any of the other
 CPUs have a modified copy of n_foo stored in their caches, so a
 special bus-transaction goes out to find this out, if if some cpu
-comes back and says &quot;yeah, I have it&quot; that cpu gets to write it to
+comes back and says “yeah, I have it” that cpu gets to write it to
 RAM. On good hardware designs, our CPU will listen in on the bus
 during that write operation, on bad designs it will have to do a
 memory read afterwards.</p>
@@ -200,12 +190,12 @@ again quickly, so the modified value gets stored in our own L1 cache
 and then at some point, it will end up in RAM.</p>
 <p>Now imagine that another CPU wants to n_bar+++ at the same time,
 can it do that ? No. Caches operate not on bytes but on some
-&quot;linesize&quot; of bytes, typically from 8 to 128 bytes in each line.
+“linesize” of bytes, typically from 8 to 128 bytes in each line.
 So since the first cpu was busy dealing with n_foo, the second CPU
 will be trying to grab the same cache-line, so it will have to wait,
 even through it is a different variable.</p>
 <p>Starting to get the idea ?</p>
-<p>Yes, it's ugly.</p>
+<p>Yes, it’s ugly.</p>
 </div>
 <div class="section" id="how-do-we-cope">
 <h2>How do we cope ?<a class="headerlink" href="#how-do-we-cope" title="Permalink to this headline">¶</a></h2>
@@ -218,7 +208,7 @@ space for the headers from there. The nice thing about this is that
 we usually free the entire header in one go and we can do that
 simply by resetting a pointer to the start of the workspace.</p>
 <p>When we need to copy a HTTP header from one request to another (or
-from a response to another) we don't copy the string, we just copy
+from a response to another) we don’t copy the string, we just copy
 the pointer to it. Provided we do not change or free the source
 headers, this is perfectly safe, a good example is copying from the
 client request to the request we will send to the backend.</p>
@@ -228,7 +218,7 @@ object. But in that case we build the new header in a workspace,
 and once we know how big it will be, we do a single malloc(3) to
 get the space and then we put the entire header in that space.</p>
 <p>We also try to reuse memory which is likely to be in the caches.</p>
-<p>The worker threads are used in &quot;most recently busy&quot; fashion, when
+<p>The worker threads are used in “most recently busy” fashion, when
 a workerthread becomes free it goes to the front of the queue where
 it is most likely to get the next request, so that all the memory
 it already has cached, stack space, variables etc, can be reused
@@ -243,7 +233,7 @@ runs on its own CPU. That way they will not fight about the cachelines.</p>
 works: we spend less than 18 system calls on serving a cache hit,
 and even many of those are calls tog get timestamps for statistics.</p>
 <p>These techniques are also nothing new, we have used them in the
-kernel for more than a decade, now it's your turn to learn them :-)</p>
+kernel for more than a decade, now it’s your turn to learn them :-)</p>
 <p>So Welcome to Varnish, a 2006 architecture program.</p>
 <p><em>phk</em></p>
 </div>
@@ -255,10 +245,10 @@ kernel for more than a decade, now it's your turn to learn them :-)</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Notes from the Architect</a><ul>
-<li><a class="reference internal" href="#so-what-s-wrong-with-1975-programming">So what's wrong with 1975 programming ?</a></li>
+<li><a class="reference internal" href="#so-what-s-wrong-with-1975-programming">So what’s wrong with 1975 programming ?</a></li>
 <li><a class="reference internal" href="#more-caches">More caches</a></li>
 <li><a class="reference internal" href="#how-do-we-cope">How do we cope ?</a></li>
 </ul>
@@ -274,18 +264,20 @@ kernel for more than a decade, now it's your turn to learn them :-)</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/phk/notes.txt"
+      <li><a href="../_sources/phk/notes.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -304,13 +296,13 @@ kernel for more than a decade, now it's your turn to learn them :-)</p>
         <li class="right" >
           <a href="sphinx.html" title="Why Sphinx and reStructuredText ?"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

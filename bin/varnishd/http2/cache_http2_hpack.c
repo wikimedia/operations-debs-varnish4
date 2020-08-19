@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2016 Varnish Software AS
+ * Copyright (c) 2016-2019 Varnish Software AS
  * All rights reserved.
  *
  * Author: Martin Blix Grydeland <martin@varnish-software.com>
@@ -29,7 +29,7 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -141,7 +141,7 @@ h2h_addhdr(struct http *hp, char *b, size_t namelen, size_t len)
 
 	if (n < HTTP_HDR_FIRST) {
 		/* Check for duplicate pseudo-header */
-		if (n < HTTP_HDR_FIRST && hp->hd[n].b != NULL) {
+		if (hp->hd[n].b != NULL) {
 			VSLb(hp->vsl, SLT_BogoHeader,
 			    "Duplicate pseudo-header: %.*s",
 			    (int)(len > 20 ? 20 : len), b);
@@ -164,18 +164,23 @@ h2h_addhdr(struct http *hp, char *b, size_t namelen, size_t len)
 }
 
 void
-h2h_decode_init(const struct h2_sess *h2, struct h2h_decode *d)
+h2h_decode_init(const struct h2_sess *h2)
 {
+	struct h2h_decode *d;
 
 	CHECK_OBJ_NOTNULL(h2, H2_SESS_MAGIC);
 	CHECK_OBJ_NOTNULL(h2->new_req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(h2->new_req->http, HTTP_MAGIC);
-	AN(d);
+	AN(h2->decode);
+	d = h2->decode;
 	INIT_OBJ(d, H2H_DECODE_MAGIC);
 	VHD_Init(d->vhd);
-	d->out_l = WS_Reserve(h2->new_req->http->ws, 0);
-	assert(d->out_l > 0);	/* Can't do any work without any buffer
-				   space. Require non-zero size. */
+	d->out_l = WS_ReserveAll(h2->new_req->http->ws);
+	/*
+	 * Can't do any work without any buffer
+	 * space. Require non-zero size.
+	 */
+	XXXAN(d->out_l);
 	d->out = h2->new_req->http->ws->f;
 	d->reset = d->out;
 }
@@ -189,11 +194,13 @@ h2h_decode_init(const struct h2_sess *h2, struct h2h_decode *d)
  * is a stream level error.
  */
 h2_error
-h2h_decode_fini(const struct h2_sess *h2, struct h2h_decode *d)
+h2h_decode_fini(const struct h2_sess *h2)
 {
 	h2_error ret;
+	struct h2h_decode *d;
 
 	CHECK_OBJ_NOTNULL(h2, H2_SESS_MAGIC);
+	d = h2->decode;
 	CHECK_OBJ_NOTNULL(h2->new_req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(d, H2H_DECODE_MAGIC);
 	WS_ReleaseP(h2->new_req->http->ws, d->out);
@@ -217,10 +224,10 @@ h2h_decode_fini(const struct h2_sess *h2, struct h2h_decode *d)
  * H2E_PROTOCOL_ERROR: Malformed header or duplicate pseudo-header.
  */
 h2_error
-h2h_decode_bytes(struct h2_sess *h2, struct h2h_decode *d,
-    const uint8_t *in, size_t in_l)
+h2h_decode_bytes(struct h2_sess *h2, const uint8_t *in, size_t in_l)
 {
 	struct http *hp;
+	struct h2h_decode *d;
 	size_t in_u = 0;
 
 	CHECK_OBJ_NOTNULL(h2, H2_SESS_MAGIC);
@@ -229,6 +236,7 @@ h2h_decode_bytes(struct h2_sess *h2, struct h2h_decode *d,
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 	CHECK_OBJ_NOTNULL(hp->ws, WS_MAGIC);
 	AN(hp->ws->r);
+	d = h2->decode;
 	CHECK_OBJ_NOTNULL(d, H2H_DECODE_MAGIC);
 
 	/* Only H2E_ENHANCE_YOUR_CALM indicates that we should continue

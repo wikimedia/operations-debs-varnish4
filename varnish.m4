@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2017 Varnish Software AS
+# Copyright (c) 2016-2018 Varnish Software AS
 # All rights reserved.
 #
 # Author: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
@@ -28,8 +28,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# varnish.m4 - Macros to define VMOD builds.            -*- Autoconf -*-
-# serial 7 (varnish-5.1.2)
+# varnish.m4 - Macros to build against Varnish.         -*- Autoconf -*-
+# serial 10 (varnish-6.0.0)
 #
 # This collection of macros helps create VMODs or tools interacting with
 # Varnish Cache using the GNU build system (autotools). In order to work
@@ -85,6 +85,7 @@ AC_DEFUN([_VARNISH_PKG_CONFIG], [
 	PKG_CHECK_VAR([VARNISHAPI_VMODDIR], [varnishapi], [vmoddir])
 
 	PKG_CHECK_VAR([VMODTOOL], [varnishapi], [vmodtool])
+	PKG_CHECK_VAR([VSCTOOL], [varnishapi], [vsctool])
 
 	AC_SUBST([VARNISH_LIBRARY_PATH],
 		[$VARNISHAPI_LIBDIR:$VARNISHAPI_LIBDIR/varnish])
@@ -128,10 +129,21 @@ AC_DEFUN([_VARNISH_CHECK_DEVEL], [
 # _VARNISH_CHECK_PYTHON
 # ---------------------
 AC_DEFUN([_VARNISH_CHECK_PYTHON], [
-
+	m4_define_default([_AM_PYTHON_INTERPRETER_LIST],
+[python3.9 python3.8 python3.7 python3.6 python3.5 python3.4 python2.7 dnl
+python python2 python3])
 	AM_PATH_PYTHON([2.7], [], [
 		AC_MSG_ERROR([Python >= 2.7 is required.])
 	])
+
+])
+
+# _VARNISH_VMOD_LDFLAGS
+# ---------------------
+AC_DEFUN([_VARNISH_VMOD_LDFLAGS], [
+
+	AC_SUBST([VMOD_LDFLAGS],
+		"-module -export-dynamic -avoid-version -shared")
 
 ])
 
@@ -141,14 +153,14 @@ AC_DEFUN([_VARNISH_VMOD_CONFIG], [
 
 	AC_REQUIRE([_VARNISH_PKG_CONFIG])
 	AC_REQUIRE([_VARNISH_CHECK_DEVEL])
+	AC_REQUIRE([_VARNISH_CHECK_PYTHON])
+	AC_REQUIRE([_VARNISH_VMOD_LDFLAGS])
 
 	dnl Check the VMOD toolchain
 	AC_REQUIRE([AC_LANG_C])
 	AC_REQUIRE([AC_PROG_CC_C99])
 	AC_REQUIRE([AC_PROG_CPP])
 	AC_REQUIRE([AC_PROG_CPP_WERROR])
-
-	_VARNISH_CHECK_PYTHON
 
 	AS_IF([test -z "$RST2MAN"], [
 		AC_MSG_ERROR([rst2man is needed to build VMOD manuals.])
@@ -175,10 +187,6 @@ AC_DEFUN([_VARNISH_VMOD_CONFIG], [
 	AC_SUBST([am__v_VMODTOOL_])
 	AC_SUBST([AM_V_VMODTOOL])
 
-	dnl Define VMODs LDFLAGS
-	AC_SUBST([VMOD_LDFLAGS],
-		"-module -export-dynamic -avoid-version -shared")
-
 	dnl Substitute an alias for compatibility reasons
 	AC_SUBST([VMOD_TEST_PATH], [$VARNISH_TEST_PATH])
 ])
@@ -202,13 +210,15 @@ AC_DEFUN([_VARNISH_VMOD], [
 
 vmod_$1.lo: vcc_$1_if.c vcc_$1_if.h
 
+vmod_$1.lo: \$(nodist_libvmod_$1_la_SOURCES)
+
 vcc_$1_if.h vmod_$1.rst vmod_$1.man.rst: vcc_$1_if.c
 
 vcc_$1_if.c: vmod_$1.vcc
-	\$(AM_V_VMODTOOL) $PYTHON $VMODTOOL -o vcc_$1_if \$(srcdir)/vmod_$1.vcc
+	\$(A""M_V_VMODTOOL) \$(PYTHON) \$(VMODTOOL) -o vcc_$1_if \$(srcdir)/vmod_$1.vcc
 
 vmod_$1.3: vmod_$1.man.rst
-	$RST2MAN vmod_$1.man.rst vmod_$1.3
+	\$(A""M_V_GEN) \$(RST2MAN) vmod_$1.man.rst vmod_$1.3
 
 clean: clean-vmod-$1
 
@@ -271,7 +281,8 @@ clean-vmod-$1:
 #
 # These two set of make rules are independent and may be used in separate
 # sub-directories. You still need to declare the generated VCC interfaces
-# in your library's sources. The generated files can be declared this way:
+# in your library's sources. The generated files should be declared this
+# way:
 #
 #     nodist_libvmod_foo_la_SOURCES = vcc_foo_if.c vcc_foo_if.h
 #     nodist_libvmod_bar_la_SOURCES = vcc_bar_if.c vcc_bar_if.h
@@ -366,6 +377,216 @@ AC_DEFUN([VARNISH_VMODS], [
 		[_VARNISH_VMOD(_vmod_name)])
 ])
 
+# _VARNISH_VSC_CONFIG
+# --------------------
+AC_DEFUN([_VARNISH_VSC_CONFIG], [
+
+	AC_REQUIRE([_VARNISH_PKG_CONFIG])
+	AC_REQUIRE([_VARNISH_CHECK_DEVEL])
+	AC_REQUIRE([_VARNISH_CHECK_PYTHON])
+
+	dnl Define an automake silent execution for vmodtool
+	[am__v_VSCTOOL_0='@echo "  VSCTOOL " $''@;']
+	[am__v_VSCTOOL_1='']
+	[am__v_VSCTOOL_='$(am__v_VSCTOOL_$(AM_DEFAULT_VERBOSITY))']
+	[AM_V_VSCTOOL='$(am__v_VSCTOOL_$(V))']
+	AC_SUBST([am__v_VSCTOOL_0])
+	AC_SUBST([am__v_VSCTOOL_1])
+	AC_SUBST([am__v_VSCTOOL_])
+	AC_SUBST([AM_V_VSCTOOL])
+])
+
+# _VARNISH_COUNTER(NAME)
+# ----------------------
+AC_DEFUN([_VARNISH_COUNTER], [
+
+	AC_REQUIRE([_VARNISH_VSC_CONFIG])
+
+	VSC_RULES="
+
+VSC_$1.h: $1.vsc
+	\$(A""M_V_VSCTOOL) \$(PYTHON) \$(VSCTOOL) -h \$(srcdir)/$1.vsc
+
+VSC_$1.c: $1.vsc
+	\$(A""M_V_VSCTOOL) \$(PYTHON) \$(VSCTOOL) -c \$(srcdir)/$1.vsc
+
+VSC_$1.rst: $1.vsc
+	\$(A""M_V_VSCTOOL) \$(PYTHON) \$(VSCTOOL) -r \$(srcdir)/$1.vsc >VSC_$1.rst
+
+clean: clean-vsc-$1
+
+distclean: clean-vsc-$1
+
+clean-vsc-$1:
+	rm -f VSC_$1.h VSC_$1.c VSC_$1.rst
+
+"
+
+	AC_SUBST(m4_toupper(BUILD_VSC_$1), [$VSC_RULES])
+	m4_ifdef([_AM_SUBST_NOTMAKE],
+		[_AM_SUBST_NOTMAKE(m4_toupper(BUILD_VSC_$1))])
+])
+
+# VARNISH_COUNTERS(NAMES)
+# -----------------------
+# Since: Varnish 6.0.0
+#
+# In order to manipulate custom counters that tools like varnishstat can
+# report, it is possible to do that via a VMOD. This macro allows you
+# to declare sets of counters, but does not associates them automatically
+# with their respective VMODs:
+#
+#     VARNISH_UTILITIES([foo bar])
+#
+# Two build rules will be available for use in Makefile.am for the counters
+# foo and bar:
+#
+#     @BUILD_VSC_FOO@
+#     @BUILD_VSC_BAR@
+#
+# They take care of turning VSC_foo.vsc and VCS_bar.vcs into C code and
+# RST documentation.
+#
+# Just like the vcc_*_if.[ch] files, you need to manually add the generated
+# sources to the appropriate VMODs:
+#
+#     nodist_libvmod_baz_la_SOURCES = \
+#             vcc_baz_if.c \
+#             vcc_baz_if.h \
+#             VSC_foo.c \
+#             VSC_foo.h
+#
+# You can then include the counters documentation somewhere in the VMOD's
+# VCC descriptor:
+#
+#     .. include:: VSC_foo.rst
+#
+# That should be all you need to do to start implementing custom counters.
+#
+AC_DEFUN([VARNISH_COUNTERS], [
+	m4_foreach([_vsc_name],
+		m4_split(m4_normalize([$1])),
+		[_VARNISH_COUNTER(_vsc_name)])
+])
+
+# _VARNISH_UTILITY(NAME)
+# ----------------------
+AC_DEFUN([_VARNISH_UTILITY], [
+
+	VUT_RULES="
+
+$1_synopsis.rst: $1
+	\$(A""M_V_GEN) ./$1 --synopsis >$1_synopsis.rst
+
+$1_options.rst: $1
+	\$(A""M_V_GEN) ./$1 --options >$1_options.rst
+
+$1.rst: $1_synopsis.rst $1_options.rst
+
+clean: clean-vut-$1
+
+distclean: clean-vut-$1
+
+clean-vut-$1:
+	rm -f $1_synopsis.rst $1_options.rst
+
+"
+
+	AC_SUBST(m4_toupper(GENERATE_$1_DOCS), [$VUT_RULES])
+	m4_ifdef([_AM_SUBST_NOTMAKE],
+		[_AM_SUBST_NOTMAKE(m4_toupper(GENERATE_$1_DOCS))])
+
+])
+
+# VARNISH_UTILITIES(NAMES)
+# ------------------------
+# Since: Varnish 5.2.0
+#
+# To write programs that consume the VSM, and in particular the VSL, it is
+# possible since Varnish 5.2.0 to use the VUT (Varnish UTility) API already
+# used by varnishlog, varnishstat and the other utilities from the standard
+# Varnish distribution.
+#
+# This API can optionally be used to generate part of the manual: the synopsis
+# and the list of options. The generated RST files can then be included from
+# the main RST file that is written manually.
+#
+# For example, if you define the following in configure.ac:
+#
+#     VARNISH_UTILITIES([foo bar])
+#
+# Two build rules will be available for use in Makefile.am for the programs
+# foo and bar:
+#
+#     bin_PROGRAMS = foo bar
+#
+#     [...]
+#
+#     @GENERATE_FOO_DOCS@
+#     @GENERATE_BAR_DOCS@
+#
+# If the API is used in a way that enables the generation of the synopsis and
+# the list of options, they will automatically be regenerated whenever the foo
+# and bar programs are rebuilt, and marked as dependencies for RST manuals
+# named foo.rst and bar.rst.
+#
+# In the manual you can then include the generated documentation in the
+# relevant sections:
+#
+#     SYNOPSIS
+#     ========
+#
+#     .. include:: foo_synopsis.rst
+#     foo |synopsis|
+#
+#     DESCRIPTION
+#     ===========
+#
+#     [...]
+#
+#     The following options are available:
+#
+#     .. include:: foo_options.rst
+#
+# This however won't work in a VPATH build, so instead of authoring foo.rst
+# and bar.rst, a better solution is to create foo.rst.in and bar.rst.in files
+# and add them to the AC_CONFIG_FILES macro in configure.ac. For example, if
+# foo.rst.in and bar.rst.in are located in the src/ directory:
+#
+#    AC_CONFIG_FILES([
+#    	[...]
+#    	src/foo.rst
+#    	src/bar.rst
+#    ])
+#
+# Then you can include the build directory, either relative or absolute, to
+# the include directives:
+#
+#     SYNOPSIS
+#     ========
+#
+#     .. include:: @builddir@/foo_synopsis.rst
+#     foo |synopsis|
+#
+#     DESCRIPTION
+#     ===========
+#
+#     [...]
+#
+#     The following options are available:
+#
+#     .. include:: @builddir@/foo_options.rst
+#
+# This will ensure that foo.rst and bar.rst always find the generated files
+# when the source directory is different from the build directory. It is the
+# maintainer's responsibility to build the actual manuals.
+#
+AC_DEFUN([VARNISH_UTILITIES], [
+	m4_foreach([_vut_name],
+		m4_split(m4_normalize([$1])),
+		[_VARNISH_UTILITY(_vut_name)])
+])
+
 # VARNISH_PREREQ(MINIMUM-VERSION, [MAXIMUM-VERSION])
 # --------------------------------------------------
 # Since: Varnish 4.1.4
@@ -377,6 +598,9 @@ AC_DEFUN([VARNISH_VMODS], [
 # - VARNISHAPI_VCLDIR added
 # - vcldir added
 # - pkgvcldir added
+#
+# Since Varnish 5.2.0:
+# - VSCTOOL added
 #
 # Verify that the version of Varnish Cache found by pkg-config is at least
 # MINIMUM-VERSION. If MAXIMUM-VERSION is specified, verify that the version
@@ -402,6 +626,7 @@ AC_DEFUN([VARNISH_VMODS], [
 # - VARNISHAPI_VCLDIR
 # - VARNISHAPI_VMODDIR
 # - VMODTOOL
+# - VSCTOOL
 #
 # In addition, two directories are set up for installation in automake:
 #

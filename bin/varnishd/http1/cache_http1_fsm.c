@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2015 Varnish Software AS
+ * Copyright (c) 2006-2019 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -33,22 +33,20 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache_filter.h"
+#include "cache/cache_objhead.h"
 #include "cache/cache_transport.h"
 #include "cache_http1.h"
-#include "hash/hash_slinger.h"
 
 #include "vtcp.h"
 
 static const char H1NEWREQ[] = "HTTP1::NewReq";
 static const char H1PROC[] = "HTTP1::Proc";
-static const char H1BUSY[] = "HTTP1::Busy";
 static const char H1CLEANUP[] = "HTTP1::Cleanup";
 
 static void HTTP1_Session(struct worker *, struct req *);
@@ -59,7 +57,7 @@ http1_setstate(const struct sess *sp, const char *s)
 	uintptr_t p;
 
 	p = (uintptr_t)s;
-	AZ(SES_Set_xport_priv(sp, &p));
+	AZ(SES_Set_proto_priv(sp, &p));
 }
 
 static const char *
@@ -67,7 +65,7 @@ http1_getstate(const struct sess *sp)
 {
 	uintptr_t *p;
 
-	AZ(SES_Get_xport_priv(sp, &p));
+	AZ(SES_Get_proto_priv(sp, &p));
 	return (const char *)*p;
 }
 
@@ -75,7 +73,7 @@ http1_getstate(const struct sess *sp)
  * Call protocol for this request
  */
 
-static void __match_proto__(task_func_t)
+static void v_matchproto_(task_func_t)
 http1_req(struct worker *wrk, void *arg)
 {
 	struct req *req;
@@ -102,7 +100,7 @@ http1_req(struct worker *wrk, void *arg)
  * must obey this calling convention with a dummy reservation.
  */
 
-static void __match_proto__(task_func_t)
+static void v_matchproto_(task_func_t)
 http1_new_session(struct worker *wrk, void *arg)
 {
 	struct sess *sp;
@@ -115,13 +113,21 @@ http1_new_session(struct worker *wrk, void *arg)
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 
 	HTC_RxInit(req->htc, req->ws);
-	SES_Reserve_xport_priv(sp, &u);
+	if (!SES_Reserve_proto_priv(sp, &u)) {
+		/* Out of session workspace. Free the req, close the sess,
+		 * and do not set a new task func, which will exit the
+		 * worker thread. */
+		VSL(SLT_Error, req->sp->vxid, "insufficient workspace");
+		Req_Release(req);
+		SES_Delete(sp, SC_RX_JUNK, NAN);
+		return;
+	}
 	http1_setstate(sp, H1NEWREQ);
 	wrk->task.func = http1_req;
 	wrk->task.priv = req;
 }
 
-static void __match_proto__(task_func_t)
+static void v_matchproto_(task_func_t)
 http1_unwait(struct worker *wrk, void *arg)
 {
 	struct sess *sp;
@@ -139,7 +145,7 @@ http1_unwait(struct worker *wrk, void *arg)
 	wrk->task.priv = req;
 }
 
-static void __match_proto__(vtr_req_body_t)
+static void v_matchproto_(vtr_req_body_t)
 http1_req_body(struct req *req)
 {
 
@@ -170,7 +176,7 @@ http1_req_panic(struct vsb *vsb, const struct req *req)
 	VSB_printf(vsb, "state = %s\n", http1_getstate(req->sp));
 }
 
-static void __match_proto__(vtr_req_fail_f)
+static void v_matchproto_(vtr_req_fail_f)
 http1_req_fail(struct req *req, enum sess_close reason)
 {
 	assert(reason > 0);
@@ -179,35 +185,10 @@ http1_req_fail(struct req *req, enum sess_close reason)
 		SES_Close(req->sp, reason);
 }
 
-static void __match_proto__(vtr_reembark_f)
-http1_reembark(struct worker *wrk, struct req *req)
-{
-	struct sess *sp;
-
-	sp = req->sp;
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-
-	http1_setstate(sp, H1BUSY);
-
-	if (!SES_Reschedule_Req(req))
-		return;
-
-	/* Couldn't schedule, ditch */
-	wrk->stats->busy_wakeup--;
-	wrk->stats->busy_killed++;
-	AN (req->vcl);
-	VCL_Rel(&req->vcl);
-	Req_AcctLogCharge(wrk->stats, req);
-	Req_Release(req);
-	SES_Delete(sp, SC_OVERLOAD, NAN);
-	DSL(DBG_WAITINGLIST, req->vsl->wid, "kill from waiting list");
-	usleep(10000);
-}
-
-static int __match_proto__(vtr_minimal_response_f)
+static int v_matchproto_(vtr_minimal_response_f)
 http1_minimal_response(struct req *req, uint16_t status)
 {
-	size_t wl, l;
+	ssize_t wl, l;
 	char buf[80];
 	const char *reason;
 
@@ -231,7 +212,8 @@ http1_minimal_response(struct req *req, uint16_t status)
 	if (wl > 0)
 		req->acct.resp_hdrbytes += wl;
 	if (wl != l) {
-		VTCP_Assert(1);
+		if (wl < 0)
+			VTCP_Assert(1);
 		if (!req->doclose)
 			req->doclose = SC_REM_CLOSE;
 		return (-1);
@@ -241,11 +223,11 @@ http1_minimal_response(struct req *req, uint16_t status)
 
 struct transport HTTP1_transport = {
 	.name =			"HTTP/1",
+	.proto_ident =		"HTTP",
 	.magic =		TRANSPORT_MAGIC,
 	.deliver =		V1D_Deliver,
 	.minimal_response =	http1_minimal_response,
 	.new_session =		http1_new_session,
-	.reembark =		http1_reembark,
 	.req_body =		http1_req_body,
 	.req_fail =		http1_req_fail,
 	.req_panic =		http1_req_panic,
@@ -327,30 +309,6 @@ http1_dissect(struct worker *wrk, struct req *req)
 /*----------------------------------------------------------------------
  */
 
-static int
-http1_req_cleanup(struct sess *sp, struct worker *wrk, struct req *req)
-{
-	AZ(wrk->aws->r);
-	AZ(req->ws->r);
-	Req_Cleanup(sp, wrk, req);
-
-	if (sp->fd >= 0 && req->doclose != SC_NULL)
-		SES_Close(sp, req->doclose);
-
-	if (sp->fd < 0) {
-		wrk->stats->sess_closed++;
-		AZ(req->vcl);
-		Req_Release(req);
-		SES_Delete(sp, SC_NULL, NAN);
-		return (1);
-	}
-
-	return (0);
-}
-
-/*----------------------------------------------------------------------
- */
-
 static void
 HTTP1_Session(struct worker *wrk, struct req *req)
 {
@@ -368,18 +326,9 @@ HTTP1_Session(struct worker *wrk, struct req *req)
 	 * Whenever we come in from the acceptor or waiter, we need to set
 	 * blocking mode.  It would be simpler to do this in the acceptor
 	 * or waiter, but we'd rather do the syscall in the worker thread.
-	 * On systems which return errors for ioctl, we close early
 	 */
-	if (http1_getstate(sp) == H1NEWREQ && VTCP_blocking(sp->fd)) {
-		AN(req->htc->ws->r);
-		if (errno == ECONNRESET)
-			SES_Close(sp, SC_REM_CLOSE);
-		else
-			SES_Close(sp, SC_TX_ERROR);
-		WS_Release(req->htc->ws, 0);
-		AN(http1_req_cleanup(sp, wrk, req));
-		return;
-	}
+	if (http1_getstate(sp) == H1NEWREQ)
+		VTCP_blocking(sp->fd);
 
 	req->transport = &HTTP1_transport;
 
@@ -396,13 +345,14 @@ HTTP1_Session(struct worker *wrk, struct req *req)
 			hs = HTC_RxStuff(req->htc, HTTP1_Complete,
 			    &req->t_first, &req->t_req,
 			    sp->t_idle + cache_param->timeout_linger,
-			    sp->t_idle + cache_param->timeout_idle,
+			    sp->t_idle + SESS_TMO(sp, timeout_idle),
+			    NAN,
 			    cache_param->http_req_size);
 			AZ(req->htc->ws->r);
 			if (hs < HTC_S_EMPTY) {
 				req->acct.req_hdrbytes +=
 				    req->htc->rxbuf_e - req->htc->rxbuf_b;
-				Req_AcctLogCharge(wrk->stats, req);
+				Req_Cleanup(sp, wrk, req);
 				Req_Release(req);
 				switch (hs) {
 				case HTC_S_CLOSE:
@@ -423,6 +373,7 @@ HTTP1_Session(struct worker *wrk, struct req *req)
 			}
 			if (hs == HTC_S_IDLE) {
 				wrk->stats->sess_herd++;
+				Req_Cleanup(sp, wrk, req);
 				Req_Release(req);
 				SES_Wait(sp, &HTTP1_transport);
 				return;
@@ -470,23 +421,6 @@ HTTP1_Session(struct worker *wrk, struct req *req)
 			}
 			req->req_step = R_STP_TRANSPORT;
 			http1_setstate(sp, H1PROC);
-		} else if (st == H1BUSY) {
-			CHECK_OBJ_NOTNULL(req->transport, TRANSPORT_MAGIC);
-			/*
-			 * Return from waitinglist.
-			 * Check to see if the remote has left.
-			 */
-			if (VTCP_check_hup(sp->fd)) {
-				AN(req->ws->r);
-				WS_Release(req->ws, 0);
-				AN(req->hash_objhead);
-				(void)HSH_DerefObjHead(wrk, &req->hash_objhead);
-				AZ(req->hash_objhead);
-				SES_Close(sp, SC_REM_CLOSE);
-				AN(http1_req_cleanup(sp, wrk, req));
-				return;
-			}
-			http1_setstate(sp, H1PROC);
 		} else if (st == H1PROC) {
 			req->task.func = http1_req;
 			req->task.priv = req;
@@ -498,8 +432,22 @@ HTTP1_Session(struct worker *wrk, struct req *req)
 			AZ(wrk->aws->r);
 			http1_setstate(sp, H1CLEANUP);
 		} else if (st == H1CLEANUP) {
-			if (http1_req_cleanup(sp, wrk, req))
+
+			AZ(wrk->aws->r);
+			AZ(req->ws->r);
+
+			if (sp->fd >= 0 && req->doclose != SC_NULL)
+				SES_Close(sp, req->doclose);
+
+			if (sp->fd < 0) {
+				wrk->stats->sess_closed++;
+				Req_Cleanup(sp, wrk, req);
+				Req_Release(req);
+				SES_Delete(sp, SC_NULL, NAN);
 				return;
+			}
+
+			Req_Cleanup(sp, wrk, req);
 			HTC_RxInit(req->htc, req->ws);
 			if (req->htc->rxbuf_e != req->htc->rxbuf_b)
 				wrk->stats->sess_readahead++;

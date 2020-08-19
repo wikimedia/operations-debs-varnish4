@@ -39,13 +39,16 @@
 #include <unistd.h>
 
 #include "mgt/mgt.h"
+#include "common/heritage.h"
 #include "vcli_serve.h"
 
 #include "storage/storage.h"
-#include "vav.h"
 
 static VTAILQ_HEAD(, stevedore) stevedores =
     VTAILQ_HEAD_INITIALIZER(stevedores);
+
+/* Name of transient storage */
+#define TRANSIENT_STORAGE	"Transient"
 
 struct stevedore *stv_transient;
 
@@ -57,22 +60,16 @@ STV__iter(struct stevedore ** const pp)
 
 	AN(pp);
 	CHECK_OBJ_ORNULL(*pp, STEVEDORE_MAGIC);
-	if (*pp == stv_transient) {
-		*pp = NULL;
-		return (0);
-	}
 	if (*pp != NULL)
 		*pp = VTAILQ_NEXT(*pp, list);
 	else
 		*pp = VTAILQ_FIRST(&stevedores);
-	if (*pp == NULL)
-		*pp = stv_transient;
-	return (1);
+	return (*pp != NULL);
 }
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 stv_cli_list(struct cli *cli, const char * const *av, void *priv)
 {
 	struct stevedore *stv;
@@ -85,17 +82,44 @@ stv_cli_list(struct cli *cli, const char * const *av, void *priv)
 		VCLI_Out(cli, "\tstorage.%s = %s\n", stv->ident, stv->name);
 }
 
+static void v_matchproto_(cli_func_t)
+stv_cli_list_json(struct cli *cli, const char * const *av, void *priv)
+{
+	struct stevedore *stv;
+	int n = 0;
+
+	(void)priv;
+	ASSERT_MGT();
+	VCLI_JSON_begin(cli, 2, av);
+	VCLI_Out(cli, ",\n");
+	STV_Foreach(stv) {
+		VCLI_Out(cli, "%s", n ? ",\n" : "");
+		n++;
+		VCLI_Out(cli, "{\n");
+		VSB_indent(cli->sb, 2);
+		VCLI_Out(cli, "\"name\": ");
+		VCLI_JSON_str(cli, stv->ident);
+		VCLI_Out(cli, ",\n");
+		VCLI_Out(cli, "\"storage\": ");
+		VCLI_JSON_str(cli, stv->name);
+		VSB_indent(cli->sb, -2);
+		VCLI_Out(cli, "\n}");
+	}
+	VCLI_JSON_end(cli);
+}
+
 /*--------------------------------------------------------------------*/
 
 static struct cli_proto cli_stv[] = {
-	{ CLICMD_STORAGE_LIST,		"", stv_cli_list },
+	{ CLICMD_STORAGE_LIST,		"", stv_cli_list, stv_cli_list_json },
 	{ NULL}
 };
 
 /*--------------------------------------------------------------------
  */
 
-static void
+#ifdef WITH_PERSISTENT_STORAGE
+static void v_matchproto_(storage_init_f)
 smp_fake_init(struct stevedore *parent, int ac, char * const *av)
 {
 
@@ -114,6 +138,7 @@ static const struct stevedore smp_fake_stevedore = {
 	.name = "deprecated_persistent",
 	.init = smp_fake_init,
 };
+#endif
 
 /*--------------------------------------------------------------------
  * Parse a stevedore argument on the form:
@@ -123,35 +148,51 @@ static const struct stevedore smp_fake_stevedore = {
 static const struct choice STV_choice[] = {
 	{ "file",			&smf_stevedore },
 	{ "malloc",			&sma_stevedore },
+#ifdef WITH_PERSISTENT_STORAGE
 	{ "deprecated_persistent",	&smp_stevedore },
 	{ "persistent",			&smp_fake_stevedore },
+#endif
+#if defined(HAVE_UMEM_H)
+	{ "umem",			&smu_stevedore },
+	{ "default",			&smu_stevedore },
+#else
+	{ "default",			&sma_stevedore },
+#endif
 	{ NULL,		NULL }
 };
+
+static void
+stv_check_ident(const char *spec, const char *ident)
+{
+	struct stevedore *stv;
+	unsigned found = 0;
+
+	if (!strcmp(ident, TRANSIENT_STORAGE))
+		found = (stv_transient != NULL);
+	else {
+		STV_Foreach(stv)
+			if (!strcmp(stv->ident, ident)) {
+				found = 1;
+				break;
+			}
+	}
+
+	if (found)
+		ARGV_ERR("(-s %s) '%s' is already defined\n", spec, ident);
+}
 
 void
 STV_Config(const char *spec)
 {
-	char **av;
-	const char *p, *q;
+	char **av, buf[8];
+	const char *ident;
 	struct stevedore *stv;
 	const struct stevedore *stv2;
-	struct stevedore *stv3;
-	int ac, l;
+	int ac;
 	static unsigned seq = 0;
 
-	ASSERT_MGT();
-	p = strchr(spec, '=');
-	q = strchr(spec, ',');
-	if (p != NULL && (q == NULL || q > p)) {
-		av = VAV_Parse(p + 1, NULL, ARGV_COMMA);
-	} else {
-		av = VAV_Parse(spec, NULL, ARGV_COMMA);
-		p = NULL;
-	}
+	av = MGT_NamedArg(spec, &ident, "-s");
 	AN(av);
-
-	if (av[0] != NULL)
-		ARGV_ERR("%s\n", av[0]);
 
 	if (av[1] == NULL)
 		ARGV_ERR("-s argument lacks strategy {malloc, file, ...}\n");
@@ -174,24 +215,19 @@ STV_Config(const char *spec)
 	*stv = *stv2;
 	AN(stv->name);
 
-	if (p == NULL)
-		bprintf(stv->ident, "s%u", seq++);
-	else {
-		l = p - spec;
-		if (l > sizeof stv->ident - 1)
-			l = sizeof stv->ident - 1;
-		bprintf(stv->ident, "%.*s", l, spec);
+	if (ident) {
+		stv->ident = ident;
+	} else {
+		bprintf(buf, "s%u", seq++);
+		stv->ident = strdup(buf);
 	}
-
-	STV_Foreach(stv3)
-		if (!strcmp(stv3->ident, stv->ident))
-			ARGV_ERR("(-s%s=%s) already defined once\n",
-			    stv->ident, stv->name);
+	AN(stv->ident);
+	stv_check_ident(spec, stv->ident);
 
 	if (stv->init != NULL)
 		stv->init(stv, ac, av);
 	else if (ac != 0)
-		ARGV_ERR("(-s%s) too many arguments\n", stv->name);
+		ARGV_ERR("(-s %s) too many arguments\n", stv->name);
 
 	AN(stv->allocobj);
 	AN(stv->methods);
@@ -199,9 +235,8 @@ STV_Config(const char *spec)
 	if (!strcmp(stv->ident, TRANSIENT_STORAGE)) {
 		AZ(stv_transient);
 		stv_transient = stv;
-	} else {
+	} else
 		VTAILQ_INSERT_TAIL(&stevedores, stv, list);
-	}
 	/* NB: Do not free av, stevedore gets to keep it */
 }
 
@@ -215,5 +250,7 @@ STV_Config_Transient(void)
 
 	VCLS_AddFunc(mgt_cls, MCF_AUTH, cli_stv);
 	if (stv_transient == NULL)
-		STV_Config(TRANSIENT_STORAGE "=malloc");
+		STV_Config(TRANSIENT_STORAGE "=default");
+	AN(stv_transient);
+	VTAILQ_INSERT_TAIL(&stevedores, stv_transient, list);
 }

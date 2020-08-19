@@ -31,14 +31,16 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "cache/cache_varnishd.h"
+#include "cache/cache_objhead.h"
+#include "common/heritage.h"
+
 #include "hash/hash_slinger.h"
 
-static struct VSC_C_lck *lck_hcl;
+static struct VSC_lck *lck_hcl;
 
 /*--------------------------------------------------------------------*/
 
@@ -56,7 +58,7 @@ static struct hcl_hd		*hcl_head;
  * The ->init method allows the management process to pass arguments
  */
 
-static void __match_proto__(hash_init_f)
+static void v_matchproto_(hash_init_f)
 hcl_init(int ac, char * const *av)
 {
 	int i;
@@ -87,13 +89,13 @@ hcl_init(int ac, char * const *av)
  * initialization to happen before the first lookup.
  */
 
-static void __match_proto__(hash_start_f)
+static void v_matchproto_(hash_start_f)
 hcl_start(void)
 {
 	unsigned u;
 
-	lck_hcl = Lck_CreateClass("hcl");
-	hcl_head = calloc(sizeof *hcl_head, hcl_nhash);
+	lck_hcl = Lck_CreateClass(NULL, "hcl");
+	hcl_head = calloc(hcl_nhash, sizeof *hcl_head);
 	XXXAN(hcl_head);
 
 	for (u = 0; u < hcl_nhash; u++) {
@@ -112,7 +114,7 @@ hcl_start(void)
  * rare and collisions even rarer.
  */
 
-static struct objhead * __match_proto__(hash_lookup_f)
+static struct objhead * v_matchproto_(hash_lookup_f)
 hcl_lookup(struct worker *wrk, const void *digest, struct objhead **noh)
 {
 	struct objhead *oh;
@@ -169,13 +171,16 @@ hcl_lookup(struct worker *wrk, const void *digest, struct objhead **noh)
  * Dereference and if no references are left, free.
  */
 
-static int __match_proto__(hash_deref_f)
-hcl_deref(struct objhead *oh)
+static int v_matchproto_(hash_deref_f)
+hcl_deref(struct worker *wrk, struct objhead *oh)
 {
 	struct hcl_hd *hp;
 	int ret;
 
 	CHECK_OBJ_NOTNULL(oh, OBJHEAD_MAGIC);
+	Lck_AssertHeld(&oh->mtx);
+	Lck_Unlock(&oh->mtx);
+
 	CAST_OBJ_NOTNULL(hp, oh->hoh_head, HCL_HEAD_MAGIC);
 	assert(oh->refcnt > 0);
 	Lck_Lock(&hp->mtx);
@@ -185,6 +190,8 @@ hcl_deref(struct objhead *oh)
 	} else
 		ret = 1;
 	Lck_Unlock(&hp->mtx);
+	if (!ret)
+		HSH_DeleteObjHead(wrk, oh);
 	return (ret);
 }
 

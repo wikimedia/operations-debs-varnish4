@@ -31,25 +31,19 @@
  * Statistics output program
  */
 
-
 #include "config.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <time.h>
-#include <sys/time.h>
-#include <poll.h>
 #include <stdint.h>
 #include <math.h>
 
+#include "vdef.h"
 #include "vas.h"
 #include "miniobj.h"
 #include "vqueue.h"
-#include "vapi/vsm.h"
-#include "vapi/vsc.h"
 #include "vtim.h"
 
 #include "varnishstat.h"
@@ -79,12 +73,6 @@ struct pt {
 
 	const struct VSC_point	*vpt;
 
-	char			*key;
-	char			*name;
-	int			semantics;
-	int			format;
-	const volatile uint64_t	*ptr;
-
 	char			seen;
 
 	uint64_t		cur, last;
@@ -106,8 +94,10 @@ static VTAILQ_HEAD(, pt) ptlist = VTAILQ_HEAD_INITIALIZER(ptlist);
 static int n_ptlist = 0;
 static int n_ptarray = 0;
 static struct pt **ptarray = NULL;
-static const struct VSC_C_mgt *VSC_C_mgt = NULL;
-static const struct VSC_C_main *VSC_C_main = NULL;
+static const volatile uint64_t *mgt_uptime;
+static const volatile uint64_t *main_uptime;
+static const volatile uint64_t *main_cache_hit;
+static const volatile uint64_t *main_cache_miss;
 
 static int l_status, l_bar_t, l_points, l_bar_b, l_info;
 static int colw_name = COLW_NAME_MIN;
@@ -117,9 +107,8 @@ static WINDOW *w_points = NULL;
 static WINDOW *w_bar_b = NULL;
 static WINDOW *w_info = NULL;
 
-static int verbosity = VSC_level_info;
+static const struct VSC_level_desc *verbosity;
 static int keep_running = 1;
-static int show_info = 1;
 static int hide_unseen = 1;
 static int page_start = 0;
 static int current = 0;
@@ -129,14 +118,19 @@ static int sample = 0;
 static int scale = 1;
 static double t_sample = 0.;
 static double interval = 1.;
+static unsigned vsm_status = 0;
+
+#define NOTIF_MAXLEN 256
+static char notification_message[NOTIF_MAXLEN] = "";
+static vtim_mono notification_eol = 0.0;
 
 static void
 init_hitrate(void)
 {
 	memset(&hitrate, 0, sizeof (struct hitrate));
-	if (VSC_C_main != NULL) {
-		hitrate.lhit = VSC_C_main->cache_hit;
-		hitrate.lmiss = VSC_C_main->cache_miss;
+	if (main_cache_hit != NULL) {
+		hitrate.lhit = *main_cache_hit;
+		hitrate.lmiss = *main_cache_miss;
 	}
 	hitrate.hr_10.nmax = 10;
 	hitrate.hr_100.nmax = 100;
@@ -217,7 +211,7 @@ build_pt_array(void)
 		CHECK_OBJ_NOTNULL(pt, PT_MAGIC);
 		if (!pt->seen && hide_unseen)
 			continue;
-		if (pt->vpt->desc->level->verbosity > verbosity)
+		if (pt->vpt->level > verbosity)
 			continue;
 		assert(n_ptarray < n_ptlist);
 		ptarray[n_ptarray++] = pt;
@@ -236,151 +230,23 @@ build_pt_array(void)
 }
 
 static void
-delete_pt_list(void)
-{
-	struct pt *pt;
-	unsigned i = 0;
-
-	delete_pt_array();
-
-	while (!VTAILQ_EMPTY(&ptlist)) {
-		pt = VTAILQ_FIRST(&ptlist);
-		CHECK_OBJ_NOTNULL(pt, PT_MAGIC);
-		VTAILQ_REMOVE(&ptlist, pt, list);
-		free(pt->name);
-		FREE_OBJ(pt);
-		i++;
-	}
-	assert(i == n_ptlist);
-	n_ptlist = 0;
-
-	update_position();
-}
-
-struct pt_priv {
-	unsigned		magic;
-#define PT_PRIV_MAGIC		0x34ACBAD6
-	VTAILQ_HEAD(, pt)	ptlist;
-	unsigned		n_ptlist;
-};
-
-static int
-build_pt_list_cb(void *priv, const struct VSC_point *vpt)
-{
-	struct pt_priv *pt_priv;
-	struct pt *pt;
-	char buf[128];
-
-	if (vpt == NULL)
-		return (0);
-
-	CAST_OBJ_NOTNULL(pt_priv, priv, PT_PRIV_MAGIC);
-
-	AZ(strcmp(vpt->desc->ctype, "uint64_t"));
-	snprintf(buf, sizeof buf, "%s.%s.%s", vpt->section->type,
-	    vpt->section->ident, vpt->desc->name);
-	buf[sizeof buf - 1] = '\0';
-
-	VTAILQ_FOREACH(pt, &ptlist, list) {
-		CHECK_OBJ_NOTNULL(pt, PT_MAGIC);
-		AN(pt->key);
-		if (strcmp(buf, pt->key))
-			continue;
-		VTAILQ_REMOVE(&ptlist, pt, list);
-		AN(n_ptlist);
-		n_ptlist--;
-		pt->vpt = vpt;
-		VTAILQ_INSERT_TAIL(&pt_priv->ptlist, pt, list);
-		pt_priv->n_ptlist++;
-		return (0);
-	}
-	AZ(pt);
-
-	ALLOC_OBJ(pt, PT_MAGIC);
-	AN(pt);
-
-	pt->key = strdup(buf);
-	AN(pt->key);
-
-	*buf = '\0';
-	if (strcmp(vpt->section->type, "")) {
-		strncat(buf, vpt->section->type, sizeof buf - strlen(buf) - 1);
-		strncat(buf, ".", sizeof buf - strlen(buf) - 1);
-	}
-	if (strcmp(vpt->section->ident, "")) {
-		strncat(buf, vpt->section->ident, sizeof buf - strlen(buf) - 1);
-		strncat(buf, ".", sizeof buf - strlen(buf) - 1);
-	}
-	strncat(buf, vpt->desc->name, sizeof buf - strlen(buf) - 1);
-	pt->name = strdup(buf);
-	AN(pt->name);
-
-	pt->vpt = vpt;
-
-	pt->ptr = vpt->ptr;
-	pt->last = *pt->ptr;
-	pt->semantics = vpt->desc->semantics;
-	pt->format = vpt->desc->format;
-
-	pt->ma_10.nmax = 10;
-	pt->ma_100.nmax = 100;
-	pt->ma_1000.nmax = 1000;
-
-	VTAILQ_INSERT_TAIL(&pt_priv->ptlist, pt, list);
-	pt_priv->n_ptlist++;
-
-	return (0);
-}
-
-static void
-build_pt_list(struct VSM_data *vd, struct VSM_fantom *fantom)
-{
-	struct pt_priv pt_priv;
-	int i;
-	struct pt *pt_current = NULL;
-	int current_line = 0;
-
-	if (current < n_ptarray) {
-		pt_current = ptarray[current];
-		current_line = current - page_start;
-	}
-
-	pt_priv.magic = PT_PRIV_MAGIC;
-	VTAILQ_INIT(&pt_priv.ptlist);
-	pt_priv.n_ptlist = 0;
-
-	(void)VSC_Iter(vd, fantom, build_pt_list_cb, &pt_priv);
-	delete_pt_list();
-	AN(VTAILQ_EMPTY(&ptlist));
-	AZ(n_ptlist);
-	VTAILQ_CONCAT(&ptlist, &pt_priv.ptlist, list);
-	n_ptlist = pt_priv.n_ptlist;
-	build_pt_array();
-
-	for (i = 0; pt_current != NULL && i < n_ptarray; i++)
-		if (ptarray[i] == pt_current)
-			break;
-	current = i;
-	page_start = current - current_line;
-	update_position();
-}
-
-static void
 sample_points(void)
 {
 	struct pt *pt;
+	uint64_t v;
 
 	VTAILQ_FOREACH(pt, &ptlist, list) {
 		AN(pt->vpt);
-		AN(pt->ptr);
-		if (*pt->ptr == 0 && !pt->seen)
+		AN(pt->vpt->ptr);
+		v = *pt->vpt->ptr;
+		if (v == 0 && !pt->seen)
 			continue;
 		if (!pt->seen) {
 			pt->seen = 1;
 			rebuild = 1;
 		}
 		pt->last = pt->cur;
-		pt->cur = *pt->ptr;
+		pt->cur = v;
 		pt->t_last = pt->t_cur;
 		pt->t_cur = VTIM_mono();
 
@@ -388,14 +254,14 @@ sample_points(void)
 			pt->chg = ((int64_t)pt->cur - (int64_t)pt->last) /
 			    (pt->t_cur - pt->t_last);
 
-		if (pt->semantics == 'g') {
+		if (pt->vpt->semantics == 'g') {
 			pt->avg = 0.;
 			update_ma(&pt->ma_10, (int64_t)pt->cur);
 			update_ma(&pt->ma_100, (int64_t)pt->cur);
 			update_ma(&pt->ma_1000, (int64_t)pt->cur);
-		} else if (pt->semantics == 'c') {
-			if (VSC_C_main != NULL && VSC_C_main->uptime)
-				pt->avg = pt->cur / VSC_C_main->uptime;
+		} else if (pt->vpt->semantics == 'c') {
+			if (main_uptime != NULL && *main_uptime)
+				pt->avg = pt->cur / (double)*main_uptime;
 			else
 				pt->avg = 0.;
 			if (pt->t_last) {
@@ -413,11 +279,11 @@ sample_hitrate(void)
 	double hr, mr, ratio;
 	uint64_t hit, miss;
 
-	if (VSC_C_main == NULL)
+	if (main_cache_hit == NULL)
 		return;
 
-	hit = VSC_C_main->cache_hit;
-	miss = VSC_C_main->cache_miss;
+	hit = *main_cache_hit;
+	miss = *main_cache_miss;
 	hr = hit - hitrate.lhit;
 	mr = miss - hitrate.lmiss;
 	hitrate.lhit = hit;
@@ -476,7 +342,7 @@ make_windows(void)
 	l_status = LINES_STATUS;
 	l_bar_t = LINES_BAR_T;
 	l_bar_b = LINES_BAR_B;
-	l_info = (show_info ? LINES_INFO : 0);
+	l_info = LINES_INFO;
 	l_points = Y - (l_status + l_bar_t + l_bar_b + l_info);
 	if (l_points < LINES_POINTS_MIN) {
 		l_points += l_info;
@@ -533,38 +399,50 @@ make_windows(void)
 }
 
 static void
-print_duration(WINDOW *w, time_t t)
+print_duration(WINDOW *w, uint64_t t)
 {
 
-	wprintw(w, "%4jd+%02jd:%02jd:%02jd",
-	    (intmax_t)t / 86400, (intmax_t)(t % 86400) / 3600,
-	    (intmax_t)(t % 3600) / 60, (intmax_t)t % 60);
+	wprintw(w, "%4ju+%02ju:%02ju:%02ju",
+	    (uintmax_t)t / 86400, (uintmax_t)(t % 86400) / 3600,
+	    (uintmax_t)(t % 3600) / 60, (uintmax_t)t % 60);
+}
+
+static void
+running(WINDOW *w, uint64_t up, int flg)
+{
+	if (vsm_status & flg) {
+		print_duration(w_status, up);
+	} else {
+		wattron(w, A_STANDOUT);
+		wprintw(w, "  Not Running");
+		wattroff(w, A_STANDOUT);
+	}
 }
 
 static void
 draw_status(void)
 {
-	time_t up_mgt = 0;
-	time_t up_chld = 0;
-	static const char discon[] = "*** DISCONNECTED ***";
+	uint64_t up_mgt = 0;
+	uint64_t up_chld = 0;
 
 	AN(w_status);
 
 	werase(w_status);
 
-	if (VSC_C_mgt != NULL)
-		up_mgt = VSC_C_mgt->uptime;
-	if (VSC_C_main != NULL)
-		up_chld = VSC_C_main->uptime;
+	if (mgt_uptime != NULL)
+		up_mgt = *mgt_uptime;
+	if (main_uptime != NULL)
+		up_chld = *main_uptime;
 
-	mvwprintw(w_status, 0, 0, "Uptime mgt:  ");
-	print_duration(w_status, up_mgt);
-	mvwprintw(w_status, 1, 0, "Uptime child:");
-	print_duration(w_status, up_chld);
+	mvwprintw(w_status, 0, 0, "Uptime mgt:   ");
+	running(w_status, up_mgt, VSM_MGT_RUNNING);
+	mvwprintw(w_status, 1, 0, "Uptime child: ");
+	running(w_status, up_chld, VSM_WRK_RUNNING);
 
-	if (VSC_C_mgt == NULL)
-		mvwprintw(w_status, 0, COLS - strlen(discon), discon);
-	else if (COLS > 70) {
+	if (VTIM_mono() < notification_eol)
+		mvwaddstr(w_status, 2, 0, notification_message);
+
+	if (COLS > 70) {
 		mvwprintw(w_status, 0, getmaxx(w_status) - 37,
 		    "Hitrate n: %8u %8u %8u", hitrate.hr_10.n, hitrate.hr_100.n,
 		    hitrate.hr_1000.n);
@@ -600,7 +478,7 @@ draw_bar_t(void)
 	x += 4;
 	mvwprintw(w_bar_t, 0, x, "%.*s", colw_name - 4, "NAME");
 	x += colw_name - 4;
-	col = 0;
+	col = COL_CUR;
 	while (col < COL_LAST) {
 		if (X - x < COLW)
 			break;
@@ -634,7 +512,7 @@ draw_bar_t(void)
 }
 
 static void
-draw_line_default(WINDOW *w, int y, int x, int X, struct pt *pt)
+draw_line_default(WINDOW *w, int y, int x, int X, const struct pt *pt)
 {
 	enum {
 		COL_CUR,
@@ -649,7 +527,7 @@ draw_line_default(WINDOW *w, int y, int x, int X, struct pt *pt)
 	AN(w);
 	AN(pt);
 
-	col = 0;
+	col = COL_CUR;
 	while (col < COL_LAST) {
 		if (X - x < COLW)
 			break;
@@ -722,7 +600,7 @@ print_trunc(WINDOW *w, uintmax_t val)
 }
 
 static void
-draw_line_bytes(WINDOW *w, int y, int x, int X, struct pt *pt)
+draw_line_bytes(WINDOW *w, int y, int x, int X, const struct pt *pt)
 {
 	enum {
 		COL_CUR,
@@ -737,7 +615,7 @@ draw_line_bytes(WINDOW *w, int y, int x, int X, struct pt *pt)
 	AN(w);
 	AN(pt);
 
-	col = 0;
+	col = COL_CUR;
 	while (col < COL_LAST) {
 		if (X - x < COLW)
 			break;
@@ -779,9 +657,9 @@ draw_line_bytes(WINDOW *w, int y, int x, int X, struct pt *pt)
 }
 
 static void
-draw_line_bitmap(WINDOW *w, int y, int x, int X, struct pt *pt)
+draw_line_bitmap(WINDOW *w, int y, int x, int X, const struct pt *pt)
 {
-	int ch;
+	unsigned ch;
 	enum {
 		COL_VAL,
 		COL_MAP,
@@ -790,9 +668,9 @@ draw_line_bitmap(WINDOW *w, int y, int x, int X, struct pt *pt)
 
 	AN(w);
 	AN(pt);
-	assert(pt->format == 'b');
+	assert(pt->vpt->format == 'b');
 
-	col = 0;
+	col = COL_VAL;
 	while (col < COL_LAST) {
 		switch (col) {
 		case COL_VAL:
@@ -822,7 +700,7 @@ draw_line_bitmap(WINDOW *w, int y, int x, int X, struct pt *pt)
 }
 
 static void
-draw_line_duration(WINDOW *w, int y, int x, int X, struct pt *pt)
+draw_line_duration(WINDOW *w, int y, int x, int X, const struct pt *pt)
 {
 	enum {
 		COL_DUR,
@@ -832,7 +710,7 @@ draw_line_duration(WINDOW *w, int y, int x, int X, struct pt *pt)
 	AN(w);
 	AN(pt);
 
-	col = 0;
+	col = COL_DUR;
 	while (col < COL_LAST) {
 		if (X - x < COLW)
 			break;
@@ -853,20 +731,20 @@ draw_line_duration(WINDOW *w, int y, int x, int X, struct pt *pt)
 }
 
 static void
-draw_line(WINDOW *w, int y, struct pt *pt)
+draw_line(WINDOW *w, int y, const struct pt *pt)
 {
 	int x, X;
 
 	assert(colw_name >= COLW_NAME_MIN);
 	X = getmaxx(w);
 	x = 0;
-	if (strlen(pt->name) > colw_name)
-		mvwprintw(w, y, x, "%.*s...", colw_name - 3, pt->name);
+	if (strlen(pt->vpt->name) > colw_name)
+		mvwprintw(w, y, x, "%.*s...", colw_name - 3, pt->vpt->name);
 	else
-		mvwprintw(w, y, x, "%.*s", colw_name, pt->name);
+		mvwprintw(w, y, x, "%.*s", colw_name, pt->vpt->name);
 	x += colw_name;
 
-	switch (pt->format) {
+	switch (pt->vpt->format) {
 	case 'b':
 		draw_line_bitmap(w, y, x, X, pt);
 		break;
@@ -924,7 +802,6 @@ static void
 draw_bar_b(void)
 {
 	int x, X;
-	const struct VSC_level_desc *level;
 	char buf[64];
 
 	AN(w_bar_b);
@@ -936,20 +813,19 @@ draw_bar_b(void)
 		mvwprintw(w_bar_b, 0, x, "vvv");
 	x += 4;
 	if (current < n_ptarray - 1)
-		mvwprintw(w_bar_b, 0, x, "%s", ptarray[current]->name);
+		mvwprintw(w_bar_b, 0, x, "%s", ptarray[current]->vpt->name);
 
-	snprintf(buf, sizeof(buf) - 1, "%d-%d/%d", page_start + 1,
+	bprintf(buf, "%d-%d/%d", page_start + 1,
 	    page_start + l_points < n_ptarray ?
 		page_start + l_points : n_ptarray,
 	    n_ptarray);
 	mvwprintw(w_bar_b, 0, X - strlen(buf), "%s", buf);
 	X -= strlen(buf) + 2;
 
-	level = VSC_LevelDesc(verbosity);
-	if (level != NULL) {
-		mvwprintw(w_bar_b, 0, X - strlen(level->label), "%s",
-		    level->label);
-		X -= strlen(level->label) + 2;
+	if (verbosity != NULL) {
+		mvwprintw(w_bar_b, 0, X - strlen(verbosity->label), "%s",
+		    verbosity->label);
+		X -= strlen(verbosity->label) + 2;
 	}
 	if (!hide_unseen)
 		mvwprintw(w_bar_b, 0, X - 6, "%s", "UNSEEN");
@@ -968,9 +844,9 @@ draw_info(void)
 	if (current < n_ptarray - 1) {
 		/* XXX: Word wrapping, and overflow handling? */
 		mvwprintw(w_info, 0, 0, "%s:",
-		    ptarray[current]->vpt->desc->sdesc);
+		    ptarray[current]->vpt->sdesc);
 		mvwprintw(w_info, 1, 0, "%s",
-		    ptarray[current]->vpt->desc->ldesc);
+		    ptarray[current]->vpt->ldesc);
 	}
 	wnoutrefresh(w_info);
 }
@@ -1014,6 +890,12 @@ handle_keypress(int ch)
 		if (page_start + l_points < n_ptarray - 1)
 			page_start += l_points;
 		break;
+	case KEY_HOME:
+		current = 0;
+		break;
+	case KEY_END:
+		current = n_ptarray - 1;
+		break;
 	case 'd':
 		hide_unseen = 1 - hide_unseen;
 		rebuild = 1;
@@ -1028,12 +910,30 @@ handle_keypress(int ch)
 		break;
 	case 'G':
 		current = n_ptarray - 1;
-		page_start = current - l_points + 1;
+		page_start = (current - l_points) + 1;
+		break;
+	case '+':
+		interval += 0.1;
+		(void)snprintf(notification_message, NOTIF_MAXLEN,
+		    "Refresh interval set to %.1f seconds.", interval);
+
+		notification_eol = VTIM_mono() + 1.25;
+		break;
+	case '-':
+		interval -= 0.1;
+		if (interval < 0.1)
+			interval = 0.1;
+		(void)snprintf(notification_message, NOTIF_MAXLEN,
+		    "Refresh interval set to %.1f seconds.", interval);
+
+		notification_eol = VTIM_mono() + 1.25;
 		break;
 	case 'v':
-		verbosity++;
-		if (VSC_LevelDesc(verbosity) == NULL)
-			verbosity = 0;
+		verbosity = VSC_ChangeLevel(verbosity, 1);
+		rebuild = 1;
+		break;
+	case 'V':
+		verbosity = VSC_ChangeLevel(verbosity, -1);
 		rebuild = 1;
 		break;
 	case 'q':
@@ -1056,18 +956,66 @@ handle_keypress(int ch)
 	redraw = 1;
 }
 
-void
-do_curses(struct VSM_data *vd, double delay)
+static void * v_matchproto_(VSC_new_f)
+newpt(void *priv, const struct VSC_point *const vpt)
 {
-	struct pollfd pollfd;
+	struct pt *pt;
+
+	AZ(priv);
+	ALLOC_OBJ(pt, PT_MAGIC);
+	rebuild |= 1;
+	AN(pt);
+	pt->vpt = vpt;
+	pt->last = *pt->vpt->ptr;
+	pt->ma_10.nmax = 10;
+	pt->ma_100.nmax = 100;
+	pt->ma_1000.nmax = 1000;
+
+	VTAILQ_INSERT_TAIL(&ptlist, pt, list);
+	n_ptlist++;
+
+	AZ(strcmp(vpt->ctype, "uint64_t"));
+
+	if (!strcmp(vpt->name, "MGT.uptime"))
+		mgt_uptime = vpt->ptr;
+	if (!strcmp(vpt->name, "MAIN.uptime"))
+		main_uptime = vpt->ptr;
+	if (!strcmp(vpt->name, "MAIN.cache_hit"))
+		main_cache_hit = vpt->ptr;
+	if (!strcmp(vpt->name, "MAIN.cache_miss"))
+		main_cache_miss = vpt->ptr;
+	return (pt);
+}
+
+static void v_matchproto_(VSC_destroy_f)
+delpt(void *priv, const struct VSC_point *const vpt)
+{
+	struct pt *pt;
+
+	AZ(priv);
+	CAST_OBJ_NOTNULL(pt, vpt->priv, PT_MAGIC);
+	rebuild |= 2;
+	VTAILQ_REMOVE(&ptlist, pt, list);
+	n_ptlist--;
+	FREE_OBJ(pt);
+	if (vpt->ptr == mgt_uptime)
+		mgt_uptime = NULL;
+	if (vpt->ptr == main_uptime)
+		main_uptime = NULL;
+	if (vpt->ptr == main_cache_hit)
+		main_cache_hit = NULL;
+	if (vpt->ptr == main_cache_miss)
+		main_cache_miss = NULL;
+}
+
+void
+do_curses(struct vsm *vsm, struct vsc *vsc)
+{
 	long t;
 	int ch;
 	double now;
-	struct VSM_fantom f_main = VSM_FANTOM_NULL;
-	struct VSM_fantom f_mgt = VSM_FANTOM_NULL;
-	struct VSM_fantom f_iter = VSM_FANTOM_NULL;
 
-	interval = delay;
+	verbosity = VSC_ChangeLevel(NULL, 0);
 
 	initscr();
 	raw();
@@ -1075,42 +1023,36 @@ do_curses(struct VSM_data *vd, double delay)
 	nonl();
 	curs_set(0);
 
-	pollfd.fd = STDIN_FILENO;
-	pollfd.events = POLLIN;
-
 	make_windows();
 	doupdate();
 
-	VSC_C_mgt = VSC_Mgt(vd, &f_mgt);
-	VSC_C_main = VSC_Main(vd, &f_main);
+	VSC_State(vsc, newpt, delpt, NULL);
+
+	(void)VSC_Iter(vsc, vsm, NULL, NULL);
+	build_pt_array();
 	init_hitrate();
+
 	while (keep_running) {
-		if (VSM_Abandoned(vd)) {
+		(void)VSC_Iter(vsc, vsm, NULL, NULL);
+		vsm_status = VSM_Status(vsm);
+		if (vsm_status & (VSM_MGT_RESTARTED|VSM_WRK_RESTARTED))
 			init_hitrate();
-			delete_pt_list();
-			VSM_Close(vd);
-			VSM_Open(vd);
-		}
-		VSC_C_mgt = VSC_Mgt(vd, &f_mgt);
-		VSC_C_main = VSC_Main(vd, &f_main);
-		if (VSM_valid != VSM_StillValid(vd, &f_iter))
-			build_pt_list(vd, &f_iter);
+		if (rebuild)
+			build_pt_array();
 
 		now = VTIM_mono();
 		if (now - t_sample > interval)
 			sample = 1;
 		if (sample)
 			sample_data();
-		if (rebuild)
-			build_pt_array();
 		if (redraw)
 			draw_screen();
 
-		t = (t_sample + interval - now) * 1000;
-		if (t > 0)
-			(void)poll(&pollfd, 1, t);
+		t = (long)((t_sample + interval - now) * 1000);
+		wtimeout(w_status, t);
 
-		switch (ch = wgetch(w_status)) {
+		ch = wgetch(w_status);
+		switch (ch) {
 		case ERR:
 			break;
 #ifdef KEY_RESIZE /* sigh, Solaris lacks this.. */
@@ -1124,6 +1066,8 @@ do_curses(struct VSM_data *vd, double delay)
 			break;
 		}
 	}
-	VSM_Close(vd);
+	VSC_Destroy(&vsc, vsm);
+	AN(VTAILQ_EMPTY(&ptlist));
+	VSM_Destroy(&vsm);
 	AZ(endwin());
 }

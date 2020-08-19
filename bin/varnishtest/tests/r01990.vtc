@@ -1,7 +1,7 @@
 varnishtest "workspace overflow with failed backend fetch"
 
 varnish v1 -vcl {
-	import debug;
+	import vtc;
 
 	backend default {
 		.host = "${bad_backend}";
@@ -10,8 +10,7 @@ varnish v1 -vcl {
 	sub vcl_backend_fetch {
 		# avoid LostHeader      b Host: %s
 		set bereq.http.Host = "127.0.0.1";
-		debug.workspace_allocate(backend,
-			debug.workspace_free(backend));
+		vtc.workspace_alloc(backend, vtc.workspace_free(backend));
 	}
 
 	sub vcl_backend_error {
@@ -24,12 +23,12 @@ varnish v1 -vcl {
 } -start
 
 logexpect l1 -v v1 -g raw {
-	expect * 1002 FetchError   {^no backend connection}
+	expect * 1002 FetchError   {^out of workspace}
 	expect * =    BerespStatus {^503}
 	expect * =    BerespReason {^Backend fetch failed}
-	expect * =    Error        {^out of workspace [(]Bo[)]}
+	expect * =    Error        {^out of workspace [(]bo[)]}
 	expect * =    LostHeader   {^Date:}
-	expect * =    Error        {^out of workspace [(]Bo[)]}
+	expect * =    Error        {^out of workspace [(]bo[)]}
 	expect * =    LostHeader   {^299}
 } -start
 
@@ -41,3 +40,4 @@ client c1 {
 } -run
 
 logexpect l1 -wait
+varnish v1 -expect ws_backend_overflow == 1

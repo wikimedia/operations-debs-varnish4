@@ -12,7 +12,6 @@ lib_LTLIBRARIES = libvarnishapi.la
 libvarnishapi_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:6:0
 
 libvarnishapi_la_SOURCES = \
-	vsm_api.h \
 	vsl_api.h \
 	vxp.h \
 	vxp_tokens.h \
@@ -21,8 +20,11 @@ libvarnishapi_la_SOURCES = \
 	../../include/vcs_version.h \
 	../libvarnish/version.c \
 	../libvarnish/vcli_proto.c \
+	../libvarnish/vfil.c \
 	../libvarnish/vfl.c \
 	../libvarnish/vin.c \
+	../libvarnish/vjsn.c \
+	../libvarnish/vlu.c \
 	../libvarnish/vmb.c \
 	../libvarnish/vpf.c \
 	../libvarnish/vre.c \
@@ -79,26 +81,27 @@ vsl2rst_SOURCES = \
 	$(top_srcdir)/include/tbl/vsl_tags.h \
 	$(top_srcdir)/include/tbl/vsl_tags_http.h
 
-vxp_fixed_token.c vxp_tokens.h: \
+vxp_fixed_token.c: vxp_tokens.h
+
+vxp_tokens.h: \
 	$(srcdir)/generate.py
 	@PYTHON@ $(srcdir)/generate.py $(srcdir) $(top_builddir)
 
-EXTRA_PROGRAMS = vxp_test vsl_glob_test
-
-vxp_test_LDADD = @PCRE_LIBS@ \
-	${RT_LIBS} ${LIBM} ${PTHREAD_LIBS}
-
-vxp_test_CFLAGS = \
-	-DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"' \
-	-DVXP_DEBUG
+EXTRA_PROGRAMS = vxp_test
 
 vxp_test_SOURCES = \
 	$(libvarnishapi_la_SOURCES) \
 	vxp_test.c
+vxp_test_CFLAGS = \
+	-DVARNISH_STATE_DIR='"${VARNISH_STATE_DIR}"' \
+	-DVXP_DEBUG
+vxp_test_LDADD = @PCRE_LIBS@ \
+	${RT_LIBS} ${LIBM} ${PTHREAD_LIBS}
 
-vsl_glob_test_SOURCES = \
-	vsl_glob_test.c
+TESTS = vsl_glob_test
 
-vsl_glob_test_LDADD = @PCRE_LIBS@ ${RT_LIBS} ${LIBM} libvarnishapi.la
+noinst_PROGRAMS += ${TESTS}
 
-vsl_glob_test_CFLAGS = -I$(top_srcdir)/include
+vsl_glob_test_SOURCES = vsl_glob_test.c
+vsl_glob_test_CFLAGS = @SAN_CFLAGS@
+vsl_glob_test_LDADD = libvarnishapi.la @SAN_LDFLAGS@

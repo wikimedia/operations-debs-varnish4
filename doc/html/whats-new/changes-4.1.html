@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Changes in Varnish 4.1 &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>Changes in Varnish 4.1 &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="What&#39;s new / Upgrading" href="index.html" />
     <link rel="next" title="Upgrading to Varnish 4.1" href="upgrading-4.1.html" />
     <link rel="prev" title="Upgrading to Varnish 5.0" href="upgrading-5.0.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,8 +33,8 @@
         <li class="right" >
           <a href="upgrading-5.0.html" title="Upgrading to Varnish 5.0"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">What's new / Upgrading</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">What’s new / Upgrading</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -65,7 +55,7 @@ collectively described as jails.</p>
 privileges to normal user mode when not doing operations needing special
 access.</p>
 <p>The Varnish worker child should now be run as a separate <cite>vcache</cite> user.</p>
-<p><code class="docutils literal"><span class="pre">varnishlog</span></code>, <code class="docutils literal"><span class="pre">varnishncsa</span></code> and other Varnish shared log utilities
+<p><code class="docutils literal notranslate"><span class="pre">varnishlog</span></code>, <code class="docutils literal notranslate"><span class="pre">varnishncsa</span></code> and other Varnish shared log utilities
 now must be run in a context with <cite>varnish</cite> group membership.</p>
 </div>
 <div class="section" id="warm-and-cold-vcl-configurations">
@@ -78,21 +68,21 @@ warm or cold. Runtime state (incl. backend counters) and health checks
 are not present for cold VCLs.</p>
 <p>A warm VCL will automatically be set to cold after <cite>vcl_cooldown</cite> seconds.</p>
 <p>Output from <cite>vcl.list</cite>:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">list</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">list</span>
 <span class="mi">200</span>
 <span class="n">available</span>  <span class="n">auto</span><span class="o">/</span><span class="n">warm</span>       <span class="mi">0</span> <span class="n">boot</span>
 <span class="n">available</span>  <span class="n">auto</span><span class="o">/</span><span class="n">warm</span>       <span class="mi">0</span> <span class="mi">62</span><span class="n">f5275f</span><span class="o">-</span><span class="n">a937</span><span class="o">-</span><span class="mi">4</span><span class="n">df9</span><span class="o">-</span><span class="mi">9</span><span class="n">fbb</span><span class="o">-</span><span class="n">c12336bdfdb8</span>
 </pre></div>
 </div>
-<p>A single VCL's state can be changed with the <cite>vcl.state</cite> call in
-<code class="docutils literal"><span class="pre">varnishadm</span></code>:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">vcl</span><span class="o">.</span><span class="n">state</span> <span class="o">&lt;</span><span class="n">configname</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">state</span><span class="o">&gt;</span>
+<p>A single VCL’s state can be changed with the <cite>vcl.state</cite> call in
+<code class="docutils literal notranslate"><span class="pre">varnishadm</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vcl</span><span class="o">.</span><span class="n">state</span> <span class="o">&lt;</span><span class="n">configname</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">state</span><span class="o">&gt;</span>
     <span class="n">Force</span> <span class="n">the</span> <span class="n">state</span> <span class="n">of</span> <span class="n">the</span> <span class="n">specified</span> <span class="n">configuration</span><span class="o">.</span>
     <span class="n">State</span> <span class="ow">is</span> <span class="nb">any</span> <span class="n">of</span> <span class="n">auto</span><span class="p">,</span> <span class="n">warm</span> <span class="ow">or</span> <span class="n">cold</span> <span class="n">values</span><span class="o">.</span>
 </pre></div>
 </div>
 <p>Example:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">state</span> <span class="mi">62</span><span class="n">f5275f</span><span class="o">-</span><span class="n">a937</span><span class="o">-</span><span class="mi">4</span><span class="n">df9</span><span class="o">-</span><span class="mi">9</span><span class="n">fbb</span><span class="o">-</span><span class="n">c12336bdfdb8</span> <span class="n">cold</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">state</span> <span class="mi">62</span><span class="n">f5275f</span><span class="o">-</span><span class="n">a937</span><span class="o">-</span><span class="mi">4</span><span class="n">df9</span><span class="o">-</span><span class="mi">9</span><span class="n">fbb</span><span class="o">-</span><span class="n">c12336bdfdb8</span> <span class="n">cold</span>
 <span class="mi">200</span>
 
 <span class="n">varnish</span><span class="o">&gt;</span> <span class="n">vcl</span><span class="o">.</span><span class="n">list</span>
@@ -110,20 +100,20 @@ release unnecessary state when a VCL is transitioned to cold (see
 <p>Socket support for PROXY protocol connections has been added. PROXY
 defines a short preamble on the TCP connection where (usually) a SSL/TLS
 terminating proxy can signal the real client address.</p>
-<p>The <code class="docutils literal"><span class="pre">-a</span></code> startup argument syntax has been expanded to allow for this:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span>$ varnishd -f /etc/varnish/default.vcl -a :6081 -a 127.0.0.1:6086,PROXY
+<p>The <code class="docutils literal notranslate"><span class="pre">-a</span></code> startup argument syntax has been expanded to allow for this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ varnishd -f /etc/varnish/default.vcl -a :6081 -a 127.0.0.1:6086,PROXY
 </pre></div>
 </div>
 <p>Both PROXY1 and PROXY2 protocols are supported on the resulting listening
 socket.</p>
-<p>For connections coming in over a PROXY socket, <code class="docutils literal"><span class="pre">client.ip</span></code> and
-<code class="docutils literal"><span class="pre">server.ip</span></code> will contain the addresses given to Varnish in the PROXY
-header/preamble (the &quot;real&quot; IPs).</p>
-<p>The new VCL variables <code class="docutils literal"><span class="pre">remote.ip</span></code> and <code class="docutils literal"><span class="pre">local.ip</span></code> contains the local
+<p>For connections coming in over a PROXY socket, <code class="docutils literal notranslate"><span class="pre">client.ip</span></code> and
+<code class="docutils literal notranslate"><span class="pre">server.ip</span></code> will contain the addresses given to Varnish in the PROXY
+header/preamble (the “real” IPs).</p>
+<p>The new VCL variables <code class="docutils literal notranslate"><span class="pre">remote.ip</span></code> and <code class="docutils literal notranslate"><span class="pre">local.ip</span></code> contains the local
 TCP connection endpoints. On non-PROXY connections these will be identical
-to <code class="docutils literal"><span class="pre">client.ip</span></code> and <code class="docutils literal"><span class="pre">server.ip</span></code>.</p>
+to <code class="docutils literal notranslate"><span class="pre">client.ip</span></code> and <code class="docutils literal notranslate"><span class="pre">server.ip</span></code>.</p>
 <p>An expected pattern following this is <cite>if (std.port(local.ip) == 80) { }</cite>
-in <code class="docutils literal"><span class="pre">vcl_recv</span></code> to see if traffic came in over the HTTP listening socket
+in <code class="docutils literal notranslate"><span class="pre">vcl_recv</span></code> to see if traffic came in over the HTTP listening socket
 (so a client redirect to HTTPS can be served).</p>
 </div>
 <div class="section" id="vmod-backends">
@@ -131,7 +121,7 @@ in <code class="docutils literal"><span class="pre">vcl_recv</span></code> to se
 <p>Before Varnish 4.1, backends could only be declared in native VCL. Varnish
 4.0 moved directors from VCL to VMODs, and VMODs can now also create
 backends. It is possible to both create the same backends than VCL but
-dynamically, or create backends that don't necessarily speak HTTP/1 over
+dynamically, or create backends that don’t necessarily speak HTTP/1 over
 TCP to fetch resources. More details in the <a class="reference internal" href="../reference/directors.html#ref-writing-a-director"><span class="std std-ref">Writing a Director</span></a>
 documentation.</p>
 </div>
@@ -152,7 +142,7 @@ times, before a working backend connection was found/created.</p>
 <h2>More modules available<a class="headerlink" href="#more-modules-available" title="Permalink to this headline">¶</a></h2>
 <p>Varnish has an ecosystem for third-party modules (vmods). New since
 the last release, these are worth knowing about:</p>
-<p>libvmod-saintmode: Saint mode (&quot;inferred health probes from traffic&quot;) was taken
+<p>libvmod-saintmode: Saint mode (“inferred health probes from traffic”) was taken
 out of Varnish core in 4.0, and is now back as a separate vmod. This is useful
 for detecting failing backends before the health probes pick it up.</p>
 <p>libvmod-xkey: Secondary hash keys for cache objects, based on the hashtwo vmod
@@ -171,12 +161,12 @@ and any ESI sub-requests it leads to.</p>
 <div class="section" id="other-noteworthy-small-changes">
 <h2>Other noteworthy small changes<a class="headerlink" href="#other-noteworthy-small-changes" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li>Varnish will now use the <code class="docutils literal"><span class="pre">stale-while-revalidate</span></code> defined in RFC5861
+<li>Varnish will now use the <code class="docutils literal notranslate"><span class="pre">stale-while-revalidate</span></code> defined in RFC5861
 to set object grace time.</li>
 <li>-smalloc storage is now recommended over -sfile on Linux systems.</li>
-<li>New VCL variable <code class="docutils literal"><span class="pre">beresp.was_304</span></code> has been introduced in
-<code class="docutils literal"><span class="pre">vcl_backend_response</span></code>. Will be set to <code class="docutils literal"><span class="pre">true</span></code> if the response
-from the backend was a positive result of a conditional fetch (<code class="docutils literal"><span class="pre">304</span>
+<li>New VCL variable <code class="docutils literal notranslate"><span class="pre">beresp.was_304</span></code> has been introduced in
+<code class="docutils literal notranslate"><span class="pre">vcl_backend_response</span></code>. Will be set to <code class="docutils literal notranslate"><span class="pre">true</span></code> if the response
+from the backend was a positive result of a conditional fetch (<code class="docutils literal notranslate"><span class="pre">304</span>
 <span class="pre">Not</span> <span class="pre">Modified</span></code>).</li>
 </ul>
 </div>
@@ -188,7 +178,7 @@ from the backend was a positive result of a conditional fetch (<code class="docu
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Changes in Varnish 4.1</a><ul>
 <li><a class="reference internal" href="#proactive-security-features">Proactive security features</a></li>
@@ -213,18 +203,20 @@ from the backend was a positive result of a conditional fetch (<code class="docu
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/whats-new/changes-4.1.txt"
+      <li><a href="../_sources/whats-new/changes-4.1.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -243,13 +235,13 @@ from the backend was a positive result of a conditional fetch (<code class="docu
         <li class="right" >
           <a href="upgrading-5.0.html" title="Upgrading to Varnish 5.0"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="index.html" >What's new / Upgrading</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >What’s new / Upgrading</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

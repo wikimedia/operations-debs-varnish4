@@ -29,20 +29,22 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "common/heritage.h"
-
+#include "vgz.h"
 #include "vsl_priv.h"
 #include "vmb.h"
-#include "vtim.h"
+
+#include "common/heritage.h"
+#include "common/vsmw.h"
 
 /* These cannot be struct lock, which depends on vsm/vsl working */
 static pthread_mutex_t vsl_mtx;
+static pthread_mutex_t vsc_mtx;
 static pthread_mutex_t vsm_mtx;
 
 static struct VSL_head		*vsl_head;
@@ -51,8 +53,7 @@ static uint32_t			*vsl_ptr;
 static unsigned			vsl_segment_n;
 static ssize_t			vsl_segsize;
 
-struct VSC_C_main       *VSC_C_main;
-
+struct VSC_main *VSC_C_main;
 
 static void
 vsl_sanity(const struct vsl_log *vsl)
@@ -259,7 +260,7 @@ VSL_Flush(struct vsl_log *vsl, int overflow)
 	memcpy(p + 2, vsl->wlb, l);
 	p[1] = l;
 	VWMB();
-	p[0] = ((((unsigned)SLT__Batch & 0xff) << 24) | 0);
+	p[0] = ((((unsigned)SLT__Batch & 0xff) << 24));
 	vsl->wlp = vsl->wlb;
 	vsl->wlr = 0;
 }
@@ -333,6 +334,14 @@ VSLbv(struct vsl_log *vsl, enum VSL_tag_e tag, const char *fmt, va_list ap)
 		return;
 	}
 
+	if (!strcmp(fmt, "%s")) {
+		p = va_arg(ap, char *);
+		t.b = p;
+		t.e = strchr(p, '\0');
+		VSLbt(vsl, tag, t);
+		return;
+	}
+
 	mlen = cache_param->vsl_reclen;
 
 	/* Flush if we cannot fit a full size record */
@@ -364,13 +373,13 @@ VSLb(struct vsl_log *vsl, enum VSL_tag_e tag, const char *fmt, ...)
 }
 
 void
-VSLb_ts(struct vsl_log *vsl, const char *event, double first, double *pprev,
-    double now)
+VSLb_ts(struct vsl_log *vsl, const char *event, vtim_real first,
+    vtim_real *pprev, vtim_real now)
 {
 
 	/* XXX: Make an option to turn off some unnecessary timestamp
 	   logging. This must be done carefully because some functions
-	   (e.g. V1L_Reserve) takes the last timestamp as its initial
+	   (e.g. V1L_Open) takes the last timestamp as its initial
 	   value for timeout calculation. */
 	vsl_sanity(vsl);
 	assert(!isnan(now) && now != 0.);
@@ -382,37 +391,33 @@ VSLb_ts(struct vsl_log *vsl, const char *event, double first, double *pprev,
 void
 VSLb_bin(struct vsl_log *vsl, enum VSL_tag_e tag, ssize_t len, const void *ptr)
 {
+	unsigned mlen;
 	char *p;
-	const uint8_t *pp = ptr;
-	int suff = 0;
-	size_t tl, ll;
 
-	assert(len >= 0);
-	AN(pp);
+	vsl_sanity(vsl);
+	AN(ptr);
 	if (vsl_tag_is_masked(tag))
 		return;
-	vsl_sanity(vsl);
-	tl = len * 2 + 1;
-	if (tl > cache_param->vsl_reclen) {
-		len = (cache_param->vsl_reclen - 2) / 2;
-		tl = len * 2 + 2;
-		suff = 1;
-	}
-	if (VSL_END(vsl->wlp, tl) >= vsl->wle)
+	mlen = cache_param->vsl_reclen;
+
+	/* Truncate */
+	if (len > mlen)
+		len = mlen;
+
+	assert(vsl->wlp < vsl->wle);
+
+	/* Flush if necessary */
+	if (VSL_END(vsl->wlp, len) >= vsl->wle)
 		VSL_Flush(vsl, 1);
-	assert(VSL_END(vsl->wlp, tl) < vsl->wle);
+	assert(VSL_END(vsl->wlp, len) < vsl->wle);
 	p = VSL_DATA(vsl->wlp);
-	for (ll = 0; ll < len; ll++) {
-		assert(snprintf(p, 3, "%02x", *pp) == 2);
-		pp++;
-		p += 2;
-	}
-	if (suff)
-		*p++ = '-';
-	*p = '\0';
-	vsl->wlp = vsl_hdr(tag, vsl->wlp, tl, vsl->wid);
+	memcpy(p, ptr, len);
+	vsl->wlp = vsl_hdr(tag, vsl->wlp, len, vsl->wid);
 	assert(vsl->wlp < vsl->wle);
 	vsl->wlr++;
+
+	if (DO_DEBUG(DBG_SYNCVSL))
+		VSL_Flush(vsl, 0);
 }
 
 /*--------------------------------------------------------------------
@@ -469,20 +474,28 @@ VSL_End(struct vsl_log *vsl)
 	vsl->wid = 0;
 }
 
-/*--------------------------------------------------------------------*/
-
-static void *
-vsm_cleaner(void *priv)
+static void v_matchproto_(vsm_lock_f)
+vsm_vsc_lock(void)
 {
-	(void)priv;
-	THR_SetName("vsm_cleaner");
-	while (1) {
-		AZ(pthread_mutex_lock(&vsm_mtx));
-		VSM_common_cleaner(heritage.vsm, VSC_C_main);
-		AZ(pthread_mutex_unlock(&vsm_mtx));
-		VTIM_sleep(1.1);
-	}
-	NEEDLESS(return NULL);
+	AZ(pthread_mutex_lock(&vsc_mtx));
+}
+
+static void v_matchproto_(vsm_lock_f)
+vsm_vsc_unlock(void)
+{
+	AZ(pthread_mutex_unlock(&vsc_mtx));
+}
+
+static void v_matchproto_(vsm_lock_f)
+vsm_vsmw_lock(void)
+{
+	AZ(pthread_mutex_lock(&vsm_mtx));
+}
+
+static void v_matchproto_(vsm_lock_f)
+vsm_vsmw_unlock(void)
+{
+	AZ(pthread_mutex_unlock(&vsm_mtx));
 }
 
 /*--------------------------------------------------------------------*/
@@ -491,14 +504,24 @@ void
 VSM_Init(void)
 {
 	int i;
-	pthread_t tp;
 
 	assert(UINT_MAX % VSL_SEGMENTS == VSL_SEGMENTS - 1);
 
 	AZ(pthread_mutex_init(&vsl_mtx, NULL));
+	AZ(pthread_mutex_init(&vsc_mtx, NULL));
 	AZ(pthread_mutex_init(&vsm_mtx, NULL));
 
-	vsl_head = VSM_Alloc(cache_param->vsl_space, VSL_CLASS, "", "");
+	vsc_lock = vsm_vsc_lock;
+	vsc_unlock = vsm_vsc_unlock;
+	vsmw_lock = vsm_vsmw_lock;
+	vsmw_unlock = vsm_vsmw_unlock;
+
+	VSC_C_main = VSC_main_New(NULL, NULL, "");
+	AN(VSC_C_main);
+
+	AN(heritage.proc_vsmw);
+	vsl_head = VSMW_Allocf(heritage.proc_vsmw, NULL, VSL_CLASS,
+	    cache_param->vsl_space, VSL_CLASS);
 	AN(vsl_head);
 	vsl_segsize = ((cache_param->vsl_space - sizeof *vsl_head) /
 	    sizeof *vsl_end) / VSL_SEGMENTS;
@@ -518,34 +541,4 @@ VSM_Init(void)
 		vsl_head->offset[i] = -1;
 	VWMB();
 	memcpy(vsl_head->marker, VSL_HEAD_MARKER, sizeof vsl_head->marker);
-
-	VSC_C_main = VSM_Alloc(sizeof *VSC_C_main,
-	    VSC_CLASS, VSC_type_main, "");
-	AN(VSC_C_main);
-	memset(VSC_C_main, 0, sizeof *VSC_C_main);
-
-	AZ(pthread_create(&tp, NULL, vsm_cleaner, NULL));
-}
-
-/*--------------------------------------------------------------------*/
-
-void *
-VSM_Alloc(unsigned size, const char *class, const char *type,
-    const char *ident)
-{
-	volatile void *p;
-
-	AZ(pthread_mutex_lock(&vsm_mtx));
-	p = VSM_common_alloc(heritage.vsm, size, class, type, ident);
-	AZ(pthread_mutex_unlock(&vsm_mtx));
-	return (TRUST_ME(p));
-}
-
-void
-VSM_Free(void *ptr)
-{
-
-	AZ(pthread_mutex_lock(&vsm_mtx));
-	VSM_common_free(heritage.vsm, ptr);
-	AZ(pthread_mutex_unlock(&vsm_mtx));
 }

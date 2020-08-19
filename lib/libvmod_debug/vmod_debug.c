@@ -31,16 +31,16 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
-#include "vcl.h"
-#include "vrt.h"
 #include "vsa.h"
-#include "vsb.h"
-#include "vtcp.h"
 #include "vtim.h"
 #include "vcc_if.h"
+#include "VSC_debug.h"
 
 struct priv_vcl {
 	unsigned		magic;
@@ -53,38 +53,33 @@ struct priv_vcl {
 
 static VCL_DURATION vcl_release_delay = 0.0;
 
-VCL_VOID __match_proto__(td_debug_panic)
-vmod_panic(VRT_CTX, const char *str, ...)
-{
-	va_list ap;
-	const char *b;
+static pthread_mutex_t vsc_mtx = PTHREAD_MUTEX_INITIALIZER;
+static struct vsc_seg *vsc_seg = NULL;
+static struct VSC_debug *vsc = NULL;
 
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	va_start(ap, str);
-	b = VRT_String(ctx->ws, "PANIC: ", str, ap);
-	va_end(ap);
-	VAS_Fail("VCL", "", 0, b, VAS_VCL);
-}
-
-VCL_STRING __match_proto__(td_debug_author)
-vmod_author(VRT_CTX, VCL_ENUM person, VCL_ENUM someone)
+VCL_STRING v_matchproto_(td_debug_author)
+xyzzy_author(VRT_CTX, VCL_ENUM person, VCL_ENUM someone)
 {
 	(void)someone;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (!strcmp(person, "phk"))
+	if (person == xyzzy_enum_phk)
 		return ("Poul-Henning");
-	if (!strcmp(person, "des"))
+	assert(strcmp(person, "phk"));
+	if (person == xyzzy_enum_des)
 		return ("Dag-Erling");
-	if (!strcmp(person, "kristian"))
+	assert(strcmp(person, "des"));
+	if (person == xyzzy_enum_kristian)
 		return ("Kristian");
-	if (!strcmp(person, "mithrandir"))
+	assert(strcmp(person, "kristian"));
+	if (person == xyzzy_enum_mithrandir)
 		return ("Tollef");
+	assert(strcmp(person, "mithrandir"));
 	WRONG("Illegal VMOD enum");
 }
 
-VCL_VOID __match_proto__(td_debug_test_priv_call)
-vmod_test_priv_call(VRT_CTX, struct vmod_priv *priv)
+VCL_VOID v_matchproto_(td_debug_test_priv_call)
+xyzzy_test_priv_call(VRT_CTX, struct vmod_priv *priv)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -96,16 +91,27 @@ vmod_test_priv_call(VRT_CTX, struct vmod_priv *priv)
 	}
 }
 
-VCL_STRING __match_proto__(td_debug_test_priv_task)
-vmod_test_priv_task(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
+static void
+priv_task_free(void *ptr)
+{
+	AN(ptr);
+	VSL(SLT_Debug, 0, "priv_task_free(%p)", ptr);
+	free(ptr);
+}
+
+VCL_STRING v_matchproto_(td_debug_test_priv_task)
+xyzzy_test_priv_task(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	if (s == NULL || *s == '\0') {
-		return priv->priv;
+		VSL(SLT_Debug, 0, "test_priv_task(%p) = %p (exists)",
+		    priv, priv->priv);
 	} else if (priv->priv == NULL) {
 		priv->priv = strdup(s);
-		priv->free = free;
+		priv->free = priv_task_free;
+		VSL(SLT_Debug, 0, "test_priv_task(%p) = %p (new)",
+		    priv, priv->priv);
 	} else {
 		char *n = realloc(priv->priv,
 		    strlen(priv->priv) + strlen(s) + 2);
@@ -114,12 +120,16 @@ vmod_test_priv_task(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
 		strcat(n, " ");
 		strcat(n, s);
 		priv->priv = n;
+		VSL(SLT_Debug, 0, "test_priv_task(%p) = %p (update)",
+		    priv, priv->priv);
 	}
+	if (priv->priv != NULL)
+		assert(priv->free == priv_task_free);
 	return (priv->priv);
 }
 
-VCL_STRING __match_proto__(td_debug_test_priv_top)
-vmod_test_priv_top(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
+VCL_STRING v_matchproto_(td_debug_test_priv_top)
+xyzzy_test_priv_top(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -130,8 +140,8 @@ vmod_test_priv_top(VRT_CTX, struct vmod_priv *priv, VCL_STRING s)
 	return (priv->priv);
 }
 
-VCL_VOID __match_proto__(td_debug_test_priv_vcl)
-vmod_test_priv_vcl(VRT_CTX, struct vmod_priv *priv)
+VCL_VOID v_matchproto_(td_debug_test_priv_vcl)
+xyzzy_test_priv_vcl(VRT_CTX, struct vmod_priv *priv)
 {
 	struct priv_vcl *priv_vcl;
 
@@ -142,58 +152,8 @@ vmod_test_priv_vcl(VRT_CTX, struct vmod_priv *priv)
 	assert(!strcmp(priv_vcl->foo, "FOO"));
 }
 
-VCL_BLOB
-vmod_str2blob(VRT_CTX, VCL_STRING s)
-{
-	struct vmod_priv *p;
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	p = (void*)WS_Alloc(ctx->ws, sizeof *p);
-	AN(p);
-	memset(p, 0, sizeof *p);
-	p->len = strlen(s);
-	p->priv = WS_Copy(ctx->ws, s, -1);
-	return (p);
-}
-
-VCL_STRING
-vmod_blob2hex(VRT_CTX, VCL_BLOB b)
-{
-	char *s, *p;
-	uint8_t *q;
-	int i;
-
-	s = WS_Alloc(ctx->ws, b->len * 2 + 2);
-	AN(s);
-	p = s;
-	q = b->priv;
-	for (i = 0; i < b->len; i++) {
-		assert(snprintf(p, 3, "%02x", *q) == 2);
-		p += 2;
-		q += 1;
-	}
-	VRT_priv_fini(b);
-	return (s);
-}
-
-VCL_BACKEND
-vmod_no_backend(VRT_CTX)
-{
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	return (NULL);
-}
-
-VCL_STEVEDORE __match_proto__(td_debug_no_stevedore)
-vmod_no_stevedore(VRT_CTX)
-{
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	return (NULL);
-}
-
-VCL_VOID __match_proto__(td_debug_rot52)
-vmod_rot52(VRT_CTX, VCL_HTTP hp)
+VCL_VOID v_matchproto_(td_debug_rot52)
+xyzzy_rot52(VRT_CTX, VCL_HTTP hp)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -202,24 +162,26 @@ vmod_rot52(VRT_CTX, VCL_HTTP hp)
 	http_PrintfHeader(hp, "Encrypted: ROT52");
 }
 
-VCL_STRING
-vmod_argtest(VRT_CTX, VCL_STRING one, VCL_REAL two, VCL_STRING three,
-    VCL_STRING comma, VCL_INT four)
+VCL_STRING v_matchproto_(td_debug_argtest)
+xyzzy_argtest(VRT_CTX, struct xyzzy_argtest_arg *arg)
 {
 	char buf[100];
 
-	bprintf(buf, "%s %g %s %s %ld", one, two, three, comma, four);
+	AN(arg);
+	bprintf(buf, "%s %g %s %s %jd %d %s",
+	    arg->one, arg->two, arg->three, arg->comma, (intmax_t)arg->four,
+	    arg->valid_opt, arg->valid_opt ? arg->opt : "<undef>");
 	return (WS_Copy(ctx->ws, buf, -1));
 }
 
-VCL_INT
-vmod_vre_limit(VRT_CTX)
+VCL_INT v_matchproto_(td_debug_vre_limit)
+xyzzy_vre_limit(VRT_CTX)
 {
 	(void)ctx;
 	return (cache_param->vre_limits.match);
 }
 
-static void __match_proto__(obj_event_f)
+static void v_matchproto_(obj_event_f)
 obj_cb(struct worker *wrk, void *priv, struct objcore *oc, unsigned event)
 {
 	const struct priv_vcl *priv_vcl;
@@ -239,8 +201,8 @@ obj_cb(struct worker *wrk, void *priv, struct objcore *oc, unsigned event)
 	    (intmax_t)(uintptr_t)oc);
 }
 
-VCL_VOID __match_proto__()
-vmod_register_obj_events(VRT_CTX, struct vmod_priv *priv)
+VCL_VOID v_matchproto_(td_debug_register_obj_events)
+xyzzy_register_obj_events(VRT_CTX, struct vmod_priv *priv)
 {
 	struct priv_vcl *priv_vcl;
 
@@ -252,14 +214,22 @@ vmod_register_obj_events(VRT_CTX, struct vmod_priv *priv)
 	VSL(SLT_Debug, 0, "Subscribed to Object Events");
 }
 
-VCL_VOID __match_proto__()
-vmod_fail(VRT_CTX)
+VCL_VOID v_matchproto_(td_debug_fail)
+xyzzy_fail(VRT_CTX)
 {
 
 	VRT_fail(ctx, "Forced failure");
 }
 
-static void __match_proto__(vmod_priv_free_f)
+VCL_BOOL v_matchproto_(td_debug_fail2)
+xyzzy_fail2(VRT_CTX)
+{
+
+	VRT_fail(ctx, "Forced failure");
+	return (1);
+}
+
+static void v_matchproto_(vmod_priv_free_f)
 priv_vcl_free(void *priv)
 {
 	struct priv_vcl *priv_vcl;
@@ -363,7 +333,7 @@ event_cold(VRT_CTX, const struct vmod_priv *priv)
 	return (0);
 }
 
-int __match_proto__(vmod_event_f)
+int v_matchproto_(vmod_event_f)
 event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
 
@@ -371,124 +341,16 @@ event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 	case VCL_EVENT_LOAD: return (event_load(ctx, priv));
 	case VCL_EVENT_WARM: return (event_warm(ctx, priv));
 	case VCL_EVENT_COLD: return (event_cold(ctx, priv));
+	case VCL_EVENT_DISCARD:
+		if (vsc)
+			VSC_debug_Destroy(&vsc_seg);
+		return (0);
 	default: return (0);
 	}
 }
 
-VCL_VOID __match_proto__(td_debug_sleep)
-vmod_sleep(VRT_CTX, VCL_DURATION t)
-{
-
-	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
-	VTIM_sleep(t);
-}
-
-static struct ws *
-wsfind(VRT_CTX, VCL_ENUM which)
-{
-	if (!strcmp(which, "client"))
-		return (ctx->ws);
-	else if (!strcmp(which, "backend"))
-		return (ctx->bo->ws);
-	else if (!strcmp(which, "session"))
-		return (ctx->req->sp->ws);
-	else if (!strcmp(which, "thread"))
-		return (ctx->req->wrk->aws);
-	else
-		WRONG("No such workspace.");
-}
-
-void
-vmod_workspace_allocate(VRT_CTX, VCL_ENUM which, VCL_INT size)
-{
-	struct ws *ws;
-	char *s;
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-	ws = wsfind(ctx, which);
-
-	WS_Assert(ws);
-	AZ(ws->r);
-
-	if (size < 0) {
-		size += WS_Reserve(ws, 0);
-		WS_Release(ws, 0);
-	}
-	s = WS_Alloc(ws, size);
-	if (!s)
-		return;
-	memset(s, '\0', size);
-}
-
-VCL_INT
-vmod_workspace_free(VRT_CTX, VCL_ENUM which)
-{
-	struct ws *ws;
-	unsigned u;
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-	ws = wsfind(ctx, which);
-
-	WS_Assert(ws);
-	u = WS_Reserve(ws, 0);
-	WS_Release(ws, 0);
-
-	return (u);
-}
-
-VCL_BOOL
-vmod_workspace_overflowed(VRT_CTX, VCL_ENUM which)
-{
-	struct ws *ws;
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-	ws = wsfind(ctx, which);
-	WS_Assert(ws);
-
-	return (WS_Overflowed(ws));
-}
-
-static uintptr_t debug_ws_snap;
-
-void
-vmod_workspace_snap(VRT_CTX, VCL_ENUM which)
-{
-	struct ws *ws;
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-	ws = wsfind(ctx, which);
-	WS_Assert(ws);
-
-	debug_ws_snap = WS_Snapshot(ws);
-}
-
-void
-vmod_workspace_reset(VRT_CTX, VCL_ENUM which)
-{
-	struct ws *ws;
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-	ws = wsfind(ctx, which);
-	WS_Assert(ws);
-
-	WS_Reset(ws, debug_ws_snap);
-}
-
-void
-vmod_workspace_overflow(VRT_CTX, VCL_ENUM which)
-{
-	struct ws *ws;
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-	ws = wsfind(ctx, which);
-	WS_Assert(ws);
-
-	WS_MarkOverflow(ws);
-}
-
-void
-vmod_vcl_release_delay(VRT_CTX, VCL_DURATION delay)
+VCL_VOID v_matchproto_(td_debug_vcl_release_delay)
+xyzzy_vcl_release_delay(VRT_CTX, VCL_DURATION delay)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -496,8 +358,8 @@ vmod_vcl_release_delay(VRT_CTX, VCL_DURATION delay)
 	vcl_release_delay = delay;
 }
 
-VCL_BOOL
-vmod_match_acl(VRT_CTX, VCL_ACL acl, VCL_IP ip)
+VCL_BOOL v_matchproto_(td_debug_match_acl)
+xyzzy_match_acl(VRT_CTX, VCL_ACL acl, VCL_IP ip)
 {
 
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
@@ -507,40 +369,8 @@ vmod_match_acl(VRT_CTX, VCL_ACL acl, VCL_IP ip)
 	return (VRT_acl_match(ctx, acl, ip));
 }
 
-VCL_BOOL
-vmod_barrier_sync(VRT_CTX, VCL_STRING addr)
-{
-	const char *err;
-	char buf[32];
-	int sock, i;
-	ssize_t sz;
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	AN(addr);
-	AN(*addr);
-
-	VSLb(ctx->vsl, SLT_Debug, "barrier_sync(\"%s\")", addr);
-	sock = VTCP_open(addr, NULL, 0., &err);
-	if (sock < 0) {
-		VSLb(ctx->vsl, SLT_Error, "Barrier connection failed: %s", err);
-		return (0);
-	}
-
-	sz = read(sock, buf, sizeof buf);
-	i = errno;
-	closefd(&sock);
-	if (sz == 0)
-		return (1);
-	if (sz < 0)
-		VSLb(ctx->vsl, SLT_Error,
-		    "Barrier read failed: %s (errno=%d)", strerror(i), i);
-	if (sz > 0)
-		VSLb(ctx->vsl, SLT_Error, "Barrier unexpected data (%zdB)", sz);
-	return (0);
-}
-
-VCL_VOID
-vmod_test_probe(VRT_CTX, VCL_PROBE probe, VCL_PROBE same)
+VCL_VOID v_matchproto_(td_debug_test_probe)
+xyzzy_test_probe(VRT_CTX, VCL_PROBE probe, VCL_PROBE same)
 {
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -549,26 +379,180 @@ vmod_test_probe(VRT_CTX, VCL_PROBE probe, VCL_PROBE same)
 	AZ(same == NULL || probe == same);
 }
 
-VCL_INT
-vmod_typesize(VRT_CTX, VCL_STRING s)
+VCL_VOID
+xyzzy_vsc_new(VRT_CTX)
 {
-	int i = 0;
-	const char *p;
-
 	(void)ctx;
-	for (p = s; *p; p++) {
-		switch (*p) {
-		case 'p':	i += sizeof(void *); break;
-		case 'i':	i += sizeof(int); break;
-		case 'd':	i += sizeof(double); break;
-		case 'f':	i += sizeof(float); break;
-		case 'l':	i += sizeof(long); break;
-		case 's':	i += sizeof(short); break;
-		case 'z':	i += sizeof(size_t); break;
-		case 'o':	i += sizeof(off_t); break;
-		case 'j':	i += sizeof(intmax_t); break;
-		default:	return(-1);
+	AZ(pthread_mutex_lock(&vsc_mtx));
+	if (vsc == NULL) {
+		AZ(vsc_seg);
+		vsc = VSC_debug_New(NULL, &vsc_seg, "");
+	}
+	AN(vsc);
+	AN(vsc_seg);
+	AZ(pthread_mutex_unlock(&vsc_mtx));
+}
+
+VCL_VOID
+xyzzy_vsc_count(VRT_CTX, VCL_INT cnt)
+{
+	(void)ctx;
+	AN(vsc);
+	vsc->count += cnt;
+}
+
+VCL_VOID
+xyzzy_vsc_destroy(VRT_CTX)
+{
+	(void)ctx;
+	AZ(pthread_mutex_lock(&vsc_mtx));
+	if (vsc != NULL) {
+		AN(vsc_seg);
+		VSC_debug_Destroy(&vsc_seg);
+	}
+	AZ(vsc_seg);
+	vsc = NULL;
+	AZ(pthread_mutex_unlock(&vsc_mtx));
+}
+
+struct xyzzy_debug_concat {
+	unsigned	magic;
+#define CONCAT_MAGIC 0x6b746493
+	VCL_STRING	s;
+};
+
+VCL_VOID
+xyzzy_concat__init(VRT_CTX, struct xyzzy_debug_concat **concatp,
+		   const char *vcl_name, VCL_STRANDS s)
+{
+	struct xyzzy_debug_concat *concat;
+	size_t sz = 0;
+	char *p;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(concatp);
+	AZ(*concatp);
+	AN(vcl_name);
+
+	ALLOC_OBJ(concat, CONCAT_MAGIC);
+	AN(concat);
+	*concatp = concat;
+
+	for (int i = 0; i < s->n; i++)
+		if (s->p[i] != NULL)
+			sz += strlen(s->p[i]);
+	p = malloc(sz + 1);
+	AN(p);
+	(void)VRT_Strands(p, sz + 1, s);
+	concat->s = p;
+}
+
+VCL_VOID
+xyzzy_concat__fini(struct xyzzy_debug_concat **concatp)
+{
+	struct xyzzy_debug_concat *concat;
+	void *p;
+
+	if (concatp == NULL || *concatp == NULL)
+		return;
+	CHECK_OBJ(*concatp, CONCAT_MAGIC);
+	concat = *concatp;
+	*concatp = NULL;
+	p = TRUST_ME(concat->s);
+	free(p);
+	FREE_OBJ(concat);
+}
+
+VCL_STRING
+xyzzy_concat_get(VRT_CTX, struct xyzzy_debug_concat *concat)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(concat, CONCAT_MAGIC);
+	return (concat->s);
+}
+
+VCL_STRING
+xyzzy_concatenate(VRT_CTX, VCL_STRANDS s)
+{
+	VCL_STRING r;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	r = VRT_StrandsWS(ctx->ws, NULL, s);
+	if (r != NULL && *r != '\0')
+		WS_Assert_Allocated(ctx->ws, r, strlen(r) + 1);
+	return (r);
+}
+
+VCL_STRING
+xyzzy_collect(VRT_CTX, VCL_STRANDS s)
+{
+	VCL_STRING r;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	r = VRT_CollectStrands(ctx, s);
+	if (r != NULL && *r != '\0')
+		WS_Assert_Allocated(ctx->ws, r, strlen(r) + 1);
+	return (r);
+}
+
+/* cf. VRT_SetHdr() */
+VCL_VOID
+xyzzy_sethdr(VRT_CTX, VCL_HEADER hs, VCL_STRANDS s)
+{
+	struct http *hp;
+	const char *b;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(hs);
+	AN(hs->what);
+	hp = VRT_selecthttp(ctx, hs->where);
+	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
+	if (s->n == 0) {
+		http_Unset(hp, hs->what);
+	} else {
+		b = VRT_StrandsWS(hp->ws, hs->what + 1, s);
+		if (b == NULL) {
+			VSLb(ctx->vsl, SLT_LostHeader, "%s", hs->what + 1);
+		} else {
+			if (*b != '\0')
+				WS_Assert_Allocated(hp->ws, b, strlen(b) + 1);
+			http_Unset(hp, hs->what);
+			http_SetHeader(hp, b);
 		}
 	}
-	return (i);
+}
+
+VCL_VOID
+xyzzy_store_ip(VRT_CTX, struct vmod_priv *priv, VCL_IP ip)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(priv);
+	AZ(priv->free);
+	assert(VSA_Sane(ip));
+
+	priv->priv = TRUST_ME(ip);
+}
+
+VCL_IP
+xyzzy_get_ip(VRT_CTX, struct vmod_priv *priv)
+{
+	VCL_IP ip;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(priv);
+	AZ(priv->free);
+
+	ip = priv->priv;
+	assert(VSA_Sane(ip));
+
+	return (ip);
+}
+
+VCL_STRANDS
+xyzzy_return_strands(VRT_CTX, VCL_STRANDS strand)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	return (strand);
 }

@@ -52,10 +52,8 @@
 
 #include "config.h"
 
-#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -64,7 +62,7 @@
 #include "libvcc.h"
 #include "vfil.h"
 
-struct method method_tab[] = {
+static const struct method method_tab[] = {
 	{ "none", 0U, 0},
 #define VCL_MET_MAC(l,U,t,b)	{ "vcl_"#l, b, VCL_MET_##U },
 #include "tbl/vcl_returns.h"
@@ -73,13 +71,13 @@ struct method method_tab[] = {
 
 /*--------------------------------------------------------------------*/
 
-void * __match_proto__(TlAlloc)
+void * v_matchproto_(TlAlloc)
 TlAlloc(struct vcc *tl, unsigned len)
 {
 	void *p;
 
 	(void)tl;
-	p = calloc(len, 1);
+	p = calloc(1, len);
 	assert(p != NULL);
 	return (p);
 }
@@ -95,18 +93,43 @@ TlDup(struct vcc *tl, const char *s)
 	return (p);
 }
 
-char *
-TlDupTok(struct vcc *tl, const struct token *tok)
-{
-	char *p;
-	int i;
+/*--------------------------------------------------------------------*/
 
-	i = tok->e - tok->b;
-	p = TlAlloc(tl, i + 1);
+struct proc *
+vcc_NewProc(struct vcc *tl, struct symbol *sym)
+{
+	struct proc *p;
+
+	ALLOC_OBJ(p, PROC_MAGIC);
 	AN(p);
-	memcpy(p, tok->b, i);
-	p[i] = '\0';
+	VTAILQ_INIT(&p->calls);
+	VTAILQ_INIT(&p->uses);
+	VTAILQ_INIT(&p->priv_tasks);
+	VTAILQ_INIT(&p->priv_tops);
+	VTAILQ_INSERT_TAIL(&tl->procs, p, list);
+	p->prologue = VSB_new_auto();
+	AN(p->prologue);
+	p->body = VSB_new_auto();
+	AN(p->body);
+	p->cname = VSB_new_auto();
+	AN(p->cname);
+	sym->proc = p;
 	return (p);
+}
+
+static void
+vcc_EmitProc(struct vcc *tl, struct proc *p)
+{
+	AZ(VSB_finish(p->cname));
+	AZ(VSB_finish(p->prologue));
+	AZ(VSB_finish(p->body));
+	Fh(tl, 1, "vcl_func_f %s;\n", VSB_data(p->cname));
+	Fc(tl, 1, "\nvoid v_matchproto_(vcl_func_f)\n");
+	Fc(tl, 1, "%s(VRT_CTX)\n", VSB_data(p->cname));
+	Fc(tl, 1, "{\n%s\n%s}\n", VSB_data(p->prologue), VSB_data(p->body));
+	VSB_destroy(&p->body);
+	VSB_destroy(&p->prologue);
+	VSB_destroy(&p->cname);
 }
 
 /*--------------------------------------------------------------------*/
@@ -116,34 +139,19 @@ New_IniFin(struct vcc *tl)
 {
 	struct inifin *p;
 
-	p = TlAlloc(tl, sizeof *p);
+	ALLOC_OBJ(p, INIFIN_MAGIC);
 	AN(p);
-	p->magic = INIFIN_MAGIC;
 	p->ini = VSB_new_auto();
+	AN(p->ini);
 	p->fin = VSB_new_auto();
+	AN(p->fin);
+	p->final = VSB_new_auto();
+	AN(p->final);
 	p->event = VSB_new_auto();
+	AN(p->event);
 	p->n = ++tl->ninifin;
 	VTAILQ_INSERT_TAIL(&tl->inifin, p, list);
 	return (p);
-}
-
-/*--------------------------------------------------------------------*/
-
-int
-IsMethod(const struct token *t)
-{
-	int i;
-
-	assert(t->tok == ID);
-	for (i = 1; method_tab[i].name != NULL; i++) {
-		if (vcc_IdIs(t, method_tab[i].name))
-			return (i);
-	}
-	if ((t->b[0] == 'v'|| t->b[0] == 'V') &&
-	    (t->b[1] == 'c'|| t->b[1] == 'C') &&
-	    (t->b[2] == 'l'|| t->b[2] == 'L'))
-		return (-2);
-	return (-1);
 }
 
 /*--------------------------------------------------------------------
@@ -226,18 +234,17 @@ EmitCoordinates(const struct vcc *tl, struct vsb *vsb)
 	VTAILQ_FOREACH(sp, &tl->sources, list) {
 		VSB_printf(vsb, "    /* ");
 		VSB_quote(vsb, sp->name, -1, VSB_QUOTE_CSTR);
-		VSB_printf(vsb, "*/\n");
-		VSB_printf(vsb, "\t");
-		VSB_quote(vsb, sp->b, sp->e - sp->b, VSB_QUOTE_CSTR);
+		VSB_printf(vsb, " */\n");
+		VSB_quote_pfx(vsb, "\t", sp->b, sp->e - sp->b, VSB_QUOTE_CSTR);
 		VSB_printf(vsb, ",\n");
 	}
 	VSB_printf(vsb, "};\n\n");
 
 	VSB_printf(vsb, "/* ---===### Location Counters ###===---*/\n");
 
-	VSB_printf(vsb, "\n#define VGC_NREFS %u\n", tl->cnt + 1);
+	VSB_printf(vsb, "\n#define VGC_NREFS %u\n\n", tl->cnt + 1);
 
-	VSB_printf(vsb, "\nstatic struct vrt_ref VGC_ref[VGC_NREFS] = {\n");
+	VSB_printf(vsb, "static const struct vrt_ref VGC_ref[VGC_NREFS] = {\n");
 	lin = 1;
 	pos = 0;
 	sp = 0;
@@ -287,6 +294,7 @@ EmitInitFini(const struct vcc *tl)
 {
 	struct inifin *p, *q = NULL;
 	unsigned has_event = 0;
+	struct symbol *sy;
 
 	Fh(tl, 0, "\n");
 	Fh(tl, 0, "static unsigned vgc_inistep;\n");
@@ -296,7 +304,9 @@ EmitInitFini(const struct vcc *tl)
 	 * LOAD
 	 */
 	Fc(tl, 0, "\nstatic int\nVGC_Load(VRT_CTX)\n{\n\n");
-	Fc(tl, 0, "\tvgc_inistep = 0;\n\n");
+	Fc(tl, 0, "\tvgc_inistep = 0;\n");
+	Fc(tl, 0, "\tsize_t ndirector = %dUL;\n", tl->ndirector);
+	Fc(tl, 0, "\n");
 	VTAILQ_FOREACH(p, &tl->inifin, list) {
 		AZ(VSB_finish(p->ini));
 		assert(p->n > 0);
@@ -309,6 +319,13 @@ EmitInitFini(const struct vcc *tl)
 		if (VSB_len(p->event))
 			has_event = 1;
 	}
+	VTAILQ_FOREACH(sy, &tl->sym_objects, sideways) {
+		Fc(tl, 0, "\tif (!%s) {\n", sy->rname);
+		Fc(tl, 0, "\t\tVRT_fail(ctx, "
+		    "\"Object %s not initialized\");\n" , sy->rname);
+		Fc(tl, 0, "\t\treturn(1);\n");
+		Fc(tl, 0, "\t}\n");
+	}
 
 	Fc(tl, 0, "\treturn(0);\n");
 	Fc(tl, 0, "}\n");
@@ -318,20 +335,31 @@ EmitInitFini(const struct vcc *tl)
 	 */
 	Fc(tl, 0, "\nstatic int\nVGC_Discard(VRT_CTX)\n{\n\n");
 
-	Fc(tl, 0, "\tswitch (vgc_inistep) {\n\n");
+	Fc(tl, 0, "\tswitch (vgc_inistep) {\n");
 	VTAILQ_FOREACH_REVERSE(p, &tl->inifin, inifinhead, list) {
 		AZ(VSB_finish(p->fin));
 		if (q)
 			assert(q->n > p->n);
 		q = p;
-		if (VSB_len(p->fin)) {
-			Fc(tl, 0, "\t\tcase %u :\n", p->n);
+		Fc(tl, 0, "\t\tcase %u:\n", p->n);
+		if (VSB_len(p->fin))
 			Fc(tl, 0, "\t%s\n", VSB_data(p->fin));
-			Fc(tl, 0, "\t\t\t/* FALLTHROUGH */\n");
-		}
+		Fc(tl, 0, "\t\t\t/* FALLTHROUGH */\n");
 		VSB_destroy(&p->fin);
 	}
-	Fc(tl, 0, "\t}\n");
+	Fc(tl, 0, "\t\tdefault:\n\t\t\tbreak;\n");
+	Fc(tl, 0, "\t}\n\n");
+	Fc(tl, 0, "\tswitch (vgc_inistep) {\n");
+	VTAILQ_FOREACH_REVERSE(p, &tl->inifin, inifinhead, list) {
+		AZ(VSB_finish(p->final));
+		Fc(tl, 0, "\t\tcase %u:\n", p->n);
+		if (VSB_len(p->final))
+			Fc(tl, 0, "\t%s\n", VSB_data(p->final));
+		Fc(tl, 0, "\t\t\t/* FALLTHROUGH */\n");
+		VSB_destroy(&p->final);
+	}
+	Fc(tl, 0, "\t\tdefault:\n\t\t\tbreak;\n");
+	Fc(tl, 0, "\t}\n\n");
 
 	Fc(tl, 0, "\treturn (0);\n");
 	Fc(tl, 0, "}\n");
@@ -410,15 +438,17 @@ EmitStruct(const struct vcc *tl)
 {
 	Fc(tl, 0, "\nconst struct VCL_conf VCL_conf = {\n");
 	Fc(tl, 0, "\t.magic = VCL_CONF_MAGIC,\n");
+	Fc(tl, 0, "\t.syntax = %u,\n", tl->syntax);
 	Fc(tl, 0, "\t.event_vcl = VGC_Event,\n");
 	Fc(tl, 0, "\t.default_director = &%s,\n", tl->default_director);
 	if (tl->default_probe != NULL)
-		Fc(tl, 0, "\t.default_probe = &%s,\n", tl->default_probe);
+		Fc(tl, 0, "\t.default_probe = %s,\n", tl->default_probe);
 	Fc(tl, 0, "\t.ref = VGC_ref,\n");
 	Fc(tl, 0, "\t.nref = VGC_NREFS,\n");
 	Fc(tl, 0, "\t.nsrc = VGC_NSRCS,\n");
 	Fc(tl, 0, "\t.srcname = srcname,\n");
 	Fc(tl, 0, "\t.srcbody = srcbody,\n");
+	Fc(tl, 0, "\t.nvmod = %u,\n", tl->vmod_count);
 #define VCL_MET_MAC(l,u,t,b) \
 	Fc(tl, 0, "\t." #l "_func = VGC_function_vcl_" #l ",\n");
 #include "tbl/vcl_returns.h"
@@ -434,7 +464,7 @@ vcc_new_source(const char *b, const char *e, const char *name)
 
 	if (e == NULL)
 		e = strchr(b, '\0');
-	sp = calloc(sizeof *sp, 1);
+	sp = calloc(1, sizeof *sp);
 	assert(sp != NULL);
 	sp->name = strdup(name);
 	AN(sp->name);
@@ -550,33 +580,25 @@ vcc_resolve_includes(struct vcc *tl)
 static struct vsb *
 vcc_CompileSource(struct vcc *tl, struct source *sp)
 {
-	struct symbol *sym;
-	const struct var *v;
+	struct proc *p;
 	struct vsb *vsb;
 	struct inifin *ifp;
-	int i;
-
-	vcc_Expr_Init(tl);
-
-	for (v = vcc_vars; v->name != NULL; v++) {
-		if (v->fmt == HEADER) {
-			sym = VCC_Symbol(tl, NULL, v->name, NULL,
-			    SYM_NONE, 1);
-			sym->wildcard = vcc_Var_Wildcard;
-			sym->wildcard_priv = v;
-		} else {
-			sym = VCC_Symbol(tl, NULL, v->name, NULL, SYM_VAR, 1);
-		}
-		sym->fmt = v->fmt;
-		sym->eval = vcc_Eval_Var;
-		sym->r_methods = v->r_methods;
-		sym->rname = v->rname;
-		sym->w_methods = v->w_methods;
-		sym->lname = v->lname;
-	}
 
 	Fh(tl, 0, "/* ---===### VCC generated .h code ###===---*/\n");
 	Fc(tl, 0, "\n/* ---===### VCC generated .c code ###===---*/\n");
+
+	Fc(tl, 0, "\n#define END_ if (*ctx->handling) return\n");
+
+	vcc_Parse_Init(tl);
+
+	vcc_Expr_Init(tl);
+
+	vcc_Action_Init(tl);
+
+	vcc_Backend_Init(tl);
+
+	vcc_Var_Init(tl);
+
 	Fh(tl, 0, "\nextern const struct VCL_conf VCL_conf;\n");
 
 	/* Register and lex the main source */
@@ -620,9 +642,6 @@ vcc_CompileSource(struct vcc *tl, struct source *sp)
 		return (NULL);
 	}
 
-	/* Configure the default director */
-	vcc_AddRef(tl, tl->t_default_director, SYM_BACKEND);
-
 	/* Check for orphans */
 	if (vcc_CheckReferences(tl))
 		return (NULL);
@@ -642,27 +661,12 @@ vcc_CompileSource(struct vcc *tl, struct source *sp)
 
 	/* Emit method functions */
 	Fh(tl, 1, "\n");
-	for (i = 1; i < VCL_MET_MAX; i++) {
-		Fh(tl, 1,
-		    "void __match_proto__(vcl_func_f) "
-		    "VGC_function_%s(VRT_CTX);\n",
-		    method_tab[i].name);
-		Fc(tl, 1, "\nvoid __match_proto__(vcl_func_f)\n");
-		Fc(tl, 1,
-		    "VGC_function_%s(VRT_CTX)\n",
-		    method_tab[i].name);
-		AZ(VSB_finish(tl->fm[i]));
-		Fc(tl, 1, "{\n");
-		/*
-		 * We want vmods to be able set a FAIL return value
-		 * in members called from vcl_init, so set OK up front
-		 * and return with whatever was set last.
-		 */
-		Fc(tl, 1, "%s", VSB_data(tl->fm[i]));
-		if (method_tab[i].bitval == VCL_MET_INIT)
-			Fc(tl, 1, "  return;\n");
-		Fc(tl, 1, "}\n");
-	}
+	VTAILQ_FOREACH(p, &tl->procs, list)
+		if (p->method == NULL)
+			vcc_EmitProc(tl, p);
+	VTAILQ_FOREACH(p, &tl->procs, list)
+		if (p->method != NULL)
+			vcc_EmitProc(tl, p);
 
 	EmitInitFini(tl);
 
@@ -690,6 +694,19 @@ vcc_CompileSource(struct vcc *tl, struct source *sp)
 
 	AZ(VSB_finish(vsb));
 	return (vsb);
+}
+
+/*--------------------------------------------------------------------
+ * Report the range of VCL language we support
+ */
+void
+VCC_VCL_Range(unsigned *lo, unsigned *hi)
+{
+
+	AN(lo);
+	*lo = VCL_LOW;
+	AN(hi);
+	*hi = VCL_HIGH;
 }
 
 /*--------------------------------------------------------------------
@@ -726,6 +743,8 @@ struct vcc *
 VCC_New(void)
 {
 	struct vcc *tl;
+	struct symbol *sym;
+	struct proc *p;
 	int i;
 
 	ALLOC_OBJ(tl, VCC_MAGIC);
@@ -733,6 +752,8 @@ VCC_New(void)
 	VTAILQ_INIT(&tl->inifin);
 	VTAILQ_INIT(&tl->tokens);
 	VTAILQ_INIT(&tl->sources);
+	VTAILQ_INIT(&tl->procs);
+	VTAILQ_INIT(&tl->sym_objects);
 
 	tl->nsources = 0;
 
@@ -745,9 +766,12 @@ VCC_New(void)
 	tl->fh = VSB_new_auto();
 	assert(tl->fh != NULL);
 
-	for (i = 0; i < VCL_MET_MAX; i++) {
-		tl->fm[i] = VSB_new_auto();
-		assert(tl->fm[i] != NULL);
+	for (i = 1; i < VCL_MET_MAX; i++) {
+		sym = VCC_MkSym(tl, method_tab[i].name,
+		    SYM_SUB, VCL_LOW, VCL_HIGH);
+		p = vcc_NewProc(tl, sym);
+		p->method = &method_tab[i];
+		VSB_printf(p->cname, "VGC_function_%s", p->method->name);
 	}
 	tl->sb = VSB_new_auto();
 	AN(tl->sb);
@@ -827,9 +851,9 @@ vcc_predef_vcl(struct vcc *vcc, const char *name)
 {
 	struct symbol *sym;
 
-	sym = VCC_Symbol(vcc, NULL, name, NULL, SYM_VCL, 1);
+	sym = VCC_MkSym(vcc, name, SYM_VCL, VCL_LOW, VCL_HIGH);
 	AN(sym);
-	sym->fmt = VCL;
+	sym->type = VCL;
 	sym->r_methods = VCL_MET_RECV;
 }
 

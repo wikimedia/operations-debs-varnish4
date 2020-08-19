@@ -34,15 +34,14 @@
 #include <sys/wait.h>
 
 #include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <stdlib.h>		// Solaris closefrom(3c)
 #include <string.h>
 #include <unistd.h>
 
-#include "vas.h"
 #include "vdef.h"
+
+#include "vas.h"
 #include "vfil.h"
 #include "vlu.h"
 #include "vsb.h"
@@ -91,7 +90,6 @@ VSUB_run(struct vsb *sb, vsub_func_f *func, void *priv, const char *name,
 {
 	int rv, p[2], status;
 	pid_t pid;
-	struct vlu *vlu;
 	struct vsub_priv sp;
 
 	sp.sb = sb;
@@ -128,11 +126,8 @@ VSUB_run(struct vsb *sb, vsub_func_f *func, void *priv, const char *name,
 		_exit(4);
 	}
 	closefd(&p[1]);
-	vlu = VLU_New(&sp, vsub_vlu, 0);
-	while (!VLU_Fd(p[0], vlu))
-		continue;
+	(void)VLU_File(p[0], vsub_vlu, &sp, 0);
 	closefd(&p[0]);
-	VLU_Destroy(vlu);
 	if (sp.maxlines >= 0 && sp.lines > sp.maxlines)
 		VSB_printf(sb, "[%d lines truncated]\n",
 		    sp.lines - sp.maxlines);

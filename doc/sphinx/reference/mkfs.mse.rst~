@@ -1,0 +1,57 @@
+.. role:: ref(emphasis)
+
+.. _mkfs.mse(1):
+
+========
+mkfs.mse
+========
+
+-------------------------------
+Massive Storage Engine mkfs.mse
+-------------------------------
+
+:Manual section: 1
+
+SYNOPSIS
+========
+
+mkfs.mse [-c <in.conf>] [-f]
+
+DESCRIPTION
+===========
+
+The `mkfs.mse` utility creates and initializes the data files and stores
+for use with Massive Storage Engine. It reads the same configuration file
+as would be pointed to when directing `varnishd` to use MSE for object
+storage, and this utility needs to be run once before starting `varnishd`
+with MSE for the first time.
+
+If a previous configuration exists and is initialized in the data files
+and stores, `mkfs.mse` will give an error instead of overwriting the
+existing data. If overwrite and clear of the data files is wanted, use the
+`-f` force flag to override the error. This will clear the cache
+completely, having an empty cache when `varnishd` is then started.
+
+OPTIONS
+=======
+
+-c <in.conf>
+
+  The configuration file to use. See `man mse-config` for details of the
+  configuration file.
+
+-f
+
+  Use the force option. This overrides the error of previous existing
+  configuration.
+
+HISTORY
+=======
+
+This manual page was written by Martin Blix Grydeland
+<martin@varnish-software.com>.
+
+COPYRIGHT
+=========
+
+* Copyright (c) 2018 Varnish Software

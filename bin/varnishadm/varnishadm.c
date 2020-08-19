@@ -53,17 +53,17 @@
 #include <math.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "vapi/vsl.h"
+#include "vdef.h"
+
 #include "vapi/vsm.h"
 #include "vas.h"
 #include "vcli.h"
-#include "vdef.h"
-#include "vnum.h"
 #include "vtcp.h"
 
 #define RL_EXIT(status) \
@@ -73,7 +73,7 @@
 	} while (0)
 
 
-static double timeout = 5;
+static double timeout = 5;	// XXX should be settable by arg ?
 
 static void
 cli_write(int sock, const char *s)
@@ -133,7 +133,7 @@ cli_sock(const char *T_arg, const char *S_arg)
 		cli_write(sock, "\n");
 		(void)VCLI_ReadResult(sock, &status, &answer, timeout);
 	}
-	if (status != CLIS_OK) {
+	if (status != CLIS_OK && status != CLIS_TRUNCATED) {
 		fprintf(stderr, "Rejected %u\n%s\n", status, answer);
 		closefd(&sock);
 		free(answer);
@@ -175,9 +175,8 @@ do_args(int sock, int argc, char * const *argv)
 	(void)close(sock);
 
 	printf("%s\n", answer);
-	if (status == CLIS_OK) {
+	if (status == CLIS_OK || status == CLIS_TRUNCATED)
 		exit(0);
-	}
 	fprintf(stderr, "Command failed with error code %u\n", status);
 	exit(1);
 }
@@ -186,7 +185,8 @@ do_args(int sock, int argc, char * const *argv)
  * to have a global variable.
  */
 static int _line_sock;
-static void send_line(char *l)
+static void v_matchproto_()
+send_line(char *l)
 {
 	if (l) {
 		cli_write(_line_sock, l);
@@ -234,6 +234,29 @@ varnishadm_completion (const char *text, int start, int end)
 	return (matches);
 }
 
+static void
+pass_answer(int fd)
+{
+	unsigned u, status;
+	char *answer = NULL;
+
+	u = VCLI_ReadResult(fd, &status, &answer, timeout);
+	if (u) {
+		if (status == CLIS_COMMS)
+			RL_EXIT(0);
+		if (answer)
+			fprintf(stderr, "%s\n", answer);
+		RL_EXIT(1);
+	}
+
+	printf("%u\n", status);
+	if (answer) {
+		printf("%s\n", answer);
+		free(answer);
+	}
+	(void)fflush(stdout);
+}
+
 /*
  * No arguments given, simply pass bytes on stdin/stdout and CLI socket
  * Send a "banner" to varnish, to provoke a welcome message.
@@ -242,7 +265,6 @@ static void
 interactive(int sock)
 {
 	struct pollfd fds[2];
-	char buf[1024];
 	int i;
 	char *answer = NULL;
 	unsigned u, status;
@@ -283,6 +305,7 @@ interactive(int sock)
 			}
 		}
 	}
+	free(answer);
 	cli_write(sock, "banner\n");
 	while (1) {
 		i = poll(fds, 2, -1);
@@ -292,25 +315,8 @@ interactive(int sock)
 		assert(i > 0);
 		if (fds[0].revents & POLLIN) {
 			/* Get rid of the prompt, kinda hackish */
-			u = write(1, "\r           \r", 13);
-			u = VCLI_ReadResult(fds[0].fd, &status, &answer,
-			    timeout);
-			if (u) {
-				if (status == CLIS_COMMS)
-					RL_EXIT(0);
-				if (answer)
-					fprintf(stderr, "%s\n", answer);
-				RL_EXIT(1);
-			}
-
-			bprintf(buf, "%u\n", status);
-			u = write(1, buf, strlen(buf));
-			if (answer) {
-				u = write(1, answer, strlen(answer));
-				u = write(1, "\n", 1);
-				free(answer);
-				answer = NULL;
-			}
+			printf("\r           \r");
+			pass_answer(fds[0].fd);
 			rl_forced_update_display();
 		}
 		if (fds[1].revents & POLLIN) {
@@ -328,8 +334,6 @@ pass(int sock)
 	struct pollfd fds[2];
 	char buf[1024];
 	int i;
-	char *answer = NULL;
-	unsigned u, status;
 	ssize_t n;
 
 	fds[0].fd = sock;
@@ -342,26 +346,8 @@ pass(int sock)
 			continue;
 		}
 		assert(i > 0);
-		if (fds[0].revents & POLLIN) {
-			u = VCLI_ReadResult(fds[0].fd, &status, &answer,
-			    timeout);
-			if (u) {
-				if (status == CLIS_COMMS)
-					RL_EXIT(0);
-				if (answer)
-					fprintf(stderr, "%s\n", answer);
-				RL_EXIT(1);
-			}
-
-			bprintf(buf, "%u\n", status);
-			u = write(1, buf, strlen(buf));
-			if (answer) {
-				u = write(1, answer, strlen(answer));
-				u = write(1, "\n", 1);
-				free(answer);
-				answer = NULL;
-			}
-		}
+		if (fds[0].revents & POLLIN)
+			pass_answer(fds[0].fd);
 		if (fds[1].revents & POLLIN || fds[1].revents & POLLHUP) {
 			n = read(fds[1].fd, buf, sizeof buf - 1);
 			if (n == 0) {
@@ -378,7 +364,7 @@ pass(int sock)
 }
 
 
-static void
+static void v_noreturn_
 usage(int status)
 {
 	fprintf(stderr,
@@ -389,42 +375,32 @@ usage(int status)
 }
 
 static int
-n_arg_sock(const char *n_arg)
+n_arg_sock(const char *n_arg, const char *t_arg)
 {
-	char *T_arg = NULL, *T_start = NULL;
-	char *S_arg = NULL;
-	struct VSM_data *vsm;
+	char *T_arg, *T_start;
+	char *S_arg;
+	struct vsm *vsm;
 	char *p;
 	int sock;
-	struct VSM_fantom vt;
 
 	vsm = VSM_New();
 	AN(vsm);
-	if (VSM_n_Arg(vsm, n_arg) < 0) {
+	if (VSM_Arg(vsm, 'n', n_arg) < 0 ||
+	    VSM_Arg(vsm, 't', t_arg) < 0 ||
+	    VSM_Attach(vsm, STDERR_FILENO) < 0) {
 		fprintf(stderr, "%s\n", VSM_Error(vsm));
-		VSM_Delete(vsm);
-		return (-1);
-	}
-	if (VSM_Open(vsm)) {
-		fprintf(stderr, "%s\n", VSM_Error(vsm));
-		VSM_Delete(vsm);
+		VSM_Destroy(&vsm);
 		return (-1);
 	}
 
-	if (!VSM_Get(vsm, &vt, "Arg", "-T", "")) {
-		fprintf(stderr, "No -T arg in shared memory\n");
-		VSM_Delete(vsm);
+	T_start = T_arg = VSM_Dup(vsm, "Arg", "-T");
+	S_arg = VSM_Dup(vsm, "Arg", "-S");
+	VSM_Destroy(&vsm);
+
+	if (T_arg == NULL) {
+		fprintf(stderr, "No -T in shared memory\n");
 		return (-1);
 	}
-	AN(vt.b);
-	T_start = T_arg = strdup(vt.b);
-
-	if (VSM_Get(vsm, &vt, "Arg", "-S", "")) {
-		AN(vt.b);
-		S_arg = strdup(vt.b);
-	}
-
-	VSM_Delete(vsm);
 
 	sock = -1;
 	while (*T_arg) {
@@ -447,6 +423,7 @@ main(int argc, char * const *argv)
 	const char *T_arg = NULL;
 	const char *S_arg = NULL;
 	const char *n_arg = NULL;
+	const char *t_arg = NULL;
 	int opt, sock;
 
 	/*
@@ -472,9 +449,7 @@ main(int argc, char * const *argv)
 			T_arg = optarg;
 			break;
 		case 't':
-			timeout = VNUM(optarg);
-			if (isnan(timeout))
-				usage(1);
+			t_arg = optarg;
 			break;
 		default:
 			usage(1);
@@ -484,27 +459,23 @@ main(int argc, char * const *argv)
 	argc -= optind;
 	argv += optind;
 
-	if (n_arg != NULL) {
-		if (T_arg != NULL || S_arg != NULL)
+	if (T_arg != NULL) {
+		if (n_arg != NULL)
 			usage(1);
-		sock = n_arg_sock(n_arg);
-	} else if (T_arg == NULL) {
-		sock = n_arg_sock("");
-	} else {
-		assert(T_arg != NULL);
 		sock = cli_sock(T_arg, S_arg);
+	} else {
+		if (S_arg != NULL)
+			usage(1);
+		sock = n_arg_sock(n_arg, t_arg);
 	}
 	if (sock < 0)
 		exit(2);
 
 	if (argc > 0)
 		do_args(sock, argc, argv);
-	else {
-		if (isatty(0)) {
-			interactive(sock);
-		} else {
-			pass(sock);
-		}
-	}
+	else if (isatty(0))
+		interactive(sock);
+	else
+		pass(sock);
 	exit(0);
 }

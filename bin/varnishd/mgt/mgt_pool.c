@@ -42,6 +42,8 @@
 
 #include "config.h"
 
+#include <stdio.h>
+
 #include "mgt/mgt.h"
 
 #include "mgt/mgt_param.h"
@@ -99,7 +101,8 @@ struct parspec WRK_parspec[] = {
 		"2", "pools" },
 	{ "thread_pool_max", tweak_thread_pool_max, &mgt_param.wthread_max,
 		NULL, NULL,
-		"The maximum number of worker threads in each pool.\n"
+		"The maximum number of worker threads in each pool. The "
+		"minimum value depends on thread_pool_min.\n"
 		"\n"
 		"Do not set this higher than you have to, since excess "
 		"worker threads soak up RAM and CPU and generally just get "
@@ -108,7 +111,8 @@ struct parspec WRK_parspec[] = {
 		"5000", "threads" },
 	{ "thread_pool_min", tweak_thread_pool_min, &mgt_param.wthread_min,
 		NULL, NULL,
-		"The minimum number of worker threads in each pool.\n"
+		"The minimum number of worker threads in each pool. The "
+		"maximum value depends on thread_pool_max.\n"
 		"\n"
 		"Increasing this may help ramp up faster from low load "
 		"situations or when threads have expired.\n"
@@ -144,6 +148,15 @@ struct parspec WRK_parspec[] = {
 		"for at least this long, will be destroyed.",
 		EXPERIMENTAL | DELAYED_EFFECT,
 		"300", "seconds" },
+	{ "thread_pool_watchdog",
+		tweak_timeout, &mgt_param.wthread_watchdog,
+		"0.1", NULL,
+		"Thread queue stuck watchdog.\n"
+		"\n"
+		"If no queued work have been released for this long,"
+		" the worker process panics itself.",
+		EXPERIMENTAL,
+		"60", "seconds" },
 	{ "thread_pool_destroy_delay",
 		tweak_timeout, &mgt_param.wthread_destroy_delay,
 		"0.01", NULL,

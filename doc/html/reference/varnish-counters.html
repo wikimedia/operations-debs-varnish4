@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>varnish-counters &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>varnish-counters &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="VSL" href="vsl.html" />
     <link rel="prev" title="Writing a Director" href="directors.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="directors.html" title="Writing a Director"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -65,365 +55,995 @@
 </tr>
 </tbody>
 </table>
-<div class="section" id="counter-levels">
-<h3>COUNTER LEVELS<a class="headerlink" href="#counter-levels" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>INFO – Informational counters</dt>
-<dd>Counters giving runtime information</dd>
-<dt>DIAG – Diagnostic counters</dt>
-<dd>Counters giving diagnostic information</dd>
-<dt>DEBUG – Debug counters</dt>
-<dd>Counters giving Varnish internals debug information</dd>
-</dl>
+<div class="section" id="main-main-counters">
+<h3>MAIN – Main counters<a class="headerlink" href="#main-main-counters" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">summs</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div><p>stat summ operations</p>
+<p>Number of times per-thread statistics were summed into the
+global counters.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">uptime</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Child process uptime</p>
+<p>How long the child process has been running.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_conn</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Sessions accepted</p>
+<p>Count of sessions successfully accepted</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_drop</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Sessions dropped</p>
+<p>Count of sessions silently dropped due to lack of worker thread.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_fail</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session accept failures</p>
+<p>Count of failures to accept TCP connection.</p>
+<p>This counter is the sum of the sess_fail_* counters, which
+give more detailed information.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_fail_econnaborted</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session accept failures: connection aborted</p>
+<p>Detailed reason for sess_fail: Connection aborted by the
+client, usually harmless.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_fail_eintr</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session accept failures: interrupted system call</p>
+<p>Detailed reason for sess_fail: The accept() call was
+interrupted, usually harmless</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_fail_emfile</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session accept failures: too many open files</p>
+<p>Detailed reason for sess_fail: No file descriptor was
+available. Consider raising RLIMIT_NOFILE (see ulimit -n).</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_fail_ebadf</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session accept failures: bad file descriptor</p>
+<p>Detailed reason for sess_fail: The listen socket file
+descriptor was invalid. Should never happen.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_fail_enomem</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session accept failures: not enough memory</p>
+<p>Detailed reason for sess_fail: Most likely insufficient
+socket buffer memory. Should never happen</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_fail_other</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session accept failures: other</p>
+<p>Detailed reason for sess_fail: neither of the above, see
+Debug log (varnishlog -g raw -I Debug:^Accept).</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">client_req_400</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Client requests received, subject to 400 errors</p>
+<p>400 means we couldn’t make sense of the request, it was malformed
+in some drastic way.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">client_req_417</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Client requests received, subject to 417 errors</p>
+<p>417 means that something went wrong with an Expect: header.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">client_req</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Good client requests received</p>
+<p>The count of parseable client requests seen.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">cache_hit</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Cache hits</p>
+<p>Count of cache hits.  A cache hit indicates that an object has been
+delivered to a client without fetching it from a backend server.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">cache_hit_grace</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Cache grace hits</p>
+<p>Count of cache hits with grace. A cache hit with grace is a cache
+hit where the object is expired. Note that such hits are also
+included in the cache_hit counter.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">cache_hitpass</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Cache hits for pass.</p>
+<p>Count of hits for pass. A cache hit for pass indicates that Varnish
+is going to pass the request to the backend and this decision has
+been cached in it self. This counts how many times the cached
+decision is being used.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">cache_hitmiss</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Cache hits for miss.</p>
+<p>Count of hits for miss. A cache hit for miss indicates that Varnish
+is going to proceed as for a cache miss without request coalescing,
+and this decision has been cached. This counts how many times the
+cached decision is being used.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">cache_miss</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Cache misses</p>
+<p>Count of misses. A cache miss indicates the object was fetched from
+the backend before delivering it to the client.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_conn</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Backend conn. success</p>
+<p>How many backend connections have successfully been established.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_unhealthy</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Backend conn. not attempted</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_busy</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Backend conn. too many</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_fail</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Backend conn. failures</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_reuse</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Backend conn. reuses</p>
+<p>Count of backend connection reuses. This counter is increased
+whenever we reuse a recycled connection.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_recycle</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Backend conn. recycles</p>
+<p>Count of backend connection recycles. This counter is increased
+whenever we have a keep-alive connection that is put back into the
+pool of connections. It has not yet been used, but it might be,
+unless the backend closes it.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_retry</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Backend conn. retry</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_head</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch no body (HEAD)</p>
+<p>beresp with no body because the request is HEAD.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_length</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch with Length</p>
+<p>beresp.body with Content-Length.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_chunked</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch chunked</p>
+<p>beresp.body with Chunked.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_eof</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch EOF</p>
+<p>beresp.body with EOF.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_bad</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch bad T-E</p>
+<p>beresp.body length/fetch could not be determined.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_none</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch no body</p>
+<p>beresp.body empty</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_1xx</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch no body (1xx)</p>
+<p>beresp with no body because of 1XX response.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_204</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch no body (204)</p>
+<p>beresp with no body because of 204 response.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_304</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch no body (304)</p>
+<p>beresp with no body because of 304 response.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_failed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch failed (all causes)</p>
+<p>beresp fetch failed.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fetch_no_thread</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetch failed (no thread)</p>
+<p>beresp fetch failed, no thread available.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">pools</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Number of thread pools</p>
+<p>Number of thread pools. See also parameter thread_pools. NB: Presently
+pools cannot be removed once created.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">threads</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Total number of threads</p>
+<p>Number of threads in all pools. See also parameters thread_pools,
+thread_pool_min and thread_pool_max.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">threads_limited</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Threads hit max</p>
+<p>Number of times more threads were needed, but limit was reached in
+a thread pool. See also parameter thread_pool_max.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">threads_created</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Threads created</p>
+<p>Total number of threads created in all pools.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">threads_destroyed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Threads destroyed</p>
+<p>Total number of threads destroyed in all pools.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">threads_failed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Thread creation failed</p>
+<p>Number of times creating a thread failed. See VSL::Debug for
+diagnostics. See also parameter thread_fail_delay.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">thread_queue_len</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Length of session queue</p>
+<p>Length of session queue waiting for threads. NB: Only updates once
+per second. See also parameter thread_queue_limit.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">busy_sleep</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Number of requests sent to sleep on busy objhdr</p>
+<p>Number of requests sent to sleep without a worker thread because
+they found a busy object.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">busy_wakeup</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Number of requests woken after sleep on busy objhdr</p>
+<p>Number of requests taken off the busy object sleep list and rescheduled.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">busy_killed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Number of requests killed after sleep on busy objhdr</p>
+<p>Number of requests killed from the busy object sleep list due to
+lack of resources.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_queued</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Sessions queued for thread</p>
+<p>Number of times session was queued waiting for a thread. See also
+parameter thread_queue_limit.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_dropped</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Sessions dropped for thread</p>
+<p>Number of times an HTTP/1 session was dropped because the queue was
+too long already. See also parameter thread_queue_limit.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">req_dropped</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Requests dropped</p>
+<p>Number of times an HTTP/2 stream was refused because the queue was
+too long already. See also parameter thread_queue_limit.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_object</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>object structs made</p>
+<p>Approximate number of HTTP objects (headers + body, if present) in
+the cache.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_vampireobject</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div><p>unresurrected objects</p>
+<p>Number of unresurrected objects</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_objectcore</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>objectcore structs made</p>
+<p>Approximate number of object metadata elements in the cache. Each
+object needs an objectcore, extra objectcores are for hit-for-miss,
+hit-for-pass and busy objects.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_objecthead</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>objecthead structs made</p>
+<p>Approximate number of different hash entries in the cache.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_backend</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Number of backends</p>
+<p>Number of backends known to us.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_expired</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Number of expired objects</p>
+<p>Number of objects that expired from cache because of old age.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_lru_nuked</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Number of LRU nuked objects</p>
+<p>How many objects have been forcefully evicted from storage to make
+room for a new object.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_lru_moved</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Number of LRU moved objects</p>
+<p>Number of move operations done on the LRU list.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_lru_limited</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Reached nuke_limit</p>
+<p>Number of times more storage space were needed, but limit was reached in
+a nuke_limit. See also parameter nuke_limit.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">losthdr</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>HTTP header overflows</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_sess</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Total sessions seen</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_pipe</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Total pipe sessions seen</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_pass</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Total pass-ed requests seen</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_fetch</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Total backend fetches initiated</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_synth</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Total synthetic responses made</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_req_hdrbytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Request header bytes</p>
+<p>Total request header bytes received</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_req_bodybytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Request body bytes</p>
+<p>Total request body bytes received</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_resp_hdrbytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Response header bytes</p>
+<p>Total response header bytes transmitted</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_resp_bodybytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Response body bytes</p>
+<p>Total response body bytes transmitted</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_pipe_hdrbytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Pipe request header bytes</p>
+<p>Total request bytes received for piped sessions</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_pipe_in</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Piped bytes from client</p>
+<p>Total number of bytes forwarded from clients in pipe sessions</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">s_pipe_out</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Piped bytes to client</p>
+<p>Total number of bytes forwarded to clients in pipe sessions</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_closed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Session Closed</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_closed_err</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Session Closed with error</p>
+<p>Total number of sessions closed with errors. See sc_* diag counters
+for detailed breakdown</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_readahead</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Session Read Ahead</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sess_herd</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session herd</p>
+<p>Number of times the timeout_linger triggered</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_rem_close</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session OK  REM_CLOSE</p>
+<p>Number of session closes with REM_CLOSE (Client Closed)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_req_close</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session OK  REQ_CLOSE</p>
+<p>Number of session closes with REQ_CLOSE (Client requested close)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_req_http10</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err REQ_HTTP10</p>
+<p>Number of session closes with Error REQ_HTTP10 (Proto &lt; HTTP/1.1)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_rx_bad</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err RX_BAD</p>
+<p>Number of session closes with Error RX_BAD (Received bad req/resp)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_rx_body</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err RX_BODY</p>
+<p>Number of session closes with Error RX_BODY (Failure receiving req.body)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_rx_junk</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err RX_JUNK</p>
+<p>Number of session closes with Error RX_JUNK (Received junk data)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_rx_overflow</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err RX_OVERFLOW</p>
+<p>Number of session closes with Error RX_OVERFLOW (Received buffer overflow)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_rx_timeout</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err RX_TIMEOUT</p>
+<p>Number of session closes with Error RX_TIMEOUT (Receive timeout)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_tx_pipe</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session OK  TX_PIPE</p>
+<p>Number of session closes with TX_PIPE (Piped transaction)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_tx_error</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err TX_ERROR</p>
+<p>Number of session closes with Error TX_ERROR (Error transaction)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_tx_eof</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session OK  TX_EOF</p>
+<p>Number of session closes with TX_EOF (EOF transmission)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_resp_close</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session OK  RESP_CLOSE</p>
+<p>Number of session closes with RESP_CLOSE (Backend/VCL requested close)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_overload</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err OVERLOAD</p>
+<p>Number of session closes with Error OVERLOAD (Out of some resource)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_pipe_overflow</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err PIPE_OVERFLOW</p>
+<p>Number of session closes with Error PIPE_OVERFLOW (Session pipe overflow)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_range_short</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err RANGE_SHORT</p>
+<p>Number of session closes with Error RANGE_SHORT (Insufficient data for range)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_req_http20</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err REQ_HTTP20</p>
+<p>Number of session closes with Error REQ_HTTP20 (HTTP2 not accepted)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sc_vcl_failure</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Session Err VCL_FAILURE</p>
+<p>Number of session closes with Error VCL_FAILURE (VCL failure)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">client_resp_500</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Delivery failed due to insufficient workspace.</p>
+<p>Number of times we failed a response due to running out of
+workspace memory during delivery.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">ws_backend_overflow</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>workspace_backend overflows</p>
+<p>Number of times we ran out of space in workspace_backend.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">ws_client_overflow</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>workspace_client overflows</p>
+<p>Number of times we ran out of space in workspace_client.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">ws_thread_overflow</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>workspace_thread overflows</p>
+<p>Number of times we ran out of space in workspace_thread.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">ws_session_overflow</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>workspace_session overflows</p>
+<p>Number of times we ran out of space in workspace_session.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">shm_records</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>SHM records</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">shm_writes</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>SHM writes</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">shm_flushes</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>SHM flushes due to overflow</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">shm_cont</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>SHM MTX contention</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">shm_cycles</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>SHM cycles through buffer</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">backend_req</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Backend requests made</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_vcl</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div>Number of loaded VCLs in total</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_vcl_avail</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div>Number of VCLs available</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_vcl_discard</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div>Number of discarded VCLs</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">vcl_fail</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>VCL failures</p>
+<p>Count of failures which prevented VCL from completing.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Count of bans</p>
+<p>Number of all bans in system, including bans superseded by newer
+bans and bans already checked by the ban-lurker.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_completed</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div><p>Number of bans marked ‘completed’</p>
+<p>Number of bans which are no longer active, either because they got
+checked by the ban-lurker or superseded by newer identical bans.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_obj</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div><p>Number of bans using obj.*</p>
+<p>Number of bans which use obj.* variables.  These bans can possibly
+be washed by the ban-lurker.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_req</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div><p>Number of bans using req.*</p>
+<p>Number of bans which use req.* variables.  These bans can not be
+washed by the ban-lurker.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_added</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Bans added</p>
+<p>Counter of bans added to ban list.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_deleted</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Bans deleted</p>
+<p>Counter of bans deleted from ban list.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_tested</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Bans tested against objects (lookup)</p>
+<p>Count of how many bans and objects have been tested against each
+other during hash lookup.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_obj_killed</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Objects killed by bans (lookup)</p>
+<p>Number of objects killed by bans during object lookup.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_lurker_tested</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Bans tested against objects (lurker)</p>
+<p>Count of how many bans and objects have been tested against each
+other by the ban-lurker.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_tests_tested</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Ban tests tested against objects (lookup)</p>
+<p>Count of how many tests and objects have been tested against each
+other during lookup. ‘ban req.url == foo &amp;&amp; req.http.host == bar’
+counts as one in ‘bans_tested’ and as two in ‘bans_tests_tested’</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_lurker_tests_tested</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Ban tests tested against objects (lurker)</p>
+<p>Count of how many tests and objects have been tested against each
+other by the ban-lurker. ‘ban req.url == foo &amp;&amp; req.http.host ==
+bar’ counts as one in ‘bans_tested’ and as two in ‘bans_tests_tested’</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_lurker_obj_killed</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Objects killed by bans (lurker)</p>
+<p>Number of objects killed by the ban-lurker.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_lurker_obj_killed_cutoff</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Objects killed by bans for cutoff (lurker)</p>
+<p>Number of objects killed by the ban-lurker to keep the number of
+bans below ban_cutoff.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_dups</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Bans superseded by other bans</p>
+<p>Count of bans replaced by later identical bans.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_lurker_contention</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Lurker gave way for lookup</p>
+<p>Number of times the ban-lurker had to wait for lookups.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_persisted_bytes</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div><p>Bytes used by the persisted ban lists</p>
+<p>Number of bytes used by the persisted ban lists.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bans_persisted_fragmentation</span></code> – <cite>gauge</cite> - diag</p>
+<blockquote>
+<div><p>Extra bytes in persisted ban lists due to fragmentation</p>
+<p>Number of extra bytes accumulated through dropped and completed
+bans in the persistent ban lists.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_purges</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Number of purge operations executed</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_obj_purged</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Number of purged objects</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">exp_mailed</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Number of objects mailed to expiry thread</p>
+<p>Number of objects mailed to expiry thread for handling.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">exp_received</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Number of objects received by expiry thread</p>
+<p>Number of objects received by expiry thread for handling.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">hcb_nolock</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>HCB Lookups without lock</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">hcb_lock</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>HCB Lookups with lock</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">hcb_insert</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>HCB Inserts</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">esi_errors</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>ESI parse errors (unlock)</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">esi_warnings</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>ESI parse warnings (unlock)</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">vmods</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div>Loaded VMODs</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_gzip</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Gzip operations</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_gunzip</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Gunzip operations</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">n_test_gunzip</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Test gunzip operations</p>
+<p>Those operations occur when Varnish receives a compressed object
+from a backend. They are done to verify the gzip stream while it’s
+inserted in storage.</p>
+</div></blockquote>
 </div>
-<div class="section" id="main-counters-main">
-<h3>MAIN COUNTERS (MAIN.*)<a class="headerlink" href="#main-counters-main" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>uptime – Child process uptime (INFO)</dt>
-<dd>How long the child process has been running.</dd>
-<dt>sess_conn – Sessions accepted (INFO)</dt>
-<dd>Count of sessions successfully accepted</dd>
-<dt>sess_drop – Sessions dropped (INFO)</dt>
-<dd>Count of sessions silently dropped due to lack of worker thread.</dd>
-<dt>sess_fail – Session accept failures (INFO)</dt>
-<dd>Count of failures to accept TCP connection. Either the client changed its mind, or the kernel ran out of some resource like file descriptors.</dd>
-<dt>client_req_400 – Client requests received, subject to 400 errors (INFO)</dt>
-<dd>400 means we couldn't make sense of the request, it was malformed in some drastic way.</dd>
-<dt>client_req_417 – Client requests received, subject to 417 errors (INFO)</dt>
-<dd>417 means that something went wrong with an Expect: header.</dd>
-<dt>client_req – Good client requests received (INFO)</dt>
-<dd>The count of parseable client requests seen.</dd>
-<dt>cache_hit – Cache hits (INFO)</dt>
-<dd>Count of cache hits.  A cache hit indicates that an object has been delivered to a client without fetching it from a backend server.</dd>
-<dt>cache_hitpass – Cache hits for pass. (INFO)</dt>
-<dd>Count of hits for pass. A cache hit for pass indicates that Varnish is going to pass the request to the backend and this decision has been cached in it self. This counts how many times the cached decision is being used.</dd>
-<dt>cache_hitmiss – Cache hits for miss. (INFO)</dt>
-<dd>Count of hits for miss. A cache hit for miss indicates that Varnish is going to proceed as for a cache miss without request coalescing, and this decision has been cached. This counts how many times the cached decision is being used.</dd>
-<dt>cache_miss – Cache misses (INFO)</dt>
-<dd>Count of misses. A cache miss indicates the object was fetched from the backend before delivering it to the client.</dd>
-<dt>backend_conn – Backend conn. success (INFO)</dt>
-<dd>How many backend connections have successfully been established.</dd>
-</dl>
-<p>backend_unhealthy – Backend conn. not attempted (INFO)</p>
-<p>backend_busy – Backend conn. too many (INFO)</p>
-<p>backend_fail – Backend conn. failures (INFO)</p>
-<dl class="docutils">
-<dt>backend_reuse – Backend conn. reuses (INFO)</dt>
-<dd>Count of backend connection reuses. This counter is increased whenever we reuse a recycled connection.</dd>
-<dt>backend_recycle – Backend conn. recycles (INFO)</dt>
-<dd>Count of backend connection recycles. This counter is increased whenever we have a keep-alive connection that is put back into the pool of connections. It has not yet been used, but it might be, unless the backend closes it.</dd>
-</dl>
-<p>backend_retry – Backend conn. retry (INFO)</p>
-<dl class="docutils">
-<dt>fetch_head – Fetch no body (HEAD) (INFO)</dt>
-<dd>beresp with no body because the request is HEAD.</dd>
-<dt>fetch_length – Fetch with Length (INFO)</dt>
-<dd>beresp.body with Content-Length.</dd>
-<dt>fetch_chunked – Fetch chunked (INFO)</dt>
-<dd>beresp.body with Chunked.</dd>
-<dt>fetch_eof – Fetch EOF (INFO)</dt>
-<dd>beresp.body with EOF.</dd>
-<dt>fetch_bad – Fetch bad T-E (INFO)</dt>
-<dd>beresp.body length/fetch could not be determined.</dd>
-<dt>fetch_none – Fetch no body (INFO)</dt>
-<dd>beresp.body empty</dd>
-<dt>fetch_1xx – Fetch no body (1xx) (INFO)</dt>
-<dd>beresp with no body because of 1XX response.</dd>
-<dt>fetch_204 – Fetch no body (204) (INFO)</dt>
-<dd>beresp with no body because of 204 response.</dd>
-<dt>fetch_304 – Fetch no body (304) (INFO)</dt>
-<dd>beresp with no body because of 304 response.</dd>
-<dt>fetch_failed – Fetch failed (all causes) (INFO)</dt>
-<dd>beresp fetch failed.</dd>
-<dt>fetch_no_thread – Fetch failed (no thread) (INFO)</dt>
-<dd>beresp fetch failed, no thread available.</dd>
-<dt>pools – Number of thread pools (INFO)</dt>
-<dd>Number of thread pools. See also parameter thread_pools. NB: Presently pools cannot be removed once created.</dd>
-<dt>threads – Total number of threads (INFO)</dt>
-<dd>Number of threads in all pools. See also parameters thread_pools, thread_pool_min and thread_pool_max.</dd>
-<dt>threads_limited – Threads hit max (INFO)</dt>
-<dd>Number of times more threads were needed, but limit was reached in a thread pool. See also parameter thread_pool_max.</dd>
-<dt>threads_created – Threads created (INFO)</dt>
-<dd>Total number of threads created in all pools.</dd>
-<dt>threads_destroyed – Threads destroyed (INFO)</dt>
-<dd>Total number of threads destroyed in all pools.</dd>
-<dt>threads_failed – Thread creation failed (INFO)</dt>
-<dd>Number of times creating a thread failed. See VSL::Debug for diagnostics. See also parameter thread_fail_delay.</dd>
-<dt>thread_queue_len – Length of session queue (INFO)</dt>
-<dd>Length of session queue waiting for threads. NB: Only updates once per second. See also parameter thread_queue_limit.</dd>
-<dt>busy_sleep – Number of requests sent to sleep on busy objhdr (INFO)</dt>
-<dd>Number of requests sent to sleep without a worker thread because they found a busy object.</dd>
-<dt>busy_wakeup – Number of requests woken after sleep on busy objhdr (INFO)</dt>
-<dd>Number of requests taken off the busy object sleep list and rescheduled.</dd>
-<dt>busy_killed – Number of requests killed after sleep on busy objhdr (INFO)</dt>
-<dd>Number of requests killed from the busy object sleep list due to lack of resources.</dd>
-<dt>sess_queued – Sessions queued for thread (INFO)</dt>
-<dd>Number of times session was queued waiting for a thread. See also parameter thread_queue_limit.</dd>
-<dt>sess_dropped – Sessions dropped for thread (INFO)</dt>
-<dd>Number of times session was dropped because the queue were too long already. See also parameter thread_queue_limit.</dd>
-<dt>n_object – object structs made (INFO)</dt>
-<dd>Approximate number of HTTP objects (headers + body, if present) in the cache.</dd>
-<dt>n_vampireobject – unresurrected objects (DIAG)</dt>
-<dd>Number of unresurrected objects</dd>
-<dt>n_objectcore – objectcore structs made (INFO)</dt>
-<dd>Approximate number of object metadata elements in the cache. Each object needs an objectcore, extra objectcores are for hit-for-miss, hit-for-pass and busy objects.</dd>
-<dt>n_objecthead – objecthead structs made (INFO)</dt>
-<dd>Approximate number of different hash entries in the cache.</dd>
-<dt>n_backend – Number of backends (INFO)</dt>
-<dd>Number of backends known to us.</dd>
-<dt>n_expired – Number of expired objects (INFO)</dt>
-<dd>Number of objects that expired from cache because of old age.</dd>
-<dt>n_lru_nuked – Number of LRU nuked objects (INFO)</dt>
-<dd>How many objects have been forcefully evicted from storage to make room for a new object.</dd>
-<dt>n_lru_moved – Number of LRU moved objects (DIAG)</dt>
-<dd>Number of move operations done on the LRU list.</dd>
-</dl>
-<p>losthdr – HTTP header overflows (INFO)</p>
-<p>s_sess – Total sessions seen (INFO)</p>
-<p>s_req – Total requests seen (INFO)</p>
-<p>s_pipe – Total pipe sessions seen (INFO)</p>
-<p>s_pass – Total pass-ed requests seen (INFO)</p>
-<p>s_fetch – Total backend fetches initiated (INFO)</p>
-<p>s_synth – Total synthethic responses made (INFO)</p>
-<dl class="docutils">
-<dt>s_req_hdrbytes – Request header bytes (INFO)</dt>
-<dd>Total request header bytes received</dd>
-<dt>s_req_bodybytes – Request body bytes (INFO)</dt>
-<dd>Total request body bytes received</dd>
-<dt>s_resp_hdrbytes – Response header bytes (INFO)</dt>
-<dd>Total response header bytes transmitted</dd>
-<dt>s_resp_bodybytes – Response body bytes (INFO)</dt>
-<dd>Total response body bytes transmitted</dd>
-<dt>s_pipe_hdrbytes – Pipe request header bytes (INFO)</dt>
-<dd>Total request bytes received for piped sessions</dd>
-<dt>s_pipe_in – Piped bytes from client (INFO)</dt>
-<dd>Total number of bytes forwarded from clients in pipe sessions</dd>
-<dt>s_pipe_out – Piped bytes to client (INFO)</dt>
-<dd>Total number of bytes forwarded to clients in pipe sessions</dd>
-</dl>
-<p>sess_closed – Session Closed (INFO)</p>
-<dl class="docutils">
-<dt>sess_closed_err – Session Closed with error (INFO)</dt>
-<dd>Total number of sessions closed with errors. See sc_* diag counters for detailed breakdown</dd>
-</dl>
-<p>sess_readahead – Session Read Ahead (INFO)</p>
-<dl class="docutils">
-<dt>sess_herd – Session herd (DIAG)</dt>
-<dd>Number of times the timeout_linger triggered</dd>
-<dt>sc_rem_close – Session OK  REM_CLOSE (DIAG)</dt>
-<dd>Number of session closes with REM_CLOSE (Client Closed)</dd>
-<dt>sc_req_close – Session OK  REQ_CLOSE (DIAG)</dt>
-<dd>Number of session closes with REQ_CLOSE (Client requested close)</dd>
-<dt>sc_req_http10 – Session Err REQ_HTTP10 (DIAG)</dt>
-<dd>Number of session closes with Error REQ_HTTP10 (Proto &lt; HTTP/1.1)</dd>
-<dt>sc_rx_bad – Session Err RX_BAD (DIAG)</dt>
-<dd>Number of session closes with Error RX_BAD (Received bad req/resp)</dd>
-<dt>sc_rx_body – Session Err RX_BODY (DIAG)</dt>
-<dd>Number of session closes with Error RX_BODY (Failure receiving req.body)</dd>
-<dt>sc_rx_junk – Session Err RX_JUNK (DIAG)</dt>
-<dd>Number of session closes with Error RX_JUNK (Received junk data)</dd>
-<dt>sc_rx_overflow – Session Err RX_OVERFLOW (DIAG)</dt>
-<dd>Number of session closes with Error RX_OVERFLOW (Received buffer overflow)</dd>
-<dt>sc_rx_timeout – Session Err RX_TIMEOUT (DIAG)</dt>
-<dd>Number of session closes with Error RX_TIMEOUT (Receive timeout)</dd>
-<dt>sc_tx_pipe – Session OK  TX_PIPE (DIAG)</dt>
-<dd>Number of session closes with TX_PIPE (Piped transaction)</dd>
-<dt>sc_tx_error – Session Err TX_ERROR (DIAG)</dt>
-<dd>Number of session closes with Error TX_ERROR (Error transaction)</dd>
-<dt>sc_tx_eof – Session OK  TX_EOF (DIAG)</dt>
-<dd>Number of session closes with TX_EOF (EOF transmission)</dd>
-<dt>sc_resp_close – Session OK  RESP_CLOSE (DIAG)</dt>
-<dd>Number of session closes with RESP_CLOSE (Backend/VCL requested close)</dd>
-<dt>sc_overload – Session Err OVERLOAD (DIAG)</dt>
-<dd>Number of session closes with Error OVERLOAD (Out of some resource)</dd>
-<dt>sc_pipe_overflow – Session Err PIPE_OVERFLOW (DIAG)</dt>
-<dd>Number of session closes with Error PIPE_OVERFLOW (Session pipe overflow)</dd>
-<dt>sc_range_short – Session Err RANGE_SHORT (DIAG)</dt>
-<dd>Number of session closes with Error RANGE_SHORT (Insufficient data for range)</dd>
-<dt>sc_req_http20 – Session Err REQ_HTTP20 (DIAG)</dt>
-<dd>Number of session closes with Error REQ_HTTP20 (HTTP2 not accepted)</dd>
-<dt>sc_vcl_failure – Session Err VCL_FAILURE (DIAG)</dt>
-<dd>Number of session closes with Error VCL_FAILURE (VCL failure)</dd>
-</dl>
-<p>shm_records – SHM records (DIAG)</p>
-<p>shm_writes – SHM writes (DIAG)</p>
-<p>shm_flushes – SHM flushes due to overflow (DIAG)</p>
-<p>shm_cont – SHM MTX contention (DIAG)</p>
-<p>shm_cycles – SHM cycles through buffer (DIAG)</p>
-<p>backend_req – Backend requests made (INFO)</p>
-<p>n_vcl – Number of loaded VCLs in total (INFO)</p>
-<p>n_vcl_avail – Number of VCLs available (DIAG)</p>
-<p>n_vcl_discard – Number of discarded VCLs (DIAG)</p>
-<dl class="docutils">
-<dt>vcl_fail – VCL failures (INFO)</dt>
-<dd>Count of failures which prevented VCL from completing.</dd>
-<dt>bans – Count of bans (INFO)</dt>
-<dd>Number of all bans in system, including bans superseded by newer bans and bans already checked by the ban-lurker.</dd>
-<dt>bans_completed – Number of bans marked 'completed' (DIAG)</dt>
-<dd>Number of bans which are no longer active, either because they got checked by the ban-lurker or superseded by newer identical bans.</dd>
-<dt>bans_obj – Number of bans using obj.* (DIAG)</dt>
-<dd>Number of bans which use obj.* variables.  These bans can possibly be washed by the ban-lurker.</dd>
-<dt>bans_req – Number of bans using req.* (DIAG)</dt>
-<dd>Number of bans which use req.* variables.  These bans can not be washed by the ban-lurker.</dd>
-<dt>bans_added – Bans added (DIAG)</dt>
-<dd>Counter of bans added to ban list.</dd>
-<dt>bans_deleted – Bans deleted (DIAG)</dt>
-<dd>Counter of bans deleted from ban list.</dd>
-<dt>bans_tested – Bans tested against objects (lookup) (DIAG)</dt>
-<dd>Count of how many bans and objects have been tested against each other during hash lookup.</dd>
-<dt>bans_obj_killed – Objects killed by bans (lookup) (DIAG)</dt>
-<dd>Number of objects killed by bans during object lookup.</dd>
-<dt>bans_lurker_tested – Bans tested against objects (lurker) (DIAG)</dt>
-<dd>Count of how many bans and objects have been tested against each other by the ban-lurker.</dd>
-<dt>bans_tests_tested – Ban tests tested against objects (lookup) (DIAG)</dt>
-<dd>Count of how many tests and objects have been tested against each other during lookup. 'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
-<dt>bans_lurker_tests_tested – Ban tests tested against objects (lurker) (DIAG)</dt>
-<dd>Count of how many tests and objects have been tested against each other by the ban-lurker. 'ban req.url == foo &amp;&amp; req.http.host == bar' counts as one in 'bans_tested' and as two in 'bans_tests_tested'</dd>
-<dt>bans_lurker_obj_killed – Objects killed by bans (lurker) (DIAG)</dt>
-<dd>Number of objects killed by the ban-lurker.</dd>
-<dt>bans_lurker_obj_killed_cutoff – Objects killed by bans for cutoff (lurker) (DIAG)</dt>
-<dd>Number of objects killed by the ban-lurker to keep the number of bans below ban_cutoff.</dd>
-<dt>bans_dups – Bans superseded by other bans (DIAG)</dt>
-<dd>Count of bans replaced by later identical bans.</dd>
-<dt>bans_lurker_contention – Lurker gave way for lookup (DIAG)</dt>
-<dd>Number of times the ban-lurker had to wait for lookups.</dd>
-<dt>bans_persisted_bytes – Bytes used by the persisted ban lists (DIAG)</dt>
-<dd>Number of bytes used by the persisted ban lists.</dd>
-<dt>bans_persisted_fragmentation – Extra bytes in persisted ban lists due to fragmentation (DIAG)</dt>
-<dd>Number of extra bytes accumulated through dropped and completed bans in the persistent ban lists.</dd>
-</dl>
-<p>n_purges – Number of purge operations executed (INFO)</p>
-<p>n_obj_purged – Number of purged objects (INFO)</p>
-<dl class="docutils">
-<dt>exp_mailed – Number of objects mailed to expiry thread (DIAG)</dt>
-<dd>Number of objects mailed to expiry thread for handling.</dd>
-<dt>exp_received – Number of objects received by expiry thread (DIAG)</dt>
-<dd>Number of objects received by expiry thread for handling.</dd>
-</dl>
-<p>hcb_nolock – HCB Lookups without lock (DEBUG)</p>
-<p>hcb_lock – HCB Lookups with lock (DEBUG)</p>
-<p>hcb_insert – HCB Inserts (DEBUG)</p>
-<p>esi_errors – ESI parse errors (unlock) (DIAG)</p>
-<p>esi_warnings – ESI parse warnings (unlock) (DIAG)</p>
-<p>vmods – Loaded VMODs (INFO)</p>
-<p>n_gzip – Gzip operations (INFO)</p>
-<p>n_gunzip – Gunzip operations (INFO)</p>
-<dl class="docutils">
-<dt>n_test_gunzip – Test gunzip operations (INFO)</dt>
-<dd>Those operations occur when Varnish receives a compressed object from a backend. They are done to verify the gzip stream while it's inserted in storage.</dd>
-<dt>vsm_free – Free VSM space (DIAG)</dt>
-<dd>Number of bytes free in the shared memory used to communicate with tools like varnishstat, varnishlog etc.</dd>
-<dt>vsm_used – Used VSM space (DIAG)</dt>
-<dd>Number of bytes used in the shared memory used to communicate with tools like varnishstat, varnishlog etc.</dd>
-<dt>vsm_cooling – Cooling VSM space (DEBUG)</dt>
-<dd>Number of bytes which will soon (max 1 minute) be freed in the shared memory used to communicate with tools like varnishstat, varnishlog etc.</dd>
-<dt>vsm_overflow – Overflow VSM space (DIAG)</dt>
-<dd>Number of bytes which does not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. If this counter is not zero, consider increasing the runtime variable vsm_space.</dd>
-<dt>vsm_overflowed – Overflowed VSM space (DIAG)</dt>
-<dd>Total number of bytes which did not fit in the shared memory used to communicate with tools like varnishstat, varnishlog etc. If this counter is not zero, consider increasing the runtime variable vsm_space.</dd>
-</dl>
+<div class="section" id="mgt-management-process-counters">
+<h3>MGT – Management Process Counters<a class="headerlink" href="#mgt-management-process-counters" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">uptime</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Management process uptime</p>
+<p>Uptime in seconds of the management process</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">child_start</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Child process started</p>
+<p>Number of times the child process has been started</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">child_exit</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Child process normal exit</p>
+<p>Number of times the child process has been cleanly stopped</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">child_stop</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Child process unexpected exit</p>
+<p>Number of times the child process has exited with an
+unexpected return code</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">child_died</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Child process died (signal)</p>
+<p>Number of times the child process has died due to signals</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">child_dump</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Child process core dumped</p>
+<p>Number of times the child process has produced core dumps</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">child_panic</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Child process panic</p>
+<p>Number of times the management process has caught a child panic</p>
+</div></blockquote>
 </div>
-<div class="section" id="management-process-counters-mgt">
-<h3>MANAGEMENT PROCESS COUNTERS (MGT.*)<a class="headerlink" href="#management-process-counters-mgt" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>uptime – Management process uptime (INFO)</dt>
-<dd>Uptime in seconds of the management process</dd>
-<dt>child_start – Child process started (DIAG)</dt>
-<dd>Number of times the child process has been started</dd>
-<dt>child_exit – Child process normal exit (DIAG)</dt>
-<dd>Number of times the child process has been cleanly stopped</dd>
-<dt>child_stop – Child process unexpected exit (DIAG)</dt>
-<dd>Number of times the child process has exited with an unexpected return code</dd>
-<dt>child_died – Child process died (signal) (DIAG)</dt>
-<dd>Number of times the child process has died due to signals</dd>
-<dt>child_dump – Child process core dumped (DIAG)</dt>
-<dd>Number of times the child process has produced core dumps</dd>
-<dt>child_panic – Child process panic (DIAG)</dt>
-<dd>Number of times the management process has caught a child panic</dd>
-</dl>
+<div class="section" id="mempool-memory-pool-counters">
+<h3>MEMPOOL – Memory Pool Counters<a class="headerlink" href="#mempool-memory-pool-counters" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">live</span></code> – <cite>gauge</cite> - debug</p>
+<blockquote>
+<div>In use</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">pool</span></code> – <cite>gauge</cite> - debug</p>
+<blockquote>
+<div>In Pool</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sz_wanted</span></code> – <cite>gauge</cite> - debug</p>
+<blockquote>
+<div>Size requested</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">sz_actual</span></code> – <cite>gauge</cite> - debug</p>
+<blockquote>
+<div>Size allocated</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">allocs</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Allocations</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">frees</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Frees</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">recycle</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Recycled from pool</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">timeout</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Timed out from pool</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">toosmall</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Too small to recycle</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">surplus</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Too many for pool</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">randry</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Pool ran dry</div></blockquote>
 </div>
-<div class="section" id="memory-pool-counters-mempool">
-<h3>MEMORY POOL COUNTERS (MEMPOOL.*)<a class="headerlink" href="#memory-pool-counters-mempool" title="Permalink to this headline">¶</a></h3>
-<p>live – In use (DEBUG)</p>
-<p>pool – In Pool (DEBUG)</p>
-<p>sz_wanted – Size requested (DEBUG)</p>
-<p>sz_actual – Size allocated (DEBUG)</p>
-<p>allocs – Allocations (DEBUG)</p>
-<p>frees – Frees (DEBUG)</p>
-<p>recycle – Recycled from pool (DEBUG)</p>
-<p>timeout – Timed out from pool (DEBUG)</p>
-<p>toosmall – Too small to recycle (DEBUG)</p>
-<p>surplus – Too many for pool (DEBUG)</p>
-<p>randry – Pool ran dry (DEBUG)</p>
+<div class="section" id="sma-malloc-stevedore-counters">
+<h3>SMA – Malloc Stevedore Counters<a class="headerlink" href="#sma-malloc-stevedore-counters" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">c_req</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Allocator requests</p>
+<p>Number of times the storage has been asked to provide a storage segment.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_fail</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Allocator failures</p>
+<p>Number of times the storage has failed to provide a storage segment.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_bytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Bytes allocated</p>
+<p>Number of total bytes allocated by this storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_freed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Bytes freed</p>
+<p>Number of total bytes returned to this storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_alloc</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Allocations outstanding</p>
+<p>Number of storage allocations outstanding.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_bytes</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Bytes outstanding</p>
+<p>Number of bytes allocated from the storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_space</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Bytes available</p>
+<p>Number of bytes left in the storage.</p>
+</div></blockquote>
 </div>
-<div class="section" id="malloc-storage-counters-sma">
-<h3>MALLOC STORAGE COUNTERS (SMA.*)<a class="headerlink" href="#malloc-storage-counters-sma" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>c_req – Allocator requests (INFO)</dt>
-<dd>Number of times the storage has been asked to provide a storage segment.</dd>
-<dt>c_fail – Allocator failures (INFO)</dt>
-<dd>Number of times the storage has failed to provide a storage segment.</dd>
-<dt>c_bytes – Bytes allocated (INFO)</dt>
-<dd>Number of total bytes allocated by this storage.</dd>
-<dt>c_freed – Bytes freed (INFO)</dt>
-<dd>Number of total bytes returned to this storage.</dd>
-<dt>g_alloc – Allocations outstanding (INFO)</dt>
-<dd>Number of storage allocations outstanding.</dd>
-<dt>g_bytes – Bytes outstanding (INFO)</dt>
-<dd>Number of bytes allocated from the storage.</dd>
-<dt>g_space – Bytes available (INFO)</dt>
-<dd>Number of bytes left in the storage.</dd>
-</dl>
+<div class="section" id="smu-umem-stevedore-counters">
+<h3>SMU – Umem Stevedore Counters<a class="headerlink" href="#smu-umem-stevedore-counters" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">c_req</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Allocator requests</p>
+<p>Number of times the storage has been asked to provide a storage segment.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_fail</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Allocator failures</p>
+<p>Number of times the storage has failed to provide a storage segment.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_bytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Bytes allocated</p>
+<p>Number of total bytes allocated by this storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_freed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Bytes freed</p>
+<p>Number of total bytes returned to this storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_alloc</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Allocations outstanding</p>
+<p>Number of storage allocations outstanding.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_bytes</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Bytes outstanding</p>
+<p>Number of bytes allocated from the storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_space</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Bytes available</p>
+<p>Number of bytes left in the storage.</p>
+</div></blockquote>
 </div>
-<div class="section" id="file-storage-counters-smf">
-<h3>FILE STORAGE COUNTERS (SMF.*)<a class="headerlink" href="#file-storage-counters-smf" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>c_req – Allocator requests (INFO)</dt>
-<dd>Number of times the storage has been asked to provide a storage segment.</dd>
-<dt>c_fail – Allocator failures (INFO)</dt>
-<dd>Number of times the storage has failed to provide a storage segment.</dd>
-<dt>c_bytes – Bytes allocated (INFO)</dt>
-<dd>Number of total bytes allocated by this storage.</dd>
-<dt>c_freed – Bytes freed (INFO)</dt>
-<dd>Number of total bytes returned to this storage.</dd>
-<dt>g_alloc – Allocations outstanding (INFO)</dt>
-<dd>Number of storage allocations outstanding.</dd>
-<dt>g_bytes – Bytes outstanding (INFO)</dt>
-<dd>Number of bytes allocated from the storage.</dd>
-<dt>g_space – Bytes available (INFO)</dt>
-<dd>Number of bytes left in the storage.</dd>
-</dl>
-<p>g_smf – N struct smf (INFO)</p>
-<p>g_smf_frag – N small free smf (INFO)</p>
-<p>g_smf_large – N large free smf (INFO)</p>
+<div class="section" id="smf-file-stevedore-counters">
+<h3>SMF – File Stevedore Counters<a class="headerlink" href="#smf-file-stevedore-counters" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">c_req</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Allocator requests</p>
+<p>Number of times the storage has been asked to provide a storage segment.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_fail</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Allocator failures</p>
+<p>Number of times the storage has failed to provide a storage segment.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_bytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Bytes allocated</p>
+<p>Number of total bytes allocated by this storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">c_freed</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Bytes freed</p>
+<p>Number of total bytes returned to this storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_alloc</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Allocations outstanding</p>
+<p>Number of storage allocations outstanding.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_bytes</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Bytes outstanding</p>
+<p>Number of bytes allocated from the storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_space</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div><p>Bytes available</p>
+<p>Number of bytes left in the storage.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_smf</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div>N struct smf</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_smf_frag</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div>N small free smf</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">g_smf_large</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div>N large free smf</div></blockquote>
 </div>
-<div class="section" id="backend-counters-vbe">
-<h3>BACKEND COUNTERS (VBE.*)<a class="headerlink" href="#backend-counters-vbe" title="Permalink to this headline">¶</a></h3>
-<p>happy – Happy health probes (INFO)</p>
-<dl class="docutils">
-<dt>bereq_hdrbytes – Request header bytes (INFO)</dt>
-<dd>Total backend request header bytes sent</dd>
-<dt>bereq_bodybytes – Request body bytes (INFO)</dt>
-<dd>Total backend request body bytes sent</dd>
-<dt>beresp_hdrbytes – Response header bytes (INFO)</dt>
-<dd>Total backend response header bytes received</dd>
-<dt>beresp_bodybytes – Response body bytes (INFO)</dt>
-<dd>Total backend response body bytes received</dd>
-<dt>pipe_hdrbytes – Pipe request header bytes (INFO)</dt>
-<dd>Total request bytes sent for piped sessions</dd>
-<dt>pipe_out – Piped bytes to backend (INFO)</dt>
-<dd>Total number of bytes forwarded to backend in pipe sessions</dd>
-<dt>pipe_in – Piped bytes from backend (INFO)</dt>
-<dd>Total number of bytes forwarded from backend in pipe sessions</dd>
-</dl>
-<p>conn – Concurrent connections to backend (INFO)</p>
-<p>req – Backend requests sent (INFO)</p>
+<div class="section" id="vbe-backend-counters">
+<h3>VBE – Backend Counters<a class="headerlink" href="#vbe-backend-counters" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">happy</span></code> – <cite>bitmap</cite> - info</p>
+<blockquote>
+<div>Happy health probes</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bereq_hdrbytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Request header bytes</p>
+<p>Total backend request header bytes sent</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bereq_bodybytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Request body bytes</p>
+<p>Total backend request body bytes sent</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">beresp_hdrbytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Response header bytes</p>
+<p>Total backend response header bytes received</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">beresp_bodybytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Response body bytes</p>
+<p>Total backend response body bytes received</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">pipe_hdrbytes</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Pipe request header bytes</p>
+<p>Total request bytes sent for piped sessions</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">pipe_out</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Piped bytes to backend</p>
+<p>Total number of bytes forwarded to backend in pipe sessions</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">pipe_in</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Piped bytes from backend</p>
+<p>Total number of bytes forwarded from backend in pipe sessions</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">conn</span></code> – <cite>gauge</cite> - info</p>
+<blockquote>
+<div>Concurrent connections to backend</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">req</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Backend requests sent</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">unhealthy</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div>Fetches not attempted due to backend being unhealthy</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">busy</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Fetches not attempted due to backend being busy</p>
+<p>Number of times the max_connections limit was reached</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fail</span></code> – <cite>counter</cite> - info</p>
+<blockquote>
+<div><p>Connections failed</p>
+<p>Counter of failed opens. Detailed reasons are given in the
+fail_* counters (DIAG level) and in Debug VSL.</p>
+<p>This counter is the sum of all detailed fail_* counters.</p>
+<p>All fail_* counters may be slightly inaccurate for efficiency.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fail_eacces</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>Connections failed with EACCES or EPERM</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fail_eaddrnotavail</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>Connections failed with EADDRNOTAVAIL</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fail_econnrefused</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>Connections failed with ECONNREFUSED</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fail_enetunreach</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>Connections failed with ENETUNREACH</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fail_etimedout</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>Connections failed ETIMEDOUT</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">fail_other</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div>Connections failed for other reason</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">helddown</span></code> – <cite>counter</cite> - diag</p>
+<blockquote>
+<div><p>Connection opens not attempted</p>
+<p>Connections not attempted during the backend_local_error_holddown
+or backend_remote_error_holddown interval after a fundamental
+connection issue.</p>
+</div></blockquote>
 </div>
-<div class="section" id="lock-counters-lck">
-<h3>LOCK COUNTERS (LCK.*)<a class="headerlink" href="#lock-counters-lck" title="Permalink to this headline">¶</a></h3>
-<p>creat – Created locks (DEBUG)</p>
-<p>destroy – Destroyed locks (DEBUG)</p>
-<p>locks – Lock Operations (DEBUG)</p>
+<div class="section" id="lck-lock-counters">
+<h3>LCK – Lock Counters<a class="headerlink" href="#lck-lock-counters" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p>Counters which track the activity in the different classes
+of mutex-locks.</p>
+<p>The counts may be slightly wrong if there are more than one
+lock instantiated in each class (ie: .creat &gt; 1)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">creat</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Created locks</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">destroy</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Destroyed locks</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">locks</span></code> – <cite>counter</cite> - debug</p>
+<blockquote>
+<div>Lock Operations</div></blockquote>
 </div>
 <div class="section" id="authors">
 <h3>AUTHORS<a class="headerlink" href="#authors" title="Permalink to this headline">¶</a></h3>
@@ -439,18 +1059,18 @@ written by Tollef Fog Heen.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">varnish-counters</a><ul>
 <li><a class="reference internal" href="#varnish-counter-field-definitions">Varnish counter field definitions</a><ul>
-<li><a class="reference internal" href="#counter-levels">COUNTER LEVELS</a></li>
-<li><a class="reference internal" href="#main-counters-main">MAIN COUNTERS (MAIN.*)</a></li>
-<li><a class="reference internal" href="#management-process-counters-mgt">MANAGEMENT PROCESS COUNTERS (MGT.*)</a></li>
-<li><a class="reference internal" href="#memory-pool-counters-mempool">MEMORY POOL COUNTERS (MEMPOOL.*)</a></li>
-<li><a class="reference internal" href="#malloc-storage-counters-sma">MALLOC STORAGE COUNTERS (SMA.*)</a></li>
-<li><a class="reference internal" href="#file-storage-counters-smf">FILE STORAGE COUNTERS (SMF.*)</a></li>
-<li><a class="reference internal" href="#backend-counters-vbe">BACKEND COUNTERS (VBE.*)</a></li>
-<li><a class="reference internal" href="#lock-counters-lck">LOCK COUNTERS (LCK.*)</a></li>
+<li><a class="reference internal" href="#main-main-counters">MAIN – Main counters</a></li>
+<li><a class="reference internal" href="#mgt-management-process-counters">MGT – Management Process Counters</a></li>
+<li><a class="reference internal" href="#mempool-memory-pool-counters">MEMPOOL – Memory Pool Counters</a></li>
+<li><a class="reference internal" href="#sma-malloc-stevedore-counters">SMA – Malloc Stevedore Counters</a></li>
+<li><a class="reference internal" href="#smu-umem-stevedore-counters">SMU – Umem Stevedore Counters</a></li>
+<li><a class="reference internal" href="#smf-file-stevedore-counters">SMF – File Stevedore Counters</a></li>
+<li><a class="reference internal" href="#vbe-backend-counters">VBE – Backend Counters</a></li>
+<li><a class="reference internal" href="#lck-lock-counters">LCK – Lock Counters</a></li>
 <li><a class="reference internal" href="#authors">AUTHORS</a></li>
 </ul>
 </li>
@@ -467,18 +1087,20 @@ written by Tollef Fog Heen.</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/reference/varnish-counters.txt"
+      <li><a href="../_sources/reference/varnish-counters.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -497,13 +1119,13 @@ written by Tollef Fog Heen.</p>
         <li class="right" >
           <a href="directors.html" title="Writing a Director"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

@@ -1,7 +1,7 @@
 /*
  * NB:  This file is machine generated, DO NOT EDIT!
  *
- * Edit and run lib/libvcc/generate.py instead.
+ * Edit and run include/generate.py instead.
  */
 
-#define VMOD_ABI_Version "Varnish 5.1.3 05c5ac6b9"
+#define VMOD_ABI_Version "Varnish 6.0.6 29a1a8243dbef3d973aec28dc90403188c1dc8e7"

@@ -32,9 +32,8 @@
 
 #include <stdlib.h>
 
-#include "cache/cache.h"
-#include "cache/cache_obj.h"
-#include "hash/hash_slinger.h"
+#include "cache/cache_varnishd.h"
+#include "cache/cache_objhead.h"
 
 #include "storage/storage.h"
 
@@ -121,7 +120,7 @@ LRU_Remove(struct objcore *oc)
 	Lck_Unlock(&lru->mtx);
 }
 
-void __match_proto__(objtouch_f)
+void v_matchproto_(objtouch_f)
 LRU_Touch(struct worker *wrk, struct objcore *oc, double now)
 {
 	struct lru *lru;
@@ -172,7 +171,8 @@ LRU_NukeOne(struct worker *wrk, struct lru *lru)
 	CHECK_OBJ_NOTNULL(lru, LRU_MAGIC);
 
 	if (wrk->strangelove-- <= 0) {
-		VSLb(wrk->vsl, SLT_ExpKill, "LRU_Exhausted");
+		VSLb(wrk->vsl, SLT_ExpKill, "LRU reached nuke_limit");
+		VSC_C_main->n_lru_limited++;
 		return (0);
 	}
 

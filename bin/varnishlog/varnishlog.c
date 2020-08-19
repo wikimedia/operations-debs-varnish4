@@ -32,25 +32,27 @@
 
 #include "config.h"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <stdarg.h>
 #include <stdint.h>
+
+#define VOPT_DEFINITION
+#define VOPT_INC "varnishlog_options.h"
+
+#include "vdef.h"
 
 #include "vapi/vsm.h"
 #include "vapi/vsl.h"
 #include "vapi/voptget.h"
 #include "vas.h"
-#include "vdef.h"
-#include "vpf.h"
-#include "vsb.h"
 #include "vut.h"
 #include "miniobj.h"
 
-static const char progname[] = "varnishlog";
+static struct VUT *vut;
 
 static struct log {
 	/* Options */
@@ -62,11 +64,11 @@ static struct log {
 	FILE		*fo;
 } LOG;
 
-static void __attribute__((__noreturn__))
+static void v_noreturn_
 usage(int status)
 {
 	const char **opt;
-	fprintf(stderr, "Usage: %s <options>\n\n", progname);
+	fprintf(stderr, "Usage: %s <options>\n\n", vut->progname);
 	fprintf(stderr, "Options:\n");
 	for (opt = vopt_spec.vopt_usage; *opt != NULL; opt += 2)
 		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
@@ -81,17 +83,18 @@ openout(int append)
 	if (LOG.A_opt)
 		LOG.fo = fopen(LOG.w_arg, append ? "a" : "w");
 	else
-		LOG.fo = VSL_WriteOpen(VUT.vsl, LOG.w_arg, append, 0);
+		LOG.fo = VSL_WriteOpen(vut->vsl, LOG.w_arg, append, 0);
 	if (LOG.fo == NULL)
-		VUT_Error(2, "Cannot open output file (%s)",
-		    LOG.A_opt ? strerror(errno) : VSL_Error(VUT.vsl));
-	VUT.dispatch_priv = LOG.fo;
+		VUT_Error(vut, 2, "Cannot open output file (%s)",
+		    LOG.A_opt ? strerror(errno) : VSL_Error(vut->vsl));
+	vut->dispatch_priv = LOG.fo;
 }
 
-static int __match_proto__(VUT_cb_f)
-rotateout(void)
+static int v_matchproto_(VUT_cb_f)
+rotateout(struct VUT *v)
 {
 
+	assert(v == vut);
 	AN(LOG.w_arg);
 	AN(LOG.fo);
 	fclose(LOG.fo);
@@ -100,20 +103,30 @@ rotateout(void)
 	return (0);
 }
 
-static int __match_proto__(VUT_cb_f)
-flushout(void)
+static int v_matchproto_(VUT_cb_f)
+flushout(struct VUT *v)
 {
 
+	assert(v == vut);
 	AN(LOG.fo);
 	if (fflush(LOG.fo))
 		return (-5);
 	return (0);
 }
 
-static int __match_proto__(VUT_cb_f)
-sighup(void)
+static int v_matchproto_(VUT_cb_f)
+sighup(struct VUT *v)
 {
+	assert(v == vut);
 	return (1);
+}
+
+static void
+vut_sighandler(int sig)
+{
+
+	if (vut != NULL)
+		VUT_Signaled(vut, sig);
 }
 
 int
@@ -121,7 +134,8 @@ main(int argc, char * const *argv)
 {
 	int opt;
 
-	VUT_Init(progname, argc, argv, &vopt_spec);
+	vut = VUT_InitProg(argc, argv, &vopt_spec);
+	AN(vut);
 	memset(&LOG, 0, sizeof LOG);
 
 	while ((opt = getopt(argc, argv, vopt_spec.vopt_optstring)) != -1) {
@@ -142,7 +156,7 @@ main(int argc, char * const *argv)
 			REPLACE(LOG.w_arg, optarg);
 			break;
 		default:
-			if (!VUT_Arg(opt, optarg))
+			if (!VUT_Arg(vut, opt, optarg))
 				usage(1);
 		}
 	}
@@ -150,29 +164,30 @@ main(int argc, char * const *argv)
 	if (optind != argc)
 		usage(1);
 
-	if (VUT.D_opt && !LOG.w_arg)
-		VUT_Error(1, "Missing -w option");
+	if (vut->D_opt && !LOG.w_arg)
+		VUT_Error(vut, 1, "Missing -w option");
 
 	/* Setup output */
 	if (LOG.A_opt || !LOG.w_arg)
-		VUT.dispatch_f = VSL_PrintTransactions;
+		vut->dispatch_f = VSL_PrintTransactions;
 	else
-		VUT.dispatch_f = VSL_WriteTransactions;
-	VUT.sighup_f = sighup;
+		vut->dispatch_f = VSL_WriteTransactions;
+	vut->sighup_f = sighup;
 	if (LOG.w_arg) {
 		openout(LOG.a_opt);
 		AN(LOG.fo);
-		if (VUT.D_opt)
-			VUT.sighup_f = rotateout;
+		if (vut->D_opt)
+			vut->sighup_f = rotateout;
 	} else
 		LOG.fo = stdout;
-	VUT.idle_f = flushout;
+	vut->idle_f = flushout;
 
-	VUT_Setup();
-	VUT_Main();
-	VUT_Fini();
+	VUT_Signal(vut_sighandler);
+	VUT_Setup(vut);
+	VUT_Main(vut);
+	VUT_Fini(&vut);
 
-	(void)flushout();
+	(void)flushout(NULL);
 
 	exit(0);
 }

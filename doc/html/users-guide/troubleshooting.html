@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Troubleshooting Varnish &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>Troubleshooting Varnish &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="The Varnish Users Guide" href="index.html" />
     <link rel="next" title="The Varnish Reference Manual" href="../reference/index.html" />
     <link rel="prev" title="Content composition with Edge Side Includes" href="esi.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="esi.html" title="Content composition with Edge Side Includes"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Users Guide</a> &#187;</li> 
       </ul>
     </div>  
@@ -63,19 +53,19 @@ are all good places where Varnish might leave clues of whats going
 on. This section will guide you through basic troubleshooting in
 Varnish.</p>
 <div class="section" id="when-varnish-won-t-start">
-<h2>When Varnish won't start<a class="headerlink" href="#when-varnish-won-t-start" title="Permalink to this headline">¶</a></h2>
+<h2>When Varnish won’t start<a class="headerlink" href="#when-varnish-won-t-start" title="Permalink to this headline">¶</a></h2>
 <p>Sometimes Varnish wont start. There is a plethora of possible reasons why
-Varnish wont start on your machine. We've seen everything from wrong
+Varnish wont start on your machine. We’ve seen everything from wrong
 permissions on <cite>/dev/null</cite> to other processes blocking the ports.</p>
 <p>Starting Varnish in debug mode to see what is going on.</p>
 <p>Try to start Varnish by:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># varnishd -f /usr/local/etc/varnish/default.vcl -s malloc,1G -T 127.0.0.1: 2000  -a 0.0.0.0:8080 -d</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># varnishd -f /usr/local/etc/varnish/default.vcl -s malloc,1G -T 127.0.0.1: 2000  -a 0.0.0.0:8080 -d</span>
 </pre></div>
 </div>
-<p>Notice the '-d' parameter. It will give you some more information on what
+<p>Notice the ‘-d’ parameter. It will give you some more information on what
 is going on. Let us see how Varnish will react when something else is
 listening on its port.:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># varnishd -n foo -f /usr/local/etc/varnish/default.vcl -s malloc,1G -T 127.0.0.1:2000  -a 0.0.0.0:8080 -d</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># varnishd -n foo -f /usr/local/etc/varnish/default.vcl -s malloc,1G -T 127.0.0.1:2000  -a 0.0.0.0:8080 -d</span>
 <span class="n">storage_malloc</span><span class="p">:</span> <span class="nb">max</span> <span class="n">size</span> <span class="mi">1024</span> <span class="n">MB</span><span class="o">.</span>
 <span class="n">Using</span> <span class="n">old</span> <span class="n">SHMFILE</span>
 <span class="n">Platform</span><span class="p">:</span> <span class="n">Linux</span><span class="p">,</span><span class="mf">2.6</span><span class="o">.</span><span class="mi">32</span><span class="o">-</span><span class="mi">21</span><span class="o">-</span><span class="n">generic</span><span class="p">,</span><span class="n">i686</span><span class="p">,</span><span class="o">-</span><span class="n">smalloc</span><span class="p">,</span><span class="o">-</span><span class="n">hcritbit</span>
@@ -89,16 +79,16 @@ listening on its port.:</p>
 </pre></div>
 </div>
 <p>Now Varnish is running but only the master process is running, in debug
-mode the cache does not start. Now you're on the console. You can
-instruct the master process to start the cache by issuing &quot;start&quot;.:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">start</span>
+mode the cache does not start. Now you’re on the console. You can
+instruct the master process to start the cache by issuing “start”.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">start</span>
 <span class="n">bind</span><span class="p">():</span> <span class="n">Address</span> <span class="n">already</span> <span class="ow">in</span> <span class="n">use</span>
 <span class="mi">300</span> <span class="mi">22</span>
 <span class="n">Could</span> <span class="ow">not</span> <span class="nb">open</span> <span class="n">sockets</span>
 </pre></div>
 </div>
 <p>And here we have our problem. Something else is bound to the HTTP port
-of Varnish. If this doesn't help try <code class="docutils literal"><span class="pre">strace</span></code> or <code class="docutils literal"><span class="pre">truss</span></code> or come find us
+of Varnish. If this doesn’t help try <code class="docutils literal notranslate"><span class="pre">strace</span></code> or <code class="docutils literal notranslate"><span class="pre">truss</span></code> or come find us
 on IRC.</p>
 </div>
 <div class="section" id="varnish-is-crashing-panics">
@@ -107,8 +97,8 @@ on IRC.</p>
 crashes are caught by one of the many consistency checks we have included in the Varnish source code. When Varnish hits one of these the caching
 process will crash itself in a controlled manner, leaving a nice
 stack trace with the mother process.</p>
-<p>You can inspect any panic messages by typing <code class="docutils literal"><span class="pre">panic.show</span></code> in the CLI.:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">panic</span><span class="o">.</span><span class="n">show</span>
+<p>You can inspect any panic messages by typing <code class="docutils literal notranslate"><span class="pre">panic.show</span></code> in the CLI.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">panic</span><span class="o">.</span><span class="n">show</span>
 <span class="n">Last</span> <span class="n">panic</span> <span class="n">at</span><span class="p">:</span> <span class="n">Tue</span><span class="p">,</span> <span class="mi">15</span> <span class="n">Mar</span> <span class="mi">2011</span> <span class="mi">13</span><span class="p">:</span><span class="mi">09</span><span class="p">:</span><span class="mi">05</span> <span class="n">GMT</span>
 <span class="n">Assert</span> <span class="n">error</span> <span class="ow">in</span> <span class="n">ESI_Deliver</span><span class="p">(),</span> <span class="n">cache_esi_deliver</span><span class="o">.</span><span class="n">c</span> <span class="n">line</span> <span class="mi">354</span><span class="p">:</span>
   <span class="n">Condition</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">Z_OK</span> <span class="o">||</span> <span class="n">i</span> <span class="o">==</span> <span class="n">Z_STREAM_END</span><span class="p">)</span> <span class="ow">not</span> <span class="n">true</span><span class="o">.</span>
@@ -124,7 +114,7 @@ stack trace with the mother process.</p>
 </pre></div>
 </div>
 <p>The crash might be due to misconfiguration or a bug. If you suspect it
-is a bug you can use the output in a bug report, see the &quot;Trouble Tickets&quot; section in the Introduction chapter above.</p>
+is a bug you can use the output in a bug report, see the “Trouble Tickets” section in the Introduction chapter above.</p>
 </div>
 <div class="section" id="varnish-is-crashing-segfaults">
 <h2>Varnish is crashing - segfaults<a class="headerlink" href="#varnish-is-crashing-segfaults" title="Permalink to this headline">¶</a></h2>
@@ -137,10 +127,10 @@ data.</p>
 <blockquote>
 <div><ul class="simple">
 <li>Make sure you have Varnish installed with debugging symbols.</li>
-<li>Make sure core dumps are allowed in the parent shell. (<code class="docutils literal"><span class="pre">ulimit</span> <span class="pre">-c</span> <span class="pre">unlimited</span></code>)</li>
+<li>Make sure core dumps are allowed in the parent shell. (<code class="docutils literal notranslate"><span class="pre">ulimit</span> <span class="pre">-c</span> <span class="pre">unlimited</span></code>)</li>
 </ul>
 </div></blockquote>
-<p>Once you have the core you open it with <cite>gdb</cite> and issue the command <code class="docutils literal"><span class="pre">bt</span></code>
+<p>Once you have the core you open it with <cite>gdb</cite> and issue the command <code class="docutils literal notranslate"><span class="pre">bt</span></code>
 to get a stack trace of the thread that caused the segfault.</p>
 </div>
 <div class="section" id="varnish-gives-me-guru-meditation">
@@ -150,13 +140,13 @@ probably give you a clue. Since <a class="reference internal" href="../reference
 data it might be hard to track the entries down. You can set
 <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a> to log all your 503 errors by issuing the
 following command:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span>$ varnishlog -q &#39;RespStatus == 503&#39; -g request
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ varnishlog -q &#39;RespStatus == 503&#39; -g request
 </pre></div>
 </div>
 <p>If the error happened just a short time ago the transaction might
 still be in the shared memory log segment. To get <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a>
-to process the whole shared memory log just add the '-d' parameter:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span>$ varnishlog -d -q &#39;RespStatus == 503&#39; -g request
+to process the whole shared memory log just add the ‘-d’ parameter:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ varnishlog -d -q &#39;RespStatus == 503&#39; -g request
 </pre></div>
 </div>
 <p>Please see the <a class="reference internal" href="../reference/vsl-query.html#vsl-query-7"><span class="std std-ref">vsl-query</span></a> and <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a> man pages
@@ -164,7 +154,7 @@ for elaborations on further filtering capabilities and explanation of
 the various options.</p>
 </div>
 <div class="section" id="varnish-doesn-t-cache">
-<h2>Varnish doesn't cache<a class="headerlink" href="#varnish-doesn-t-cache" title="Permalink to this headline">¶</a></h2>
+<h2>Varnish doesn’t cache<a class="headerlink" href="#varnish-doesn-t-cache" title="Permalink to this headline">¶</a></h2>
 <p>See <a class="reference internal" href="increasing-your-hitrate.html#users-guide-increasing-your-hitrate"><span class="std std-ref">Achieving a high hitrate</span></a>.</p>
 </div>
 </div>
@@ -175,14 +165,14 @@ the various options.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Troubleshooting Varnish</a><ul>
-<li><a class="reference internal" href="#when-varnish-won-t-start">When Varnish won't start</a></li>
+<li><a class="reference internal" href="#when-varnish-won-t-start">When Varnish won’t start</a></li>
 <li><a class="reference internal" href="#varnish-is-crashing-panics">Varnish is crashing - panics</a></li>
 <li><a class="reference internal" href="#varnish-is-crashing-segfaults">Varnish is crashing - segfaults</a></li>
 <li><a class="reference internal" href="#varnish-gives-me-guru-meditation">Varnish gives me Guru meditation</a></li>
-<li><a class="reference internal" href="#varnish-doesn-t-cache">Varnish doesn't cache</a></li>
+<li><a class="reference internal" href="#varnish-doesn-t-cache">Varnish doesn’t cache</a></li>
 </ul>
 </li>
 </ul>
@@ -196,18 +186,20 @@ the various options.</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/users-guide/troubleshooting.txt"
+      <li><a href="../_sources/users-guide/troubleshooting.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -226,13 +218,13 @@ the various options.</p>
         <li class="right" >
           <a href="esi.html" title="Content composition with Edge Side Includes"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

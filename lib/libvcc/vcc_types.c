@@ -30,10 +30,6 @@
 
 #include "config.h"
 
-#include <math.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "vcc_compile.h"
@@ -135,13 +131,31 @@ const struct type STEVEDORE[1] = {{
 const struct type STRING[1] = {{
 	.magic =		TYPE_MAGIC,
 	.name =			"STRING",
+	.stringform =		1,
+}};
+
+const struct type STRANDS[1] = {{
+	.magic =		TYPE_MAGIC,
+	.name =			"STRANDS",
+	.stringform =		1,
+	.tostring =		"VRT_CollectStrands(ctx,\v+\n\v1\v-\n)",
+}};
+
+const struct type STRINGS[1] = {{
+	.magic =		TYPE_MAGIC,
+	.name =			"STRINGS",
 	.tostring =		"",
 }};
 
 const struct type STRING_LIST[1] = {{
 	.magic =		TYPE_MAGIC,
 	.name =			"STRING_LIST",
-	.tostring =		"VRT_CollectString(ctx,\n\v1,\nvrt_magic_string_end)",
+	.stringform =		1,
+}};
+
+const struct type SUB[1] = {{
+	.magic =		TYPE_MAGIC,
+	.name =			"SUB",
 }};
 
 const struct type TIME[1] = {{

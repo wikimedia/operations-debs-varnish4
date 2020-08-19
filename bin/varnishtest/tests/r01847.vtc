@@ -26,7 +26,7 @@ client c1 {
 
 	txreq -url https://www.example.com/bar
 	rxresp
-	expect resp.http.rxhost == ""
+	expect resp.http.rxhost == "${localhost}"
 	expect resp.http.rxurl == https://www.example.com/bar
 } -run
 

@@ -1,3 +1,868 @@
+===================
+About this document
+===================
+
+.. keep this section at the top!
+
+This document contains notes from the Varnish developers about ongoing
+development and past versions:
+
+* Developers will note here changes which they consider particularly
+  relevant or otherwise noteworthy
+
+* This document is not necessarily up-to-date with the code
+
+* It serves as a basis for release managers and others involved in
+  release documentation
+
+* It is not rendered as part of the official documentation and thus
+  only available in ReStructuredText (rst) format in the source
+  repository and -distribution.
+
+Official information about changes in releases and advise on the
+upgrade process can be found in the ``doc/sphinx/whats-new/``
+directory, also available in HTML format at
+http://varnish-cache.org/docs/trunk/whats-new/index.html and via
+individual releases. These documents are updated as part of the
+release process.
+
+================================
+Varnish Cache 6.0.6 (2020-02-04)
+================================
+
+* Fix an H2 locking bug during error handling. (3086_)
+
+* Replace `python` with `python3` in all build scripts.
+
+* Introduce `none` backends, which are empty backends that are always
+  sick. This is documented in the ``vcl(7)`` manual page.
+
+* Fix an assertion panic when labelling a VCL twice. (2834_)
+
+* Fix semantics of VCL `auto` state management. (2836_)
+
+* Fix a probe scheduling timeout sorting error. (3115_)
+
+* Allow switching to the error state from the backend fetch and backend
+  response states.  This makes it possible to execute `return (error)`
+  from within the `vcl_backend_fetch()` and `vcl_backend_response()` VCL
+  functions.
+
+* Implement the `If-Range` header as specified in RFC 7233 section
+  3.2. (RFC-7233-32_)
+
+* Fix a denial of service vulnerability when using the proxy protocol
+  version 2. (VSV00005_)
+
+.. _3086: https://github.com/varnishcache/varnish-cache/issues/3086
+.. _2834: https://github.com/varnishcache/varnish-cache/issues/2834
+.. _2836: https://github.com/varnishcache/varnish-cache/issues/2836
+.. _3115: https://github.com/varnishcache/varnish-cache/issues/3115
+.. _RFC-7233-32: https://tools.ietf.org/html/rfc7233#section-3.2
+.. _VSV00005: https://varnish-cache.org/security/VSV00005.html
+
+================================
+Varnish Cache 6.0.5 (2019-10-21)
+================================
+
+* Various H2 bug fixes and improvements have been back ported from the
+  master branch. (2395_, 2572_, 2905_, 2923_, 2930_, 2931_, 2933_,
+  2934_, 2937_, 2938_, 2967_)
+
+* The idle timeout can now be set per session, by setting the
+  `sess.timeout_idle` variable in VCL.
+
+* A `param.reset` command has been added to `varnishadm`.
+
+* Make waitinglist rushes propagate on streaming delivery. (2977_)
+
+* Fix a problem where the ban lurker would skip objects. (3007_)
+
+* Incremental VSM updates. With this change, added or removed VSM segments
+  (ie varnishstat counters) will be done incrementally instead of complete
+  republishments of the entire set of VSM segments. This reduces the load
+  in the utilities (varnishncsa, varnishstat etc.) when there are frequent
+  changes to the set.
+
+* Optimize the VSM and VSC subsystems to handle large sets of counters
+  more gracefully.
+
+* Fix several resource leaks in libvarnishapi that would cause the
+  utilities to incrementally go slower and use CPU cycles after many
+  changes to the set of VSM segments.
+
+* Fixed a VSM bug that would cause varnishlog like utilities to not
+  produce log data. This could trigger when the varnish management process
+  is running root, the cache worker as a non-privileged user, and the log
+  utility run as the same user as the cache worker. This retires the
+  VSM_NOPID environment variable.
+
+* Fixed clearing of a state variable that could case an information leak
+  (VSV00004_)
+
+.. _2395: https://github.com/varnishcache/varnish-cache/issues/2395
+.. _2572: https://github.com/varnishcache/varnish-cache/issues/2572
+.. _2905: https://github.com/varnishcache/varnish-cache/issues/2905
+.. _2923: https://github.com/varnishcache/varnish-cache/issues/2923
+.. _2930: https://github.com/varnishcache/varnish-cache/issues/2930
+.. _2931: https://github.com/varnishcache/varnish-cache/issues/2931
+.. _2933: https://github.com/varnishcache/varnish-cache/pull/2933
+.. _2934: https://github.com/varnishcache/varnish-cache/issues/2934
+.. _2937: https://github.com/varnishcache/varnish-cache/issues/2937
+.. _2938: https://github.com/varnishcache/varnish-cache/issues/2938
+.. _2967: https://github.com/varnishcache/varnish-cache/issues/2967
+.. _2977: https://github.com/varnishcache/varnish-cache/issues/2977
+.. _3007: https://github.com/varnishcache/varnish-cache/issues/3007
+.. _VSV00004: https://varnish-cache.org/security/VSV00004.html
+
+================================
+Varnish Cache 6.0.4 (2019-09-03)
+================================
+
+* Now ``std.ip()`` can optionally take a port number or service name
+  argument. This is documented in the ``vmod_std(3)`` manual. (2993_)
+
+* Permit subsequent conditional requests on 304. (2871_)
+
+* Improved error messages from the VCL compiler on VMOD call argument
+  missmatch. (2874_)
+
+* Updated the builtin.vcl to use case-insensitive matching on
+  Surrogate-Control and Cache-Control backend response headers.
+
+* Ignore invalid Cache-Control time values containing trailing non-numeric
+  characters.
+
+* `varnishstat` now responds to the Home and End keys in interactive mode.
+
+* Fix a compile issue when using newer builds of gcc. (2879_)
+
+* Fix a VCL compilation assert when using very long VMOD object
+  names. (2880_)
+
+* Improved documentation on boolean types in VCL. (2846_)
+
+* New VRT functions for handling STRANDS (split strings) in
+  VMODs. `vmod_blob` now uses strands internally.
+
+* New log tag `VCL_use` will show which VCL is in use during request
+  handling.
+
+* Fail VCL loading if a VMOD objects are left uninitialized. (2839_)
+
+* Ensure that backend probes are executed in a timely manner. (2976_)
+
+* Fixed issues related to HTTP/1 request parsing (VSV00003_)
+
+.. _2993: https://github.com/varnishcache/varnish-cache/pull/2993
+.. _2871: https://github.com/varnishcache/varnish-cache/issues/2871
+.. _2874: https://github.com/varnishcache/varnish-cache/issues/2874
+.. _2879: https://github.com/varnishcache/varnish-cache/issues/2879
+.. _2880: https://github.com/varnishcache/varnish-cache/issues/2880
+.. _2846: https://github.com/varnishcache/varnish-cache/issues/2846
+.. _2839: https://github.com/varnishcache/varnish-cache/issues/2839
+.. _2976: https://github.com/varnishcache/varnish-cache/issues/2976
+.. _VSV00003: https://varnish-cache.org/security/VSV00003.html
+
+================================
+Varnish Cache 6.0.3 (2019-02-19)
+================================
+
+* Included ``vtree.h`` in the distribution for vmods and
+  renamed the red/black tree macros from ``VRB_*`` to ``VRBT_*``
+  to disambiguate from the acronym for Varnish Request Body.
+
+* Added ``req.is_hitmiss`` and ``req.is_hitpass`` (2743_)
+
+* Fix assinging <bool> == <bool> (2809_)
+
+* Add error handling for STV_NewObject() (2831_)
+
+* Fix VRT_fail for 'if'/'elseif' conditional expressions (2840_)
+
+* Add VSL rate limiting (2837_)
+
+  This adds rate limiting to varnishncsa and varnishlog.
+
+* For ``varnishtest -L``, also keep VCL C source files.
+
+* Make it possible to change ``varnishncsa`` update rate. (2741_)
+
+* Tolerate null IP addresses for ACL matches.
+
+* Many cache lookup optimizations.
+
+* Display the VCL syntax during a panic.
+
+* Update to the VCL diagrams to include hit-for-miss.
+
+.. _2741: https://github.com/varnishcache/varnish-cache/pull/2741
+.. _2743: https://github.com/varnishcache/varnish-cache/issues/2743
+.. _2809: https://github.com/varnishcache/varnish-cache/issues/2809
+.. _2831: https://github.com/varnishcache/varnish-cache/issues/2831
+.. _2837: https://github.com/varnishcache/varnish-cache/pull/2837
+.. _2840: https://github.com/varnishcache/varnish-cache/issues/2840
+
+================================
+Varnish Cache 6.0.2 (2018-11-07)
+================================
+
+* Fix and test objhead refcount for hit-for-pass (2654_, 2754_, 2760_)
+
+* Allow a string argument to return(fail("Because!")); (2694_)
+
+* Improve VCC error messages (2696_)
+
+* Fix obj.hits in vcl_hit (2746_)
+
+* Improvements to how PRIV_TASK and PRIV_TOP are initialized (2708_,
+  2749_)
+
+* fixed ``varnishhist`` display error (2780_)
+
+* In ``Error: out of workspace`` log entries, the workspace name is
+  now reported in lowercase
+
+* Adjust code generator python tools to python 3 and prefer python 3
+  over python 2 where available
+
+* Clear the IMS object attribute when copying from a stale object
+  (2763_)
+
+* Implement and test ECMA-48 "REP" sequence to fix test case
+  u00008.vtc on some newer platforms. (2668_)
+
+* Don't mess with C-L when responding to HEAD (2744_)
+
+* Align handling of STRINGS derived types (2745_)
+
+* Fix some stats metrics (vsc) which were wrongly marked as _gauge_
+
+* Varnishhist: Ignore non-positive values when accumulating (2773_)
+
+* Fix production of VTC documentation (2777_)
+
+* Fix ``varnishd -I`` (2782_)
+
+* Fix ``varnishstat -f`` in curses mode (interactively, without
+  ``-1``, 2787_)
+
+* Changed the default of the ``thread_pool_watchdog`` parameter
+  to 60 seconds to match the ``cli_timeout`` default
+
+* Fix warmup/rampup of the shard director (2823_)
+
+* Fix VRT_priv_task for calls from vcl_pipe {} (2820_)
+
+* Fix vmod object constructor documentation in the ``vmodtool.py`` -
+  generated RST files
+
+* Vmod developers are advised that anything returned by a vmod
+  function/method is assumed to be immutable. In other words, a vmod
+  `must not` modify any data which was previously returned.
+
+* ``Content-Length`` header is not rewritten in response to a HEAD
+  request, allows responses to HEAD requests to be cached
+  independently from GET responses.
+
+* ``return(fail("mumble"))`` can have a string argument that is
+  emitted by VCC as an error message if the VCL load fails due to the
+  return. (2694_)
+
+* Handle an out-of-workspace condition in HTTP/2 delivery more
+  gracefully (2589_)
+
+* Added a thread pool watchdog which will restart the worker process
+  if scheduling tasks onto worker threads appears stuck. The new
+  parameter ``thread_pool_watchdog`` configures it. (2418_, 2794_)
+
+* Clarify and test object slimming for hfp+hfm. (2768_)
+
+* Allow PRIORITY frames on closed streams (2775_)
+
+* Hardening of the h2_frame_f callbacks (2781_)
+
+* Added a JSON section to varnish-cli(7) (2783_)
+
+* Improved varnish log client performance (2788_)
+
+* Change nanosecond precision timestamps into microseconds (2792_)
+
+* Only dlclose() Vmods after all "fini" processing (2800_)
+
+* Fix VRT_priv_task for calls from vcl_pipe {} and test for it (2820_)
+
+* Shard director: For warmup/rampup, only consider healthy backends
+  (2823_)
+
+.. _2418: https://github.com/varnishcache/varnish-cache/issues/2418
+.. _2589: https://github.com/varnishcache/varnish-cache/issues/2589
+.. _2654: https://github.com/varnishcache/varnish-cache/issues/2654
+.. _2663: https://github.com/varnishcache/varnish-cache/pull/2663
+.. _2668: https://github.com/varnishcache/varnish-cache/issues/2668
+.. _2694: https://github.com/varnishcache/varnish-cache/issues/2694
+.. _2696: https://github.com/varnishcache/varnish-cache/issues/2696
+.. _2708: https://github.com/varnishcache/varnish-cache/issues/2708
+.. _2713: https://github.com/varnishcache/varnish-cache/issues/2713
+.. _2744: https://github.com/varnishcache/varnish-cache/pull/2744
+.. _2745: https://github.com/varnishcache/varnish-cache/issues/2745
+.. _2746: https://github.com/varnishcache/varnish-cache/issues/2746
+.. _2749: https://github.com/varnishcache/varnish-cache/issues/2749
+.. _2754: https://github.com/varnishcache/varnish-cache/issues/2754
+.. _2760: https://github.com/varnishcache/varnish-cache/pull/2760
+.. _2763: https://github.com/varnishcache/varnish-cache/issues/2763
+.. _2768: https://github.com/varnishcache/varnish-cache/issues/2768
+.. _2773: https://github.com/varnishcache/varnish-cache/issues/2773
+.. _2775: https://github.com/varnishcache/varnish-cache/issues/2775
+.. _2777: https://github.com/varnishcache/varnish-cache/issues/2777
+.. _2780: https://github.com/varnishcache/varnish-cache/issues/2780
+.. _2781: https://github.com/varnishcache/varnish-cache/pull/2781
+.. _2782: https://github.com/varnishcache/varnish-cache/issues/2782
+.. _2783: https://github.com/varnishcache/varnish-cache/issues/2783
+.. _2787: https://github.com/varnishcache/varnish-cache/issues/2787
+.. _2788: https://github.com/varnishcache/varnish-cache/issues/2788
+.. _2792: https://github.com/varnishcache/varnish-cache/pull/2792
+.. _2794: https://github.com/varnishcache/varnish-cache/issues/2794
+.. _2800: https://github.com/varnishcache/varnish-cache/issues/2800
+.. _2820: https://github.com/varnishcache/varnish-cache/issues/2820
+.. _2823: https://github.com/varnishcache/varnish-cache/issues/2823
+
+
+================================
+Varnish Cache 6.0.1 (2018-08-29)
+================================
+
+* Added std.fnmatch() (2737_)
+* The variable req.grace is back. (2705_)
+* Importing the same VMOD multiple times is now allowed, if the file_id
+  is identical.
+
+.. _2705: https://github.com/varnishcache/varnish-cache/pull/2705
+.. _2737: https://github.com/varnishcache/varnish-cache/pull/2737
+
+varnishstat
+-----------
+
+* The counters
+
+  * ``sess_fail_econnaborted``
+  * ``sess_fail_eintr``
+  * ``sess_fail_emfile``
+  * ``sess_fail_ebadf``
+  * ``sess_fail_enomem``
+  * ``sess_fail_other``
+
+  now break down the detailed reason for session accept failures, the
+  sum of which continues to be counted in ``sess_fail``.
+
+VCL and bundled VMODs
+---------------------
+
+* VMOD unix now supports the ``getpeerucred(3)`` case.
+
+bundled tools
+-------------
+
+* ``varnishhist``: The format of the ``-P`` argument has been changed
+  for custom profile definitions to also contain a prefix to match the
+  tag against.
+
+* ``varnishtest``: syslog instances now have to start with a capital S.
+
+Fixed bugs which may influence VCL behavior
+--------------------------------------------
+
+* When an object is out of grace but in keep, the client context goes
+  straight to vcl_miss instead of vcl_hit. The documentation has been
+  updated accordingly. (2705_)
+
+Fixed bugs
+----------
+
+* Several H2 bugs (2285_, 2572_, 2623_, 2624_, 2679_, 2690_, 2693_)
+* Make large integers work in VCL. (2603_)
+* Print usage on unknown or missing arguments (2608_)
+* Assert error in VPX_Send_Proxy() with proxy backends in pipe mode
+  (2613_)
+* Holddown times for certain backend connection errors (2622_)
+* Enforce Host requirement for HTTP/1.1 requests (2631_)
+* Introduction of '-' CLI prefix allowed empty commands to sneak
+  through. (2647_)
+* VUT apps can be stopped cleanly via vtc process -stop (2649_, 2650_)
+* VUT apps fail gracefully when removing a PID file fails
+* varnishd startup log should mention version (2661_)
+* In curses mode, always filter in the counters necessary for the
+  header lines. (2678_)
+* Assert error in ban_lurker_getfirst() (2681_)
+* Missing command entries in varnishadm help menu (2682_)
+* Handle string literal concatenation correctly (2685_)
+* varnishtop -1 does not work as documented (2686_)
+* Handle sigbus like sigsegv (2693_)
+* Panic on return (retry) of a conditional fetch (2700_)
+* Wrong turn at cache/cache_backend_probe.c:255: Unknown family
+  (2702_, 2726_)
+* VCL failure causes TASK_PRIV reference on reset workspace (2706_)
+* Accurate ban statistics except for a few remaining corner cases
+  (2716_)
+* Assert error in vca_make_session() (2719_)
+* Assert error in vca_tcp_opt_set() (2722_)
+* VCL compiling error on parenthesis (2727_)
+* Assert error in HTC_RxPipeline() (2731_)
+
+.. _2285: https://github.com/varnishcache/varnish-cache/issues/2285
+.. _2572: https://github.com/varnishcache/varnish-cache/issues/2572
+.. _2603: https://github.com/varnishcache/varnish-cache/issues/2603
+.. _2608: https://github.com/varnishcache/varnish-cache/issues/2608
+.. _2613: https://github.com/varnishcache/varnish-cache/issues/2613
+.. _2622: https://github.com/varnishcache/varnish-cache/issues/2622
+.. _2623: https://github.com/varnishcache/varnish-cache/issues/2623
+.. _2624: https://github.com/varnishcache/varnish-cache/issues/2624
+.. _2631: https://github.com/varnishcache/varnish-cache/issues/2631
+.. _2647: https://github.com/varnishcache/varnish-cache/issues/2647
+.. _2649: https://github.com/varnishcache/varnish-cache/issues/2649
+.. _2650: https://github.com/varnishcache/varnish-cache/pull/2650
+.. _2651: https://github.com/varnishcache/varnish-cache/pull/2651
+.. _2661: https://github.com/varnishcache/varnish-cache/issues/2661
+.. _2678: https://github.com/varnishcache/varnish-cache/issues/2678
+.. _2679: https://github.com/varnishcache/varnish-cache/issues/2679
+.. _2681: https://github.com/varnishcache/varnish-cache/issues/2681
+.. _2682: https://github.com/varnishcache/varnish-cache/issues/2682
+.. _2685: https://github.com/varnishcache/varnish-cache/issues/2685
+.. _2686: https://github.com/varnishcache/varnish-cache/issues/2686
+.. _2690: https://github.com/varnishcache/varnish-cache/issues/2690
+.. _2693: https://github.com/varnishcache/varnish-cache/issues/2693
+.. _2695: https://github.com/varnishcache/varnish-cache/issues/2695
+.. _2700: https://github.com/varnishcache/varnish-cache/issues/2700
+.. _2702: https://github.com/varnishcache/varnish-cache/issues/2702
+.. _2706: https://github.com/varnishcache/varnish-cache/issues/2706
+.. _2716: https://github.com/varnishcache/varnish-cache/issues/2716
+.. _2719: https://github.com/varnishcache/varnish-cache/issues/2719
+.. _2722: https://github.com/varnishcache/varnish-cache/issues/2722
+.. _2726: https://github.com/varnishcache/varnish-cache/pull/2726
+.. _2727: https://github.com/varnishcache/varnish-cache/issues/2727
+.. _2731: https://github.com/varnishcache/varnish-cache/issues/2731
+
+================================
+Varnish Cache 6.0.0 (2018-03-15)
+================================
+
+Usage
+-----
+
+* Fixed implementation of the ``max_restarts`` limit: It used to be one
+  less than the number of allowed restarts, it now is the number of
+  ``return(restart)`` calls per request.
+
+* The ``cli_buffer`` parameter has been removed
+
+* Added back ``umem`` storage for Solaris descendants
+
+* The new storage backend type (stevedore) ``default`` now resolves to
+  either ``umem`` (where available) or ``malloc``.
+
+* Since varnish 4.1, the thread workspace as configured by
+  ``workspace_thread`` was not used as documented, delivery also used
+  the client workspace.
+
+  We are now taking delivery IO vectors from the thread workspace, so
+  the parameter documentation is in sync with reality again.
+
+  Users who need to minimize memory footprint might consider
+  decreasing ``workspace_client`` by ``workspace_thread``.
+
+* The new parameter ``esi_iovs`` configures the amount of IO vectors
+  used during ESI delivery. It should not be tuned unless advised by a
+  developer.
+
+* Support Unix domain sockets for the ``-a`` and ``-b`` command-line
+  arguments, and for backend declarations. This requires VCL >= 4.1.
+
+VCL and bundled VMODs
+---------------------
+
+* ``return (fetch)`` is no longer allowed in ``vcl_hit {}``, use
+  ``return (miss)`` instead. Note that ``return (fetch)`` has been
+  deprecated since 4.0.
+
+* Fix behaviour of restarts to how it was originally intended:
+  Restarts now leave all the request properties in place except for
+  ``req.restarts`` and ``req.xid``, which need to change by design.
+
+* ``req.storage``, ``req.hash_ignore_busy`` and
+  ``req.hash_always_miss`` are now accessible from all of the client
+  side subs, not just ``vcl_recv{}``
+
+* ``obj.storage`` is now available in ``vcl_hit{}`` and ``vcl_deliver{}``.
+
+* Removed ``beresp.storage_hint`` for VCL 4.1 (was deprecated since
+  Varnish 5.1)
+
+  For VCL 4.0, compatibility is preserved, but the implementation is
+  changed slightly: ``beresp.storage_hint`` is now referring to the
+  same internal data structure as ``beresp.storage``.
+
+  In particular, it was previously possible to set
+  ``beresp.storage_hint`` to an invalid storage name and later
+  retrieve it back. Doing so will now yield the last successfully set
+  stevedore or the undefined (``NULL``) string.
+
+* IP-valued elements of VCL are equivalent to ``0.0.0.0:0`` when the
+  connection in question was addressed as a UDS. This is implemented
+  with the ``bogo_ip`` in ``vsa.c``.
+
+* ``beresp.backend.ip`` is retired as of VCL 4.1.
+
+* workspace overflows in ``std.log()`` now trigger a VCL failure.
+
+* workspace overflows in ``std.syslog()`` are ignored.
+
+* added ``return(restart)`` from ``vcl_recv{}``.
+
+* The ``alg`` argument of the ``shard`` director ``.reconfigure()``
+  method has been removed - the consistent hashing ring is now always
+  generated using the last 32 bits of a SHA256 hash of ``"ident%d"``
+  as with ``alg=SHA256`` or the default.
+
+  We believe that the other algorithms did not yield sufficiently
+  dispersed placement of backends on the consistent hashing ring and
+  thus retire this option without replacement.
+
+  Users of ``.reconfigure(alg=CRC32)`` or ``.reconfigure(alg=RS)`` be
+  advised that when upgrading and removing the ``alg`` argument,
+  consistent hashing values for all backends will change once and only
+  once.
+
+* The ``alg`` argument of the ``shard`` director ``.key()`` method has
+  been removed - it now always hashes its arguments using SHA256 and
+  returns the last 32 bits for use as a shard key.
+
+  Backwards compatibility is provided through `vmod blobdigest`_ with
+  the ``key_blob`` argument of the ``shard`` director ``.backend()``
+  method:
+
+  * for ``alg=CRC32``, replace::
+
+      <dir>.backend(by=KEY, key=<dir>.key(<string>, CRC32))
+
+    with::
+
+      <dir>.backend(by=BLOB, key_blob=blobdigest.hash(ICRC32,
+	blob.decode(encoded=<string>)))
+
+    `Note:` The `vmod blobdigest`_ hash method corresponding to the
+    shard director CRC32 method is called **I**\ CRC32
+
+.. _vmod blobdigest: https://code.uplex.de/uplex-varnish/libvmod-blobdigest/blob/master/README.rst
+
+  * for ``alg=RS``, replace::
+
+      <dir>.backend(by=KEY, key=<dir>.key(<string>, RS))
+
+    with::
+
+      <dir>.backend(by=BLOB, key_blob=blobdigest.hash(RS,
+	blob.decode(encoded=<string>)))
+
+* The ``shard`` director now offers resolution at the time the actual
+  backend connection is made, which is how all other bundled directors
+  work as well: With the ``resolve=LAZY`` argument, other shard
+  parameters are saved for later reference and a director object is
+  returned.
+
+  This enables layering the shard director below other directors.
+
+* The ``shard`` director now also supports getting other parameters
+  from a parameter set object: Rather than passing the required
+  parameters with each ``.backend()`` call, an object can be
+  associated with a shard director defining the parameters. The
+  association can be changed in ``vcl_backend_fetch()`` and individual
+  parameters can be overridden in each ``.backend()`` call.
+
+  The main use case is to segregate shard parameters from director
+  selection: By associating a parameter object with many directors,
+  the same load balancing decision can easily be applied independent
+  of which set of backends is to be used.
+
+* To support parameter overriding, support for positional arguments of
+  the shard director ``.backend()`` method had to be removed. In other
+  words, all parameters to the shard director ``.backend()`` method
+  now need to be named.
+
+* Integers in VCL are now 64 bits wide across all platforms
+  (implemented as ``int64_t`` C type), but due to implementation
+  specifics of the VCL compiler (VCC), integer literals' precision is
+  limited to that of a VCL real (``double`` C type, roughly 53 bits).
+
+  In effect, larger integers are not represented accurately (they get
+  rounded) and may even have their sign changed or trigger a C
+  compiler warning / error.
+
+* Add VMOD unix.
+
+* Add VMOD proxy.
+
+Logging / statistics
+--------------------
+
+* Turned off PROXY protocol debugging by default, can be enabled with
+  the ``protocol`` debug flag.
+
+* added ``cache_hit_grace`` statistics counter.
+
+* added ``n_lru_limited`` counter.
+
+* The byte counters in ReqAcct now show the numbers reported from the
+  operating system rather than what we anticipated to send. This will give
+  more accurate numbers when e.g. the client hung up early without
+  receiving the entire response. Also these counters now show how many
+  bytes was attributed to the body, including any protocol overhead (ie
+  chunked encoding).
+
+bundled tools
+-------------
+
+* ``varnishncsa`` refuses output formats (as defined with the ``-F``
+  command line argument) for tags which could contain control or
+  binary characters. At the time of writing, these are:
+  ``%{H2RxHdr}x``, ``%{H2RxBody}x``, ``%{H2TxHdr}x``, ``%{H2TxBody}x``,
+  ``%{Debug}x``, ``%{HttpGarbage}x`` and ``%{Hash}x``
+
+* The vtc ``server -listen`` command supports UDS addresses, as does
+  the ``client -connect`` command. vtc ``remote.path`` and
+  ``remote.port`` have the values ``0.0.0.0`` and ``0`` when the peer
+  address is UDS. Added ``remote.path`` to vtc, whose value is the
+  path when the address is UDS, and NULL (matching <undef>) for IP
+  addresses.
+
+C APIs (for vmod and utility authors)
+-------------------------------------
+
+* We have now defined three API Stability levels: ``VRT``,
+  ``PACKAGE``, ``SOURCE``.
+
+* New API namespace rules, see `phk_api_spaces_`
+
+* Rules for including API headers have been changed:
+  * many headers can now only be included once
+  * some headers require specific include ordering
+  * only ``cache.h`` _or_ ``vrt.h`` can be included
+
+* Signatures of functions in the VLU API for bytestream into text
+  serialization have been changed
+
+* vcl.h now contains convenience macros ``VCL_MET_TASK_B``,
+  ``VCL_MET_TASK_C`` and ``VCL_MET_TASK_H`` for checking
+  ``ctx->method`` for backend, client and housekeeping
+  (vcl_init/vcl_fini) task context
+
+* vcc files can now contain a ``$Prefix`` stanza to define the prefix
+  for vmod function names (which was fixed to ``vmod`` before)
+
+* vcc files can contain a ``$Synopsis`` stanza with one of the values
+  ``auto`` or ``manual``, default ``auto``. With ``auto``, a more
+  comprehensive SYNOPSIS is generated in the doc output with an
+  overview of objects, methods, functions and their signatures. With
+  ``manual``, the auto-SYNOPSIS is left out, for VMOD authors who
+  prefer to write their own.
+
+* All Varnish internal ``SHA256*`` symbols have been renamed to
+  ``VSHA256*``
+
+* libvarnish now has ``VNUM_duration()`` to convert from a VCL
+  duration like 4h or 5s
+
+* director health state queries have been merged to ``VRT_Healthy()``
+
+* Renamed macros:
+  * ``__match_proto__()`` -> ``v_matchproto_()``
+  * ``__v_printflike()`` -> ``v_printflike_()``
+  * ``__state_variable__()`` -> ``v_statevariable_()``
+  * ``__unused`` -> ``v_unused_``
+  * ``__attribute__((__noreturn__)`` -> ``v_noreturn_``
+
+* ENUMs are now fixed pointers per vcl.
+
+* Added ``VRT_blob()`` utility function to create a blob as a copy
+  of some chunk of data on the workspace.
+
+* Directors now have their own admin health information and always need to
+  have the ``(struct director).admin_health`` initialized to
+  ``VDI_AH_*`` (usually ``VDI_AH_HEALTHY``).
+
+Other changes relevant for VMODs
+--------------------------------
+
+* ``PRIV_*`` function/method arguments are not excluded from
+  auto-generated vmod documentation.
+
+Fixed bugs which may influence VCL behaviour
+--------------------------------------------
+
+* After reusing a backend connection fails once, a fresh connection
+  will be opened (2135_).
+
+.. _2135: https://github.com/varnishcache/varnish-cache/pull/2135
+
+Fixed bugs
+----------
+
+* Honor first_byte_timeout for recycled backend connections. (1772_)
+
+* Limit backend connection retries to a single retry (2135_)
+
+* H2: Move the req-specific PRIV pointers to struct req. (2268_)
+
+* H2: Don't panic if we reembark with a request body (2305_)
+
+* Clear the objcore attributes flags when (re)initializing an stv object. (2319_)
+
+* H2: Fail streams with missing :method or :path. (2351_)
+
+* H2: Enforce sequence requirement of header block frames. (2387_)
+
+* H2: Hold the sess mutex when evaluating r2->cond. (2434_)
+
+* Use the idle read timeout only on empty requests. (2492_)
+
+* OH leak in http1_reembark. (2495_)
+
+* Fix objcore reference count leak. (2502_)
+
+* Close a race between backend probe and vcl.state=Cold by removing
+  the be->vsc under backend mtx. (2505_)
+
+* Fail gracefully if shard.backend() is called in housekeeping subs (2506_)
+
+* Fix issue #1799 for keep. (2519_)
+
+* oc->last_lru as float gives too little precision. (2527_)
+
+* H2: Don't HTC_RxStuff with a non-reserved workspace. (2539_)
+
+* Various optimizations of VSM. (2430_, 2470_, 2518_, 2535_, 2541_, 2545_, 2546_)
+
+* Problems during late socket initialization performed by the Varnish
+  child process can now be reported back to the management process with an
+  error message. (2551_)
+
+* Fail if ESI is attempted on partial (206) objects.
+
+* Assert error in ban_mark_completed() - ban lurker edge case. (2556_)
+
+* Accurate byte counters (2558_). See Logging / statistics above.
+
+* H2: Fix reembark failure handling. (2563_ and 2592_)
+
+* Working directory permissions insufficient when starting with
+  umask 027. (2570_)
+
+* Always use HTTP/1.1 on backend connections for pass & fetch. (2574_)
+
+* EPIPE is a documented errno in tcp(7) on linux. (2582_)
+
+* H2: Handle failed write(2) in h2_ou_session. (2607_)
+
+.. _1772: https://github.com/varnishcache/varnish-cache/issues/1772
+.. _2135: https://github.com/varnishcache/varnish-cache/pull/2135
+.. _2268: https://github.com/varnishcache/varnish-cache/issues/2268
+.. _2305: https://github.com/varnishcache/varnish-cache/issues/2305
+.. _2319: https://github.com/varnishcache/varnish-cache/issues/2319
+.. _2351: https://github.com/varnishcache/varnish-cache/issues/2351
+.. _2387: https://github.com/varnishcache/varnish-cache/issues/2387
+.. _2430: https://github.com/varnishcache/varnish-cache/issues/2430
+.. _2434: https://github.com/varnishcache/varnish-cache/issues/2434
+.. _2470: https://github.com/varnishcache/varnish-cache/issues/2470
+.. _2492: https://github.com/varnishcache/varnish-cache/issues/2492
+.. _2495: https://github.com/varnishcache/varnish-cache/issues/2495
+.. _2502: https://github.com/varnishcache/varnish-cache/issues/2502
+.. _2505: https://github.com/varnishcache/varnish-cache/issues/2505
+.. _2506: https://github.com/varnishcache/varnish-cache/issues/2506
+.. _2518: https://github.com/varnishcache/varnish-cache/issues/2518
+.. _2519: https://github.com/varnishcache/varnish-cache/pull/2519
+.. _2527: https://github.com/varnishcache/varnish-cache/issues/2527
+.. _2535: https://github.com/varnishcache/varnish-cache/issues/2535
+.. _2539: https://github.com/varnishcache/varnish-cache/issues/2539
+.. _2541: https://github.com/varnishcache/varnish-cache/issues/2541
+.. _2545: https://github.com/varnishcache/varnish-cache/pull/2545
+.. _2546: https://github.com/varnishcache/varnish-cache/issues/2546
+.. _2551: https://github.com/varnishcache/varnish-cache/issues/2551
+.. _2554: https://github.com/varnishcache/varnish-cache/pull/2554
+.. _2556: https://github.com/varnishcache/varnish-cache/issues/2556
+.. _2558: https://github.com/varnishcache/varnish-cache/pull/2558
+.. _2563: https://github.com/varnishcache/varnish-cache/issues/2563
+.. _2570: https://github.com/varnishcache/varnish-cache/issues/2570
+.. _2574: https://github.com/varnishcache/varnish-cache/issues/2574
+.. _2582: https://github.com/varnishcache/varnish-cache/issues/2582
+.. _2592: https://github.com/varnishcache/varnish-cache/issues/2592
+.. _2607: https://github.com/varnishcache/varnish-cache/issues/2607
+
+================================
+Varnish Cache 5.2.1 (2017-11-14)
+================================
+
+Bugs fixed
+----------
+
+* 2429_ - Avoid buffer read overflow on vcl_backend_error and -sfile
+* 2492_ - Use the idle read timeout only on empty requests.
+
+.. _2429: https://github.com/varnishcache/varnish-cache/pull/2429
+.. _2492: https://github.com/varnishcache/varnish-cache/issues/2492
+
+================================
+Varnish Cache 5.2.0 (2017-09-15)
+================================
+
+* The ``cli_buffer`` parameter has been deprecated (2382_)
+
+.. _2382: https://github.com/varnishcache/varnish-cache/pull/2382
+
+==================================
+Varnish Cache 5.2-RC1 (2017-09-04)
+==================================
+
+Usage
+-----
+
+* The default for the the -i argument is now the hostname as returned
+  by gethostname(3)
+
+* Where possible (on platforms with setproctitle(3)), the -i argument
+  rather than the -n argument is used for process names
+
+* varnishd -f honors ``vcl_path`` (#2342)
+
+* The ``MAIN.s_req`` statistic has been removed, as it was identical to
+  ``MAIN.client_req``. VSM consumers should be changed to use the
+  latter if necessary.
+
+* A listen address can take a name in the -a argument. This name is used
+  in the logs and later will possibly be available in VCL.
+
+VCL
+---
+
+* VRT_purge fails a transaction if used outside of ``vcl_hit`` and
+  ``vcl_miss`` (#2339)
+
+* Added ``bereq.is_bgfetch`` which is true for background fetches.
+
+* Added VMOD purge (#2404)
+
+* Added VMOD blob (#2407)
+
+C APIs (for vmod and utility authors)
+-------------------------------------
+
+* The VSM API for accessing the shared memory segment has been
+  totally rewritten.  Things should be simpler and more general.
+
+* VSC shared memory layout has changed and the VSC API updated
+  to match it.  This paves the way for user defined VSC counters
+  in VMODS and later possibly also in VCL.
+
+* New vmod vtc for advanced varnishtest usage (#2276)
+
 ================================
 Varnish Cache 5.1.3 (2017-08-02)
 ================================
@@ -317,6 +1182,139 @@ News for Vmod Authors
 
 * PRIV_* now also work for object methods with unchanged scope.
 
+================================
+Varnish Cache 4.1.9 (2017-11-14)
+================================
+
+Changes since 4.1.8:
+
+* Added ``bereq.is_bgfetch`` which is true for background fetches.
+* Add the vtc feature ignore_unknown_macro.
+* Expose to VCL whether or not a fetch is a background fetch (bgfetch)
+* Ignore req.ttl when keeping track of expired objects (see 2422_)
+* Move a cli buffer to VSB (from stack).
+* Use a separate stack for signals.
+
+.. _2422: https://github.com/varnishcache/varnish-cache/pull/2422
+
+Bugs fixed
+----------
+
+* 2337_ and 2366_ - Both Upgrade and Connection headers are needed for
+  WebSocket now
+* 2372_ - Fix problem with purging and the n_obj_purged counter
+* 2373_ - VSC n_vcl, n_vcl_avail, n_vcl_discard are gauge
+* 2380_ - Correct regexp in examples.
+* 2390_ - Straighten locking wrt vcl_active
+* 2429_ - Avoid buffer read overflow on vcl_backend_error and -sfile
+* 2492_ - Use the idle read timeout only on empty requests
+
+.. _2337: https://github.com/varnishcache/varnish-cache/issues/2337
+.. _2366: https://github.com/varnishcache/varnish-cache/issues/2366
+.. _2372: https://github.com/varnishcache/varnish-cache/pull/2372
+.. _2373: https://github.com/varnishcache/varnish-cache/issues/2373
+.. _2380: https://github.com/varnishcache/varnish-cache/issues/2380
+.. _2390: https://github.com/varnishcache/varnish-cache/issues/2390
+.. _2429: https://github.com/varnishcache/varnish-cache/pull/2429
+.. _2492: https://github.com/varnishcache/varnish-cache/issues/2492
+
+================================
+Varnish Cache 4.1.8 (2017-08-02)
+================================
+
+Changes since 4.1.7:
+
+* Update in the documentation of timestamps
+
+Bugs fixed
+----------
+
+* 2379_ - Correctly handle bogusly large chunk sizes (VSV00001)
+
+.. _2379: https://github.com/varnishcache/varnish-cache/issues/2379
+
+================================
+Varnish Cache 4.1.7 (2017-06-28)
+================================
+
+Changes since 4.1.7-beta1:
+
+* Add extra locking to protect the pools list and refcounts
+* Don't panic on a null ban
+
+Bugs fixed
+----------
+
+* 2321_ - Prevent storage backends name collisions
+
+.. _2321: https://github.com/varnishcache/varnish-cache/issues/2321
+
+======================================
+Varnish Cache 4.1.7-beta1 (2017-06-15)
+======================================
+
+Changes since 4.1.6:
+
+* Add -vsl_catchup to varnishtest
+* Add record-prefix support to varnishncsa
+
+Bugs fixed
+----------
+* 1764_ - Correctly honor nuke_limit parameter
+* 2022_ - varnishstat -1 -f field inclusion glob doesn't allow VBE
+  backend fields
+* 2069_ - Health probes fail when HTTP response does not contain
+  reason phrase
+* 2118_ - "varnishstat -f MAIN.sess_conn -1" produces empty output
+* 2219_ - Remember to reset workspace
+* 2320_ - Rework and fix varnishstat counter filtering
+* 2329_ - Docfix: Only root can jail
+
+.. _1764: https://github.com/varnishcache/varnish-cache/issues/1764
+.. _2022: https://github.com/varnishcache/varnish-cache/issues/2022
+.. _2069: https://github.com/varnishcache/varnish-cache/issues/2069
+.. _2118: https://github.com/varnishcache/varnish-cache/issues/2118
+.. _2219: https://github.com/varnishcache/varnish-cache/issues/2219
+.. _2320: https://github.com/varnishcache/varnish-cache/issues/2320
+.. _2329: https://github.com/varnishcache/varnish-cache/issues/2329
+
+================================
+Varnish Cache 4.1.6 (2017-04-26)
+================================
+
+* Introduce a vxid left hand side for VSL queries. This allows
+  matching on records matching a known vxid.
+* Environment variables are now available in the stdandard VMOD;
+  std.getenv()
+* Add setenv command to varnishtest
+
+
+Bugs fixed
+----------
+* 2200_ - Dramatically simplify VEV, fix assert in vev.c
+* 2216_ - Make sure Age is always less than max-age
+* 2233_ - Correct check when parsing the query string
+* 2241_ - VSL fails to get hold of SHM
+* 2270_ - Newly loaded auto VCLs don't get their go_cold timer set
+* 2273_ - Master cooling problem
+* 2275_ - If the client workspace is almost, but not quite exhaused, we may
+  not be able to get enough iovec's to do Chunked transmission.
+* 2295_ - Spinning loop in VBE_Poll causes master to kill child on
+  CLI timeout
+* 2301_ - Don't attempt to check if varnishd is still running if we have
+  already failed.
+* 2313_ - Cannot link to varnishapi, symbols missing
+
+.. _2200: https://github.com/varnishcache/varnish-cache/issues/2200
+.. _2216: https://github.com/varnishcache/varnish-cache/pull/2216
+.. _2233: https://github.com/varnishcache/varnish-cache/issues/2233
+.. _2241: https://github.com/varnishcache/varnish-cache/issues/2241
+.. _2270: https://github.com/varnishcache/varnish-cache/issues/2270
+.. _2273: https://github.com/varnishcache/varnish-cache/pull/2273
+.. _2275: https://github.com/varnishcache/varnish-cache/issues/2275
+.. _2295: https://github.com/varnishcache/varnish-cache/issues/2295
+.. _2301: https://github.com/varnishcache/varnish-cache/issues/2301
+.. _2313: https://github.com/varnishcache/varnish-cache/issues/2313
 
 ================================
 Varnish Cache 4.1.5 (2017-02-09)
@@ -443,7 +1441,7 @@ Bugs fixed
 * 2024_ - panic vmod_rr_resolve() round_robin.c line 75 (be) != NULL
 * 2011_ - VBE.*.conn (concurrent connections to backend) not working as expected
 * 2008_ - Assert error in VBE_Delete()
-* 2007_ - Update documentation part about CLI/management port authentication paramater
+* 2007_ - Update documentation part about CLI/management port authentication parameter
 * 1881_ - std.cache_req_body() w/ return(pipe) is broken
 
 .. _2027: https://github.com/varnishcache/varnish-cache/issues/2027

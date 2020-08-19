@@ -30,33 +30,30 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 
 #include <ctype.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 #include "vtc.h"
 
-#include "vdef.h"
 #include "vev.h"
 #include "vfil.h"
 #include "vnum.h"
-#include "vqueue.h"
 #include "vrnd.h"
-#include "vsa.h"
 #include "vss.h"
 #include "vsub.h"
 #include "vtcp.h"
 #include "vtim.h"
 #include "vct.h"
+
+static const char *argv0;
 
 struct vtc_tst {
 	unsigned		magic;
@@ -84,10 +81,10 @@ struct vtc_job {
 
 int iflg = 0;
 unsigned vtc_maxdur = 60;
-static unsigned vtc_bufsiz = 512 * 1024;
+static unsigned vtc_bufsiz = 1024 * 1024;
 
 static VTAILQ_HEAD(, vtc_tst) tst_head = VTAILQ_HEAD_INITIALIZER(tst_head);
-static struct vev_base *vb;
+static struct vev_root *vb;
 static int njob = 0;
 static int npar = 1;			/* Number of parallel tests */
 static int vtc_continue;		/* Continue on error */
@@ -101,7 +98,6 @@ char *vmod_path = NULL;
 struct vsb *params_vsb = NULL;
 int leave_temp;
 int vtc_witness = 0;
-int feature_dns;
 
 /**********************************************************************
  * Parse a -D option argument into a name/val pair, and insert
@@ -130,10 +126,10 @@ parse_D_opt(char *arg)
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: varnishtest [options] file ...\n");
+	fprintf(stderr, "usage: %s [options] file ...\n", argv0);
 #define FMT "    %-28s # %s\n"
 	fprintf(stderr, FMT, "-b size",
-	    "Set internal buffer size (default: 512K)");
+	    "Set internal buffer size (default: 1M)");
 	fprintf(stderr, FMT, "-D name=val", "Define macro");
 	fprintf(stderr, FMT, "-i", "Find varnish binaries in build tree");
 	fprintf(stderr, FMT, "-j jobs", "Run this many tests in parallel");
@@ -146,7 +142,6 @@ usage(void)
 	fprintf(stderr, FMT, "-t duration", "Time tests out after this long");
 	fprintf(stderr, FMT, "-v", "Verbose mode: always report test log");
 	fprintf(stderr, FMT, "-W", "Enable the witness facility for locking");
-	fprintf(stderr, "\n");
 	exit(1);
 }
 
@@ -172,9 +167,9 @@ tst_cb(const struct vev *ve, int what)
 	// printf("CB %p %s %d\n", ve, jp->tst->filename, what);
 	if (what == 0) {
 		jp->killed = 1;
-		AZ(kill(jp->child, SIGKILL)); /* XXX: Timeout */
+		AZ(kill(-jp->child, SIGKILL)); /* XXX: Timeout */
 	} else {
-		assert(what & (EV_RD | EV_HUP));
+		assert(what & (VEV__RD | VEV__HUP));
 	}
 
 	*buf = '\0';
@@ -247,9 +242,10 @@ tst_cb(const struct vev *ve, int what)
 			    jp->tst->filename,
 			    ecode ? "skipped" : "passed", t);
 		}
-		if (jp->evt != NULL)
-			vev_del(vb, jp->evt);
-
+		if (jp->evt != NULL) {
+			VEV_Stop(vb, jp->evt);
+			free(jp->evt);
+		}
 		FREE_OBJ(jp);
 		return (1);
 	}
@@ -305,6 +301,7 @@ start_test(void)
 	jp->child = fork();
 	assert(jp->child >= 0);
 	if (jp->child == 0) {
+		AZ(setpgid(getpid(), 0));
 		VFIL_null_fd(STDIN_FILENO);
 		assert(dup2(p[1], STDOUT_FILENO) == STDOUT_FILENO);
 		assert(dup2(p[1], STDERR_FILENO) == STDERR_FILENO);
@@ -315,21 +312,21 @@ start_test(void)
 	}
 	closefd(&p[1]);
 
-	jp->ev = vev_new();
+	jp->ev = VEV_Alloc();
 	AN(jp->ev);
-	jp->ev->fd_flags = EV_RD | EV_HUP | EV_ERR;
+	jp->ev->fd_flags = VEV__RD | VEV__HUP | VEV__ERR;
 	jp->ev->fd = p[0];
 	jp->ev->priv = jp;
 	jp->ev->callback = tst_cb;
-	AZ(vev_add(vb, jp->ev));
+	AZ(VEV_Start(vb, jp->ev));
 
-	jp->evt = vev_new();
+	jp->evt = VEV_Alloc();
 	AN(jp->evt);
 	jp->evt->fd = -1;
 	jp->evt->timeout = vtc_maxdur;
 	jp->evt->priv = jp;
 	jp->evt->callback = tst_cb;
-	AZ(vev_add(vb, jp->evt));
+	AZ(VEV_Start(vb, jp->evt));
 }
 
 /**********************************************************************
@@ -430,58 +427,18 @@ i_mode(void)
 	/*
 	 * strict jemalloc checking
 	 */
-	AZ(putenv(strdup("MALLOC_CONF=abort:true,redzone:true,junk:true")));
-}
-
-/**********************************************************************
- * Most test-cases use only numeric IP#'s but a few requires non-demented
- * DNS services.  This is a basic sanity check for those.
- */
-
-static int __match_proto__(vss_resolved_f)
-dns_cb(void *priv, const struct suckaddr *sa)
-{
-	char abuf[VTCP_ADDRBUFSIZE];
-	char pbuf[VTCP_PORTBUFSIZE];
-	int *ret = priv;
-
-	VTCP_name(sa, abuf, sizeof abuf, pbuf, sizeof pbuf);
-	if (strcmp(abuf, "130.225.244.222")) {
-		fprintf(stderr, "DNS-test: Wrong response: %s\n", abuf);
-		*ret = -1;
-	} else if (*ret == 0)
-		*ret = 1;
-	return (0);
-}
-
-static int
-dns_works(void)
-{
-	int ret = 0, error;
-	const char *msg;
-
-	error = VSS_resolver("phk.freebsd.dk", NULL, dns_cb, &ret, &msg);
-	if (error || msg != NULL || ret != 1)
-		return (0);
-	return (1);
+	AZ(putenv(strdup("MALLOC_CONF=abort:true,junk:true")));
 }
 
 /**********************************************************************
  * Figure out what IP related magic
  */
 
-static int __match_proto__(vss_resolved_f)
-bind_cb(void *priv, const struct suckaddr *sa)
-{
-	(void)priv;
-	return (VTCP_bind(sa, NULL));
-}
-
 static void
 ip_magic(void)
 {
-	const char *p;
 	int fd;
+	struct suckaddr *sa;
 	char abuf[VTCP_ADDRBUFSIZE];
 	char pbuf[VTCP_PORTBUFSIZE];
 
@@ -492,10 +449,21 @@ ip_magic(void)
 	 * XXX: "localhost", but that doesn't work out of the box.
 	 * XXX: Things like "prefer_ipv6" parameter complicates things.
 	 */
-	fd = VSS_resolver("127.0.0.1", NULL, &bind_cb, NULL, &p);
+	sa = VSS_ResolveOne(NULL, "127.0.0.1", "0", 0, SOCK_STREAM, 0);
+	AN(sa);
+	fd = VTCP_bind(sa, NULL);
 	assert(fd >= 0);
 	VTCP_myname(fd, abuf, sizeof abuf, pbuf, sizeof(pbuf));
 	extmacro_def("localhost", "%s", abuf);
+
+#if defined (__APPLE__)
+	/*
+	 * In MacOS a bound socket that is not listening will timeout
+	 * instead of refusing the connection so close it and hope
+	 * for the best.
+	 */
+	VTCP_close(&fd);
+#endif
 
 	/* Expose a backend that is forever down. */
 	extmacro_def("bad_backend", "%s %s", abuf, pbuf);
@@ -533,6 +501,8 @@ read_file(const char *fn, int ntest)
 		if (*q != '#')
 			break;
 		q = strchr(q, '\n');
+		if (q == NULL)
+			break;
 	}
 
 	if (q == NULL || *q == '\0') {
@@ -541,9 +511,11 @@ read_file(const char *fn, int ntest)
 		return (2);
 	}
 
-	if (strncmp(q, "varnishtest", 11) || !isspace(q[11])) {
+	if ((strncmp(q, "varnishtest", 11) || !isspace(q[11])) &&
+	    (strncmp(q, "vtest", 5) || !isspace(q[5]))) {
 		fprintf(stderr,
-		    "File \"%s\" doesn't start with 'varnishtest'\n", fn);
+		    "File \"%s\" doesn't start with"
+		    " 'vtest' or 'varnishtest'\n", fn);
 		free(p);
 		vtc_skip++;
 		return(2);
@@ -567,6 +539,13 @@ main(int argc, char * const *argv)
 	int ch, i;
 	int ntest = 1;			/* Run tests this many times */
 	uintmax_t bufsiz;
+	const char *p;
+
+	argv0 = strrchr(argv[0], '/');
+	if (argv0 == NULL)
+		argv0 = argv[0];
+	else
+		argv0++;
 
 	if (getenv("TMPDIR") != NULL)
 		tmppath = strdup(getenv("TMPDIR"));
@@ -580,8 +559,11 @@ main(int argc, char * const *argv)
 
 	params_vsb = VSB_new_auto();
 	AN(params_vsb);
-	if (getenv("VARNISHTEST_DURATION"))
-		vtc_maxdur = atoi(getenv("VARNISHTEST_DURATION"));
+	p = getenv("VTEST_DURATION");
+	if (p == NULL)
+		p = getenv("VARNISHTEST_DURATION");
+	if (p != NULL)
+		vtc_maxdur = atoi(p);
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -650,7 +632,10 @@ main(int argc, char * const *argv)
 	argc -= optind;
 	argv += optind;
 
-	for (;argc > 0; argc--, argv++) {
+	if (argc < 1)
+		usage();
+
+	for (; argc > 0; argc--, argv++) {
 		if (!read_file(*argv, ntest))
 			continue;
 		if (!vtc_continue)
@@ -659,13 +644,12 @@ main(int argc, char * const *argv)
 
 	AZ(VSB_finish(params_vsb));
 
-	feature_dns = dns_works();
 	ip_magic();
 
 	if (iflg)
 		i_mode();
 
-	vb = vev_new_base();
+	vb = VEV_New();
 
 	i = 0;
 	while (!VTAILQ_EMPTY(&tst_head) || i) {
@@ -678,7 +662,7 @@ main(int argc, char * const *argv)
 			i = 1;
 			continue;
 		}
-		i = vev_schedule_one(vb);
+		i = VEV_Once(vb);
 	}
 	if (vtc_continue)
 		fprintf(stderr,

@@ -16,6 +16,7 @@ nobase_pkginclude_HEADERS = \
 	tbl/h2_frames.h \
 	tbl/h2_settings.h \
 	tbl/h2_stream.h \
+	tbl/htc.h \
 	tbl/http_headers.h \
 	tbl/http_response.h \
 	tbl/locks.h \
@@ -31,29 +32,26 @@ nobase_pkginclude_HEADERS = \
 	tbl/symbol_kind.h \
 	tbl/vcc_types.h \
 	tbl/vcl_returns.h \
+	tbl/vcl_states.h \
 	tbl/vhd_fsm.h \
 	tbl/vhd_fsm_funcs.h \
 	tbl/vhd_return.h \
 	tbl/vhp_huffman.h \
 	tbl/vhp_static.h \
 	tbl/vrt_stv_var.h \
-	tbl/vsc_all.h \
-	tbl/vsc_f_main.h \
-	tbl/vsc_fields.h \
 	tbl/vsc_levels.h \
-	tbl/vsc_types.h \
 	tbl/vsl_tags.h \
 	tbl/vsl_tags_http.h \
 	tbl/waiters.h \
 	vapi/vsm.h \
-	vapi/vsm_int.h \
 	vapi/vsc.h \
-	vapi/vsc_int.h \
 	vapi/vsl.h \
 	vapi/vsl_int.h \
 	vapi/voptget.h \
 	vapi/vapi_options.h \
-	vcli.h
+	vcli.h \
+	vut.h \
+	vut_options.h
 
 # Headers for use with vmods
 nobase_pkginclude_HEADERS += \
@@ -74,6 +72,7 @@ nobase_pkginclude_HEADERS += \
 	vsha256.h \
 	vtcp.h \
 	vtim.h \
+	vtree.h \
 	vrnd.h
 
 # Private headers
@@ -90,44 +89,67 @@ nobase_noinst_HEADERS = \
 	vev.h \
 	vfil.h \
 	vin.h \
+	vjsn.h \
 	vlu.h \
 	vmb.h \
 	vnum.h \
 	vpf.h \
+	vsc_priv.h \
 	vsl_priv.h \
 	vsm_priv.h \
 	vsub.h \
 	vss.h \
 	vtcp.h \
-	vtree.h \
-	vut.h \
-	vut_options.h
+	vus.h
 
-GENERATED_H = \
+## keep in sync with lib/libvcc/Makefile.am
+vcl.h: \
+	    $(top_srcdir)/lib/libvcc/generate.py \
+	    $(top_srcdir)/include/vdef.h \
+	    $(top_srcdir)/include/vrt.h \
+	    $(top_srcdir)/doc/sphinx/reference/vcl_var.rst
+	mkdir -p $(top_builddir)/include/tbl
+	${PYTHON} $(top_srcdir)/lib/libvcc/generate.py \
+	    $(top_srcdir) $(top_builddir)
+
+GEN_H = \
 	tbl/vrt_stv_var.h \
 	tbl/vcl_returns.h \
 	tbl/vcc_types.h \
-	vrt_obj.h \
-	vcl.h \
+	vrt_obj.h
+
+$(GEN_H): vcl.h
+
+GENERATED_H = vcl.h $(GEN_H)
+
+## vcs_version.h / vmod_abi.h need to be up-to-date with every build
+## except when building from a distribution
+
+vcs_version.h:
+	@if test -e $(top_srcdir)/.git || \
+	  ! test -f $(srcdir)/vmod_abi.h || \
+	  ! test -f $(srcdir)/vcs_version.h ; then \
+	    ${PYTHON} $(srcdir)/generate.py \
+		$(top_srcdir) $(top_builddir) ; \
+	fi
+
+vmod_abi.h: vcs_version.h
+
+.PHONY: vcs_version.h
+
+##
+
+BUILT_SOURCES = \
+	$(GENERATED_H) \
 	vcs_version.h \
 	vmod_abi.h
 
-$(GENERATED_H): $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir)/include/vrt.h
-	mkdir -p tbl
-	@PYTHON@ $(top_srcdir)/lib/libvcc/generate.py $(top_srcdir) $(top_builddir)
-
-BUILT_SOURCES = $(GENERATED_H)
-MAINTAINERCLEANFILES = vcs_version.h
+MAINTAINERCLEANFILES = $(GENERATED_H)
 
 CLEANFILES = \
-	tbl/vcl_returns.h \
-	tbl/vrt_stv_var.h \
-	vcl.h \
-	vrt_obj.h \
-	vmod_abi.h \
 	vrt_test \
 	_vrt_test \
-	vrt.c
+	_vrt.c
 
 TESTS = vbm_test vrt_test
 
@@ -135,11 +157,11 @@ noinst_PROGRAMS = vbm_test
 
 vbm_test_SOURCES = vbm_test.c vbm.h
 
-vrt.c: vrt.h
-	cp $(srcdir)/vrt.h $@
+_vrt.c: Makefile.am vdef.h vrt.h
+	cat $(srcdir)/vdef.h $(srcdir)/vrt.h > $@
 
-vrt_test: vrt.c
-	echo "exec ${CC} -c -o _vrt_test vrt.c" > $@
+vrt_test: _vrt.c
+	echo "exec ${CC} -c -o _vrt_test _vrt.c" > $@
 	chmod +x $@
 
 test: ${TESTS}

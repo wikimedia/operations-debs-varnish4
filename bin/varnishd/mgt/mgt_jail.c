@@ -33,19 +33,21 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
 #include "mgt/mgt.h"
+#include "common/heritage.h"
 #include "vav.h"
 
 /**********************************************************************
  * A "none" jail implementation which doesn't do anything.
  */
 
-static int __match_proto__(jail_init_f)
+static int v_matchproto_(jail_init_f)
 vjn_init(char **args)
 {
 	if (args != NULL && *args != NULL)
@@ -53,13 +55,13 @@ vjn_init(char **args)
 	return (0);
 }
 
-static void __match_proto__(jail_master_f)
+static void v_matchproto_(jail_master_f)
 vjn_master(enum jail_master_e jme)
 {
 	(void)jme;
 }
 
-static void __match_proto__(jail_subproc_f)
+static void v_matchproto_(jail_subproc_f)
 vjn_subproc(enum jail_subproc_e jse)
 {
 	(void)jse;
@@ -135,64 +137,69 @@ VJ_subproc(enum jail_subproc_e jse)
 int
 VJ_make_workdir(const char *dname)
 {
-	int fd;
+	int i;
 
 	AN(dname);
 	CHECK_OBJ_NOTNULL(vjt, JAIL_TECH_MAGIC);
-	if (vjt->make_workdir != NULL)
-		return (vjt->make_workdir(dname));
-
-	VJ_master(JAIL_MASTER_FILE);
-	if (mkdir(dname, 0755) < 0 && errno != EEXIST)
-		ARGV_ERR("Cannot create working directory '%s': %s\n",
-		    dname, strerror(errno));
+	if (vjt->make_workdir != NULL) {
+		i = vjt->make_workdir(dname, NULL, NULL);
+		if (i)
+			return (i);
+		VJ_master(JAIL_MASTER_FILE);
+	} else {
+		VJ_master(JAIL_MASTER_FILE);
+		if (mkdir(dname, 0755) < 0 && errno != EEXIST)
+			ARGV_ERR("Cannot create working directory '%s': %s\n",
+				 dname, strerror(errno));
+	}
 
 	if (chdir(dname) < 0)
 		ARGV_ERR("Cannot change to working directory '%s': %s\n",
 		    dname, strerror(errno));
 
-	fd = open("_.testfile", O_RDWR|O_CREAT|O_EXCL, 0600);
-	if (fd < 0)
+	i = open("_.testfile", O_RDWR|O_CREAT|O_EXCL, 0600);
+	if (i < 0)
 		ARGV_ERR("Cannot create test-file in %s (%s)\n"
 		    "Check permissions (or delete old directory)\n",
 		    dname, strerror(errno));
-	closefd(&fd);
+	closefd(&i);
 	AZ(unlink("_.testfile"));
 	VJ_master(JAIL_MASTER_LOW);
 	return (0);
 }
 
 int
-VJ_make_vcldir(const char *dname)
+VJ_make_subdir(const char *dname, const char *what, struct vsb *vsb)
 {
+	int e;
 
 	AN(dname);
+	AN(what);
 	CHECK_OBJ_NOTNULL(vjt, JAIL_TECH_MAGIC);
-	if (vjt->make_vcldir != NULL)
-		return (vjt->make_vcldir(dname));
+	if (vjt->make_subdir != NULL)
+		return (vjt->make_subdir(dname, what, vsb));
 
 	if (mkdir(dname, 0755) < 0 && errno != EEXIST) {
-		MGT_Complain(C_ERR, "Cannot create VCL directory '%s': %s",
-		    dname, strerror(errno));
+		e = errno;
+		if (vsb != NULL) {
+			VSB_printf(vsb,
+			    "Cannot create %s directory '%s': %s\n",
+			    what, dname, strerror(e));
+		} else {
+			MGT_Complain(C_ERR,
+			    "Cannot create %s directory '%s': %s",
+			    what, dname, strerror(e));
+		}
 		return (1);
 	}
 	return (0);
 }
 
 void
-VJ_fix_storage_file(int fd)
+VJ_fix_fd(int fd, enum jail_fixfd_e what)
 {
 
 	CHECK_OBJ_NOTNULL(vjt, JAIL_TECH_MAGIC);
-	if (vjt->storage_file != NULL)
-		vjt->storage_file(fd);
-}
-
-void
-VJ_fix_vsm_file(int fd)
-{
-
-	CHECK_OBJ_NOTNULL(vjt, JAIL_TECH_MAGIC);
-	if (vjt->vsm_file != NULL)
-		vjt->vsm_file(fd);
+	if (vjt->fixfd != NULL)
+		vjt->fixfd(fd, what);
 }

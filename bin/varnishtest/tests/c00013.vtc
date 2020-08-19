@@ -46,5 +46,7 @@ client c2 {
 
 client c1 -wait
 
+varnish v1 -vsl_catchup
 varnish v1 -expect busy_sleep >= 1
 varnish v1 -expect busy_wakeup >= 1
+varnish v1 -stop

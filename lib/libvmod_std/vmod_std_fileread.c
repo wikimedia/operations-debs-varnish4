@@ -40,10 +40,10 @@
 #include "config.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "cache/cache.h"
 
-#include "vrt.h"
 #include "vfil.h"
 
 #include "vcc_if.h"
@@ -80,7 +80,7 @@ free_frfile(void *ptr)
 	}
 }
 
-VCL_STRING __match_proto__(td_std_fileread)
+VCL_STRING v_matchproto_(td_std_fileread)
 vmod_fileread(VRT_CTX, struct vmod_priv *priv,
     VCL_STRING file_name)
 {
@@ -89,6 +89,9 @@ vmod_fileread(VRT_CTX, struct vmod_priv *priv,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	AN(priv);
+
+	if (file_name == NULL)
+		return (NULL);
 
 	if (priv->priv != NULL) {
 		CAST_OBJ_NOTNULL(frf, priv->priv, CACHED_FILE_MAGIC);

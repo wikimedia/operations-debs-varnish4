@@ -41,18 +41,19 @@ server s1 {
 		</![CDATA[ bogo-cdata ]]>		35
 		<esi:include  src="foofof />		36
 		<esi:include  foo=bar src=/body2 />	37
+		<esi:include  src="/body 2" />		38
 	}
 	rxreq
 	expect req.url == "/body"
 	txresp -body {
-		Included file
+		<pre>Included file</pre>
 		<esi:remove>
 		<Aaa
 	}
 	rxreq
 	expect req.url == "/body2"
 	txresp -body {
-		Included file 2
+		<pre>Included file 2</pre>
 		<!--esi
 		<![CDATA[fooo
 	}
@@ -64,6 +65,39 @@ varnish v1 -vcl+backend {
 	}
 } -start
 
+logexpect l1 -v v1 -g vxid {
+	expect * * BereqURL	{^/$}
+	expect * * ESI_xmlerror {^ERR after 134 ESI 1.0 <esi:bogus> element$}
+	expect 0 = ESI_xmlerror {^ERR after 157 ESI 1.0 <esi:comment> needs final '/'$}
+	expect 0 = ESI_xmlerror {^ERR after 192 ESI 1.0 </esi:comment> illegal end-tag$}
+	expect 0 = ESI_xmlerror {^ERR after 251 ESI 1.0 <esi:comment> element nested in <esi:remove>$}
+	expect 0 = ESI_xmlerror {^ERR after 330 ESI 1.0 <esi:remove> already open$}
+	expect 0 = ESI_xmlerror {^ERR after 407 ESI 1.0 <esi:remove> not open$}
+	expect 0 = ESI_xmlerror {^ERR after 442 ESI 1.0 <esi:remove/> not legal$}
+	expect 0 = ESI_xmlerror {^ERR after 474 XML 1.0 Illegal attribute start char$}
+	expect 0 = ESI_xmlerror {^ERR after 525 ESI 1.0 <esi:include> lacks src attr$}
+	expect 0 = ESI_xmlerror {^ERR after 553 XML 1.0 Illegal attr char$}
+	expect 0 = ESI_xmlerror {^ERR after 581 ESI 1.0 <esi:include> lacks src attr$}
+	expect 0 = ESI_xmlerror {^ERR after 608 XML 1.0 Missing end attribute delimiter$}
+	expect 0 = ESI_xmlerror {^ERR after 636 XML 1.0 Illegal attribute delimiter$}
+	expect 0 = ESI_xmlerror {^ERR after 665 ESI 1.0 </esi:include> illegal end-tag$}
+	expect 0 = ESI_xmlerror {^ERR after 767 XML 1.0 Missing end attribute delimiter$}
+	expect 0 = ESI_xmlerror {^ERR after 843 ESI 1.0 <esi:include> has whitespace in src= attribute$}
+	expect 0 = BackendReuse
+} -start
+
+logexpect l2 -v v1 -g vxid {
+	expect * * BereqURL	{^/body$}
+	expect * = ESI_xmlerror {^ERR after 30 VEP ended inside a tag$}
+	expect 0 = BackendReuse
+} -start
+
+logexpect l3 -v v1 -g vxid {
+	expect * * BereqURL	{^/body2$}
+	expect * = ESI_xmlerror {^ERR after 39 VEP ended inside a tag$}
+	expect 0 = BackendReuse
+} -start
+
 varnish v1 -cliok "param.set debug +esi_chop"
 
 varnish v1 -cliok "param.set debug +syncvsl"
@@ -72,8 +106,11 @@ client c1 {
 	txreq
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 464
+	expect resp.bodylen == 472
 }
 
 client c1 -run
-varnish v1 -expect esi_errors == 15
+logexpect l1 -wait
+logexpect l2 -wait
+logexpect l3 -wait
+varnish v1 -expect esi_errors == 18

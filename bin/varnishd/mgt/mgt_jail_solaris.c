@@ -252,7 +252,7 @@ jail_master_gen(enum jail_master_e e)
 	return (enum jail_gen_e)(e << JAILG_SHIFT);
 }
 
-static int __match_proto__(jail_init_f)
+static int v_matchproto_(jail_init_f)
 vjs_init(char **args)
 {
 	(void)args;
@@ -349,14 +349,15 @@ vjs_add_effective(priv_set_t *pset, enum jail_gen_e jge)
 static void
 vjs_add_permitted(priv_set_t *pset, enum jail_gen_e jge)
 {
+	(void) pset;
 	switch (jge) {
 	case JAILG_SUBPROC_VCC:
 	case JAILG_SUBPROC_CC:
 	case JAILG_SUBPROC_VCLLOAD:
 		break;
 	case JAILG_SUBPROC_WORKER:
-		/* for raising limits in cache_waiter_ports.c */
-		AZ(priv_addset(pset, PRIV_SYS_RESOURCE));
+		/* vmod_unix getpeerucred() */
+		AZ(priv_addset(pset, PRIV_PROC_INFO));
 		break;
 	default:
 		INCOMPL();
@@ -499,7 +500,7 @@ vjs_waive(enum jail_gen_e jge)
 	priv_freeset(inheritable);
 }
 
-static void __match_proto__(jail_subproc_f)
+static void v_matchproto_(jail_subproc_f)
 vjs_subproc(enum jail_subproc_e jse)
 {
 	enum jail_gen_e jge = jail_subproc_gen(jse);
@@ -508,7 +509,7 @@ vjs_subproc(enum jail_subproc_e jse)
 	vjs_waive(jge);
 }
 
-static void __match_proto__(jail_master_f)
+static void v_matchproto_(jail_master_f)
 vjs_master(enum jail_master_e jme)
 {
 	enum jail_gen_e jge = jail_master_gen(jme);
@@ -523,8 +524,8 @@ vjs_master(enum jail_master_e jme)
 
 const struct jail_tech jail_tech_solaris = {
 	.magic =	JAIL_TECH_MAGIC,
-	.name =	"solaris",
-	.init =	vjs_init,
+	.name =		"solaris",
+	.init =		vjs_init,
 	.master =	vjs_master,
 //	.make_workdir =	vjs_make_workdir,
 //	.storage_file =	vjs_storage_file,

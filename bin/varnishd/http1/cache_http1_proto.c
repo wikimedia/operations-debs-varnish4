@@ -37,15 +37,12 @@
  * and stops when we see the magic marker (double [CR]NL), and if we overshoot,
  * it keeps track of the "pipelined" data.
  *
- * Until we see the magic marker, we have to keep the rxbuf NUL terminated
- * because we use strchr(3) on it.
- *
  * We use this both for client and backend connections.
  */
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 #include "cache/cache_transport.h"
 
 #include "cache_http1.h"
@@ -64,7 +61,7 @@ const int HTTP1_Resp[3] = {
  * Check if we have a complete HTTP request or response yet
  */
 
-enum htc_status_e __match_proto__(htc_complete_f)
+enum htc_status_e v_matchproto_(htc_complete_f)
 HTTP1_Complete(struct http_conn *htc)
 {
 	char *p;
@@ -75,12 +72,8 @@ HTTP1_Complete(struct http_conn *htc)
 	assert(htc->rxbuf_e >= htc->rxbuf_b);
 	assert(htc->rxbuf_e <= htc->ws->r);
 
-	if (htc->rxbuf_e == htc->ws->r)
-		return (HTC_S_OVERFLOW);		// No space for NUL
-	*htc->rxbuf_e = '\0';
-
 	/* Skip any leading white space */
-	for (p = htc->rxbuf_b ; vct_islws(*p); p++)
+	for (p = htc->rxbuf_b ; p < htc->rxbuf_e && vct_islws(*p); p++)
 		continue;
 	if (p == htc->rxbuf_e)
 		return (HTC_S_EMPTY);
@@ -95,12 +88,13 @@ HTTP1_Complete(struct http_conn *htc)
 	 * is completed.  More stringent validation happens later.
 	 */
 	while (1) {
-		p = strchr(p, '\n');
+		p = memchr(p, '\n', htc->rxbuf_e - p);
 		if (p == NULL)
 			return (HTC_S_MORE);
-		p++;
-		if (*p == '\r')
-			p++;
+		if (++p == htc->rxbuf_e)
+			return (HTC_S_MORE);
+		if (*p == '\r' && ++p == htc->rxbuf_e)
+			return (HTC_S_MORE);
 		if (*p == '\n')
 			break;
 	}
@@ -116,7 +110,8 @@ static uint16_t
 http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc,
     unsigned maxhdr)
 {
-	char *q, *r;
+	char *q, *r, *s;
+	int i;
 
 	assert(p > htc->rxbuf_b);
 	assert(p <= htc->rxbuf_e);
@@ -127,33 +122,39 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc,
 
 		/* Find end of next header */
 		q = r = p;
-		if (vct_iscrlf(p))
+		if (vct_iscrlf(p, htc->rxbuf_e))
 			break;
 		while (r < htc->rxbuf_e) {
 			if (!vct_isctl(*r) || vct_issp(*r)) {
 				r++;
 				continue;
 			}
-			if (!vct_iscrlf(r)) {
+			if (!vct_iscrlf(r, htc->rxbuf_e)) {
 				VSLb(hp->vsl, SLT_BogoHeader,
 				    "Header has ctrl char 0x%02x", *r);
 				return (400);
 			}
 			q = r;
 			assert(r < htc->rxbuf_e);
-			r += vct_skipcrlf(r);
+			r = vct_skipcrlf(r, htc->rxbuf_e);
 			if (r >= htc->rxbuf_e)
 				break;
-			if (vct_iscrlf(r))
+			if (vct_iscrlf(r, htc->rxbuf_e))
 				break;
 			/* If line does not continue: got it. */
 			if (!vct_issp(*r))
 				break;
 
 			/* Clear line continuation LWS to spaces */
-			while (vct_islws(*q))
+			while (q < r)
+				*q++ = ' ';
+			while (q < htc->rxbuf_e && vct_issp(*q))
 				*q++ = ' ';
 		}
+
+		/* Empty header = end of headers */
+		if (p == q)
+			break;
 
 		if (q - p > maxhdr) {
 			VSLb(hp->vsl, SLT_BogoHeader, "Header too long: %.*s",
@@ -161,13 +162,16 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc,
 			return (400);
 		}
 
-		/* Empty header = end of headers */
-		if (p == q)
-			break;
-
 		if (vct_islws(*p)) {
 			VSLb(hp->vsl, SLT_BogoHeader,
 			    "1st header has white space: %.*s",
+			    (int)(q - p > 20 ? 20 : q - p), p);
+			return (400);
+		}
+
+		if (*p == ':') {
+			VSLb(hp->vsl, SLT_BogoHeader,
+			    "Missing header name: %.*s",
 			    (int)(q - p > 20 ? 20 : q - p), p);
 			return (400);
 		}
@@ -181,7 +185,14 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc,
 			q--;
 		*q = '\0';
 
-		if (strchr(p, ':') == NULL) {
+		for (s = p; *s != ':' && s < q; s++) {
+			if (!vct_istchar(*s)) {
+				VSLb(hp->vsl, SLT_BogoHeader,
+				    "Illegal char 0x%02x in header name", *s);
+				return (400);
+			}
+		}
+		if (*s != ':') {
 			VSLb(hp->vsl, SLT_BogoHeader, "Header without ':' %.*s",
 			    (int)(q - p > 20 ? 20 : q - p), p);
 			return (400);
@@ -197,21 +208,10 @@ http1_dissect_hdrs(struct http *hp, char *p, struct http_conn *htc,
 			    (int)(q - p > 20 ? 20 : q - p), p);
 			return (400);
 		}
-
-		for (; p < q; p++) {
-			if (vct_islws(*p)) {
-				VSLb(hp->vsl, SLT_BogoHeader,
-				    "Space in header '%.*s'",
-				    (int)Tlen(hp->hd[hp->nhd - 1]),
-				    hp->hd[hp->nhd - 1].b);
-				return (400);
-			}
-			if (*p == ':')
-				break;
-		}
 	}
-	if (p < htc->rxbuf_e)
-		p += vct_skipcrlf(p);
+	i = vct_iscrlf(p, htc->rxbuf_e);
+	assert(i > 0);		/* HTTP1_Complete guarantees this */
+	p += i;
 	HTC_RxPipeline(htc, p);
 	htc->rxbuf_e = p;
 	return (0);
@@ -225,7 +225,7 @@ static uint16_t
 http1_splitline(struct http *hp, struct http_conn *htc, const int *hf,
     unsigned maxhdr)
 {
-	char *p;
+	char *p, *q;
 	int i;
 
 	assert(hf == HTTP1_Req || hf == HTTP1_Resp);
@@ -266,26 +266,34 @@ http1_splitline(struct http *hp, struct http_conn *htc, const int *hf,
 	hp->hd[hf[1]].e = p;
 	if (!Tlen(hp->hd[hf[1]]))
 		return (400);
-	*p++ = '\0';
 
 	/* Skip SP */
+	q = p;
 	for (; vct_issp(*p); p++) {
 		if (vct_isctl(*p))
 			return (400);
 	}
-	hp->hd[hf[2]].b = p;
+	if (q < p)
+		*q = '\0';	/* Nul guard for the 2nd field. If q == p
+				 * (the third optional field is not
+				 * present), the last nul guard will
+				 * cover this field. */
 
 	/* Third field is optional and cannot contain CTL except TAB */
-	for (; !vct_iscrlf(p); p++) {
-		if (vct_isctl(*p) && !vct_issp(*p)) {
-			hp->hd[hf[2]].b = NULL;
+	q = p;
+	for (; p < htc->rxbuf_e && !vct_iscrlf(p, htc->rxbuf_e); p++) {
+		if (vct_isctl(*p) && !vct_issp(*p))
 			return (400);
-		}
 	}
-	hp->hd[hf[2]].e = p;
+	if (p > q) {
+		hp->hd[hf[2]].b = q;
+		hp->hd[hf[2]].e = p;
+	}
 
 	/* Skip CRLF */
-	i = vct_skipcrlf(p);
+	i = vct_iscrlf(p, htc->rxbuf_e);
+	if (!i)
+		return (400);
 	*p = '\0';
 	p += i;
 

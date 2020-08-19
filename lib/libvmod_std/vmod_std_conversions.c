@@ -30,73 +30,32 @@
 #include "config.h"
 
 #include <ctype.h>
+#include <limits.h>
+#include <string.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 
 #include <netdb.h>
 
 #include "cache/cache.h"
 
 #include "vnum.h"
-#include "vrt.h"
 #include "vsa.h"
+#include "vss.h"
 #include "vtim.h"
 #include "vcc_if.h"
 
-VCL_DURATION __match_proto__(td_std_duration)
+VCL_DURATION v_matchproto_(td_std_duration)
 vmod_duration(VRT_CTX, VCL_STRING p, VCL_DURATION d)
 {
-	const char *e;
-	double r;
+	double r = VNUM_duration(p);
 
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	(void) ctx;
 
-	if (p == NULL)
-		return (d);
-
-	while (isspace(*p))
-		p++;
-
-	if (*p != '+' && *p != '-' && !isdigit(*p))
-		return (d);
-
-	e = NULL;
-
-	r = VNUMpfx(p, &e);
-
-	if (isnan(r) || e == NULL)
-		return (d);
-
-	while (isspace(*e))
-		e++;
-
-	/* NB: Keep this list synchronized with VCC */
-	switch (*e++) {
-	case 's': break;
-	case 'm':
-		if (*e == 's') {
-			r *= 1e-3;
-			e++;
-		} else
-			r *= 60.;
-		break;
-	case 'h': r *= 60.*60.; break;
-	case 'd': r *= 60.*60.*24.; break;
-	case 'w': r *= 60.*60.*24.*7.; break;
-	case 'y': r *= 60.*60.*24.*365.; break;
-	default:
-		return (d);
-	}
-
-	while (isspace(*e))
-		e++;
-
-	if (*e != '\0')
-		return (d);
-
-	return (r);
+	return (isnan(r) ? d : r);
 }
 
-VCL_INT __match_proto__(td_std_integer)
+VCL_INT v_matchproto_(td_std_integer)
 vmod_integer(VRT_CTX, VCL_STRING p, VCL_INT i)
 {
 	const char *e;
@@ -115,17 +74,14 @@ vmod_integer(VRT_CTX, VCL_STRING p, VCL_INT i)
 	if (r > LONG_MAX || r < LONG_MIN)
 		return (i);
 
-	return ((long)r);
+	return ((VCL_INT)r);
 }
 
 VCL_IP
-vmod_ip(VRT_CTX, VCL_STRING s, VCL_IP d)
+vmod_ip(VRT_CTX, VCL_STRING s, VCL_IP d, VCL_BOOL n, VCL_STRING default_port)
 {
-	struct addrinfo hints, *res0 = NULL;
-	const struct addrinfo *res;
-	int error;
 	void *p;
-	struct suckaddr *r;
+	VCL_IP retval = NULL;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	AN(d);
@@ -133,35 +89,22 @@ vmod_ip(VRT_CTX, VCL_STRING s, VCL_IP d)
 
 	p = WS_Alloc(ctx->ws, vsa_suckaddr_len);
 	if (p == NULL) {
-		VSLb(ctx->vsl, SLT_VCL_Error,
-		    "vmod std.ip(): insufficient workspace");
-		return d;
+		VRT_fail(ctx, "std.ip: insufficient workspace");
+		return (NULL);
 	}
-	r = NULL;
 
-	if (s != NULL) {
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = PF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-		error = getaddrinfo(s, "80", &hints, &res0);
-		if (!error) {
-			for (res = res0; res != NULL; res = res->ai_next) {
-				r = VSA_Build(p, res->ai_addr, res->ai_addrlen);
-				if (r != NULL)
-					break;
-			}
-		}
-	}
-	if (r == NULL) {
-		r = p;
-		memcpy(r, d, vsa_suckaddr_len);
-	}
-	if (res0 != NULL)
-		freeaddrinfo(res0);
-	return (r);
+	if (s != NULL)
+		retval = VSS_ResolveFirst(p, s, default_port, AF_UNSPEC,
+		    SOCK_STREAM, n ? 0 : AI_NUMERICHOST|AI_NUMERICSERV);
+
+	if (retval != NULL)
+		return (retval);
+
+	WS_Reset(ctx->ws, (uintptr_t)p);
+	return (d);
 }
 
-VCL_REAL __match_proto__(td_std_real)
+VCL_REAL v_matchproto_(td_std_real)
 vmod_real(VRT_CTX, VCL_STRING p, VCL_REAL d)
 {
 	double r;
@@ -179,7 +122,7 @@ vmod_real(VRT_CTX, VCL_STRING p, VCL_REAL d)
 	return (r);
 }
 
-VCL_INT __match_proto__(td_std_real2integer)
+VCL_INT v_matchproto_(td_std_real2integer)
 vmod_real2integer(VRT_CTX, VCL_REAL r, VCL_INT i)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -189,10 +132,10 @@ vmod_real2integer(VRT_CTX, VCL_REAL r, VCL_INT i)
 	r = round(r);
 	if (r > LONG_MAX || r < LONG_MIN)
 		return(i);
-	return ((long)r);
+	return ((VCL_INT)r);
 }
 
-VCL_TIME __match_proto__(td_std_real2time)
+VCL_TIME v_matchproto_(td_std_real2time)
 vmod_real2time(VRT_CTX, VCL_REAL r, VCL_TIME t)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -203,7 +146,7 @@ vmod_real2time(VRT_CTX, VCL_REAL r, VCL_TIME t)
 	return (r);
 }
 
-VCL_INT __match_proto__(td_std_time2integer)
+VCL_INT v_matchproto_(td_std_time2integer)
 vmod_time2integer(VRT_CTX, VCL_TIME t, VCL_INT i)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -213,10 +156,10 @@ vmod_time2integer(VRT_CTX, VCL_TIME t, VCL_INT i)
 	t = round(t);
 	if (t > LONG_MAX || t < LONG_MIN)
 		return(i);
-	return ((long)t);
+	return ((VCL_INT)t);
 }
 
-VCL_REAL __match_proto__(td_std_time2real)
+VCL_REAL v_matchproto_(td_std_time2real)
 vmod_time2real(VRT_CTX, VCL_TIME t, VCL_REAL r)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -227,15 +170,13 @@ vmod_time2real(VRT_CTX, VCL_TIME t, VCL_REAL r)
 	return (t);
 }
 
-VCL_TIME __match_proto__(td_std_time)
+VCL_TIME v_matchproto_(td_std_time)
 vmod_time(VRT_CTX, VCL_STRING p, VCL_TIME d)
 {
 	double r;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 
-	if (p == NULL)
-		return (d);
 	r = VTIM_parse(p);
 	if (r)
 		return (r);

@@ -6,10 +6,10 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import debug;
+	import vtc;
 
 	sub vcl_recv {
-		debug.panic("H2 panic");
+		vtc.panic("H2 panic");
 	}
 } -start
 
@@ -24,4 +24,6 @@ client c1 {
 	expect_close
 } -run
 
-varnish v1 -wait-stopped
+varnish v1 -cliok "panic.clear"
+
+varnish v1 -expectexit 0x20

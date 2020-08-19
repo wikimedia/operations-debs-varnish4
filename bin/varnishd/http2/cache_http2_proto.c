@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2016 Varnish Software AS
+ * Copyright (c) 2016-2019 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -29,7 +29,7 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +37,7 @@
 #include "cache/cache_transport.h"
 #include "cache/cache_filter.h"
 #include "http2/cache_http2.h"
+#include "cache/cache_objhead.h"
 
 #include "vend.h"
 #include "vtcp.h"
@@ -129,8 +130,7 @@ h2_connectionerror(uint32_t u)
 		return (H2NN_ERROR);
 }
 
-/**********************************************************************
- */
+/**********************************************************************/
 
 struct h2_req *
 h2_new_req(const struct worker *wrk, struct h2_sess *h2,
@@ -150,10 +150,14 @@ h2_new_req(const struct worker *wrk, struct h2_sess *h2,
 	r2->h2sess = h2;
 	r2->stream = stream;
 	r2->req = req;
+	if (stream)
+		r2->counted = 1;
 	r2->r_window = h2->local_settings.initial_window_size;
 	r2->t_window = h2->remote_settings.initial_window_size;
 	req->transport_priv = r2;
 	Lck_Lock(&h2->sess->mtx);
+	if (stream)
+		h2->open_streams++;
 	VTAILQ_INSERT_TAIL(&h2->streams, r2, list);
 	Lck_Unlock(&h2->sess->mtx);
 	h2->refcnt++;
@@ -161,46 +165,43 @@ h2_new_req(const struct worker *wrk, struct h2_sess *h2,
 }
 
 void
-h2_del_req(struct worker *wrk, struct h2_req *r2)
+h2_del_req(struct worker *wrk, const struct h2_req *r2)
 {
 	struct h2_sess *h2;
 	struct sess *sp;
-	struct req *req;
-	int r;
 
 	CHECK_OBJ_NOTNULL(r2, H2_REQ_MAGIC);
+	AZ(r2->scheduled);
 	h2 = r2->h2sess;
 	CHECK_OBJ_NOTNULL(h2, H2_SESS_MAGIC);
 	ASSERT_RXTHR(h2);
 	sp = h2->sess;
 	Lck_Lock(&sp->mtx);
 	assert(h2->refcnt > 0);
-	r = --h2->refcnt;
+	--h2->refcnt;
 	/* XXX: PRIORITY reshuffle */
 	VTAILQ_REMOVE(&h2->streams, r2, list);
 	Lck_Unlock(&sp->mtx);
 	AZ(r2->req->ws->r);
 	Req_Cleanup(sp, wrk, r2->req);
 	Req_Release(r2->req);
-	if (r)
-		return;
-	/* All streams gone, including stream #0, clean up */
-	req = h2->srq;
-	AZ(req->ws->r);
-	Req_Cleanup(sp, wrk, req);
-	Req_Release(req);
-	SES_Delete(sp, SC_RX_JUNK, NAN);
 }
 
 void
-h2_kill_req(struct worker *wrk, const struct h2_sess *h2,
+h2_kill_req(struct worker *wrk, struct h2_sess *h2,
     struct h2_req *r2, h2_error h2e)
 {
 
 	ASSERT_RXTHR(h2);
 	AN(h2e);
 	Lck_Lock(&h2->sess->mtx);
-	VSLb(h2->vsl, SLT_Debug, "KILL st=%u state=%d", r2->stream, r2->state);
+	VSLb(h2->vsl, SLT_Debug, "KILL st=%u state=%d sched=%d",
+	    r2->stream, r2->state, r2->scheduled);
+	if (r2->counted) {
+		assert(h2->open_streams > 0);
+		h2->open_streams--;
+		r2->counted = 0;
+	}
 	if (r2->error == NULL)
 		r2->error = h2e;
 	if (r2->scheduled) {
@@ -208,8 +209,8 @@ h2_kill_req(struct worker *wrk, const struct h2_sess *h2,
 			AZ(pthread_cond_signal(r2->cond));
 		r2 = NULL;
 	} else {
-		if (r2->state == H2_S_OPEN)
-			(void)h2h_decode_fini(h2, r2->decode);
+		if (r2->state == H2_S_OPEN && h2->new_req == r2->req)
+			(void)h2h_decode_fini(h2);
 	}
 	Lck_Unlock(&h2->sess->mtx);
 	if (r2 != NULL)
@@ -262,12 +263,15 @@ h2_vsl_frame(const struct h2_sess *h2, const void *ptr, size_t len)
 /**********************************************************************
  */
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_ping(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
-	(void)r2;
+	CHECK_OBJ_NOTNULL(r2, H2_REQ_MAGIC);
+	assert(r2 == h2->req0);
+
 	if (h2->rxf_len != 8)				// rfc7540,l,2364,2366
 		return (H2CE_FRAME_SIZE_ERROR);
 	AZ(h2->rxf_stream);				// rfc7540,l,2359,2362
@@ -283,26 +287,27 @@ h2_rx_ping(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 /**********************************************************************
  */
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_push_promise(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 
-	(void)wrk;
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
+	CHECK_OBJ_ORNULL(r2, H2_REQ_MAGIC);
 	// rfc7540,l,2262,2267
-	(void)r2;
 	return (H2CE_PROTOCOL_ERROR);
 }
 
 /**********************************************************************
  */
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_rst_stream(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 
-	(void)wrk;
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
+	CHECK_OBJ_ORNULL(r2, H2_REQ_MAGIC);
 
 	if (h2->rxf_len != 4)			// rfc7540,l,2003,2004
 		return (H2CE_FRAME_SIZE_ERROR);
@@ -315,13 +320,15 @@ h2_rx_rst_stream(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 /**********************************************************************
  */
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_goaway(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 
-	(void)wrk;
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
-	(void)r2;
+	CHECK_OBJ_NOTNULL(r2, H2_REQ_MAGIC);
+	assert(r2 == h2->req0);
+
 	h2->goaway_last_stream = vbe32dec(h2->rxf_data);
 	h2->error = h2_connectionerror(vbe32dec(h2->rxf_data + 4));
 	Lck_Lock(&h2->sess->mtx);
@@ -333,13 +340,15 @@ h2_rx_goaway(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 /**********************************************************************
  */
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_window_update(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 	uint32_t wu;
 
-	(void)wrk;
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
+	CHECK_OBJ_ORNULL(r2, H2_REQ_MAGIC);
+
 	if (h2->rxf_len != 4)
 		return (H2CE_FRAME_SIZE_ERROR);
 	wu = vbe32dec(h2->rxf_data) & ~(1LU<<31);
@@ -349,8 +358,12 @@ h2_rx_window_update(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 		return (0);
 	Lck_Lock(&h2->sess->mtx);
 	r2->t_window += wu;
+	if (r2 == h2->req0)
+		AZ(pthread_cond_broadcast(h2->winupd_cond));
+	else if (r2->cond != NULL)
+		AZ(pthread_cond_signal(r2->cond));
 	Lck_Unlock(&h2->sess->mtx);
-	if (r2->t_window >= (1LLU << 31))
+	if (r2->t_window >= (1LL << 31))
 		return (H2SE_FLOW_CONTROL_ERROR);
 	return (0);
 }
@@ -359,13 +372,13 @@ h2_rx_window_update(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
  * Incoming PRIORITY, possibly an ACK of one we sent.
  */
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_priority(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 
-	(void)wrk;
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
-	xxxassert(r2->stream & 1);
+	CHECK_OBJ_ORNULL(r2, H2_REQ_MAGIC);
 	return (0);
 }
 
@@ -374,7 +387,7 @@ h2_rx_priority(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
  */
 
 #define H2_SETTING(U,l, ...)					\
-static void __match_proto__(h2_setsetting_f)			\
+static void v_matchproto_(h2_setsetting_f)			\
 h2_setting_##l(struct h2_settings* s, uint32_t v)		\
 {								\
 	s -> l = v;						\
@@ -395,6 +408,33 @@ static const struct h2_setting_s * const h2_setting_tbl[] = {
 };
 
 #define H2_SETTING_TBL_LEN (sizeof(h2_setting_tbl)/sizeof(h2_setting_tbl[0]))
+
+static void
+h2_win_adjust(const struct h2_sess *h2, uint32_t oldval, uint32_t newval)
+{
+	struct h2_req *r2;
+
+	Lck_AssertHeld(&h2->sess->mtx);
+	// rfc7540,l,2668,2674
+	VTAILQ_FOREACH(r2, &h2->streams, list) {
+		CHECK_OBJ_NOTNULL(r2, H2_REQ_MAGIC);
+		if (r2 == h2->req0)
+			continue; // rfc7540,l,2699,2699
+		switch (r2->state) {
+		case H2_S_IDLE:
+		case H2_S_OPEN:
+		case H2_S_CLOS_REM:
+			/*
+			 * We allow a window to go negative, as per
+			 * rfc7540,l,2676,2680
+			 */
+			r2->t_window += (int64_t)newval - oldval;
+			break;
+		default:
+			break;
+		}
+	}
+}
 
 h2_error
 h2_set_setting(struct h2_sess *h2, const uint8_t *d)
@@ -425,6 +465,8 @@ h2_set_setting(struct h2_sess *h2, const uint8_t *d)
 			return (s->range_error);
 	}
 	Lck_Lock(&h2->sess->mtx);
+	if (s == H2_SET_INITIAL_WINDOW_SIZE)
+		h2_win_adjust(h2, h2->remote_settings.initial_window_size, y);
 	VSLb(h2->vsl, SLT_Debug, "H2SETTING %s=0x%08x", s->name, y);
 	Lck_Unlock(&h2->sess->mtx);
 	AN(s->setfunc);
@@ -432,17 +474,19 @@ h2_set_setting(struct h2_sess *h2, const uint8_t *d)
 	return (0);
 }
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_settings(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 	const uint8_t *p;
 	unsigned l;
 	h2_error retval = 0;
 
-	AN(wrk);
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
-	AN(r2);
+	CHECK_OBJ_NOTNULL(r2, H2_REQ_MAGIC);
+	assert(r2 == h2->req0);
 	AZ(h2->rxf_stream);
+
 	if (h2->rxf_flags == H2FF_SETTINGS_ACK) {
 		if (h2->rxf_len > 0)			// rfc7540,l,2047,2049
 			return (H2CE_FRAME_SIZE_ERROR);
@@ -468,16 +512,60 @@ h2_rx_settings(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
  * Incoming HEADERS, this is where the partys at...
  */
 
-void __match_proto__(task_func_t)
+void v_matchproto_(task_func_t)
 h2_do_req(struct worker *wrk, void *priv)
 {
 	struct req *req;
 	struct h2_req *r2;
-	const char *b;
+	struct h2_sess *h2;
 
 	CAST_OBJ_NOTNULL(req, priv, REQ_MAGIC);
 	CAST_OBJ_NOTNULL(r2, req->transport_priv, H2_REQ_MAGIC);
 	THR_SetRequest(req);
+
+	req->http->conds = 1;
+	if (CNT_Request(wrk, req) != REQ_FSM_DISEMBARK) {
+		AZ(req->ws->r);
+		h2 = r2->h2sess;
+		CHECK_OBJ_NOTNULL(h2, H2_SESS_MAGIC);
+		Lck_Lock(&h2->sess->mtx);
+		r2->scheduled = 0;
+		r2->state = H2_S_CLOSED;
+		r2->h2sess->do_sweep = 1;
+		if (h2->mailcall == r2) {
+			h2->mailcall = NULL;
+			AZ(pthread_cond_signal(h2->cond));
+		}
+		Lck_Unlock(&h2->sess->mtx);
+	}
+	THR_SetRequest(NULL);
+}
+
+static h2_error
+h2_end_headers(struct worker *wrk, struct h2_sess *h2,
+    struct req *req, struct h2_req *r2)
+{
+	h2_error h2e;
+	const char *b;
+
+	ASSERT_RXTHR(h2);
+	assert(r2->state == H2_S_OPEN);
+	h2e = h2h_decode_fini(h2);
+	h2->new_req = NULL;
+	if (r2->req->req_body_status == REQ_BODY_NONE) {
+		/* REQ_BODY_NONE implies one of the frames in the
+		 * header block contained END_STREAM */
+		r2->state = H2_S_CLOS_REM;
+	}
+	if (h2e != NULL) {
+		Lck_Lock(&h2->sess->mtx);
+		VSLb(h2->vsl, SLT_Debug, "HPACK/FINI %s", h2e->name);
+		Lck_Unlock(&h2->sess->mtx);
+		AZ(r2->req->ws->r);
+		h2_del_req(wrk, r2);
+		return (h2e);
+	}
+	VSLb_ts_req(req, "Req", req->t_req);
 
 	// XXX: Smarter to do this already at HPACK time into tail end of
 	// XXX: WS, then copy back once all headers received.
@@ -491,52 +579,33 @@ h2_do_req(struct worker *wrk, void *priv)
 			req->req_body_status = REQ_BODY_WITH_LEN;
 	} else {
 		assert (req->req_body_status == REQ_BODY_NONE);
+		if (http_GetContentLength(req->http) > 0)
+			return (H2CE_PROTOCOL_ERROR); //rfc7540,l,1838,1840
 	}
 
-	req->http->conds = 1;
-	if (CNT_Request(wrk, req) != REQ_FSM_DISEMBARK) {
-		AZ(req->ws->r);
-		r2->scheduled = 0;
-		r2->state = H2_S_CLOSED;
-		if (r2->h2sess->error)
-			AZ(pthread_cond_signal(r2->h2sess->cond));
+	if (req->http->hd[HTTP_HDR_METHOD].b == NULL) {
+		VSLb(h2->vsl, SLT_Debug, "Missing :method");
+		return (H2SE_PROTOCOL_ERROR); //rfc7540,l,3087,3090
 	}
-	THR_SetRequest(NULL);
-}
-
-static h2_error
-h2_end_headers(struct worker *wrk, const struct h2_sess *h2,
-    struct req *req, struct h2_req *r2)
-{
-	h2_error h2e;
-
-	ASSERT_RXTHR(h2);
-	assert(r2->state == H2_S_OPEN);
-	h2e = h2h_decode_fini(h2, r2->decode);
-	FREE_OBJ(r2->decode);
-	r2->state = H2_S_CLOS_REM;
-	if (h2e != NULL) {
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug, "HPACK/FINI %s", h2e->name);
-		Lck_Unlock(&h2->sess->mtx);
-		AZ(r2->req->ws->r);
-		h2_del_req(wrk, r2);
-		return (h2e);
+	if (req->http->hd[HTTP_HDR_URL].b == NULL) {
+		VSLb(h2->vsl, SLT_Debug, "Missing :path");
+		return (H2SE_PROTOCOL_ERROR); //rfc7540,l,3087,3090
 	}
-	VSLb_ts_req(req, "Req", req->t_req);
-
-	if (h2->rxf_flags & H2FF_HEADERS_END_STREAM)
-		req->req_body_status = REQ_BODY_NONE;
+	AN(req->http->hd[HTTP_HDR_PROTO].b);
 
 	req->req_step = R_STP_TRANSPORT;
 	req->task.func = h2_do_req;
 	req->task.priv = req;
 	r2->scheduled = 1;
-	XXXAZ(Pool_Task(wrk->pool, &req->task, TASK_QUEUE_REQ));
+	if (Pool_Task(wrk->pool, &req->task, TASK_QUEUE_STR) != 0) {
+		r2->scheduled = 0;
+		r2->state = H2_S_CLOSED;
+		return (H2SE_REFUSED_STREAM); //rfc7540,l,3326,3329
+	}
 	return (0);
 }
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_headers(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 	struct req *req;
@@ -544,8 +613,28 @@ h2_rx_headers(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	const uint8_t *p;
 	size_t l;
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
-	AN(r2);
+
+	if (r2 == NULL) {
+		if (h2->rxf_stream <= h2->highest_stream)
+			return (H2CE_PROTOCOL_ERROR);	// rfc7540,l,1153,1158
+		/* NB: we don't need to guard the read of h2->open_streams
+		 * because headers are handled sequentially so it cannot
+		 * increase under our feet.
+		 */
+		if (h2->open_streams >=
+		    h2->local_settings.max_concurrent_streams) {
+			VSLb(h2->vsl, SLT_Debug,
+			     "H2: stream %u: Hit maximum number of "
+			     "concurrent streams", h2->rxf_stream);
+			return (H2SE_REFUSED_STREAM);	// rfc7540,l,1200,1205
+		}
+		h2->highest_stream = h2->rxf_stream;
+		r2 = h2_new_req(wrk, h2, h2->rxf_stream, NULL);
+	}
+	CHECK_OBJ_NOTNULL(r2, H2_REQ_MAGIC);
+
 	if (r2->state != H2_S_IDLE)
 		return (H2CE_PROTOCOL_ERROR);	// XXX spec ?
 	r2->state = H2_S_OPEN;
@@ -573,58 +662,63 @@ h2_rx_headers(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	HTTP_Setup(req->http, req->ws, req->vsl, SLT_ReqMethod);
 	http_SetH(req->http, HTTP_HDR_PROTO, "HTTP/2.0");
 
-	ALLOC_OBJ(r2->decode, H2H_DECODE_MAGIC);
-	AN(r2->decode);
-	h2h_decode_init(h2, r2->decode);
+	h2h_decode_init(h2);
 
-	/* XXX: Error handling */
 	p = h2->rxf_data;
 	l = h2->rxf_len;
 	if (h2->rxf_flags & H2FF_HEADERS_PADDED) {
+		if (*p + 1 > l)
+			return (H2CE_PROTOCOL_ERROR);	// rfc7540,l,1884,1887
 		l -= 1 + *p;
 		p += 1;
 	}
 	if (h2->rxf_flags & H2FF_HEADERS_PRIORITY) {
+		if (l < 5)
+			return (H2CE_PROTOCOL_ERROR);
 		l -= 5;
 		p += 5;
 	}
-	h2e = h2h_decode_bytes(h2, r2->decode, p, l);
+	h2e = h2h_decode_bytes(h2, p, l);
 	if (h2e != NULL) {
 		Lck_Lock(&h2->sess->mtx);
 		VSLb(h2->vsl, SLT_Debug, "HPACK(hdr) %s", h2e->name);
 		Lck_Unlock(&h2->sess->mtx);
-		(void)h2h_decode_fini(h2, r2->decode);
+		(void)h2h_decode_fini(h2);
 		AZ(r2->req->ws->r);
 		h2_del_req(wrk, r2);
 		return (h2e);
 	}
+
+	if (h2->rxf_flags & H2FF_HEADERS_END_STREAM)
+		req->req_body_status = REQ_BODY_NONE;
+
 	if (h2->rxf_flags & H2FF_HEADERS_END_HEADERS)
 		return (h2_end_headers(wrk, h2, req, r2));
 	return (0);
 }
 
-/**********************************************************************
- * XXX: Check hard sequence req. for Cont.
- */
+/**********************************************************************/
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_continuation(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 	struct req *req;
 	h2_error h2e;
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
-	AN(r2);
-	if (r2->state != H2_S_OPEN)
+	CHECK_OBJ_ORNULL(r2, H2_REQ_MAGIC);
+
+	if (r2 == NULL || r2->state != H2_S_OPEN || r2->req != h2->new_req)
 		return (H2CE_PROTOCOL_ERROR);	// XXX spec ?
 	req = r2->req;
-	h2e = h2h_decode_bytes(h2, r2->decode, h2->rxf_data, h2->rxf_len);
+	h2e = h2h_decode_bytes(h2, h2->rxf_data, h2->rxf_len);
 	r2->req->acct.req_hdrbytes += h2->rxf_len;
 	if (h2e != NULL) {
 		Lck_Lock(&h2->sess->mtx);
 		VSLb(h2->vsl, SLT_Debug, "HPACK(cont) %s", h2e->name);
 		Lck_Unlock(&h2->sess->mtx);
-		(void)h2h_decode_fini(h2, r2->decode);
+		(void)h2h_decode_fini(h2);
 		AZ(r2->req->ws->r);
 		h2_del_req(wrk, r2);
 		return (h2e);
@@ -636,21 +730,33 @@ h2_rx_continuation(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 
 /**********************************************************************/
 
-static h2_error __match_proto__(h2_frame_f)
+static h2_error v_matchproto_(h2_rxframe_f)
 h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 {
 	int w1 = 0, w2 = 0;
 	char buf[4];
 	unsigned wi;
 
-	(void)wrk;
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	ASSERT_RXTHR(h2);
-	if (r2 == NULL)
+	CHECK_OBJ_ORNULL(r2, H2_REQ_MAGIC);
+
+	if (r2 == NULL || !r2->scheduled)
 		return (0);
+	if (r2->state >= H2_S_CLOS_REM) {
+		r2->error = H2SE_STREAM_CLOSED;
+		return (H2SE_STREAM_CLOSED); // rfc7540,l,1766,1769
+	}
 	Lck_Lock(&h2->sess->mtx);
+	while (h2->mailcall != NULL && h2->error == 0 && r2->error == 0)
+		AZ(Lck_CondWait(h2->cond, &h2->sess->mtx, 0));
+	if (h2->error || r2->error) {
+		Lck_Unlock(&h2->sess->mtx);
+		return (h2->error ? h2->error : r2->error);
+	}
 	AZ(h2->mailcall);
 	h2->mailcall = r2;
-	h2->r_window -= h2->rxf_len;
+	h2->req0->r_window -= h2->rxf_len;
 	r2->r_window -= h2->rxf_len;
 	// req_bodybytes accounted in CNT code.
 	if (r2->cond)
@@ -658,8 +764,8 @@ h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	while (h2->mailcall != NULL && h2->error == 0 && r2->error == 0)
 		AZ(Lck_CondWait(h2->cond, &h2->sess->mtx, 0));
 	wi = cache_param->h2_rx_window_increment;
-	if (h2->r_window < cache_param->h2_rx_window_low_water) {
-		h2->r_window += wi;
+	if (h2->req0->r_window < cache_param->h2_rx_window_low_water) {
+		h2->req0->r_window += wi;
 		w1 = 1;
 	}
 	if (r2->r_window < cache_param->h2_rx_window_low_water) {
@@ -682,7 +788,7 @@ h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	return (0);
 }
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 h2_vfp_body(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr, ssize_t *lp)
 {
 	struct h2_req *r2;
@@ -701,6 +807,7 @@ h2_vfp_body(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr, ssize_t *lp)
 	*lp = 0;
 
 	Lck_Lock(&h2->sess->mtx);
+	assert (r2->state == H2_S_OPEN);
 	r2->cond = &vc->wrk->cond;
 	while (h2->mailcall != r2 && h2->error == 0 && r2->error == 0)
 		AZ(Lck_CondWait(r2->cond, &h2->sess->mtx, 0));
@@ -717,9 +824,17 @@ h2_vfp_body(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr, ssize_t *lp)
 			h2->rxf_len -= l;
 		}
 		*lp = l;
+		if (h2->rxf_len > 0) {
+			/* We ran out of storage: Have VFP call us
+			 * again with a fresh buffer */
+			Lck_Unlock(&h2->sess->mtx);
+			return (VFP_OK);
+		}
 		if (h2->rxf_len == 0) {
-			if (h2->rxf_flags & H2FF_DATA_END_STREAM)
+			if (h2->rxf_flags & H2FF_DATA_END_STREAM) {
 				retval = VFP_END;
+				r2->state = H2_S_CLOS_REM;
+			}
 		}
 		h2->mailcall = NULL;
 		AZ(pthread_cond_signal(h2->cond));
@@ -728,12 +843,41 @@ h2_vfp_body(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr, ssize_t *lp)
 	return (retval);
 }
 
+static void
+h2_vfp_body_fini(struct vfp_ctx *vc, struct vfp_entry *vfe)
+{
+	struct h2_req *r2;
+	struct h2_sess *h2;
+
+	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
+	CAST_OBJ_NOTNULL(r2, vfe->priv1, H2_REQ_MAGIC);
+	CHECK_OBJ_NOTNULL(r2->req, REQ_MAGIC);
+	h2 = r2->h2sess;
+
+	if (vc->failed) {
+		CHECK_OBJ_NOTNULL(r2->req->wrk, WORKER_MAGIC);
+		H2_Send_Get(r2->req->wrk, h2, r2);
+		H2_Send_RST(r2->req->wrk, h2, r2, r2->stream,
+		    H2SE_REFUSED_STREAM);
+		H2_Send_Rel(h2, r2);
+		Lck_Lock(&h2->sess->mtx);
+		r2->error = H2SE_REFUSED_STREAM;
+		if (h2->mailcall == r2) {
+			h2->mailcall = NULL;
+			AZ(pthread_cond_signal(h2->cond));
+		}
+		Lck_Unlock(&h2->sess->mtx);
+	}
+}
+
 static const struct vfp h2_body = {
 	.name = "H2_BODY",
 	.pull = h2_vfp_body,
+	.fini = h2_vfp_body_fini
 };
 
-void __match_proto__(vtr_req_body_t)
+void v_matchproto_(vtr_req_body_t)
 h2_req_body(struct req *req)
 {
 	struct h2_req *r2;
@@ -741,14 +885,14 @@ h2_req_body(struct req *req)
 
 	CHECK_OBJ(req, REQ_MAGIC);
 	CAST_OBJ_NOTNULL(r2, req->transport_priv, H2_REQ_MAGIC);
-	vfe = VFP_Push(req->vfc, &h2_body, 0);
+	vfe = VFP_Push(req->vfc, &h2_body);
 	AN(vfe);
 	vfe->priv1 = r2;
 }
 
 /**********************************************************************/
 
-void __match_proto__(vtr_req_fail_f)
+void v_matchproto_(vtr_req_fail_f)
 h2_req_fail(struct req *req, enum sess_close reason)
 {
 	assert(reason > 0);
@@ -758,31 +902,32 @@ h2_req_fail(struct req *req, enum sess_close reason)
 
 /**********************************************************************/
 
-static enum htc_status_e __match_proto__(htc_complete_f)
+static enum htc_status_e v_matchproto_(htc_complete_f)
 h2_frame_complete(struct http_conn *htc)
 {
+	struct h2_sess *h2;
 	int l;
 	unsigned u;
 
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
+	CAST_OBJ_NOTNULL(h2, htc->priv, H2_SESS_MAGIC);
 	l = htc->rxbuf_e - htc->rxbuf_b;
 	if (l < 9)
 		return (HTC_S_MORE);
 	u = vbe32dec(htc->rxbuf_b) >> 8;
-	if (l < u + 9)	// XXX: Only for !DATA frames
-		return (HTC_S_MORE);
-	return (HTC_S_COMPLETE);
+	if (l >= u + 9)
+		return (HTC_S_COMPLETE);
+
+	return (HTC_S_MORE);
 }
 
 /**********************************************************************/
 
 static h2_error
-h2_procframe(struct worker *wrk, struct h2_sess *h2,
-    h2_frame h2f)
+h2_procframe(struct worker *wrk, struct h2_sess *h2, h2_frame h2f)
 {
-	struct h2_req *r2 = NULL, *r22;
+	struct h2_req *r2;
 	h2_error h2e;
-	char b[4];
 
 	ASSERT_RXTHR(h2);
 	if (h2->rxf_stream == 0 && h2f->act_szero != 0)
@@ -805,20 +950,13 @@ h2_procframe(struct worker *wrk, struct h2_sess *h2,
 		return (H2CE_PROTOCOL_ERROR);
 	}
 
-	VTAILQ_FOREACH_SAFE(r2, &h2->streams, list, r22) {
-		if (r2->state == H2_S_CLOSED && !r2->scheduled)
-			h2_del_req(wrk, r2);
-		else if (r2->stream == h2->rxf_stream)
+	VTAILQ_FOREACH(r2, &h2->streams, list)
+		if (r2->stream == h2->rxf_stream)
 			break;
-	}
 
-	if (r2 == NULL && h2f->act_sidle == 0) {
-		if (h2->rxf_stream <= h2->highest_stream)
-			return (H2CE_PROTOCOL_ERROR);	// rfc7540,l,1153,1158
-		h2->highest_stream = h2->rxf_stream;
-		r2 = h2_new_req(wrk, h2, h2->rxf_stream, NULL);
-		AN(r2);
-	}
+	if (h2->new_req != NULL &&
+	    !(r2 && h2->new_req == r2->req && h2f == H2_F_CONTINUATION))
+		return (H2CE_PROTOCOL_ERROR);	// rfc7540,l,1859,1863
 
 	h2e = h2f->rxfunc(wrk, h2, r2);
 	if (h2e == 0)
@@ -826,18 +964,115 @@ h2_procframe(struct worker *wrk, struct h2_sess *h2,
 	if (h2->rxf_stream == 0 || h2e->connection)
 		return (h2e);	// Connection errors one level up
 
-	Lck_Lock(&h2->sess->mtx);
-	VSLb(h2->vsl, SLT_Debug, "H2: stream %u: %s", h2->rxf_stream, h2e->txt);
-	Lck_Unlock(&h2->sess->mtx);
-	vbe32enc(b, h2e->val);
-
 	H2_Send_Get(wrk, h2, h2->req0);
-	(void)H2_Send_Frame(wrk, h2, H2_F_RST_STREAM,
-	    0, sizeof b, h2->rxf_stream, b);
+	H2_Send_RST(wrk, h2, h2->req0, h2->rxf_stream, h2e);
 	H2_Send_Rel(h2, h2->req0);
-
 	return (0);
 }
+
+int
+h2_stream_tmo(struct h2_sess *h2, const struct h2_req *r2, vtim_real now)
+{
+	int r = 0;
+
+	CHECK_OBJ_NOTNULL(h2, H2_SESS_MAGIC);
+	CHECK_OBJ_NOTNULL(r2, H2_REQ_MAGIC);
+	Lck_AssertHeld(&h2->sess->mtx);
+
+	/* NB: when now is NAN, it means that idle_send_timeout was hit
+	 * on a lock condwait operation.
+	 */
+	if (isnan(now))
+		AN(r2->t_winupd);
+
+	if (r2->t_winupd == 0 && r2->t_send == 0)
+		return (0);
+
+	if (isnan(now) || (r2->t_winupd != 0 &&
+	    now - r2->t_winupd > cache_param->idle_send_timeout)) {
+		VSLb(h2->vsl, SLT_Debug,
+		     "H2: stream %u: Hit idle_send_timeout waiting for"
+		     " WINDOW_UPDATE", r2->stream);
+		r = 1;
+	}
+
+	if (r == 0 && r2->t_send != 0 &&
+	    now - r2->t_send > cache_param->send_timeout) {
+		VSLb(h2->vsl, SLT_Debug,
+		     "H2: stream %u: Hit send_timeout", r2->stream);
+		r = 1;
+	}
+
+	return (r);
+}
+
+static int
+h2_stream_tmo_unlocked(struct h2_sess *h2, const struct h2_req *r2)
+{
+	int r;
+
+	Lck_Lock(&h2->sess->mtx);
+	r = h2_stream_tmo(h2, r2, h2->sess->t_idle);
+	Lck_Unlock(&h2->sess->mtx);
+
+	return (r);
+}
+
+/*
+ * This is the janitorial task of cleaning up any closed & refused
+ * streams, and checking if the session is timed out.
+ */
+static int
+h2_sweep(struct worker *wrk, struct h2_sess *h2)
+{
+	int tmo = 0;
+	struct h2_req *r2, *r22;
+
+	ASSERT_RXTHR(h2);
+
+	h2->do_sweep = 0;
+	VTAILQ_FOREACH_SAFE(r2, &h2->streams, list, r22) {
+		if (r2 == h2->req0) {
+			assert (r2->state == H2_S_IDLE);
+			continue;
+		}
+		switch (r2->state) {
+		case H2_S_CLOSED:
+			if (!r2->scheduled)
+				h2_del_req(wrk, r2);
+			break;
+		case H2_S_CLOS_REM:
+			if (!r2->scheduled) {
+				H2_Send_Get(wrk, h2, h2->req0);
+				H2_Send_RST(wrk, h2, h2->req0, r2->stream,
+				    H2SE_REFUSED_STREAM);
+				H2_Send_Rel(h2, h2->req0);
+				h2_del_req(wrk, r2);
+				continue;
+			}
+			/* FALLTHROUGH */
+		case H2_S_CLOS_LOC:
+		case H2_S_OPEN:
+			if (h2_stream_tmo_unlocked(h2, r2)) {
+				tmo = 1;
+				continue;
+			}
+			break;
+		case H2_S_IDLE:
+			/* Current code make this unreachable: h2_new_req is
+			 * only called inside h2_rx_headers, which immediately
+			 * sets the new stream state to H2_S_OPEN */
+			/* FALLTHROUGH */
+		default:
+			WRONG("Wrong h2 stream state");
+			break;
+		}
+	}
+	if (tmo)
+		return (0);
+	return (h2->refcnt > 1);
+}
+
 
 /***********************************************************************
  * Called in loop from h2_new_session()
@@ -863,19 +1098,31 @@ h2_rxframe(struct worker *wrk, struct h2_sess *h2)
 	char b[8];
 
 	ASSERT_RXTHR(h2);
-	(void)VTCP_blocking(*h2->htc->rfd);
+	VTCP_blocking(*h2->htc->rfd);
 	h2->sess->t_idle = VTIM_real();
 	hs = HTC_RxStuff(h2->htc, h2_frame_complete,
 	    NULL, NULL, NAN,
-	    h2->sess->t_idle + cache_param->timeout_idle + 100,
-	    16384 + 9);					// rfc7540,l,4228,4228
-	if (hs != HTC_S_COMPLETE) {
+	    h2->sess->t_idle + SESS_TMO(h2->sess, timeout_idle),
+	    NAN, h2->local_settings.max_frame_size + 9);
+	switch (hs) {
+	case HTC_S_COMPLETE:
+		break;
+	case HTC_S_TIMEOUT:
+		if (h2_sweep(wrk, h2))
+			return (1);
+
+		/* FALLTHROUGH */
+	default:
+		/* XXX: HTC_S_OVERFLOW / FRAME_SIZE_ERROR handling */
 		Lck_Lock(&h2->sess->mtx);
 		VSLb(h2->vsl, SLT_Debug, "H2: No frame (hs=%d)", hs);
 		h2->error = H2CE_NO_ERROR;
 		Lck_Unlock(&h2->sess->mtx);
 		return (0);
 	}
+
+	if (h2->do_sweep)
+		(void)h2_sweep(wrk, h2);
 
 	h2->rxf_len =  vbe32dec(h2->htc->rxbuf_b) >> 8;
 	h2->rxf_type =  h2->htc->rxbuf_b[3];
@@ -925,8 +1172,8 @@ h2_rxframe(struct worker *wrk, struct h2_sess *h2)
 		vbe32enc(b, h2->highest_stream);
 		vbe32enc(b + 4, h2e->val);
 		H2_Send_Get(wrk, h2, h2->req0);
-		(void)H2_Send_Frame(wrk, h2, H2_F_GOAWAY, 0, 8, 0, b);
+		H2_Send_Frame(wrk, h2, H2_F_GOAWAY, 0, 8, 0, b);
 		H2_Send_Rel(h2, h2->req0);
 	}
-	return (h2e ? 0 : 1);
+	return (h2->error ? 0 : 1);
 }

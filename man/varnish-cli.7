@@ -69,7 +69,7 @@ that service. Please see \fIvarnishd(1)\fP for details.
 The Varnish CLI is similar to another command line interface, the Bourne
 Shell. Commands are usually terminated with a newline, and they may take
 arguments. The command and its arguments are \fItokenized\fP before parsing,
-and as such arguments containing must must be enclosed in double quotes.
+and as such arguments containing spaces must be enclosed in double quotes.
 .sp
 It means that command parsing of
 .INDENT 0.0
@@ -124,10 +124,6 @@ word
 \fIword\fP can be any continuous string chosen to make sure it doesn\(aqt appear
 naturally in the following \fIhere document\fP\&. Traditionally EOF or END is
 used.
-.sp
-When using the here document style of input there are no restrictions
-on length. When using newline\-terminated commands maximum length is
-limited by the varnishd parameter \fIcli_buffer\fP\&.
 .SS Quoting pitfalls
 .sp
 Integrating with the Varnish CLI can be sometimes surprising when quoting
@@ -254,6 +250,46 @@ VCL compiled.
 Other pitfalls include variable expansion of the shell invoking \fBvarnishadm\fP
 but this is not directly related to the Varnish CLI. If you get the quoting
 right you should be fine even with complex commands.
+.SS JSON
+.sp
+A number of commands with informational responses support a \fB\-j\fP parameter
+for JSON output, as specified below. The top\-level structure of the JSON
+response is an array with these first three elements:
+.INDENT 0.0
+.IP \(bu 2
+A version number for the JSON format (integer)
+.IP \(bu 2
+An array of strings that comprise the CLI command just received
+.IP \(bu 2
+The time at which the response was generated, as a Unix epoch time
+in seconds with millisecond precision (floating point)
+.UNINDENT
+.sp
+The remaining elements of the array form the data that are specific to
+the CLI command, and their structure and content depend on the
+command.
+.sp
+For example, the response to \fBstatus \-j\fP just contains a string in
+the top\-level array indicating the state of the child process
+(\fB"running"\fP, \fB"stopped"\fP and so forth):
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+[ 2, ["status", "\-j"], 1538031732.632, "running"
+]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The JSON responses to other commands may have longer lists of
+elements, which may have simple data types or form structured objects.
+.sp
+JSON output is only returned if command execution was successful. The
+output for an error response is always the same as it would have been
+for the command without the \fB\-j\fP parameter.
 .SS Commands
 .SS auth <response>
 .INDENT 0.0
@@ -261,12 +297,14 @@ right you should be fine even with complex commands.
 Authenticate.
 .UNINDENT
 .UNINDENT
-.SS backend.list [\-p] [<backend_pattern>]
+.SS backend.list [\-j] [\-p] [<backend_pattern>]
 .INDENT 0.0
 .INDENT 3.5
 List backends.  \-p also shows probe status.
 .UNINDENT
 .UNINDENT
+.sp
+\fB\-j\fP specifies JSON output.
 .SS backend.set_health <backend_pattern> [auto|healthy|sick]
 .INDENT 0.0
 .INDENT 3.5
@@ -281,12 +319,18 @@ Mark obsolete all objects where all the conditions match.
 .UNINDENT
 .sp
 See \fIvcl(7)_ban\fP for details
-.SS ban.list
+.SS ban.list [\-j]
+.INDENT 0.0
+.INDENT 3.5
 .INDENT 0.0
 .INDENT 3.5
 List the active bans.
+.UNINDENT
+.UNINDENT
 .sp
-The output format is:
+Unless \fB\-j\fP is specified (for JSON output),  the output format is:
+.INDENT 0.0
+.INDENT 3.5
 .INDENT 0.0
 .IP \(bu 2
 Time the ban was issued.
@@ -309,28 +353,40 @@ Ban specification
 .UNINDENT
 .UNINDENT
 .UNINDENT
+.UNINDENT
+.UNINDENT
 .SS banner
 .INDENT 0.0
 .INDENT 3.5
 Print welcome banner.
 .UNINDENT
 .UNINDENT
-.SS help [<command>]
+.SS help [\-j] [<command>]
 .INDENT 0.0
 .INDENT 3.5
 Show command/protocol help.
 .UNINDENT
 .UNINDENT
+.sp
+\fB\-j\fP specifies JSON output.
 .SS panic.clear [\-z]
 .INDENT 0.0
 .INDENT 3.5
 Clear the last panic, if any, \-z will clear related varnishstat counter(s)
 .UNINDENT
 .UNINDENT
-.SS panic.show
+.SS panic.show [\-j]
 .INDENT 0.0
 .INDENT 3.5
 Return the last panic, if any.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-j\fP specifies JSON output \-\- the panic message is returned as an unstructured JSON string.
+.SS param.reset <param>
+.INDENT 0.0
+.INDENT 3.5
+Reset parameter to default value.
 .UNINDENT
 .UNINDENT
 .SS param.set <param> <value>
@@ -339,18 +395,22 @@ Return the last panic, if any.
 Set parameter value.
 .UNINDENT
 .UNINDENT
-.SS param.show [\-l] [<param>]
+.SS param.show [\-l|\-j] [<param>|changed]
 .INDENT 0.0
 .INDENT 3.5
 Show parameters and their values.
 .UNINDENT
 .UNINDENT
-.SS ping [<timestamp>]
+.sp
+The long form with \fB\-l\fP shows additional information, including documentation and minimum, maximum and default values, if defined for the parameter. JSON output is specified with \fB\-j\fP, in which the information for the long form is included; only one of \fB\-l\fP or \fB\-j\fP is permitted. If a parameter is specified with \fB<param>\fP, show only that parameter. If \fBchanged\fP is specified, show only those parameters whose values differ from their defaults.
+.SS ping [\-j] [<timestamp>]
 .INDENT 0.0
 .INDENT 3.5
 Keep connection alive.
 .UNINDENT
 .UNINDENT
+.sp
+The response is formatted as JSON if \fB\-j\fP is specified.
 .SS quit
 .INDENT 0.0
 .INDENT 3.5
@@ -363,24 +423,28 @@ Close connection.
 Start the Varnish cache process.
 .UNINDENT
 .UNINDENT
-.SS status
+.SS status [\-j]
 .INDENT 0.0
 .INDENT 3.5
 Check status of Varnish cache process.
 .UNINDENT
 .UNINDENT
+.sp
+\fB\-j\fP specifies JSON output.
 .SS stop
 .INDENT 0.0
 .INDENT 3.5
 Stop the Varnish cache process.
 .UNINDENT
 .UNINDENT
-.SS storage.list
+.SS storage.list [\-j]
 .INDENT 0.0
 .INDENT 3.5
 List storage devices.
 .UNINDENT
 .UNINDENT
+.sp
+\fB\-j\fP specifies JSON output.
 .SS vcl.discard <configname|label>
 .INDENT 0.0
 .INDENT 3.5
@@ -401,12 +465,14 @@ Multi\-line VCL can be input using the here document \fIref_syntax\fP\&.
 Apply label to configuration.
 .UNINDENT
 .UNINDENT
-.SS vcl.list
+.SS vcl.list [\-j]
 .INDENT 0.0
 .INDENT 3.5
 List all loaded configuration.
 .UNINDENT
 .UNINDENT
+.sp
+\fB\-j\fP specifies JSON output.
 .SS vcl.load <configname> <filename> [auto|cold|warm]
 .INDENT 0.0
 .INDENT 3.5
@@ -639,7 +705,7 @@ backend contains "USERID=1663":
 .sp
 .nf
 .ft C
-ban req.http.host ~ "^(?i)(www\e\e.)example.com$" && obj.http.set\-cookie ~ "USERID=1663"
+ban req.http.host ~ "^(?i)(www\e\e.)?example\e\e.com$" && obj.http.set\-cookie ~ "USERID=1663"
 .ft P
 .fi
 .UNINDENT

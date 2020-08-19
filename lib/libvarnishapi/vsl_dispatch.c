@@ -28,12 +28,13 @@
  *
  */
 
+#include "config.h"
+
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "vdef.h"
 #include "vas.h"
@@ -193,6 +194,10 @@ struct VSLQ {
 	VTAILQ_HEAD(,vtx)	cache;
 	unsigned		n_cache;
 
+	/* Rate limiting */
+	double			credits;
+	vtim_mono		last_use;
+
 	/* Raw mode */
 	struct {
 		struct vslc_raw		c;
@@ -224,7 +229,7 @@ vtx_keycmp(const struct vtx_key *a, const struct vtx_key *b)
 VRB_PROTOTYPE_STATIC(vtx_tree, vtx_key, entry, vtx_keycmp)
 VRB_GENERATE_STATIC(vtx_tree, vtx_key, entry, vtx_keycmp)
 
-static int
+static enum vsl_status v_matchproto_(vslc_next_f)
 vslc_raw_next(const struct VSL_cursor *cursor)
 {
 	struct vslc_raw *c;
@@ -235,14 +240,14 @@ vslc_raw_next(const struct VSL_cursor *cursor)
 	AN(c->ptr);
 	if (c->cursor.rec.ptr == NULL) {
 		c->cursor.rec.ptr = c->ptr;
-		return (1);
+		return (vsl_more);
 	} else {
 		c->cursor.rec.ptr = NULL;
-		return (0);
+		return (vsl_end);
 	}
 }
 
-static int
+static enum vsl_status v_matchproto_(vslc_reset_f)
 vslc_raw_reset(const struct VSL_cursor *cursor)
 {
 	struct vslc_raw *c;
@@ -253,7 +258,7 @@ vslc_raw_reset(const struct VSL_cursor *cursor)
 	AN(c->ptr);
 	c->cursor.rec.ptr = NULL;
 
-	return (0);
+	return (vsl_end);
 }
 
 static const struct vslc_tbl vslc_raw_tbl = {
@@ -264,7 +269,7 @@ static const struct vslc_tbl vslc_raw_tbl = {
 	.check	= NULL,
 };
 
-static int
+static enum vsl_status v_matchproto_(vslc_next_f)
 vslc_vtx_next(const struct VSL_cursor *cursor)
 {
 	struct vslc_vtx *c;
@@ -284,8 +289,7 @@ vslc_vtx_next(const struct VSL_cursor *cursor)
 		} else {
 			assert(c->offset <= c->vtx->len);
 			if (c->offset == c->vtx->len)
-				/* End of cursor */
-				return (0);
+				return (vsl_end);
 
 			/* Advance chunk pointer */
 			if (c->chunk == NULL) {
@@ -312,10 +316,10 @@ vslc_vtx_next(const struct VSL_cursor *cursor)
 		}
 	} while (VSL_TAG(c->cursor.rec.ptr) == SLT__Batch);
 
-	return (1);
+	return (vsl_more);
 }
 
-static int
+static enum vsl_status v_matchproto_(vslc_reset_f)
 vslc_vtx_reset(const struct VSL_cursor *cursor)
 {
 	struct vslc_vtx *c;
@@ -329,7 +333,7 @@ vslc_vtx_reset(const struct VSL_cursor *cursor)
 	c->offset = 0;
 	c->cursor.rec.ptr = NULL;
 
-	return (0);
+	return (vsl_end);
 }
 
 static const struct vslc_tbl vslc_vtx_tbl = {
@@ -428,14 +432,15 @@ vtx_append(struct VSLQ *vslq, struct vtx *vtx, const struct VSLC_ptr *start,
     size_t len)
 {
 	struct chunk *chunk;
+	enum vsl_check i;
 
 	AN(vtx);
 	if (len == 0)
 		return;
 	AN(start);
 
-	if (VSL_Check(vslq->c, start) == 2 &&
-	    !VTAILQ_EMPTY(&vtx->shmchunks_free)) {
+	i = VSL_Check(vslq->c, start);
+	if (i == vsl_check_valid && !VTAILQ_EMPTY(&vtx->shmchunks_free)) {
 		/* Shmref it */
 		chunk = VTAILQ_FIRST(&vtx->shmchunks_free);
 		CHECK_OBJ_NOTNULL(chunk, CHUNK_MAGIC);
@@ -449,6 +454,7 @@ vtx_append(struct VSLQ *vslq, struct vtx *vtx, const struct VSLC_ptr *start,
 		/* Append to shmref list */
 		VTAILQ_INSERT_TAIL(&vslq->shmrefs, chunk, shm.shmref);
 	} else {
+		assert(i != vsl_check_e_inval);
 		/* Buffer it */
 		chunk = VTAILQ_LAST(&vtx->chunks, chunkhead);
 		CHECK_OBJ_ORNULL(chunk, CHUNK_MAGIC);
@@ -510,7 +516,7 @@ vtx_new(struct VSLQ *vslq)
 	vtx->n_childready = 0;
 	vtx->n_descend = 0;
 	vtx->len = 0;
-	(void)vslc_vtx_reset(&vtx->c.cursor);
+	AN(vslc_vtx_reset(&vtx->c.cursor) == vsl_end);
 
 	return (vtx);
 }
@@ -580,7 +586,6 @@ vtx_retire(struct VSLQ *vslq, struct vtx **pvtx)
 		vslq->n_cache++;
 	} else {
 		FREE_OBJ(vtx);
-		vtx = NULL;
 	}
 }
 
@@ -691,7 +696,7 @@ vtx_parse_link(const char *str, enum VSL_transaction_e *ptype,
 		return (0);
 
 	/* transaction type */
-	for (et = 0; et < VSL_t__MAX; et++)
+	for (et = VSL_t_unknown; et < VSL_t__MAX; et++)
 		if (!strcmp(type, vsl_t_names[et]))
 			break;
 	if (et >= VSL_t__MAX)
@@ -707,7 +712,7 @@ vtx_parse_link(const char *str, enum VSL_transaction_e *ptype,
 		return (2);
 
 	/* transaction reason */
-	for (er = 0; er < VSL_r__MAX; er++)
+	for (er = VSL_r_unknown; er < VSL_r__MAX; er++)
 		if (!strcmp(reason, vsl_r_names[er]))
 			break;
 	if (er >= VSL_r__MAX)
@@ -907,10 +912,33 @@ vtx_force(struct VSLQ *vslq, struct vtx *vtx, const char *reason)
 	AN(vtx->flags & VTX_F_COMPLETE);
 }
 
+static int
+vslq_ratelimit(struct VSLQ *vslq)
+{
+	vtim_mono now;
+	vtim_dur delta;
+
+	CHECK_OBJ_NOTNULL(vslq, VSLQ_MAGIC);
+	CHECK_OBJ_NOTNULL(vslq->vsl, VSL_MAGIC);
+
+	now = VTIM_mono();
+	delta = now - vslq->last_use;
+	vslq->credits += (delta / vslq->vsl->R_opt_p) * vslq->vsl->R_opt_l;
+	if (vslq->credits > vslq->vsl->R_opt_l)
+		vslq->credits = vslq->vsl->R_opt_l;
+	vslq->last_use = now;
+
+	if (vslq->credits < 1.0)
+		return (0);
+
+	vslq->credits -= 1.0;
+	return (1);
+}
+
 /* Build transaction array, do the query and callback. Returns 0 or the
    return value from func */
 static int
-vslq_callback(const struct VSLQ *vslq, struct vtx *vtx, VSLQ_dispatch_f *func,
+vslq_callback(struct VSLQ *vslq, struct vtx *vtx, VSLQ_dispatch_f *func,
     void *priv)
 {
 	unsigned n = vtx->n_descend + 1;
@@ -932,7 +960,7 @@ vslq_callback(const struct VSLQ *vslq, struct vtx *vtx, VSLQ_dispatch_f *func,
 		return (0);
 
 	/* Build transaction array */
-	(void)vslc_vtx_reset(&vtx->c.cursor);
+	AN(vslc_vtx_reset(&vtx->c.cursor) == vsl_end);
 	vtxs[0] = vtx;
 	trans[0].level = 1;
 	trans[0].vxid = vtx->key.vxid;
@@ -945,7 +973,7 @@ vslq_callback(const struct VSLQ *vslq, struct vtx *vtx, VSLQ_dispatch_f *func,
 	while (j < i) {
 		VTAILQ_FOREACH(vtx, &vtxs[j]->child, list_child) {
 			assert(i < n);
-			(void)vslc_vtx_reset(&vtx->c.cursor);
+			AN(vslc_vtx_reset(&vtx->c.cursor) == vsl_end);
 			vtxs[i] = vtx;
 			if (vtx->reason == VSL_r_restart)
 				/* Restarts stay at the same level as parent */
@@ -970,6 +998,9 @@ vslq_callback(const struct VSLQ *vslq, struct vtx *vtx, VSLQ_dispatch_f *func,
 
 	/* Query test goes here */
 	if (vslq->query != NULL && !vslq_runquery(vslq->query, ptrans))
+		return (0);
+
+	if (vslq->vsl->R_opt_l != 0 && !vslq_ratelimit(vslq))
 		return (0);
 
 	/* Callback */
@@ -1077,6 +1108,10 @@ VSLQ_New(struct VSL_data *vsl, struct VSL_cursor **cp,
 	}
 	vslq->grouping = grouping;
 	vslq->query = query;
+	if (vslq->vsl->R_opt_l != 0) {
+		vslq->last_use = VTIM_mono();
+		vslq->credits = 1;
+	}
 
 	/* Setup normal mode */
 	VRB_INIT(&vslq->tree);
@@ -1155,17 +1190,17 @@ VSLQ_SetCursor(struct VSLQ *vslq, struct VSL_cursor **cp)
 static int
 vslq_raw(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 {
-	int i = 1;
-	int r;
+	enum vsl_status r = vsl_more;
+	int i;
 
 	assert(vslq->grouping == VSL_g_raw);
 
 	assert(vslq->raw.offset <= vslq->raw.len);
 	do {
 		if (vslq->raw.offset == vslq->raw.len) {
-			i = VSL_Next(vslq->c);
-			if (i <= 0)
-				return (i);
+			r = VSL_Next(vslq->c);
+			if (r != vsl_more)
+				return (r);
 			AN(vslq->c->rec.ptr);
 			vslq->raw.start = vslq->c->rec;
 			if (VSL_TAG(vslq->c->rec.ptr) == SLT__Batch)
@@ -1185,76 +1220,82 @@ vslq_raw(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 		vslq->raw.offset += VSL_NEXT(vslq->raw.c.ptr) - vslq->raw.c.ptr;
 	} while (VSL_TAG(vslq->raw.c.ptr) == SLT__Batch);
 
+	assert (r == vsl_more);
+
 	if (func == NULL)
-		return (i);
+		return (r);
 
 	if (vslq->query != NULL &&
 	    !vslq_runquery(vslq->query, vslq->raw.ptrans))
-		return (i);
-
-	r = (func)(vslq->vsl, vslq->raw.ptrans, priv);
-	if (r)
 		return (r);
 
-	return (i);
+	if (vslq->vsl->R_opt_l != 0 && !vslq_ratelimit(vslq))
+		return (r);
+
+	i = (func)(vslq->vsl, vslq->raw.ptrans, priv);
+	if (i)
+		return (i);
+
+	return (r);
 }
 
 /* Check the beginning of the shmref list, and buffer refs that are at
  * warning level.
- *
- * Returns:
- *    0:	OK
- *   -3:	Failure
  */
-static int
+static enum vsl_status
 vslq_shmref_check(struct VSLQ *vslq)
 {
 	struct chunk *chunk;
-	int i;
+	enum vsl_check i;
 
 	while ((chunk = VTAILQ_FIRST(&vslq->shmrefs)) != NULL) {
 		CHECK_OBJ_NOTNULL(chunk, CHUNK_MAGIC);
 		assert(chunk->type == chunk_t_shm);
 		i = VSL_Check(vslq->c, &chunk->shm.start);
-		if (i == 2)
+		switch (i) {
+		case vsl_check_valid:
 			/* First on list is OK, refs behind it must also
 			   be OK */
-			return (0);
-		else if (i == 1)
-			/* Warning level. Buffer this chunk */
+			return (vsl_more);
+		case vsl_check_warn:
+			/* Buffer this chunk */
 			chunk_shm_to_buf(vslq, chunk);
-		else
+			break;
+		default:
 			/* Too late to buffer */
-			return (-3);
+			return (vsl_e_overrun);
+		}
 	}
 
-	return (0);
+	return (vsl_more);
 }
 
 /* Process next input record */
-static int
+static enum vsl_status
 vslq_next(struct VSLQ *vslq)
 {
 	struct VSL_cursor *c;
-	int i;
+	enum vsl_status r;
 	enum VSL_tag_e tag;
 	ssize_t len;
 	unsigned vxid;
 	struct vtx *vtx;
 
 	c = vslq->c;
-	i = VSL_Next(c);
-	if (i != 1)
-		return (i);
+	r = VSL_Next(c);
+	if (r != vsl_more)
+		return (r);
 
-	tag = VSL_TAG(c->rec.ptr);
+	assert (r == vsl_more);
+
+	tag = (enum VSL_tag_e)VSL_TAG(c->rec.ptr);
 	if (tag == SLT__Batch) {
 		vxid = VSL_BATCHID(c->rec.ptr);
 		len = VSL_END(c->rec.ptr, VSL_BATCHLEN(c->rec.ptr)) -
 		    c->rec.ptr;
 		if (len == 0)
-			return (i);
-		tag = VSL_TAG(VSL_NEXT(c->rec.ptr));
+			return (r);
+		tag = (enum VSL_tag_e)VSL_TAG(VSL_NEXT(c->rec.ptr));
 	} else {
 		vxid = VSL_ID(c->rec.ptr);
 		len = VSL_NEXT(c->rec.ptr) - c->rec.ptr;
@@ -1262,7 +1303,7 @@ vslq_next(struct VSLQ *vslq)
 	assert(len > 0);
 	if (vxid == 0)
 		/* Skip non-transactional records */
-		return (i);
+		return (r);
 
 	vtx = vtx_lookup(vslq, vxid);
 	if (vtx == NULL && tag == SLT_Begin) {
@@ -1274,7 +1315,7 @@ vslq_next(struct VSLQ *vslq)
 		vtx_scan(vslq, vtx);
 	}
 
-	return (i);
+	return (r);
 }
 
 /* Test query and report any ready transactions */
@@ -1307,7 +1348,8 @@ vslq_process_ready(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 int
 VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 {
-	int i, r;
+	enum vsl_status r;
+	int i;
 	double now;
 	struct vtx *vtx;
 
@@ -1315,22 +1357,24 @@ VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 
 	/* Check that we have a cursor */
 	if (vslq->c == NULL)
-		return (-2);
+		return (vsl_e_abandon);
 
 	if (vslq->grouping == VSL_g_raw)
 		return (vslq_raw(vslq, func, priv));
 
 	/* Process next cursor input */
-	i = vslq_next(vslq);
-	if (i <= 0)
+	r = vslq_next(vslq);
+	if (r != vsl_more)
 		/* At end of log or cursor reports error condition */
-		return (i);
+		return (r);
 
 	/* Check shmref list and buffer if necessary */
 	r = vslq_shmref_check(vslq);
-	if (r)
+	if (r != vsl_more)
 		/* Buffering of shm ref failed */
 		return (r);
+
+	assert (r == vsl_more);
 
 	/* Check vtx timeout */
 	now = VTIM_mono();
@@ -1350,22 +1394,21 @@ VSLQ_Dispatch(struct VSLQ *vslq, VSLQ_dispatch_f *func, void *priv)
 		CHECK_OBJ_NOTNULL(vtx, VTX_MAGIC);
 		vtx_force(vslq, vtx, "store overflow");
 		AN(vtx->flags & VTX_F_COMPLETE);
-		r = vslq_process_ready(vslq, func, priv);
-		if (r)
+		i = vslq_process_ready(vslq, func, priv);
+		if (i)
 			/* User return code */
-			return (r);
+			return (i);
 	}
 
 	/* Check ready list */
 	if (!VTAILQ_EMPTY(&vslq->ready)) {
-		r = vslq_process_ready(vslq, func, priv);
-		if (r)
+		i = vslq_process_ready(vslq, func, priv);
+		if (i)
 			/* User return code */
-			return (r);
+			return (i);
 	}
 
-	/* Return cursor return value */
-	return (i);
+	return (vsl_more);
 }
 
 /* Flush any incomplete vtx held on to. Do callbacks if func != NULL */

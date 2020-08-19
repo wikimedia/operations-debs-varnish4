@@ -28,32 +28,37 @@
  *
  */
 
-#include <sys/types.h>
-
 #include <stdio.h>
 #include <stdint.h>
 
 #include "miniobj.h"
-#include "vas.h"
-#include "vcl.h"
 #include "vdef.h"
+#include "vas.h"
+#include "vrt.h"
+#include "vcl.h"
 #include "vqueue.h"
 #include "vsb.h"
 
-
 #include "vcc_token_defs.h"
 
-#ifndef NULL
-#define NULL ((void*)0)
-#endif
+/*---------------------------------------------------------------------
+ * VCL version stuff
+ */
+
+#define VCL_LOW		40		// Lowest VCC supports
+#define VCL_HIGH	41		// Highest VCC supports
+
+// Specific VCL versions
+#define	VCL_40		40
+#define	VCL_41		41
+
+/*---------------------------------------------------------------------*/
 
 struct vsb;
 struct token;
 struct sockaddr_storage;
+struct method;
 
-#define isident1(c) (isalpha(c))
-#define isident(c) (isalpha(c) || isdigit(c) || (c) == '_' || (c) == '-')
-#define isvar(c) (isident(c) || (c) == '.')
 unsigned vcl_fixed_token(const char *p, const char **q);
 extern const char * const vcl_tnames[256];
 void vcl_output_lang_h(struct vsb *sb);
@@ -66,11 +71,11 @@ struct acl_e;
 struct proc;
 struct expr;
 struct vcc;
+struct vjsn_val;
 struct symbol;
 
 struct source {
 	VTAILQ_ENTRY(source)	list;
-	float			syntax;
 	char			*name;
 	const char		*b;
 	const char		*e;
@@ -88,6 +93,7 @@ struct token {
 	char			*dec;
 };
 
+/*---------------------------------------------------------------------*/
 typedef const struct type	*vcc_type_t;
 
 struct type {
@@ -97,47 +103,65 @@ struct type {
 	const char		*name;
 	const char		*tostring;
 	vcc_type_t		multype;
+	int			stringform;
 };
 
 #define VCC_TYPE(foo)		extern const struct type foo[1];
 #include "tbl/vcc_types.h"
 
+/*---------------------------------------------------------------------*/
+typedef const struct kind	*vcc_kind_t;
 
-enum symkind {
-#define VCC_SYMB(uu, ll)	SYM_##uu,
-#include "tbl/symbol_kind.h"
+struct kind {
+	unsigned		magic;
+#define KIND_MAGIC		0xfad72443
+
+	const char		*name;
 };
 
+#define VCC_KIND(U,l)	extern const struct kind SYM_##U[1];
+#include "tbl/symbol_kind.h"
+
+/*---------------------------------------------------------------------*/
+
 typedef void sym_expr_t(struct vcc *tl, struct expr **,
-    const struct symbol *sym, vcc_type_t);
-typedef void sym_wildcard_t(struct vcc *, struct symbol *,
-    const char *, const char *);
+    struct token *, struct symbol *sym, vcc_type_t);
+typedef void sym_wildcard_t(struct vcc *, struct symbol *, struct symbol *);
+
+typedef void sym_act_f(struct vcc *, struct token *, struct symbol *);
 
 struct symbol {
 	unsigned			magic;
 #define SYMBOL_MAGIC			0x3368c9fb
 	VTAILQ_ENTRY(symbol)		list;
+	VTAILQ_ENTRY(symbol)		sideways;
 	VTAILQ_HEAD(,symbol)		children;
+
+	char				*name;
+	unsigned			nlen;
+
+	unsigned			lorev;
+	unsigned			hirev;
 
 	struct symbol			*parent;
 	const char			*vmod;
 
-	char				*name;
-	unsigned			nlen;
 	sym_wildcard_t			*wildcard;
-	const void			*wildcard_priv;
-	enum symkind			kind;
+	vcc_kind_t			kind;
+
+	sym_act_f			*action;
+	unsigned			action_mask;
 
 	const struct token		*def_b, *def_e, *ref_b;
 
-	vcc_type_t			fmt;
+	vcc_type_t			type;
 
 	sym_expr_t			*eval;
 	const void			*eval_priv;
 
 	/* xref.c */
 	struct proc			*proc;
-	unsigned			nref, ndef;
+	unsigned			noref, nref, ndef;
 
 	const char			*extra;
 
@@ -146,9 +170,31 @@ struct symbol {
 	unsigned			r_methods;
 	const char			*lname;
 	unsigned			w_methods;
+	const char			*uname;
+	unsigned			u_methods;
 };
 
 VTAILQ_HEAD(tokenhead, token);
+VTAILQ_HEAD(procprivhead, procpriv);
+
+struct proc {
+	unsigned		magic;
+#define PROC_MAGIC		0xd1d98499
+	const struct method	*method;
+	VTAILQ_HEAD(,proccall)	calls;
+	VTAILQ_HEAD(,procuse)	uses;
+	struct procprivhead	priv_tasks;
+	struct procprivhead	priv_tops;
+	VTAILQ_ENTRY(proc)	list;
+	struct token		*name;
+	unsigned		ret_bitmap;
+	unsigned		called;
+	unsigned		active;
+	struct token		*return_tok[VCL_RET_MAX];
+	struct vsb		*cname;
+	struct vsb		*prologue;
+	struct vsb		*body;
+};
 
 struct inifin {
 	unsigned		magic;
@@ -156,6 +202,7 @@ struct inifin {
 	unsigned		n;
 	struct vsb		*ini;
 	struct vsb		*fin;
+	struct vsb		*final;
 	struct vsb		*event;
 	VTAILQ_ENTRY(inifin)	list;
 };
@@ -165,7 +212,7 @@ VTAILQ_HEAD(inifinhead, inifin);
 struct vcc {
 	unsigned		magic;
 #define VCC_MAGIC		0x24ad719d
-	float			syntax;
+	int			syntax;
 
 	char			*builtin_vcl;
 	struct vfil_path	*vcl_path;
@@ -189,37 +236,30 @@ struct vcc {
 	int			hindent;
 	unsigned		cnt;
 
-	struct vsb		*fi;		/* VCC info to MGR */
+	struct vsb		*fi;		/* VCC info to MGT */
 	struct vsb		*fc;		/* C-code */
 	struct vsb		*fh;		/* H-code (before C-code) */
 	struct vsb		*fb;		/* Body of current sub
 						 * NULL otherwise
 						 */
-	struct vsb		*fm[VCL_MET_MAX];	/* Method bodies */
 	struct vsb		*sb;
 	int			err;
 	struct proc		*curproc;
-	struct proc		*mprocs[VCL_MET_MAX];
+	VTAILQ_HEAD(, proc)	procs;
 
 	VTAILQ_HEAD(, acl_e)	acl;
 
 	int			nprobe;
 
+	int			ndirector;
+	struct symbol		*first_director;
 	const char		*default_director;
-	struct token		*t_default_director;
 	const char		*default_probe;
 
+	VTAILQ_HEAD(, symbol)	sym_objects;
+
 	unsigned		unique;
-
-};
-
-struct var {
-	const char		*name;
-	vcc_type_t		fmt;
-	const char		*rname;
-	unsigned		r_methods;
-	const char		*lname;
-	unsigned		w_methods;
+	unsigned		vmod_count;
 };
 
 struct method {
@@ -233,15 +273,15 @@ struct method {
 /* vcc_acl.c */
 
 void vcc_ParseAcl(struct vcc *tl);
-void vcc_Acl_Hack(struct vcc *tl, char *b, size_t bl);
 
 /* vcc_action.c */
-int vcc_ParseAction(struct vcc *tl);
+void vcc_Action_Init(struct vcc *);
 
 /* vcc_backend.c */
-#define MAX_BACKEND_NAME	64
 struct fld_spec;
 
+const char *vcc_default_probe(struct vcc *);
+void vcc_Backend_Init(struct vcc *tl);
 void vcc_ParseProbe(struct vcc *tl);
 void vcc_ParseBackend(struct vcc *tl);
 struct fld_spec * vcc_FldSpec(struct vcc *tl, const char *first, ...);
@@ -249,8 +289,8 @@ void vcc_IsField(struct vcc *tl, struct token **t, struct fld_spec *fs);
 void vcc_FieldsOk(struct vcc *tl, const struct fld_spec *fs);
 
 /* vcc_compile.c */
-extern struct method method_tab[];
-struct inifin *New_IniFin(struct vcc *tl);
+struct inifin *New_IniFin(struct vcc *);
+struct proc *vcc_NewProc(struct vcc*, struct symbol*);
 
 /*
  * H -> Header, before the C code
@@ -260,57 +300,64 @@ struct inifin *New_IniFin(struct vcc *tl);
  * F -> Finish function
  */
 void Fh(const struct vcc *tl, int indent, const char *fmt, ...)
-    __v_printflike(3, 4);
+    v_printflike_(3, 4);
 void Fc(const struct vcc *tl, int indent, const char *fmt, ...)
-    __v_printflike(3, 4);
+    v_printflike_(3, 4);
 void Fb(const struct vcc *tl, int indent, const char *fmt, ...)
-    __v_printflike(3, 4);
+    v_printflike_(3, 4);
 void EncToken(struct vsb *sb, const struct token *t);
-int IsMethod(const struct token *t);
 void *TlAlloc(struct vcc *tl, unsigned len);
 char *TlDup(struct vcc *tl, const char *s);
-char *TlDupTok(struct vcc *tl, const struct token *tok);
 
 /* vcc_expr.c */
-double vcc_DoubleVal(struct vcc *tl);
-void vcc_Duration(struct vcc *tl, double *);
-unsigned vcc_UintVal(struct vcc *tl);
 void vcc_Expr(struct vcc *tl, vcc_type_t typ);
-void vcc_Expr_Call(struct vcc *tl, const struct symbol *sym);
+sym_act_f vcc_Act_Call;
 void vcc_Expr_Init(struct vcc *tl);
 sym_expr_t vcc_Eval_Var;
 sym_expr_t vcc_Eval_Handle;
 sym_expr_t vcc_Eval_SymFunc;
-void vcc_Eval_Func(struct vcc *tl, const char *spec,
-    const char *extra, const struct symbol *sym);
-enum symkind VCC_HandleKind(vcc_type_t fmt);
-struct symbol *VCC_HandleSymbol(struct vcc *, const struct token *,
-    vcc_type_t fmt, const char *str, ...);
+void vcc_Eval_Func(struct vcc *, const struct vjsn_val *,
+    const char *, const struct symbol *);
+void VCC_GlobalSymbol(struct symbol *, vcc_type_t fmt, const char *pfx);
+struct symbol *VCC_HandleSymbol(struct vcc *, vcc_type_t , const char *);
 
 /* vcc_obj.c */
-extern const struct var vcc_vars[];
+void vcc_Var_Init(struct vcc *);
 
 /* vcc_parse.c */
-void vcc_Parse(struct vcc *tl);
+void vcc_Parse(struct vcc *);
+void vcc_Parse_Init(struct vcc *);
+sym_act_f vcc_Act_If;
 
 /* vcc_utils.c */
-const char *vcc_regexp(struct vcc *tl);
+void vcc_regexp(struct vcc *tl, struct vsb *vgc_name);
 void Resolve_Sockaddr(struct vcc *tl, const char *host, const char *defport,
     const char **ipv4, const char **ipv4_ascii, const char **ipv6,
     const char **ipv6_ascii, const char **p_ascii, int maxips,
     const struct token *t_err, const char *errid);
+void Emit_UDS_Path(struct vcc *tl, const struct token *t_path,
+    const char *errid);
+double vcc_TimeUnit(struct vcc *);
+void vcc_ByteVal(struct vcc *, double *);
+void vcc_Duration(struct vcc *tl, double *);
+unsigned vcc_UintVal(struct vcc *tl);
 
 /* vcc_storage.c */
 void vcc_stevedore(struct vcc *vcc, const char *stv_name);
 
 /* vcc_symb.c */
-struct symbol *VCC_Symbol(struct vcc *, struct symbol *,
-    const char *, const char *, enum symkind, int);
-#define VCC_SymbolTok(vcc, sym, tok, kind, create) \
-    VCC_Symbol(vcc, sym, (tok)->b, (tok)->e, kind, create)
-const char * VCC_SymKind(struct vcc *tl, const struct symbol *s);
+void VCC_PrintCName(struct vsb *vsb, const char *b, const char *e);
+struct symbol *VCC_MkSym(struct vcc *tl, const char *b, vcc_kind_t,
+    unsigned, unsigned);
+extern const char XREF_NONE[];
+extern const char XREF_DEF[];
+extern const char XREF_REF[];
+extern const char SYMTAB_NOERR[];
+extern const char SYMTAB_CREATE[];
+struct symbol *VCC_SymbolGet(struct vcc *, vcc_kind_t, const char *,
+    const char *);
 typedef void symwalk_f(struct vcc *tl, const struct symbol *s);
-void VCC_WalkSymbols(struct vcc *tl, symwalk_f *func, enum symkind kind);
+void VCC_WalkSymbols(struct vcc *tl, symwalk_f *func, vcc_kind_t);
 
 /* vcc_token.c */
 void vcc_Coord(const struct vcc *tl, struct vsb *vsb,
@@ -321,7 +368,7 @@ void vcc_ErrWhere2(struct vcc *, const struct token *, const struct token *);
 
 void vcc__Expect(struct vcc *tl, unsigned tok, unsigned line);
 int vcc_IdIs(const struct token *t, const char *p);
-void vcc_ExpectCid(struct vcc *tl, const char *what);
+void vcc_ExpectVid(struct vcc *tl, const char *what);
 void vcc_Lexer(struct vcc *tl, struct source *sp);
 void vcc_NextToken(struct vcc *tl);
 void vcc__ErrInternal(struct vcc *tl, const char *func,
@@ -334,26 +381,23 @@ vcc_type_t VCC_Type(const char *p);
 
 /* vcc_var.c */
 sym_wildcard_t vcc_Var_Wildcard;
-const struct symbol *vcc_FindVar(struct vcc *tl, const struct token *t,
-    int wr_access, const char *use);
 
 /* vcc_vmod.c */
 void vcc_ParseImport(struct vcc *tl);
-void vcc_ParseNew(struct vcc *tl);
+sym_act_f vcc_Act_New;
 
 /* vcc_xref.c */
-int vcc_AddDef(struct vcc *tl, const struct token *t, enum symkind type);
-void vcc_AddRef(struct vcc *tl, const struct token *t, enum symkind type);
 int vcc_CheckReferences(struct vcc *tl);
 void VCC_XrefTable(struct vcc *);
 
-void vcc_AddCall(struct vcc *tl, struct token *t);
-struct proc *vcc_AddProc(struct vcc *tl, struct token *t);
+void vcc_AddCall(struct vcc *, struct symbol *);
 void vcc_ProcAction(struct proc *p, unsigned action, struct token *t);
 int vcc_CheckAction(struct vcc *tl);
-void vcc_AddUses(struct vcc *tl, const struct token *t, unsigned mask,
-    const char *use);
+void vcc_AddUses(struct vcc *, const struct token *, const struct token *,
+     unsigned mask, const char *use);
 int vcc_CheckUses(struct vcc *tl);
+const char *vcc_MarkPriv(struct vcc *, struct procprivhead *,
+    const char *);
 
 #define ERRCHK(tl)      do { if ((tl)->err) return; } while (0)
 #define ErrInternal(tl) vcc__ErrInternal(tl, __func__, __LINE__)
@@ -362,3 +406,5 @@ int vcc_CheckUses(struct vcc *tl);
     do { vcc__Expect(a, b, __LINE__); ERRCHK(a);} while (0)
 #define SkipToken(a, b) \
     do { vcc__Expect(a, b, __LINE__); ERRCHK(a); vcc_NextToken(a); } while (0)
+
+#define ACL_SYMBOL_PREFIX "vrt_acl_named"

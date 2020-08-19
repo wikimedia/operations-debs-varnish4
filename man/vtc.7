@@ -63,8 +63,7 @@ character (\en) with a backslash (\e).
 .SH SYNTAX
 .SS barrier
 .sp
-NOTE: this can be used from the top\-level as well as from client and server
-specifications.
+NOTE: This command is available everywhere commands are given.
 .sp
 Barriers allows you to synchronize different threads to make sure events
 occur in the right order. It\(aqs even possible to use them in VCL.
@@ -171,16 +170,23 @@ Equivalent to "\-start \-wait".
 .B \-repeat NUMBER
 Instead of processing the specification only once, do it NUMBER times.
 .TP
+.B \-keepalive
+For repeat, do not open new connections but rather run all
+iterations in the same connection
+.TP
 .B \-break (server only)
 Stop the server.
 .TP
 .B \-listen STRING (server only)
 Dictate the listening socket for the server. STRING is of the form
-"IP PORT".
+"IP PORT", or "/PATH/TO/SOCKET" for a Unix domain socket. In the
+latter case, the path must begin with \(aq/\(aq, and the server must be
+able to create it.
 .TP
 .B \-connect STRING (client only)
 Indicate the server to connect to. STRING is also of the form
-"IP PORT".
+"IP PORT", or "/PATH/TO/SOCKET". As with "server \-listen", a
+Unix domain socket is recognized when STRING begins with a \(aq/\(aq.
 .TP
 .B \-dispatch (server only, s0 only)
 Normally, to keep things simple, server threads only handle one
@@ -205,9 +211,9 @@ to the first Varnish server declared and the \-vcl+backend switch of the
 .sp
 Be careful though, servers will by default listen to the 127.0.0.1 IP and
 will pick a random port, and publish 3 macros: sNAME_addr, sNAME_port and
-sNAME_sock, but only once they are started. For varnishtest to
-create the vcl with the correct values, the server must be started when you
-use \-vcl+backend.
+sNAME_sock, but only once they are started.
+For \(aqvarnish \-vcl+backend\(aq to create the vcl with the correct values, the
+server must be started first.
 .SS Specification
 .sp
 It\(aqs a string, either double\-quoted "like this", but most of the time
@@ -235,22 +241,16 @@ client c1 {
 Close the current connection, if any, and accept a new one. Note
 that this new connection is HTTP/1.x.
 .TP
-.B barrier
-Same as for the top\-level barrier
-.TP
 .B chunked STRING
 Send STRING as chunked encoding.
 .TP
 .B chunkedlen NUMBER
-Do as \fBchunked\fP except that varnishtest will generate the string
+Do as \fBchunked\fP except that the string will be generated
 for you, with a length of NUMBER characters.
 .TP
 .B close (server only)
 Close the connection. Note that if operating in HTTP/2 mode no
 extra (GOAWAY) frame is sent, it\(aqs simply a TCP close.
-.TP
-.B delay
-Same as for the top\-level delay.
 .TP
 .B expect STRING1 OP STRING2
 Test if "STRING1 OP STRING2" is true, and if not, fails the test.
@@ -281,6 +281,8 @@ either match VCL logic, or the txreq/txresp options:
 remote.ip
 .IP \(bu 2
 remote.port
+.IP \(bu 2
+remote.path
 .IP \(bu 2
 req.method
 .IP \(bu 2
@@ -364,11 +366,9 @@ possibly separated by whitespace or newlines. For example:
 .B settings \-dectbl INT
 Force internal HTTP/2 settings to certain values. Currently only
 support setting the decoding table size.
-.UNINDENT
-.SS shell
-.sp
+.TP
+.B shell
 Same as for the top\-level shell.
-.INDENT 0.0
 .TP
 .B stream
 HTTP/2 introduces the concept of streams, and these come with
@@ -413,8 +413,11 @@ These three switches can appear in any order but must come before the
 following ones.
 .INDENT 7.0
 .TP
+.B \-nohost
+Don\(aqt include a Host header in the request.
+.TP
 .B \-nolen
-Don\(aqt include a Content\-Length header in the response.
+Don\(aqt include a Content\-Length header.
 .TP
 .B \-hdr STRING
 Add STRING as a header, it must follow this format:
@@ -456,9 +459,13 @@ to an external program.
 .UNINDENT
 .SS delay
 .sp
+NOTE: This command is available everywhere commands are given.
+.sp
 Sleep for the number of seconds specified in the argument. The number
 can include a fractional part, e.g. 1.5.
 .SS err_shell
+.sp
+NOTICE: err_shell is deprecated, use \fIshell \-err \-expect\fP instead.
 .sp
 This is very similar to the the \fBshell\fP command, except it takes a first
 string as argument before the command:
@@ -477,8 +484,9 @@ err_shell expect the shell command to fail AND stdout to match the string,
 failing the test case otherwise.
 .SS feature
 .sp
-Test that the required feature(s) for a test are available, and skip the test
-otherwise. feature takes any number of arguments from this list:
+Test that the required feature(s) for a test are available, and skip
+the test otherwise; or change the interpretation of the test, as
+documented below. feature takes any number of arguments from this list:
 .INDENT 0.0
 .TP
 .B SO_RCVTIMEO_WORKS
@@ -494,10 +502,10 @@ The environment is not OSX
 DNS lookups are working
 .TP
 .B topbuild
-varnishtest has been started with \(aq\-i\(aq
+The test has been started with \(aq\-i\(aq
 .TP
 .B root
-varnishtest has been invoked by the root user
+The test has been invoked by the root user
 .TP
 .B user_varnish
 The varnish user is present
@@ -510,6 +518,104 @@ The varnish group is present
 .TP
 .B cmd <command\-line>
 A command line that should execute with a zero exit status
+.TP
+.B ignore_unknown_macro
+Do not fail the test if a string of the form ${...} is not
+recognized as a macro.
+.TP
+.B persistent_storage
+Varnish was built with the deprecated persistent storage.
+.UNINDENT
+.sp
+Be careful with ignore_unknown_macro, because it may cause a test with a
+misspelled macro to fail silently. You should only need it if you must
+run a test with strings of the form "${...}".
+.SS haproxy
+.sp
+Define and interact with haproxy instances.
+.sp
+To define a haproxy server, you\(aqll use this syntax:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+haproxy hNAME \-conf\-OK CONFIG
+haproxy hNAME \-conf\-BAD ERROR CONFIG
+haproxy hNAME [\-D] [\-W] [\-arg STRING] [\-conf[+vcl] STRING]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The first \fBhaproxy hNAME\fP invocation will start the haproxy master
+process in the background, waiting for the \fB\-start\fP switch to actually
+start the child.
+.sp
+Arguments:
+.INDENT 0.0
+.TP
+.B hNAME
+Identify the HAProxy server with a string, it must starts with \(aqh\(aq.
+.TP
+.B \-conf\-OK CONFIG
+.INDENT 7.0
+.TP
+.B Run haproxy in \(aq\-c\(aq mode to check config is OK
+stdout/stderr should contain \(aqConfiguration file is valid\(aq
+The exit code should be 0.
+.UNINDENT
+.TP
+.B \-conf\-BAD ERROR CONFIG
+.INDENT 7.0
+.TP
+.B Run haproxy in \(aq\-c\(aq mode to check config is BAD.
+"ERROR" should be part of the diagnostics on stdout/stderr.
+The exit code should be 1.
+.UNINDENT
+.TP
+.B \-D
+Run HAproxy in daemon mode.  If not given \(aq\-d\(aq mode used.
+.TP
+.B \-W
+Enable HAproxy in Worker mode.
+.TP
+.B \-arg STRING
+Pass an argument to haproxy, for example "\-h simple_list".
+.TP
+.B \-cli STRING
+Specify the spec to be run by the command line interface (CLI).
+.TP
+.B \-conf STRING
+Specify the configuration to be loaded by this HAProxy instance.
+.TP
+.B \-conf+backend STRING
+.INDENT 7.0
+.TP
+.B Specify the configuration to be loaded by this HAProxy instance,
+all server instances will be automatically appended
+.UNINDENT
+.TP
+.B \-start
+Start this HAProxy instance.
+.TP
+.B \-wait
+Stop this HAProxy instance.
+.TP
+.B \-expectexit NUMBER
+Expect haproxy to exit(3) with this value
+.UNINDENT
+.SS haproxy CLI Specification
+.INDENT 0.0
+.TP
+.B expect OP STRING
+Regex match the CLI reception buffer with STRING
+if OP is ~ or, on the contraty, if OP is !~ check that there is
+no regex match.
+.TP
+.B send STRING
+Push STRING on the CLI connection. STRING will be terminated by an
+end of line character (n).
 .UNINDENT
 .SS logexpect
 .sp
@@ -568,6 +674,9 @@ tail.
 Filter records using a query expression, see \fBman vsl\-query\fP for
 more information.
 .TP
+.B \-m
+Also emit log records for misses (only for debugging)
+.TP
 .B \-start
 Start the logexpect thread in the background.
 .TP
@@ -614,17 +723,26 @@ For skip, vxid and tag, \(aq*\(aq matches anything, \(aq=\(aq expects the value 
 previous matched record.
 .SS process
 .sp
-Run a process in the background with stdout and stderr redirected to
-${pNAME_out} and ${pNAME_err}, both located in ${pNAME_dir}:
+Run a process with stdin+stdout on a pseudo\-terminal and stderr on a pipe.
+.sp
+Output from the pseudo\-terminal is copied verbatim to ${pNAME_out},
+and the \-log/\-dump/\-hexdump flags will also put it in the vtc\-log.
+.sp
+The pseudo\-terminal is not in ECHO mode, but if the programs run set
+it to ECHO mode ("stty sane") any input sent to the process will also
+appear in this stream because of the ECHO.
+.sp
+Output from the stderr\-pipe is copied verbatim to ${pNAME_err}, and
+is always included in the vtc_log.
 .INDENT 0.0
 .INDENT 3.5
-.sp
-.nf
-.ft C
-process pNAME SPEC [\-log] [\-start] [\-wait] [\-run] [\-kill STRING] \e
-        [\-stop] [\-write STRING] [\-writeln STRING] [\-close]
-.ft P
-.fi
+.INDENT 0.0
+.TP
+.B process pNAME SPEC [\-log] [\-dump] [\-hexdump] [\-expect\-exit N]
+[\-start] [\-run]
+[\-write STRING] [\-writeln STRING]
+[\-kill STRING] [\-stop] [\-wait] [\-close]
+.UNINDENT
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -635,11 +753,20 @@ Name of the process. It must start with \(aqp\(aq.
 .B SPEC
 The command(s) to run in this process.
 .TP
+.B \-hexdump
+Log output with vtc_hexdump(). Must be before \-start/\-run.
+.TP
+.B \-dump
+Log output with vtc_dump(). Must be before \-start/\-run.
+.TP
 .B \-log
-Log stdout/stderr with vtc_dump(). Must be before \-start/\-run.
+Log output with VLU/vtc_log(). Must be before \-start/\-run.
 .TP
 .B \-start
 Start the process.
+.TP
+.B \-expect\-exit N
+Expect exit status N
 .TP
 .B \-wait
 Wait for the process to finish.
@@ -648,7 +775,7 @@ Wait for the process to finish.
 Shorthand for \-start \-wait.
 .sp
 In most cases, if you just want to start a process and wait for it
-to finish, you can use the varnishtest \fBshell\fP command instead.
+to finish, you can use the \fBshell\fP command instead.
 The following commands are equivalent:
 .INDENT 7.0
 .INDENT 3.5
@@ -699,8 +826,24 @@ Write a string to the process\(aq stdin.
 .B \-writeln STRING
 Same as \-write followed by a newline (\en).
 .TP
+.B \-writehex HEXSTRING
+Same as \-write but interpreted as hexadecimal bytes.
+.TP
+.B \-need\-bytes [+]NUMBER
+Wait until at least NUMBER bytes have been received in total.
+If \(aq+\(aq is prefixed, NUMBER new bytes must be received.
+.TP
+.B \-expect\-text LIN COL PAT
+Wait for PAT to appear at LIN,COL on the virtual screen.
+Lines and columns are numbered 1...N
+LIN==0 means "on any line"
+COL==0 means "anywhere on the line"
+.TP
 .B \-close
-Close the process\(aq stdin.
+Alias for "\-kill HUP"
+.TP
+.B \-screen_dump
+Dump the virtual screen into vtc_log
 .UNINDENT
 .SS setenv
 .sp
@@ -732,8 +875,10 @@ setenv \-ifunset FOO quux
 .UNINDENT
 .SS shell
 .sp
+NOTE: This command is available everywhere commands are given.
+.sp
 Pass the string given as argument to a shell. If you have multiple
-commands to run, you can use curly barces to describe a multi\-lines
+commands to run, you can use curly brackets to describe a multi\-lines
 script, eg:
 .INDENT 0.0
 .INDENT 3.5
@@ -752,8 +897,8 @@ shell {
 .sp
 By default a zero exit code is expected, otherwise the vtc will fail.
 .sp
-Notice that the commandstring is prefixed with "exec 2>&1;" to join
-stderr and stdout back to the varnishtest process.
+Notice that the commandstring is prefixed with "exec 2>&1;" to combine
+stderr and stdout back to the test process.
 .sp
 Optional arguments:
 .INDENT 0.0
@@ -980,15 +1125,12 @@ keep waiting for DATA frame until one sets the END_STREAM flag
 .B \-some INT
 retrieve INT DATA frames.
 .UNINDENT
-.SS delay
-.sp
-Same as for the top\-level delay.
 .sp
 Receive a frame, any frame.
 .SS sendhex
 .sp
 Push bytes directly on the wire. sendhex takes exactly one argument: a string
-describing the bytes, in hex notation, will possible whitespaces between
+describing the bytes, in hex notation, with possible whitespaces between
 them. Here\(aqs an example:
 .INDENT 0.0
 .INDENT 3.5
@@ -1003,13 +1145,13 @@ sendhex "00 00 08 00 0900       8d"
 .SS rxgoaway
 .sp
 Receive a GOAWAY frame.
-.SS rxgoaway
+.SS txgoaway
 .sp
 Possible options include:
 .INDENT 0.0
 .TP
 .B \-err STRING|INT
-set the error code to eplain the termination. The second argument
+set the error code to explain the termination. The second argument
 can be a integer or the string version of the error code as found
 in rfc7540#7.
 .TP
@@ -1122,6 +1264,54 @@ Most of these elements will be frame specific, meaning that the last frame
 received on that stream must of the correct type.
 .sp
 Here the list of keywords you can look at.
+.SS syslog
+.sp
+Define and interact with syslog instances (for use with haproxy)
+.sp
+To define a syslog server, you\(aqll use this syntax:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+syslog SNAME
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Arguments:
+.INDENT 0.0
+.TP
+.B SNAME
+Identify the syslog server with a string which must start with \(aqS\(aq.
+.TP
+.B \-level STRING
+Set the default syslog priority level used by any subsequent "recv"
+command.
+Any syslog dgram with a different level will be skipped by
+"recv" command. This default level value may be superseded
+by "recv" command if supplied as first argument: "recv <level>".
+.TP
+.B \-start
+Start the syslog server thread in the background.
+.TP
+.B \-repeat
+.INDENT 7.0
+.TP
+.B Instead of processing the specification only once, do it
+NUMBER times.
+.UNINDENT
+.TP
+.B \-bind
+Bind the syslog socket to a local address.
+.TP
+.B \-wait
+Wait for that thread to terminate.
+.TP
+.B \-stop
+Stop the syslog server thread.
+.UNINDENT
 .SS varnish
 .sp
 Define and interact with varnish instances.
@@ -1143,7 +1333,15 @@ The first \fBvarnish vNAME\fP invocation will start the varnishd master
 process in the background, waiting for the \fB\-start\fP switch to actually
 start the child.
 .sp
-With:
+Types used in the description below:
+.INDENT 0.0
+.TP
+.B PATTERN
+is a \(aqglob\(aq style pattern (ie: fnmatch(3)) as used in shell filename
+expansion.
+.UNINDENT
+.sp
+Arguments:
 .INDENT 0.0
 .TP
 .B vNAME
@@ -1192,7 +1390,7 @@ Start the child process.
 Stop the child process.
 .TP
 .B \-syntax
-Set the VCL syntax level (default: 4.0)
+Set the VCL syntax level for this command (default: 4.1)
 .TP
 .B \-wait
 Wait for that instance to terminate.
@@ -1205,7 +1403,7 @@ Wait for the Varnish child process to stop.
 .TP
 .B \-cleanup
 Once Varnish is stopped, clean everything after it. This is only used
-in one test and you should never need it.
+in very few tests and you should never need it.
 .UNINDENT
 .sp
 Once Varnish is started, you can talk to it (as you would through
@@ -1216,7 +1414,7 @@ Once Varnish is started, you can talk to it (as you would through
 .nf
 .ft C
 varnish vNAME [\-cli STRING] [\-cliok STRING] [\-clierr STRING]
-              [\-expect STRING OP NUMBER]
+              [\-clijson STRING] [\-expect STRING OP NUMBER]
 .ft P
 .fi
 .UNINDENT
@@ -1229,31 +1427,39 @@ is what they expect the result to be. \-cli doesn\(aqt expect
 anything, \-cliok expects 200, \-clierr expects STATUS, and
 \-cliexpect expects the REGEXP to match the returned response.
 .TP
-.B \-expect STRING OP NUMBER
-Look into the VSM and make sure the counter identified by STRING has
-a correct value. OP can be ==, >, >=, <, <=. For example:
+.B \-clijson STRING
+Send STRING to the CLI, expect success (CLIS_OK/200) and check
+that the response is parsable JSON.
+.TP
+.B \-expect PATTERN OP NUMBER
+Look into the VSM and make sure the first VSC counter identified by
+PATTERN has a correct value. OP can be ==, >, >=, <, <=. For
+example:
 .INDENT 7.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-varnish v1 \-expect SMA.s1.g_space > 1000000
+varnish v1 \-expect SM?.s1.g_space > 1000000
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .TP
+.B \-expectexit NUMBER
+Expect varnishd to exit(3) with this value
+.TP
 .B \-vsc PATTERN
-Dump VSC counters matching PATTERN.  The PATTERN is a \(aqglob\(aq
-style pattern (ie: fnmatch(3)) as used in shell filename expansion.
-To see all counters use pattern "*", to see all counters about
-requests use "\fIreq\fP".
+Dump VSC counters matching PATTERN.
 .TP
 .B \-vsl_catchup
 Wait until the logging thread has idled to make sure that all
 the generated log is flushed
 .UNINDENT
 .SS varnishtest
+.sp
+Alternate name for \(aqvtest\(aq, see above.
+.SS vtest
 .sp
 This should be the first command in your vtc as it will identify the test
 case with a short yet descriptive sentence. It takes exactly one argument, a
@@ -1263,7 +1469,7 @@ string, eg:
 .sp
 .nf
 .ft C
-varnishtest "Check that varnishtest is actually a valid command"
+vtest "Check that vtest is actually a valid command"
 .ft P
 .fi
 .UNINDENT
@@ -1277,6 +1483,8 @@ This document has been written by Guillaume Quintard.
 .INDENT 0.0
 .IP \(bu 2
 \fIvarnishtest(1)\fP
+.IP \(bu 2
+\fIvmod_vtc(3)\fP
 .UNINDENT
 .SH COPYRIGHT
 .sp

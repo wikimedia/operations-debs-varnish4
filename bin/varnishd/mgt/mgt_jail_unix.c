@@ -34,18 +34,20 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
 #include "mgt/mgt.h"
+#include "common/heritage.h"
 
 #ifdef __linux__
 #include <sys/prctl.h>
 #endif
 
-static gid_t vju_mgr_gid;
+static gid_t vju_mgt_gid;
 static uid_t vju_uid;
 static gid_t vju_gid;
 static const char *vju_user;
@@ -118,7 +120,7 @@ vju_getccgid(const char *arg)
 /**********************************************************************
  */
 
-static int __match_proto__(jail_init_f)
+static int v_matchproto_(jail_init_f)
 vju_init(char **args)
 {
 	if (args == NULL) {
@@ -165,10 +167,12 @@ vju_init(char **args)
 
 	AN(vju_user);
 
-	vju_mgr_gid = getgid();
+	vju_mgt_gid = getgid();
 
-	if (vju_wrkuser == NULL)
-		(void)vju_getwrkuid(VCACHE_USER);
+	if (vju_wrkuser == NULL && vju_getwrkuid(VCACHE_USER)) {
+		vju_wrkuid = vju_uid;
+		vju_wrkgid = vju_gid;
+	}
 
 	if (vju_wrkuser != NULL && vju_wrkgid != vju_gid)
 		ARGV_ERR("Unix jail: user %s and %s have "
@@ -180,7 +184,7 @@ vju_init(char **args)
 	return (0);
 }
 
-static void __match_proto__(jail_master_f)
+static void v_matchproto_(jail_master_f)
 vju_master(enum jail_master_e jme)
 {
 	if (jme == JAIL_MASTER_LOW) {
@@ -188,11 +192,11 @@ vju_master(enum jail_master_e jme)
 		AZ(seteuid(vju_uid));
 	} else {
 		AZ(seteuid(0));
-		AZ(setegid(vju_mgr_gid));
+		AZ(setegid(vju_mgt_gid));
 	}
 }
 
-static void __match_proto__(jail_subproc_f)
+static void v_matchproto_(jail_subproc_f)
 vju_subproc(enum jail_subproc_e jse)
 {
 	int i;
@@ -235,14 +239,26 @@ vju_subproc(enum jail_subproc_e jse)
 #endif
 }
 
-static int __match_proto__(jail_make_dir_f)
-vju_make_vcldir(const char *dname)
+static int v_matchproto_(jail_make_dir_f)
+vju_make_subdir(const char *dname, const char *what, struct vsb *vsb)
 {
+	int e;
+
+	AN(dname);
+	AN(what);
 	AZ(seteuid(0));
 
 	if (mkdir(dname, 0755) < 0 && errno != EEXIST) {
-		MGT_Complain(C_ERR, "Cannot create VCL directory '%s': %s",
-		    dname, strerror(errno));
+		e = errno;
+		if (vsb != NULL) {
+			VSB_printf(vsb,
+			    "Cannot create %s directory '%s': %s\n",
+			    what, dname, strerror(e));
+		} else {
+			MGT_Complain(C_ERR,
+			    "Cannot create %s directory '%s': %s",
+			    what, dname, strerror(e));
+		}
 		return (1);
 	}
 	AZ(chown(dname, vju_uid, vju_gid));
@@ -250,23 +266,46 @@ vju_make_vcldir(const char *dname)
 	return (0);
 }
 
+static int v_matchproto_(jail_make_dir_f)
+vju_make_workdir(const char *dname, const char *what, struct vsb *vsb)
+{
 
-static void __match_proto__(jail_fixfile_f)
-vju_vsm_file(int fd)
+	AN(dname);
+	AZ(what);
+	AZ(vsb);
+	AZ(seteuid(0));
+
+	if (mkdir(dname, 0755) < 0 && errno != EEXIST) {
+		MGT_Complain(C_ERR, "Cannot create working directory '%s': %s",
+		    dname, strerror(errno));
+		return (1);
+	}
+	AZ(chown(dname, -1, vju_gid));
+	AZ(seteuid(vju_uid));
+	return (0);
+}
+
+static void v_matchproto_(jail_fixfd_f)
+vju_fixfd(int fd, enum jail_fixfd_e what)
 {
 	/* Called under JAIL_MASTER_FILE */
 
-	AZ(fchmod(fd, 0640));
-	AZ(fchown(fd, 0, vju_gid));
-}
-
-static void __match_proto__(jail_fixfile_f)
-vju_storage_file(int fd)
-{
-	/* Called under JAIL_MASTER_STORAGE */
-
-	AZ(fchmod(fd, 0600));
-	AZ(fchown(fd, vju_uid, vju_gid));
+	switch (what) {
+	case JAIL_FIXFD_FILE:
+		AZ(fchmod(fd, 0750));
+		AZ(fchown(fd, vju_wrkuid, vju_wrkgid));
+		break;
+	case JAIL_FIXFD_VSMMGT:
+		AZ(fchmod(fd, 0750));
+		AZ(fchown(fd, vju_uid, vju_gid));
+		break;
+	case JAIL_FIXFD_VSMWRK:
+		AZ(fchmod(fd, 0750));
+		AZ(fchown(fd, vju_wrkuid, vju_wrkgid));
+		break;
+	default:
+		WRONG("Ain't Fixin'");
+	}
 }
 
 const struct jail_tech jail_tech_unix = {
@@ -274,8 +313,8 @@ const struct jail_tech jail_tech_unix = {
 	.name =		"unix",
 	.init =		vju_init,
 	.master =	vju_master,
-	.make_vcldir =	vju_make_vcldir,
-	.vsm_file =	vju_vsm_file,
-	.storage_file =	vju_storage_file,
+	.make_subdir =	vju_make_subdir,
+	.make_workdir =	vju_make_workdir,
+	.fixfd =	vju_fixfd,
 	.subproc =	vju_subproc,
 };

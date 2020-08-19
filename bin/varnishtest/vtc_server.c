@@ -28,17 +28,20 @@
 
 #include "config.h"
 
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "vtc.h"
 
 #include "vtcp.h"
+#include "vus.h"
 
 struct server {
 	unsigned		magic;
@@ -49,6 +52,7 @@ struct server {
 	char			run;
 
 	unsigned		repeat;
+	unsigned		keepalive;
 	char			*spec;
 
 	int			depth;
@@ -115,6 +119,81 @@ server_delete(struct server *s)
  * Server listen
  */
 
+struct helper {
+	int		depth;
+	const char	**errp;
+};
+
+/* cf. VTCP_listen_on() */
+static int v_matchproto_(vus_resolved_f)
+uds_listen(void *priv, const struct sockaddr_un *uds)
+{
+	int sock, e;
+	struct helper *hp = priv;
+
+	sock = VUS_bind(uds, hp->errp);
+	if (sock >= 0)   {
+		if (listen(sock, hp->depth) != 0) {
+			e = errno;
+			closefd(&sock);
+			errno = e;
+			if (hp->errp != NULL)
+				*hp->errp = "listen(2)";
+			return (-1);
+		}
+	}
+	if (sock > 0) {
+		*hp->errp = NULL;
+		return (sock);
+	}
+	AN(*hp->errp);
+	return (0);
+}
+
+static void
+server_listen_uds(struct server *s, const char **errp)
+{
+	mode_t m;
+	struct helper h;
+
+	h.depth = s->depth;
+	h.errp = errp;
+
+	errno = 0;
+	if (unlink(s->listen) != 0 && errno != ENOENT)
+		vtc_fatal(s->vl, "Could not unlink %s before bind: %s",
+			  s->listen, strerror(errno));
+	/*
+	 * Temporarily set the umask to 0 to avoid issues with
+	 * permissions.
+	 */
+	m = umask(0);
+	s->sock = VUS_resolver(s->listen, uds_listen, &h, errp);
+	(void)umask(m);
+	if (*errp != NULL)
+		return;
+	assert(s->sock > 0);
+	macro_def(s->vl, s->name, "addr", "0.0.0.0");
+	macro_def(s->vl, s->name, "port", "0");
+	macro_def(s->vl, s->name, "sock", "%s", s->listen);
+}
+
+static void
+server_listen_tcp(struct server *s, const char **errp)
+{
+	s->sock = VTCP_listen_on(s->listen, "0", s->depth, errp);
+	if (*errp != NULL)
+		return;
+	assert(s->sock > 0);
+	VTCP_myname(s->sock, s->aaddr, sizeof s->aaddr,
+	    s->aport, sizeof s->aport);
+	macro_def(s->vl, s->name, "addr", "%s", s->aaddr);
+	macro_def(s->vl, s->name, "port", "%s", s->aport);
+	macro_def(s->vl, s->name, "sock", "%s %s", s->aaddr, s->aport);
+	/* Record the actual port, and reuse it on subsequent starts */
+	bprintf(s->listen, "%s %s", s->aaddr, s->aport);
+}
+
 static void
 server_listen(struct server *s)
 {
@@ -124,19 +203,14 @@ server_listen(struct server *s)
 
 	if (s->sock >= 0)
 		VTCP_close(&s->sock);
-	s->sock = VTCP_listen_on(s->listen, "0", s->depth, &err);
+	if (*s->listen != '/')
+		server_listen_tcp(s, &err);
+	else
+		server_listen_uds(s, &err);
 	if (err != NULL)
 		vtc_fatal(s->vl,
 		    "Server listen address (%s) cannot be resolved: %s",
 		    s->listen, err);
-	assert(s->sock > 0);
-	VTCP_myname(s->sock, s->aaddr, sizeof s->aaddr,
-	    s->aport, sizeof s->aport);
-	macro_def(s->vl, s->name, "addr", "%s", s->aaddr);
-	macro_def(s->vl, s->name, "port", "%s", s->aport);
-	macro_def(s->vl, s->name, "sock", "%s %s", s->aaddr, s->aport);
-	/* Record the actual port, and reuse it on subsequent starts */
-	bprintf(s->listen, "%s %s", s->aaddr, s->aport);
 }
 
 /**********************************************************************
@@ -159,19 +233,27 @@ server_thread(void *priv)
 	assert(s->sock >= 0);
 
 	vl = vtc_logopen(s->name);
+	pthread_cleanup_push(vtc_logclose, vl);
 
-	vtc_log(vl, 2, "Started on %s", s->listen);
+	vtc_log(vl, 2, "Started on %s (%u iterations%s)", s->listen,
+		s->repeat, s->keepalive ? " using keepalive" : "");
 	for (i = 0; i < s->repeat; i++) {
-		if (s->repeat > 1)
-			vtc_log(vl, 3, "Iteration %d", i);
 		addr = (void*)&addr_s;
 		l = sizeof addr_s;
 		fd = accept(s->sock, addr, &l);
 		if (fd < 0)
 			vtc_fatal(vl, "Accept failed: %s", strerror(errno));
-		VTCP_hisname(fd, abuf, sizeof abuf, pbuf, sizeof pbuf);
-		vtc_log(vl, 3, "accepted fd %d %s %s", fd, abuf, pbuf);
-		fd = http_process(vl, s->spec, fd, &s->sock);
+		if (*s->listen != '/') {
+			VTCP_hisname(fd, abuf, sizeof abuf, pbuf, sizeof pbuf);
+			vtc_log(vl, 3, "accepted fd %d %s %s", fd, abuf, pbuf);
+		} else
+			vtc_log(vl, 3, "accepted fd %d 0.0.0.0 0", fd);
+		if (! s->keepalive)
+			fd = http_process(vl, s->spec, fd, &s->sock, s->listen);
+		else
+			while (fd >= 0 && i++ < s->repeat)
+				fd = http_process(vl, s->spec, fd,
+				    &s->sock, s->listen);
 		vtc_log(vl, 3, "shutting fd %d", fd);
 		j = shutdown(fd, SHUT_WR);
 		if (!VTCP_Check(j))
@@ -179,6 +261,8 @@ server_thread(void *priv)
 		VTCP_close(&fd);
 	}
 	vtc_log(vl, 2, "Ending");
+	pthread_cleanup_pop(0);
+	vtc_logclose(vl);
 	return (NULL);
 }
 
@@ -212,17 +296,20 @@ server_dispatch_wrk(void *priv)
 	assert(s->sock < 0);
 
 	vl = vtc_logopen(s->name);
+	pthread_cleanup_push(vtc_logclose, vl);
 
 	fd = s->fd;
 
 	vtc_log(vl, 3, "start with fd %d", fd);
-	fd = http_process(vl, s->spec, fd, &s->sock);
+	fd = http_process(vl, s->spec, fd, &s->sock, s->listen);
 	vtc_log(vl, 3, "shutting fd %d", fd);
 	j = shutdown(fd, SHUT_WR);
 	if (!VTCP_Check(j))
 		vtc_fatal(vl, "Shutdown failed: %s", strerror(errno));
 	VTCP_close(&s->fd);
 	vtc_log(vl, 2, "Ending");
+	pthread_cleanup_pop(0);
+	vtc_logclose(vl);
 	return (NULL);
 }
 
@@ -241,10 +328,11 @@ server_dispatch_thread(void *priv)
 	assert(s->sock >= 0);
 
 	vl = vtc_logopen(s->name);
-	AN(vl);
+	pthread_cleanup_push(vtc_logclose, vl);
+
 	vtc_log(vl, 2, "Dispatch started on %s", s->listen);
 
-	while (1) {
+	while (!vtc_stop) {
 		addr = (void*)&addr_s;
 		l = sizeof addr_s;
 		fd = accept(s->sock, addr, &l);
@@ -259,6 +347,8 @@ server_dispatch_thread(void *priv)
 		s2->run = 1;
 		AZ(pthread_create(&s2->tp, NULL, server_dispatch_wrk, s2));
 	}
+	pthread_cleanup_pop(0);
+	vtc_logclose(vl);
 	NEEDLESS(return(NULL));
 }
 
@@ -313,15 +403,54 @@ server_wait(struct server *s)
  */
 
 void
-cmd_server_genvcl(struct vsb *vsb)
+cmd_server_gen_vcl(struct vsb *vsb)
 {
 	struct server *s;
 
 	AZ(pthread_mutex_lock(&server_mtx));
 	VTAILQ_FOREACH(s, &servers, list) {
-		VSB_printf(vsb,
-		    "backend %s { .host = \"%s\"; .port = \"%s\"; }\n",
-		    s->name, s->aaddr, s->aport);
+		if (*s->listen != '/')
+			VSB_printf(vsb,
+				   "backend %s { .host = \"%s\"; "
+				   ".port = \"%s\"; }\n",
+				   s->name, s->aaddr, s->aport);
+		else
+			VSB_printf(vsb,
+				   "backend %s { .path = \"%s\"; }\n",
+				   s->name, s->listen);
+	}
+	AZ(pthread_mutex_unlock(&server_mtx));
+}
+
+
+/**********************************************************************
+ * Generate VCL backend decls for our servers
+ */
+
+void
+cmd_server_gen_haproxy_conf(struct vsb *vsb)
+{
+	struct server *s;
+
+	AZ(pthread_mutex_lock(&server_mtx));
+	VTAILQ_FOREACH(s, &servers, list) {
+		if (*s->listen != '/')
+			VSB_printf(vsb,
+			   "\n    backend be%s\n"
+			   "\tserver srv%s %s:%s\n",
+			   s->name + 1, s->name + 1, s->aaddr, s->aport);
+		else
+			INCOMPL();
+	}
+	VTAILQ_FOREACH(s, &servers, list) {
+		if (*s->listen != '/')
+			VSB_printf(vsb,
+			   "\n    frontend http%s\n"
+			   "\tuse_backend be%s\n"
+			   "\tbind \"fd@${fe%s}\"\n",
+			   s->name + 1, s->name + 1, s->name + 1);
+		else
+			INCOMPL();
 	}
 	AZ(pthread_mutex_unlock(&server_mtx));
 }
@@ -400,6 +529,10 @@ cmd_server(CMD_ARGS)
 		if (!strcmp(*av, "-repeat")) {
 			s->repeat = atoi(av[1]);
 			av++;
+			continue;
+		}
+		if (!strcmp(*av, "-keepalive")) {
+			s->keepalive = 1;
 			continue;
 		}
 		if (!strcmp(*av, "-listen")) {

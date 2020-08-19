@@ -1,8 +1,8 @@
 AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2006 Verdens Gang AS
-Copyright (c) 2006-2017 Varnish Software])
+Copyright (c) 2006-2019 Varnish Software])
 AC_REVISION([$Id$])
-AC_INIT([Varnish], [5.1.3], [varnish-dev@varnish-cache.org])
+AC_INIT([Varnish], [6.0.6], [varnish-dev@varnish-cache.org])
 AC_CONFIG_SRCDIR(include/miniobj.h)
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -40,10 +40,23 @@ AC_PROG_INSTALL
 AC_ARG_WITH([rst2man],
   AS_HELP_STRING([--with-rst2man=PATH], [Location of rst2man (auto)]),
   [RST2MAN="$withval"],
-  AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py], [no]))
+  AC_CHECK_PROGS(RST2MAN,
+    [rst2man rst2man.py rst2man-3.6 rst2man-2.7],
+    [no]))
 if test "x$RST2MAN" = "xno"; then
   AC_MSG_ERROR(
     [rst2man is needed to build Varnish, please install python-docutils.])
+fi
+
+AC_ARG_WITH([sphinx-build],
+  AS_HELP_STRING([--with-sphinx-build=PATH], [Location of sphinx-build (auto)]),
+  [SPHINX="$withval"],
+  AC_CHECK_PROGS(SPHINX,
+    [sphinx-build sphinx-build-3.6 sphinx-build-2.7],
+    [no]))
+if test "x$SPHINX" = "xno"; then
+  AC_MSG_ERROR(
+    [sphinx-build is needed to build Varnish, please install python-sphinx.])
 fi
 
 AC_ARG_WITH([rst2html],
@@ -67,6 +80,9 @@ AC_ARG_WITH([dot],
    fi])
 AM_CONDITIONAL(HAVE_DOT,[test "x$DOT" != "xno"])
 
+# Define VMOD flags
+_VARNISH_VMOD_LDFLAGS
+
 # Check for python.
 _VARNISH_CHECK_PYTHON
 
@@ -79,10 +95,8 @@ _VARNISH_CHECK_LIB(nsl, getaddrinfo)
 
 AC_SUBST(NET_LIBS, "${SOCKET_LIBS} ${NSL_LIBS}")
 
-AX_WITH_CURSES
-if test "x$ax_cv_curses" != xyes; then
-   AC_MSG_ERROR([requires an X/Open-compatible Curses library])
-fi
+# Userland slab allocator from Solaris, ported to other systems
+AC_CHECK_HEADERS([umem.h])
 
 # XXX: This _may_ be for OS/X
 AC_CHECK_LIBM
@@ -181,6 +195,21 @@ AC_CHECK_HEADERS([edit/readline/readline.h],
 		])
 	])
 
+PKG_CHECK_MODULES([CURSES], [ncursesw], [], [
+	PKG_CHECK_MODULES([CURSES], [ncurses], [], [
+		PKG_CHECK_MODULES([CURSES], [curses], [], [
+AX_WITH_CURSES
+if test "x$ax_cv_curses" != xyes; then
+	AC_MSG_ERROR([requires an X/Open-compatible Curses library])
+fi
+CURSES_LIBS="$CURSES_LIB"
+		])
+	])
+])
+AC_SUBST([CURSES_LIBS])
+
+AC_CHECK_HEADERS([ncursesw/curses.h ncursesw.h ncurses/curses.h ncurses.h curses.h])
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/endian.h])
@@ -192,6 +221,7 @@ AC_CHECK_HEADERS([sys/vfs.h])
 AC_CHECK_HEADERS([endian.h])
 AC_CHECK_HEADERS([pthread_np.h], [], [], [#include <pthread.h>])
 AC_CHECK_HEADERS([priv.h])
+AC_CHECK_HEADERS([fnmatch.h], [], [AC_MSG_ERROR([fnmatch.h is required])])
 
 # Checks for library functions.
 _VARNISH_CHECK_EXPLICIT_BZERO
@@ -199,6 +229,10 @@ AC_CHECK_FUNCS([nanosleep])
 AC_CHECK_FUNCS([setppriv])
 AC_CHECK_FUNCS([fallocate])
 AC_CHECK_FUNCS([closefrom])
+AC_CHECK_FUNCS([sigaltstack])
+AC_CHECK_FUNCS([getpeereid])
+AC_CHECK_FUNCS([getpeerucred])
+AC_CHECK_FUNCS([fnmatch], [], [AC_MSG_ERROR([fnmatch(3) is required])])
 
 save_LIBS="${LIBS}"
 LIBS="${PTHREAD_LIBS}"
@@ -231,6 +265,11 @@ if test "$ac_cv_have_viz" = no; then
 fi
 CFLAGS="${save_CFLAGS}"
 
+if test "x$GCC" = "xyes"; then
+	libvgz_extra_cflags="${libvgz_extra_cflags} -Wno-unknown-warning-option -Wno-implicit-fallthrough"
+	AC_SUBST(libvgz_extra_cflags)
+fi
+
 SAN_CFLAGS=
 SAN_LDFLAGS=
 UBSAN_CFLAGS=
@@ -249,7 +288,9 @@ ASAN_CFLAGS=
 ASAN_LDFLAGS=
 AC_ARG_ENABLE(asan,
 	AS_HELP_STRING([--enable-asan],[enable address sanitizer (default is NO)]),
-	ASAN_FLAGS="-fsanitize=address")
+	ASAN_FLAGS="-fsanitize=address"
+	AX_CHECK_COMPILE_FLAG([-fsanitize=address -fsanitize-address-use-after-scope],
+			      [ASAN_FLAGS="${ASAN_FLAGS} -fsanitize-address-use-after-scope"]))
 
 MSAN_CFLAGS=
 MSAN_LDFLAGS=
@@ -258,8 +299,17 @@ AC_ARG_ENABLE(msan,
 	MSAN_FLAGS="-fsanitize=memory")
 
 if test "x$UBSAN_FLAGS$TSAN_FLAGS$ASAN_FLAGS$MSAN_FLAGS" != "x"; then
-	SAN_CFLAGS="${UBSAN_FLAGS} ${TSAN_FLAGS} ${ASAN_FLAGS} ${MSAN_FLAGS} -fPIC -fPIE -fno-omit-frame-pointer"
-	SAN_LDFLAGS="${UBSAN_FLAGS} ${TSAN_FLAGS} ${ASAN_FLAGS} ${MSAN_FLAGS} -pie"
+	SAN_CFLAGS="-D__SANITIZER=1 ${UBSAN_FLAGS} ${TSAN_FLAGS} ${ASAN_FLAGS} ${MSAN_FLAGS} -fPIC -fPIE -fno-omit-frame-pointer"
+	SAN_LDFLAGS="${UBSAN_FLAGS} ${TSAN_FLAGS} ${ASAN_FLAGS} ${MSAN_FLAGS}"
+	save_CFLAGS="${CFLAGS}"
+	CFLAGS="${CFLAGS} -Werror=unused-command-line-argument"
+	AX_CHECK_LINK_FLAG([-pie], [SAN_LDFLAGS="${SAN_LDFLAGS} -pie"])
+	CFLAGS="${save_CFLAGS}"
+	case $CC in
+	gcc*)
+		SAN_CFLAGS="${SAN_CFLAGS} -fuse-ld=gold"
+		;;
+	esac
 fi
 AC_SUBST(SAN_CFLAGS)
 AC_SUBST(SAN_LDFLAGS)
@@ -309,6 +359,62 @@ AC_CHECK_FUNCS([clock_gettime])
 AC_CHECK_FUNCS([gethrtime])
 LIBS="${save_LIBS}"
 
+if test "x$ac_cv_func_gethrtime" = xyes && \
+   test "x$ac_cv_func_clock_gettime" = xyes ; then
+  AC_MSG_CHECKING(if clock_gettime is faster than gethrtime)
+  AC_RUN_IFELSE(
+    [AC_LANG_PROGRAM([[
+#include <sys/time.h>
+#include <time.h>
+#include <stdio.h>
+
+static hrtime_t cl()
+{
+	struct timespec ts;
+
+	(void) clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (ts.tv_sec * 1e9 + ts.tv_nsec);
+}
+    ]],[[
+	hrtime_t s, c, e, t_hr, t_cl;
+	int i, r, wins;
+
+	wins = 0;
+	for (r = 0; r < 10; r++) {
+		c = 0;
+		s = gethrtime();
+		for (i=0; i<100000; i++)
+			c += gethrtime();
+		e = gethrtime();
+		t_hr = e - s;
+		fprintf(stderr, "hrtime\t\t%12lu check %lu\n",
+		    (unsigned long)t_hr, (unsigned long)c);
+
+		c = 0;
+		s = gethrtime();
+		for (i=0; i<100000; i++)
+			c += cl();
+		e = gethrtime();
+		t_cl = e - s;
+		fprintf(stderr, "clock_gettime\t%12lu check %lu\n",
+		    (unsigned long)t_cl, (unsigned long)c);
+
+		if (t_cl * 2 < t_hr)
+			wins++;
+	}
+	fprintf(stderr, "clock_gettime wins %d/%d\n", wins, r);
+	if (2 * wins >= r)
+		return (0);
+	return (1);
+    ]])],
+    [AC_MSG_RESULT(yes)
+    ],
+    [AC_MSG_RESULT(no)
+     AC_DEFINE([USE_GETHRTIME], [1], [Define if gethrtime is preferred])
+    ]
+  )
+fi
+
 # --enable-kqueue
 AC_ARG_ENABLE(kqueue,
     AS_HELP_STRING([--enable-kqueue],
@@ -347,6 +453,21 @@ if test "$enable_ports" = yes; then
 else
 	ac_cv_func_port_create=no
 fi
+
+# --with-persistent-storage
+AC_ARG_WITH(persistent-storage,
+    AS_HELP_STRING([--with-persistent-storage],
+	[use deprecated persistent storage (default is NO)]),
+    [],
+    [with_persistent_storage=no])
+
+if test "$with_persistent_storage" = yes; then
+	AC_DEFINE([WITH_PERSISTENT_STORAGE], [1],
+		[Define to 1 to build the deprecated peristent storage.])
+fi
+
+AM_CONDITIONAL([WITH_PERSISTENT_STORAGE],
+	[test "$with_persistent_storage" = yes])
 
 AM_MISSING_HAS_RUN
 
@@ -599,15 +720,8 @@ AC_ARG_ENABLE(developer-warnings,
 	[enable_developer_warnings=no])
 
 if test "x$SUNCC" != "xyes" && test "x$enable_developer_warnings" != "xno"; then
-	# compiler flags not available on gcc3
-	AX_CHECK_COMPILE_FLAG([-Wno-pointer-sign],
-		[DEVELOPER_CFLAGS="${DEVELOPER_CFLAGS} -Wno-pointer-sign"], [], [])
-	# Not available in gcc 4.1.2
-	AX_CHECK_COMPILE_FLAG([-Wno-address],
-		[DEVELOPER_CFLAGS="${DEVELOPER_CFLAGS} -Wno-address"])
-
-	# no known way to specifically disabling missing-field-initializers warnings
-	# keeping the rest of Wextra
+	# no known way to specifically disabling missing-field-initializers
+	# warnings keeping the rest of Wextra
 	AX_CHECK_COMPILE_FLAG([-Wno-missing-field-initializers],
 		[DEVELOPER_CFLAGS="${DEVELOPER_CFLAGS} -Wno-missing-field-initializers"],
 		[DEVELOPER_CFLAGS="${DEVELOPER_CFLAGS} -Wno-extra"],
@@ -679,6 +793,14 @@ AC_DEFINE_UNQUOTED([VCC_CC],"$VCC_CC",[C compiler command line for VCL code])
 VTC_TESTS="$(cd $srcdir/bin/varnishtest && echo tests/*.vtc)"
 AC_SUBST(VTC_TESTS)
 
+VSC_SRC="$(cd $srcdir/bin/varnishd && echo *.vsc)"
+VSC_GEN_C="$(echo $VSC_SRC | sed 's:\.vsc:.c:g')"
+VSC_GEN_H="$(echo $VSC_SRC | sed 's:\.vsc:.h:g')"
+# automake does not allow to AC_SUBST _SOURCES files (for a good
+# reason), so we automate the cleanup at least
+AC_SUBST(VSC_GEN_C)
+AC_SUBST(VSC_GEN_H)
+
 # Make sure this include dir exists
 AC_CONFIG_COMMANDS([mkdir], [$MKDIR_P doc/sphinx/include])
 
@@ -708,6 +830,11 @@ AC_CONFIG_FILES([
     lib/libvmod_debug/Makefile
     lib/libvmod_std/Makefile
     lib/libvmod_directors/Makefile
+    lib/libvmod_purge/Makefile
+    lib/libvmod_vtc/Makefile
+    lib/libvmod_blob/Makefile
+    lib/libvmod_unix/Makefile
+    lib/libvmod_proxy/Makefile
     man/Makefile
     varnishapi.pc
     varnishapi-uninstalled.pc

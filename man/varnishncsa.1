@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishncsa [\-a] [\-b] [\-c] [\-C] [\-d] [\-D] [\-F <format>] [\-f <formatfile>] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <dir>] [\-N <filename>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-V] [\-w <filename>]
+varnishncsa [\-a] [\-b] [\-c] [\-C] [\-d] [\-D] [\-F <format>] [\-f <formatfile>] [\-g <request|vxid>] [\-h] [\-L <limit>] [\-n <dir>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-R <limit[/duration]>] [\-t <seconds|off>] [\-V] [\-w <filename>]
 .SH DESCRIPTION
 .sp
 The varnishncsa utility reads varnishd(1) shared memory logs and
@@ -83,9 +83,6 @@ Sets the upper limit of incomplete transactions kept before the oldest transacti
 .BI \-n \ <dir>
 Specify the varnishd working directory (also known as instance name) to get logs from. If \-n is not specified, the host name is used.
 .TP
-.BI \-N \ <filename>
-Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
-.TP
 .BI \-P \ <file>
 Write the process\(aq PID to the specified file.
 .TP
@@ -95,6 +92,9 @@ Specifies the VSL query to use.
 .BI \-r \ <filename>
 Read log in binary file format from this file. The file can be created with \fBvarnishlog \-w filename\fP\&.
 .TP
+.BI \-R \ <limit[/duration]>
+Restrict the output to the specified limit. Transactions exceeding the limit will be suppressed. The limit is specified as the maximum number of transactions (with respect to the chosen grouping method) and an optional time period. If no duration is specified, a default of \fBs\fP is used. The duration field can be formatted as in VCL (e.g. \fB\-R 10/2m\fP) or as a simple time period without the prefix (e.g. \fB\-R 5/m\fP). When in \fB\-g raw\fP grouping mode, this setting can not be used alongside \fB\-i\fP, \fB\-I\fP, \fB\-x\fP or \fB\-X\fP, and we advise using \fB\-q\fP instead.
+.TP
 .BI \-t \ <seconds|off>
 Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to "off", the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.
 .TP
@@ -103,6 +103,9 @@ Print version information and exit.
 .TP
 .BI \-w \ <filename>
 Redirect output to file. The file will be overwritten unless the \-a option was specified. If the application receives a SIGHUP in daemon mode the file will be reopened allowing the old one to be rotated away. This option is required when running in daemon mode.
+.TP
+.B \-\-optstring
+Print the optstring parameter to \fBgetopt(3)\fP to help writing wrapper scripts.
 .UNINDENT
 .SH MODES
 .sp
@@ -228,9 +231,10 @@ Extended variables.  Supported variables are:
 .INDENT 7.0
 .TP
 .B Varnish:time_firstbyte
-Time from when the request processing starts until the first byte
-is sent to the client.  For backend mode: Time from the request was
-sent to the backend to the entire header had been received.
+Time from when the request processing starts until the first
+byte is sent to the client, in seconds.  For backend mode: Time
+from the request was sent to the backend to the entire header
+had been received.
 .TP
 .B Varnish:hitmiss
 One of the \(aqhit\(aq or \(aqmiss\(aq strings, depending on whether the request
@@ -251,13 +255,23 @@ The VXID of the varnish transaction.
 .B VCL_Log:key
 The value set by std.log("key:value") in VCL.
 .TP
-.B VSL:tag[field]
-The value of the VSL entry for the given tag. The field will,
-if present, treat the log record as a white space separated list
-of fields, and only the nth part of the record will be matched
-against. Fields start counting at 1. Defaults to \(aq\-\(aq when the tag
-is not seen, or when the field is out of bounds. If a tag appears
-multiple times in a single transaction, the first occurrence is used.
+.B VSL:tag:record\-prefix[field]
+The value of the VSL entry for the given tag\-record prefix\-field
+combination. Tag is mandatory, the other components are optional.
+.sp
+The record prefix will limit the matches to those records that
+have this prefix as the first part of the record content followed
+by a colon.
+.sp
+The field will, if present, treat the log record as a white
+space separated list of fields, and only the nth part of the
+record will be matched against. Fields start counting at 1 and
+run up to 255.
+.sp
+Defaults to \(aq\-\(aq when the tag is not seen, the record prefix
+does not match or the field is out of bounds. If a tag appears
+multiple times in a single transaction, the first occurrence
+is used.
 .UNINDENT
 .UNINDENT
 .SH SIGNALS
@@ -277,14 +291,26 @@ Furthermore, when using the %r formatter, if the Host header appears
 multiple times in a single transaction, the first occurrence is used.
 .SH EXAMPLE
 .sp
-Log the second field of the Begin tag, corresponding to the VXID of the
-parent transaction:
+Log the second field of the Begin record, corresponding to the VXID
+of the parent transaction:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 varnishncsa \-F "%{VSL:Begin[2]}x"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Log the entire Timestamp record associated with the processing length:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+varnishncsa \-F "%{VSL:Timestamp:Process}x"
 .ft P
 .fi
 .UNINDENT

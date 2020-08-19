@@ -3,9 +3,11 @@ varnishtest "More VCL coverage"
 server s1 {
 	rxreq
 	txresp
+	rxreq
+	txresp
 } -start
 
-varnish v1 -arg "-i J.F.Nobody" -vcl+backend {
+varnish v1 -syntax 4.0 -arg "-i J.F.Nobody" -vcl+backend {
 
 	import std;
 	import directors;
@@ -43,7 +45,6 @@ varnish v1 -arg "-i J.F.Nobody" -vcl+backend {
 		set beresp.http.beresp_backend = beresp.backend;
 		set beresp.http.keep = beresp.keep;
 		set beresp.http.stv = beresp.storage;
-		set beresp.http.hint = beresp.storage_hint;
 		set beresp.http.be_ip = beresp.backend.ip;
 		set beresp.http.be_nm = beresp.backend.name;
 		set beresp.http.unc = bereq.uncacheable;
@@ -91,4 +92,113 @@ client c1 {
 
 	txreq
 	rxresp
+} -run
+
+varnish v1 -syntax 4.0 -errvcl {Symbol not found: 'sess.xid' (Only available when 4.1 <= VCL syntax)} {
+	sub vcl_recv {
+		set req.http.Sess-XID = sess.xid;
+	}
+}
+
+varnish v1 -syntax 4.0 -errvcl {Symbol not found: 'sess.xid' (Only available when 4.1 <= VCL syntax)} {
+	sub vcl_backend_fetch {
+		set bereq.http.Sess-XID = sess.xid;
+	}
+}
+
+varnish v1 -syntax 4.0 -errvcl {Symbol not found: 'local.endpoint' (Only available when 4.1 <= VCL syntax)} {
+	sub vcl_recv {
+		set req.http.Endpoint = local.endpoint;
+	}
+}
+
+varnish v1 -syntax 4.0 -errvcl {Symbol not found: 'local.endpoint' (Only available when 4.1 <= VCL syntax)} {
+	sub vcl_backend_fetch {
+		set bereq.http.Endpoint = local.endpoint;
+	}
+}
+
+varnish v1 -syntax 4.0 -errvcl {Symbol not found: 'local.socket' (Only available when 4.1 <= VCL syntax)} {
+	sub vcl_recv {
+		set req.http.Socket = local.socket;
+	}
+}
+
+varnish v1 -syntax 4.0 -errvcl {Symbol not found: 'local.socket' (Only available when 4.1 <= VCL syntax)} {
+	sub vcl_backend_fetch {
+		set bereq.http.Socket = local.socket;
+	}
+}
+
+varnish v1 -syntax 4.1 -vcl+backend {
+	sub vcl_backend_response {
+		set beresp.http.B-Sess-XID = sess.xid;
+		set beresp.http.B-Endpoint = local.endpoint;
+		set beresp.http.B-Socket = local.socket;
+	}
+
+	sub vcl_deliver {
+		set resp.http.C-Sess-XID = sess.xid;
+		set resp.http.C-Endpoint = local.endpoint;
+		set resp.http.C-Socket = local.socket;
+	}
+}
+
+client c1 {
+	txreq -url "/uncached"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.C-Sess-XID ~ "^[0-9]+$"
+	expect resp.http.B-Sess-XID ~ "^[0-9]+$"
+	expect resp.http.C-Sess-XID == resp.http.B-Sess-XID
+	expect resp.http.C-Endpoint == "${v1_addr}:${v1_port}"
+	expect resp.http.B-Endpoint == "${v1_addr}:${v1_port}"
+	expect resp.http.C-Socket == "a0"
+	expect resp.http.B-Socket == "a0"
+} -run
+
+varnish v1 -stop
+
+server s1 {
+	rxreq
+	txresp
+	rxreq
+	txresp
+} -start
+
+varnish v2 -arg "-a foo=${tmpdir}/foo.sock -a bar=${tmpdir}/bar.sock" \
+    -syntax 4.1 -vcl+backend {
+
+	sub vcl_backend_response {
+		set beresp.http.B-Endpoint = local.endpoint;
+		set beresp.http.B-Socket = local.socket;
+	}
+
+	sub vcl_deliver {
+		set resp.http.C-Endpoint = local.endpoint;
+		set resp.http.C-Socket = local.socket;
+	}
+} -start
+
+client c2 -connect "${tmpdir}/foo.sock" {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.C-Endpoint == "${tmpdir}/foo.sock"
+	expect resp.http.B-Endpoint == "${tmpdir}/foo.sock"
+	expect resp.http.C-Socket == "foo"
+	expect resp.http.B-Socket == "foo"
+} -run
+
+# The backend endpoint/socket may be either of the two possibilities,
+# because the busyobj may point to the session started for the first
+# fetch.
+client c2 -connect "${tmpdir}/bar.sock" {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.C-Endpoint == "${tmpdir}/bar.sock"
+	expect resp.http.B-Endpoint ~ "^${tmpdir}/(bar|foo).sock$"
+	expect resp.http.C-Socket == "bar"
+	expect resp.http.B-Socket ~ "^(bar|foo)$"
 } -run

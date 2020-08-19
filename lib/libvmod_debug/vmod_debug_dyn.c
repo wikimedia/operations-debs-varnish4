@@ -30,19 +30,20 @@
 
 #include <netdb.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
 
 #include "cache/cache.h"
 
-#include "vcl.h"
-#include "vrt.h"
-
-#include "cache/cache_director.h"
-#include "cache/cache_backend.h"
-
 #include "vsa.h"
+#include "vss.h"
 #include "vcc_if.h"
 
-struct vmod_debug_dyn {
+struct xyzzy_debug_dyn {
 	unsigned		magic;
 #define VMOD_DEBUG_DYN_MAGIC	0x9b77ccbd
 	pthread_mutex_t		mtx;
@@ -50,11 +51,18 @@ struct vmod_debug_dyn {
 	struct director		*dir;
 };
 
+struct xyzzy_debug_dyn_uds {
+	unsigned		magic;
+#define VMOD_DEBUG_UDS_MAGIC	0x6c7370e6
+	pthread_mutex_t		mtx;
+	char			*vcl_name;
+	struct director		*dir;
+};
+
 static void
-dyn_dir_init(VRT_CTX, struct vmod_debug_dyn *dyn,
-    VCL_STRING addr, VCL_STRING port)
+dyn_dir_init(VRT_CTX, struct xyzzy_debug_dyn *dyn,
+     VCL_STRING addr, VCL_STRING port, VCL_PROBE probe)
 {
-	struct addrinfo hints, *res = NULL;
 	struct suckaddr *sa;
 	struct director *dir, *dir2;
 	struct vrt_backend vrt;
@@ -67,14 +75,9 @@ dyn_dir_init(VRT_CTX, struct vmod_debug_dyn *dyn,
 	vrt.port = port;
 	vrt.vcl_name = dyn->vcl_name;
 	vrt.hosthdr = addr;
+	vrt.probe = probe;
 
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	AZ(getaddrinfo(addr, port, &hints, &res));
-	XXXAZ(res->ai_next);
-
-	sa = VSA_Malloc(res->ai_addr, res->ai_addrlen);
+	sa = VSS_ResolveOne(NULL, addr, port, AF_UNSPEC, SOCK_STREAM, 0);
 	AN(sa);
 	if (VSA_Get_Proto(sa) == AF_INET) {
 		vrt.ipv4_addr = addr;
@@ -84,8 +87,6 @@ dyn_dir_init(VRT_CTX, struct vmod_debug_dyn *dyn,
 		vrt.ipv6_suckaddr = sa;
 	} else
 		WRONG("Wrong proto family");
-
-	freeaddrinfo(res);
 
 	dir = VRT_new_backend(ctx, &vrt);
 	AN(dir);
@@ -107,10 +108,10 @@ dyn_dir_init(VRT_CTX, struct vmod_debug_dyn *dyn,
 }
 
 VCL_VOID
-vmod_dyn__init(VRT_CTX, struct vmod_debug_dyn **dynp,
-    const char *vcl_name, VCL_STRING addr, VCL_STRING port)
+xyzzy_dyn__init(VRT_CTX, struct xyzzy_debug_dyn **dynp,
+    const char *vcl_name, VCL_STRING addr, VCL_STRING port, VCL_PROBE probe)
 {
-	struct vmod_debug_dyn *dyn;
+	struct xyzzy_debug_dyn *dyn;
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -121,8 +122,7 @@ vmod_dyn__init(VRT_CTX, struct vmod_debug_dyn **dynp,
 	if (*addr == '\0' || *port == '\0') {
 		AN(ctx->handling);
 		AZ(*ctx->handling);
-		VSB_printf(ctx->msg, "Missing dynamic backend address or port");
-		VRT_handling(ctx, VCL_RET_FAIL);
+		VRT_fail(ctx, "Missing dynamic backend address or port");
 		return;
 	}
 
@@ -132,15 +132,15 @@ vmod_dyn__init(VRT_CTX, struct vmod_debug_dyn **dynp,
 
 	AZ(pthread_mutex_init(&dyn->mtx, NULL));
 
-	dyn_dir_init(ctx, dyn, addr, port);
+	dyn_dir_init(ctx, dyn, addr, port, probe);
 	XXXAN(dyn->dir);
 	*dynp = dyn;
 }
 
 VCL_VOID
-vmod_dyn__fini(struct vmod_debug_dyn **dynp)
+xyzzy_dyn__fini(struct xyzzy_debug_dyn **dynp)
 {
-	struct vmod_debug_dyn *dyn;
+	struct xyzzy_debug_dyn *dyn;
 
 	AN(dynp);
 	if (*dynp == NULL)
@@ -154,8 +154,8 @@ vmod_dyn__fini(struct vmod_debug_dyn **dynp)
 	*dynp = NULL;
 }
 
-VCL_BACKEND __match_proto__()
-vmod_dyn_backend(VRT_CTX, struct vmod_debug_dyn *dyn)
+VCL_BACKEND v_matchproto_()
+xyzzy_dyn_backend(VRT_CTX, struct xyzzy_debug_dyn *dyn)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dyn, VMOD_DEBUG_DYN_MAGIC);
@@ -164,10 +164,112 @@ vmod_dyn_backend(VRT_CTX, struct vmod_debug_dyn *dyn)
 }
 
 VCL_VOID
-vmod_dyn_refresh(VRT_CTX, struct vmod_debug_dyn *dyn,
-    VCL_STRING addr, VCL_STRING port)
+xyzzy_dyn_refresh(VRT_CTX, struct xyzzy_debug_dyn *dyn,
+    VCL_STRING addr, VCL_STRING port, VCL_PROBE probe)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dyn, VMOD_DEBUG_DYN_MAGIC);
-	dyn_dir_init(ctx, dyn, addr, port);
+	dyn_dir_init(ctx, dyn, addr, port, probe);
+}
+
+static int
+dyn_uds_init(VRT_CTX, struct xyzzy_debug_dyn_uds *uds, VCL_STRING path)
+{
+	struct director *dir, *dir2;
+	struct vrt_backend vrt;
+	struct stat st;
+
+	if (path == NULL) {
+		VRT_fail(ctx, "path is NULL");
+		return (-1);
+	}
+	if (*path != '/') {
+		VRT_fail(ctx, "path must be an absolute path: %s", path);
+		return (-1);
+	}
+	errno = 0;
+	if (stat(path, &st) != 0) {
+		VRT_fail(ctx, "Cannot stat path %s: %s", path, strerror(errno));
+		return (-1);
+	}
+	if (!S_ISSOCK(st.st_mode)) {
+		VRT_fail(ctx, "%s is not a socket", path);
+		return (-1);
+	}
+
+	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
+	vrt.path = path;
+	vrt.vcl_name = uds->vcl_name;
+	vrt.hosthdr = "localhost";
+	vrt.ipv4_suckaddr = NULL;
+	vrt.ipv6_suckaddr = NULL;
+
+	if ((dir = VRT_new_backend(ctx, &vrt)) == NULL)
+		return (-1);
+
+	AZ(pthread_mutex_lock(&uds->mtx));
+	dir2 = uds->dir;
+	uds->dir = dir;
+	AZ(pthread_mutex_unlock(&uds->mtx));
+
+	if (dir2 != NULL)
+		VRT_delete_backend(ctx, &dir2);
+	return (0);
+}
+
+VCL_VOID v_matchproto_(td_debug_dyn_uds__init)
+xyzzy_dyn_uds__init(VRT_CTX, struct xyzzy_debug_dyn_uds **udsp,
+		    const char *vcl_name, VCL_STRING path)
+{
+	struct xyzzy_debug_dyn_uds *uds;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(udsp);
+	AZ(*udsp);
+	AN(vcl_name);
+
+	ALLOC_OBJ(uds, VMOD_DEBUG_UDS_MAGIC);
+	AN(uds);
+	REPLACE(uds->vcl_name, vcl_name);
+	AZ(pthread_mutex_init(&uds->mtx, NULL));
+
+	if (dyn_uds_init(ctx, uds, path) != 0) {
+		free(uds->vcl_name);
+		AZ(pthread_mutex_destroy(&uds->mtx));
+		FREE_OBJ(uds);
+		return;
+	}
+	*udsp = uds;
+}
+
+VCL_VOID v_matchproto_(td_debug_dyn_uds__fini)
+xyzzy_dyn_uds__fini(struct xyzzy_debug_dyn_uds **udsp)
+{
+	struct xyzzy_debug_dyn_uds *uds;
+
+	if (udsp == NULL || *udsp == NULL)
+		return;
+	CHECK_OBJ(*udsp, VMOD_DEBUG_UDS_MAGIC);
+	uds = *udsp;
+	free(uds->vcl_name);
+	AZ(pthread_mutex_destroy(&uds->mtx));
+	FREE_OBJ(uds);
+	*udsp = NULL;
+}
+
+VCL_BACKEND v_matchproto_(td_debug_dyn_uds_backend)
+xyzzy_dyn_uds_backend(VRT_CTX, struct xyzzy_debug_dyn_uds *uds)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(uds, VMOD_DEBUG_UDS_MAGIC);
+	AN(uds->dir);
+	return (uds->dir);
+}
+
+VCL_VOID v_matchproto_(td_debug_dyn_uds_refresh)
+xyzzy_dyn_uds_refresh(VRT_CTX, struct xyzzy_debug_dyn_uds *uds, VCL_STRING path)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(uds, VMOD_DEBUG_UDS_MAGIC);
+	(void) dyn_uds_init(ctx, uds, path);
 }

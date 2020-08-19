@@ -38,17 +38,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <ctype.h>
 #include <netinet/in.h>
 
 #include "vtc.h"
 #include "vtc_http.h"
 
-#include "vct.h"
 #include "vfil.h"
-#include "vgz.h"
-#include "vnum.h"
-#include "vre.h"
 #include "hpack.h"
 #include "vend.h"
 
@@ -82,6 +77,7 @@ enum h2_type {
 	TYPE_MAX
 };
 
+//lint -save -e849	Same enum value
 enum {
 	ACK = 0x1,
 	END_STREAM = 0x1,
@@ -89,6 +85,7 @@ enum {
 	END_HEADERS = 0x4,
 	PRIORITY = 0x20,
 };
+//lint -restore
 
 struct stream {
 	unsigned		magic;
@@ -108,7 +105,7 @@ struct stream {
 	VTAILQ_HEAD(, frame)   fq;
 
 	char			*body;
-	int			bodylen;
+	long			bodylen;
 	struct hpk_hdr		req[MAX_HDR];
 	struct hpk_hdr		resp[MAX_HDR];
 
@@ -129,14 +126,14 @@ clean_headers(struct hpk_hdr *h)
 	}
 }
 
-#define ONLY_CLIENT(hp, av)						\
+#define ONLY_H2_CLIENT(hp, av)						\
 	do {								\
 		if (hp->sfd != NULL)					\
 			vtc_fatal(hp->vl,				\
 			    "\"%s\" only possible in client", av[0]);	\
 	} while (0)
 
-#define ONLY_SERVER(hp, av)						\
+#define ONLY_H2_SERVER(hp, av)						\
 	do {								\
 		if (hp->sfd == NULL)					\
 			vtc_fatal(hp->vl,				\
@@ -257,10 +254,7 @@ readFrameHeader(struct frame *f, const char *buf)
 
 	f->flags = (unsigned char)buf[4];
 
-	f->stid  = (0xff & (unsigned char)buf[5]) << 24;
-	f->stid += (0xff & (unsigned char)buf[6]) << 16;
-	f->stid += (0xff & (unsigned char)buf[7]) <<  8;
-	f->stid += (0xff & (unsigned char)buf[8]);
+	f->stid  = vbe32dec(buf+5);
 }
 
 static void
@@ -276,10 +270,7 @@ writeFrameHeader(char *buf, const struct frame *f)
 
 	buf[4] = f->flags;
 
-	buf[5] = (f->stid >> 24) & 0xff;
-	buf[6] = (f->stid >> 16) & 0xff;
-	buf[7] = (f->stid >>  8) & 0xff;
-	buf[8] = (f->stid      ) & 0xff;
+	vbe32enc(buf + 5, f->stid);
 }
 
 #define INIT_FRAME(f, ty, sz, id, fl) \
@@ -304,8 +295,7 @@ clean_frame(struct frame **f)
 	if ((*f)->type == TYPE_GOAWAY)
 		free((*f)->md.goaway.debug);
 	free((*f)->data);
-	free(*f);
-	*f = NULL;
+	FREE_OBJ(*f);
 }
 
 static void
@@ -364,30 +354,18 @@ explain_flags(uint8_t flags, uint8_t type, struct vtclog *vl)
 {
 	if (flags & ACK && (type == TYPE_PING || type == TYPE_SETTINGS)) {
 		vtc_log(vl, 3, "flag: ACK");
-		flags &= ~ACK;
-	} else if (flags & END_STREAM &&
-			(type == TYPE_HEADERS ||
-			 type == TYPE_PUSH_PROMISE ||
-			 type == TYPE_DATA)) {
+	} else if (flags & END_STREAM && (type == TYPE_HEADERS ||
+	    type == TYPE_PUSH_PROMISE || type == TYPE_DATA)) {
 		vtc_log(vl, 3, "flag: END_STREAM");
-		flags &= ~END_STREAM;
-	} else if (flags & END_HEADERS &&
-			(type == TYPE_HEADERS ||
-			 type == TYPE_PUSH_PROMISE ||
-			 type == TYPE_CONTINUATION)) {
+	} else if (flags & END_HEADERS && (type == TYPE_HEADERS ||
+	    type == TYPE_PUSH_PROMISE || type == TYPE_CONTINUATION)) {
 		vtc_log(vl, 3, "flag: END_TYPE_HEADERS");
-		flags &= ~END_HEADERS;
-	} else if (flags & PRIORITY &&
-			(type == TYPE_HEADERS ||
-			 type == TYPE_PUSH_PROMISE)) {
+	} else if (flags & PRIORITY && (type == TYPE_HEADERS ||
+	    type == TYPE_PUSH_PROMISE)) {
 		vtc_log(vl, 3, "flag: END_PRIORITY");
-		flags &= ~PRIORITY;
-	} else if (flags & PADDED &&
-			(type == TYPE_DATA ||
-			 type == TYPE_HEADERS ||
-			 type == TYPE_PUSH_PROMISE)) {
+	} else if (flags & PADDED && (type == TYPE_DATA || type ==
+	    TYPE_HEADERS || type == TYPE_PUSH_PROMISE)) {
 		vtc_log(vl, 3, "flag: PADDED");
-		flags &= ~PADDED;
 	} else if (flags)
 		vtc_log(vl, 3, "UNKNOWN FLAG(S): 0x%02x", flags);
 }
@@ -398,6 +376,7 @@ parse_data(struct stream *s, struct frame *f)
 	struct http *hp;
 	uint32_t size = f->size;
 	char *data = f->data;
+
 	CHECK_OBJ_NOTNULL(f, FRAME_MAGIC);
 	CHECK_OBJ_NOTNULL(s, STREAM_MAGIC);
 	CAST_OBJ_NOTNULL(hp, s->hp, HTTP_MAGIC);;
@@ -417,19 +396,18 @@ parse_data(struct stream *s, struct frame *f)
 		vtc_log(hp->vl, 4, "padding: %3d", f->md.padded);
 	}
 
-	if (!size)
-		vtc_log(hp->vl, 4, "s%u - no data", s->id);
-
 	if (s->id)
 		s->ws -= size;
+
 	s->hp->ws -= size;
 
-	if (s->body) {
-		s->body = realloc(s->body, s->bodylen + size + 1L);
-	} else {
-		AZ(s->bodylen);
-		s->body = malloc(size + 1L);
+	if (!size) {
+		AZ(data);
+		vtc_log(hp->vl, 4, "s%u - no data", s->id);
+		return;
 	}
+
+	s->body = realloc(s->body, s->bodylen + size + 1L);
 	AN(s->body);
 	memcpy(s->body + s->bodylen, data, size);
 	s->bodylen += size;
@@ -759,6 +737,7 @@ receive_frame(void *priv)
 				AZ(pthread_mutex_lock(&hp->mtx));
 				VTAILQ_FOREACH(s, &hp->streams, list)
 					AZ(pthread_cond_signal(&s->cond));
+				clean_frame(&f);
 				AZ(pthread_mutex_unlock(&hp->mtx));
 				vtc_log(hp->vl, hp->fatal,
 				    "could not get frame body");
@@ -803,7 +782,7 @@ receive_frame(void *priv)
 					else
 						hdrs = s->resp;
 				}
-				hdrs[0].t = 0;
+				hdrs[0].t = hpk_unset;
 				AZ(vsb);
 				vsb = VSB_new_auto();
 				/*FALLTHROUGH*/
@@ -852,7 +831,8 @@ receive_frame(void *priv)
 		continue;
 	}
 	AZ(pthread_mutex_unlock(&hp->mtx));
-	assert(vtc_error || vsb == NULL);
+	if (vsb != NULL)
+		VSB_destroy(&vsb);
 	return (NULL);
 }
 
@@ -890,7 +870,7 @@ do { \
 
 #define RETURN_BUFFED(val) \
 do { \
-	snprintf(buf, 20, "%d", val); \
+	snprintf(buf, 20, "%ld", (long)val); \
 	return (buf); \
 } while (0)
 
@@ -942,7 +922,7 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 		CHECK_LAST_FRAME(PING);
 		return (f->md.ping.data);
 	}
-	else if (!strcmp(spec, "ping.ack")) {
+	if (!strcmp(spec, "ping.ack")) {
 		CHECK_LAST_FRAME(PING);
 		snprintf(buf, 20, (f->flags & ACK) ? "true" : "false");
 		return (buf);
@@ -951,7 +931,7 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * winup.size
 	 *	The size of the upgrade given by the WINDOW_UPDATE frame.
 	 */
-	else if (!strcmp(spec, "winup.size")) {
+	if (!strcmp(spec, "winup.size")) {
 		CHECK_LAST_FRAME(WINDOW_UPDATE);
 		RETURN_BUFFED(f->md.winup_size);
 	}
@@ -965,16 +945,16 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * prio.weight
 	 *	The dependency weight.
 	 */
-	else if (!strcmp(spec, "prio.stream")) {
+	if (!strcmp(spec, "prio.stream")) {
 		CHECK_LAST_FRAME(PRIORITY);
 		RETURN_BUFFED(f->md.prio.stream);
 	}
-	else if (!strcmp(spec, "prio.exclusive")) {
+	if (!strcmp(spec, "prio.exclusive")) {
 		CHECK_LAST_FRAME(PRIORITY);
 		snprintf(buf, 20, f->md.prio.exclusive ? "true" : "false");
 		return (buf);
 	}
-	else if (!strcmp(spec, "prio.weight")) {
+	if (!strcmp(spec, "prio.weight")) {
 		CHECK_LAST_FRAME(PRIORITY);
 		RETURN_BUFFED(f->md.prio.weight);
 	}
@@ -982,7 +962,7 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * rst.err
 	 *	The error code (as integer) of the RESET_STREAM frame.
 	 */
-	else if (!strcmp(spec, "rst.err")) {
+	if (!strcmp(spec, "rst.err")) {
 		CHECK_LAST_FRAME(RST_STREAM);
 		RETURN_BUFFED(f->md.rst_err);
 	}
@@ -1010,14 +990,14 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * settings.hdrsize
 	 *	Value of MAX_HEADER_LIST_SIZE if set, <undef> otherwise.
 	 */
-	else if (!strncmp(spec, "settings.", 9)) {
+	if (!strncmp(spec, "settings.", 9)) {
 		CHECK_LAST_FRAME(SETTINGS);
 		spec += 9;
 		if (!strcmp(spec, "ack")) {
 			snprintf(buf, 20, (f->flags & ACK) ? "true" : "false");
 			return (buf);
 		}
-		else if (!strcmp(spec, "push")) {
+		if (!strcmp(spec, "push")) {
 			if (isnan(f->md.settings[2]))
 				return (NULL);
 			else if (f->md.settings[2] == 1)
@@ -1026,17 +1006,17 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 				snprintf(buf, 20, "false");
 			return (buf);
 		}
-		else if (!strcmp(spec, "hdrtbl"))     { RETURN_SETTINGS(1); }
-		else if (!strcmp(spec, "maxstreams")) { RETURN_SETTINGS(3); }
-		else if (!strcmp(spec, "winsize"))    { RETURN_SETTINGS(4); }
-		else if (!strcmp(spec, "framesize"))  { RETURN_SETTINGS(5); }
-		else if (!strcmp(spec, "hdrsize"))    { RETURN_SETTINGS(6); }
+		if (!strcmp(spec, "hdrtbl"))     { RETURN_SETTINGS(1); }
+		if (!strcmp(spec, "maxstreams")) { RETURN_SETTINGS(3); }
+		if (!strcmp(spec, "winsize"))    { RETURN_SETTINGS(4); }
+		if (!strcmp(spec, "framesize"))  { RETURN_SETTINGS(5); }
+		if (!strcmp(spec, "hdrsize"))    { RETURN_SETTINGS(6); }
 	}
 	/* SECTION: stream.spec.zexpect.push PUSH_PROMISE specific
 	 * push.id
 	 *	The id of the promised stream.
 	 */
-	else if (!strcmp(spec, "push.id")) {
+	if (!strcmp(spec, "push.id")) {
 		CHECK_LAST_FRAME(PUSH_PROMISE);
 		RETURN_BUFFED(f->md.promised);
 	}
@@ -1050,7 +1030,7 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * goaway.debug
 	 *	Debug data, if any.
 	 */
-	else if (!strncmp(spec, "goaway.", 7)) {
+	if (!strncmp(spec, "goaway.", 7)) {
 		spec += 7;
 		CHECK_LAST_FRAME(GOAWAY);
 
@@ -1078,7 +1058,7 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * frame.padding (for DATA, HEADERS, PUSH_PROMISE frames)
 	 *	Number of padded bytes.
 	 */
-	else if (!strncmp(spec, "frame.", 6)) {
+	if (!strncmp(spec, "frame.", 6)) {
 		spec += 6;
 		if (!f)
 			vtc_fatal(s->hp->vl, "No frame received yet.");
@@ -1107,19 +1087,19 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * stream.dependency
 	 *	Id of the stream this one depends on.
 	 */
-	else if (!strcmp(spec, "stream.window")) {
+	if (!strcmp(spec, "stream.window")) {
 		snprintf(buf, 20, "%jd",
 		    (intmax_t)(s->id ? s->ws : s->hp->ws));
 		return (buf);
 	}
-	else if (!strcmp(spec, "stream.weight")) {
+	if (!strcmp(spec, "stream.weight")) {
 		if (s->id) {
 			snprintf(buf, 20, "%d", s->weight);
 			return (buf);
 		} else
 			return (NULL);
 	}
-	else if (!strcmp(spec, "stream.dependency")) {
+	if (!strcmp(spec, "stream.dependency")) {
 		if (s->id) {
 			snprintf(buf, 20, "%d", s->dependency);
 			return (buf);
@@ -1144,7 +1124,7 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 *	Value of the header at index INT of the decoding/encoding
 	 *	table.
 	 */
-	else if (!strncmp(spec, "tbl.dec", 7) || !strncmp(spec, "tbl.enc", 7)) {
+	if (!strncmp(spec, "tbl.dec", 7) || !strncmp(spec, "tbl.enc", 7)) {
 		if (spec[4] == 'd')
 			ctx = s->hp->decctx;
 		else
@@ -1197,7 +1177,7 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 	 * req.scheme / resp.scheme
 	 *	:method pseudo-header's value.
 	 */
-	else if (!strncmp(spec, "req.", 4) || !strncmp(spec, "resp.", 5)) {
+	if (!strncmp(spec, "req.", 4) || !strncmp(spec, "resp.", 5)) {
 		if (spec[2] == 'q') {
 			h = s->req;
 			spec += 4;
@@ -1225,17 +1205,15 @@ cmd_var_resolve(const struct stream *s, const char *spec, char *buf)
 			return (NULL);
 	}
 #define H2_ERROR(U,v,sc,t) \
-	else if (!strcmp(spec, #U)) { return (#v); }
+	if (!strcmp(spec, #U)) { return (#v); }
 #include "tbl/h2_error.h"
-	else
-		return (spec);
-	return(NULL);
+	return (spec);
 }
 
 /* SECTION: stream.spec.frame_sendhex sendhex
  *
  * Push bytes directly on the wire. sendhex takes exactly one argument: a string
- * describing the bytes, in hex notation, will possible whitespaces between
+ * describing the bytes, in hex notation, with possible whitespaces between
  * them. Here's an example::
  *
  *	sendhex "00 00 08 00 0900	8d"
@@ -1262,19 +1240,19 @@ cmd_sendhex(CMD_ARGS)
 	VSB_destroy(&vsb);
 }
 
-#define ENC(hdr, k, v)			\
-{					\
-	AN(k);				\
-	hdr.key.ptr = strdup(k);	\
-	AN(hdr.key.ptr);		\
-	hdr.key.len = strlen(k);	\
-	AN(v);				\
-	hdr.value.ptr = strdup(v);	\
-	AN(hdr.value.ptr);		\
-	hdr.value.len = strlen(v);	\
-	HPK_EncHdr(iter, &hdr);		\
-	free(hdr.key.ptr);		\
-	free(hdr.value.ptr);		\
+#define ENC(hdr, k, v)					\
+{							\
+	AN(k);						\
+	hdr.key.ptr = strdup(k);			\
+	AN(hdr.key.ptr);				\
+	hdr.key.len = strlen(k);			\
+	AN(v);						\
+	hdr.value.ptr = strdup(v);			\
+	AN(hdr.value.ptr);				\
+	hdr.value.len = strlen(v);			\
+	assert(HPK_EncHdr(iter, &hdr) != hpk_err);	\
+	free(hdr.key.ptr);				\
+	free(hdr.value.ptr);				\
 }
 
 #define STR_ENC(av, field, str)						       \
@@ -1391,7 +1369,7 @@ cmd_tx11obj(CMD_ARGS)
 	int scheme_done = 1;
 	uint32_t stid = 0, pstid;
 	uint32_t weight = 16;
-	int exclusive = 0;
+	uint32_t exclusive = 0;
 	char *buf;
 	struct hpk_iter *iter;
 	struct frame f;
@@ -1408,19 +1386,19 @@ cmd_tx11obj(CMD_ARGS)
 	AN(buf);
 
 	if (!strcmp(cmd_str, "txreq")) {
-		ONLY_CLIENT(s->hp, av);
+		ONLY_H2_CLIENT(s->hp, av);
 		f.type = TYPE_HEADERS;
 		f.flags |= END_STREAM;
 		method_done = 0;
 		path_done = 0;
 		scheme_done = 0;
 	} else if (!strcmp(cmd_str, "txresp")) {
-		ONLY_SERVER(s->hp, av);
+		ONLY_H2_SERVER(s->hp, av);
 		f.type = TYPE_HEADERS;
 		f.flags |= END_STREAM;
 		status_done = 0;
 	} else if (!strcmp(cmd_str, "txpush")) {
-		ONLY_SERVER(s->hp, av);
+		ONLY_H2_SERVER(s->hp, av);
 		f.type = TYPE_PUSH_PROMISE;
 		method_done = 0;
 		path_done = 0;
@@ -1476,7 +1454,7 @@ cmd_tx11obj(CMD_ARGS)
 		else if (AV_IS("-idxHdr")) {
 			hdr.t = hpk_idx;
 			STRTOU32_CHECK(hdr.i, av, p, vl, "-idxHdr", 0);
-			HPK_EncHdr(iter, &hdr);
+			assert(HPK_EncHdr(iter, &hdr) != hpk_err);
 		}
 		else if (AV_IS("-litIdxHdr")) {
 			av++;
@@ -1493,7 +1471,7 @@ cmd_tx11obj(CMD_ARGS)
 			hdr.key.ptr = NULL;
 			hdr.key.len = 0;
 			STR_ENC(av, value,   "third -litHdr");
-			HPK_EncHdr(iter, &hdr);
+			assert(HPK_EncHdr(iter, &hdr) != hpk_err);
 		}
 		else if (AV_IS("-litHdr")) {
 			av++;
@@ -1506,7 +1484,7 @@ cmd_tx11obj(CMD_ARGS)
 
 			STR_ENC(av, key,   "second -litHdr");
 			STR_ENC(av, value, "fourth -litHdr");
-			HPK_EncHdr(iter, &hdr);
+			assert(HPK_EncHdr(iter, &hdr) != hpk_err);
 		}
 		else if (AV_IS("-nostrend")) {
 			f.flags &= ~END_STREAM;
@@ -1717,7 +1695,7 @@ cmd_txrst(CMD_ARGS)
 {
 	struct stream *s;
 	char *p;
-	uint32_t err;
+	uint32_t err = 0;
 	struct frame f;
 	(void)cmd;
 	CAST_OBJ_NOTNULL(s, priv, STREAM_MAGIC);
@@ -1727,7 +1705,7 @@ cmd_txrst(CMD_ARGS)
 	while (*++av) {
 		if (!strcmp(*av, "-err")) {
 			++av;
-			for (err=0; h2_errs[err]; err++) {
+			for (err = 0; h2_errs[err]; err++) {
 				if (!strcmp(h2_errs[err], *av))
 					break;
 			}
@@ -1876,7 +1854,7 @@ cmd_txsettings(CMD_ARGS)
 		}
 		else if (!strcmp(*av, "-hdrtbl")) {
 			PUT_KV(av, vl, hdrtbl, val, 0x1);
-			HPK_ResizeTbl(s->hp->decctx, val);
+			assert(HPK_ResizeTbl(s->hp->decctx, val) != hpk_err);
 		}
 		else if (!strcmp(*av, "-maxstreams"))
 			PUT_KV(av, vl, maxstreams, val, 0x3);
@@ -1945,12 +1923,12 @@ cmd_txping(CMD_ARGS)
 }
 
 /*
- * SECTION: stream.spec.goaway_txgoaway rxgoaway
+ * SECTION: stream.spec.goaway_txgoaway txgoaway
  *
  * Possible options include:
  *
  * \-err STRING|INT
- *	set the error code to eplain the termination. The second argument
+ *	set the error code to explain the termination. The second argument
  *	can be a integer or the string version of the error code as found
  *	in rfc7540#7.
  *
@@ -1970,18 +1948,16 @@ cmd_txgoaway(CMD_ARGS)
 	uint32_t err = 0;
 	uint32_t ls = 0;
 	struct frame f;
-	char buf[8];
 
 	(void)cmd;
 	CAST_OBJ_NOTNULL(s, priv, STREAM_MAGIC);
-	memset(buf, 0, 8);
 
 	INIT_FRAME(f, GOAWAY, 8, s->id, 0);
 
 	while (*++av) {
 		if (!strcmp(*av, "-err")) {
 			++av;
-			for (err=0; h2_errs[err]; err++)
+			for (err = 0; h2_errs[err]; err++)
 				if (!strcmp(h2_errs[err], *av))
 					break;
 
@@ -1997,6 +1973,7 @@ cmd_txgoaway(CMD_ARGS)
 				vtc_fatal(vl, "this frame already has debug data");
 			f.size = 8 + strlen(*av);
 			f.data = malloc(f.size);
+			AN(f.data);
 			memcpy(f.data + 8, *av, f.size - 8);
 		} else
 			break;
@@ -2004,8 +1981,10 @@ cmd_txgoaway(CMD_ARGS)
 	if (*av != NULL)
 		vtc_fatal(vl, "Unknown txgoaway spec: %s\n", *av);
 
-	if (!f.data)
-		f.data = malloc(2);
+	if (!f.data) {
+		f.data = malloc(8);
+		AN(f.data);
+	}
 	vbe32enc(f.data, ls);
 	vbe32enc(f.data + 4, err);
 	write_frame(s->hp, &f, 1);
@@ -2260,9 +2239,9 @@ cmd_rxmsg(CMD_ARGS)
 	CAST_OBJ_NOTNULL(s, priv, STREAM_MAGIC);
 
 	if (!strcmp(av[0], "rxreq"))
-		ONLY_SERVER(s->hp, av);
+		ONLY_H2_SERVER(s->hp, av);
 	else
-		ONLY_CLIENT(s->hp, av);
+		ONLY_H2_CLIENT(s->hp, av);
 
 	f = rxstuff(s);
 	if (!f)
@@ -2281,7 +2260,7 @@ cmd_rxmsg(CMD_ARGS)
 		CHKFRAME(f->type, TYPE_CONTINUATION, rcv, *av);
 	}
 
-	while (!end_stream && (f = rxstuff(s))) {
+	while (!end_stream && (f = rxstuff(s)) != NULL) {
 		rcv++;
 		CHKFRAME(f->type, TYPE_DATA, rcv, *av);
 		end_stream = f->flags & END_STREAM;
@@ -2404,7 +2383,8 @@ cmd_rxframe(CMD_ARGS)
 	(void)vl;
 	(void)av;
 	CAST_OBJ_NOTNULL(s, priv, STREAM_MAGIC);
-	rxstuff(s);
+	if (rxstuff(s) == NULL)
+		vtc_fatal(s->hp->vl, "No frame received");
 }
 
 static void
@@ -2412,13 +2392,9 @@ cmd_expect(CMD_ARGS)
 {
 	struct http *hp;
 	struct stream *s;
-	const char *lhs, *clhs;
+	const char *lhs;
 	char *cmp;
-	const char *rhs, *crhs;
-	vre_t *vre;
-	const char *error;
-	int erroroffset;
-	int i, retval = -1;
+	const char *rhs;
 	char buf[20];
 
 	(void)cmd;
@@ -2437,42 +2413,7 @@ cmd_expect(CMD_ARGS)
 	lhs = cmd_var_resolve(s, av[0], buf);
 	cmp = av[1];
 	rhs = cmd_var_resolve(s, av[2], buf);
-
-	clhs = lhs ? lhs : "<undef>";
-	crhs = rhs ? rhs : "<undef>";
-
-	if (!strcmp(cmp, "~") || !strcmp(cmp, "!~")) {
-		vre = VRE_compile(crhs, 0, &error, &erroroffset);
-		if (vre == NULL)
-			vtc_fatal(vl, "REGEXP error: %s (@%d) (%s)",
-			    error, erroroffset, crhs);
-		i = VRE_exec(vre, clhs, strlen(clhs), 0, 0, NULL, 0, 0);
-		retval = (i >= 0 && *cmp == '~') || (i < 0 && *cmp == '!');
-		VRE_free(&vre);
-	} else if (!strcmp(cmp, "==")) {
-		retval = strcmp(clhs, crhs) == 0;
-	} else if (!strcmp(cmp, "!=")) {
-		retval = strcmp(clhs, crhs) != 0;
-	} else if (lhs == NULL || rhs == NULL) {
-		// fail inequality comparisons if either side is undef'ed
-		retval = 0;
-	} else if (!strcmp(cmp, "<")) {
-		retval = isless(VNUM(lhs), VNUM(rhs));
-	} else if (!strcmp(cmp, ">")) {
-		retval = isgreater(VNUM(lhs), VNUM(rhs));
-	} else if (!strcmp(cmp, "<=")) {
-		retval = islessequal(VNUM(lhs), VNUM(rhs));
-	} else if (!strcmp(cmp, ">=")) {
-		retval = isgreaterequal(VNUM(lhs), VNUM(rhs));
-	}
-
-	if (retval == -1)
-		vtc_fatal(vl,
-		    "EXPECT %s (%s) %s %s (%s) test not implemented",
-		    av[0], clhs, av[1], av[2], crhs);
-	else
-		vtc_log(vl, retval ? 4 : 0, "(s%d) EXPECT %s (%s) %s \"%s\" %s",
-		    s->id, av[0], clhs, cmp, crhs, retval ? "match" : "failed");
+	vtc_expect(vl, av[0], lhs, cmp, av[2], rhs);
 	AZ(pthread_mutex_unlock(&s->hp->mtx));
 }
 
@@ -2504,7 +2445,6 @@ cmd_write_body(CMD_ARGS)
  * client or a server.
  */
 static const struct cmds stream_cmds[] = {
-#define CMD(n) { #n, cmd_##n },
 #define CMD_STREAM(n) { #n, cmd_##n },
 	/* spec */
 	CMD_STREAM(expect)
@@ -2534,14 +2474,8 @@ static const struct cmds stream_cmds[] = {
 	CMD_STREAM(txsettings)
 	CMD_STREAM(txwinup)
 	CMD_STREAM(write_body)
-
-	/* general purpose */
-	CMD(barrier)
-	CMD(delay)
-	CMD(shell)
 	{ NULL, NULL }
 #undef CMD_STREAM
-#undef CMD
 };
 
 static void *
@@ -2602,6 +2536,7 @@ static void
 stream_delete(struct stream *s)
 {
 	CHECK_OBJ_NOTNULL(s, STREAM_MAGIC);
+	free(s->body);
 	free(s->spec);
 	free(s->name);
 	FREE_OBJ(s);
@@ -2756,25 +2691,27 @@ void
 b64_settings(const struct http *hp, const char *s)
 {
 	uint16_t i;
-	uint64_t v;
+	uint64_t v, vv;
 	const char *buf;
 	int shift;
+
 	while (*s) {
 		v = 0;
 		for (shift = 42; shift >= 0; shift -= 6) {
 			if (*s >= 'A' && *s <= 'Z')
-				v |= (uint64_t)(*s - 'A') << shift;
+				vv = (*s - 'A');
 			else if (*s >= 'a' && *s <= 'z')
-				v |= (uint64_t)(*s - 'a' + 26) << shift;
+				vv = (*s - 'a') + 26;
 			else if (*s >= '0' && *s <= '9')
-				v |= (uint64_t)(*s - '0' + 52) << shift;
+				vv = (*s - '0') + 52;
 			else if (*s == '-')
-				v |= (uint64_t)62 << shift;
+				vv = 62;
 			else if (*s == '_')
-				v |= (uint64_t)63 << shift;
+				vv = 63;
 			else
 				vtc_fatal(hp->vl,
 				    "Bad \"HTTP2-Settings\" header");
+			v |= vv << shift;
 			s++;
 		}
 		i = v >> 32;
@@ -2787,9 +2724,9 @@ b64_settings(const struct http *hp, const char *s)
 
 		if (v == 1) {
 			if (hp->sfd)
-				HPK_ResizeTbl(hp->encctx, v);
+				assert(HPK_ResizeTbl(hp->encctx, v) != hpk_err);
 			else
-				HPK_ResizeTbl(hp->decctx, v);
+				assert(HPK_ResizeTbl(hp->decctx, v) != hpk_err);
 		}
 
 		vtc_log(hp->vl, 4, "Upgrade: %s (%d): %ju",

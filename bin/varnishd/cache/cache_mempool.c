@@ -30,13 +30,14 @@
 
 #include "config.h"
 
-#include <stddef.h>
-#include "cache.h"
+#include "cache_varnishd.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "vtim.h"
+
+#include "VSC_mempool.h"
 
 struct memitem {
 	unsigned			magic;
@@ -58,7 +59,8 @@ struct mempool {
 	volatile struct poolparam	*param;
 	volatile unsigned		*cur_size;
 	uint64_t			live;
-	struct VSC_C_mempool		*vsc;
+	struct vsc_seg			*vsc_seg;
+	struct VSC_mempool		*vsc;
 	unsigned			n_pool;
 	pthread_t			thread;
 	double				t_now;
@@ -76,7 +78,7 @@ mpl_alloc(const struct mempool *mpl)
 
 	CHECK_OBJ_NOTNULL(mpl, MEMPOOL_MAGIC);
 	tsz = *mpl->cur_size;
-	mi = calloc(tsz, 1);
+	mi = calloc(1, tsz);
 	AN(mi);
 	mi->magic = MEMITEM_MAGIC;
 	mi->size = tsz;
@@ -97,11 +99,12 @@ mpl_guard(void *priv)
 {
 	struct mempool *mpl;
 	struct memitem *mi = NULL;
-	double __state_variable__(mpl_slp);
+	double v_statevariable_(mpl_slp);
 	double last = 0;
 
 	CAST_OBJ_NOTNULL(mpl, priv, MEMPOOL_MAGIC);
 	THR_SetName(mpl->name);
+	THR_Init();
 	mpl_slp = 0.15;	// random
 	while (1) {
 		VTIM_sleep(mpl_slp);
@@ -158,7 +161,7 @@ mpl_guard(void *priv)
 				FREE_OBJ(mi);
 				mi = NULL;
 			}
-			VSM_Free(mpl->vsc);
+			VSC_mempool_Destroy(&mpl->vsc_seg);
 			Lck_Unlock(&mpl->mtx);
 			Lck_Delete(&mpl->mtx);
 			FREE_OBJ(mpl);
@@ -236,8 +239,7 @@ MPL_New(const char *name,
 	VTAILQ_INIT(&mpl->surplus);
 	Lck_New(&mpl->mtx, lck_mempool);
 	/* XXX: prealloc min_pool */
-	mpl->vsc = VSM_Alloc(sizeof *mpl->vsc,
-	    VSC_CLASS, VSC_type_mempool, mpl->name + 4);
+	mpl->vsc = VSC_mempool_New(NULL, &mpl->vsc_seg, mpl->name + 4);
 	AN(mpl->vsc);
 	AZ(pthread_create(&mpl->thread, NULL, mpl_guard, mpl));
 	AZ(pthread_detach(mpl->thread));
@@ -336,7 +338,7 @@ MPL_Free(struct mempool *mpl, void *item)
 }
 
 void
-MPL_AssertSane(void *item)
+MPL_AssertSane(const void *item)
 {
 	struct memitem *mi;
 	mi = (void*)((uintptr_t)item - sizeof(*mi));

@@ -26,11 +26,16 @@
  * SUCH DAMAGE.
  */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <vas.h>
+
+#include "vdef.h"
+
+#include "vas.h"
+#include "vqueue.h"
 
 #include "hpack.h"
 #include "vtc_h2_priv.h"
@@ -40,7 +45,7 @@ struct symbol {
 	uint8_t		size;
 };
 
-static struct symbol coding_table[] = {
+static const struct symbol coding_table[] = {
 #define HPACK(i, v, l) {v, l},
 #include "vtc_h2_enctbl.h"
 #undef HPACK
@@ -56,7 +61,7 @@ huff_decode(char *str, int nm, struct hpk_iter *iter, int ilen)
 	int l = 0;
 	uint64_t pack = 0;
 	unsigned pl = 0; /* pack length*/
-	struct stbl *tbl = &byte0;
+	struct stbl *tbl = &tbl_0;
 	struct ssym *sym;
 
 	(void)nm;
@@ -65,8 +70,8 @@ huff_decode(char *str, int nm, struct hpk_iter *iter, int ilen)
 		if (pl < tbl->msk) {
 			if (ilen == 0) {
 				if (pl == 0 || (MASK(pack, pl) ==
-						(unsigned)((1 << pl) - 1))) {
-					assert(tbl == &byte0);
+						(unsigned)((1U << pl) - 1U))) {
+					assert(tbl == &tbl_0);
 					return (l);
 				}
 			}
@@ -97,7 +102,7 @@ huff_decode(char *str, int nm, struct hpk_iter *iter, int ilen)
 			continue;
 		}
 		str[l++] = sym->chr;
-		tbl = &byte0;
+		tbl = &tbl_0;
 	}
 	return (l);
 }
@@ -135,7 +140,7 @@ huff_encode(struct hpk_iter *iter, const char *str, int len)
 	if (pl) {
 		assert(pl < 8);
 		if (iter->buf == iter->end)
-			return (1);
+			return (hpk_done);
 		pl += 8;
 		pack |= (uint64_t)0xff << (64 - pl);
 		*iter->buf = (char)(pack >> 56);
@@ -169,7 +174,7 @@ num_decode(uint32_t *result, struct hpk_iter *iter, uint8_t prefix)
 
 	*result = 0;
 	*result = *iter->buf & (0xff >> (8-prefix));
-	if (*result < (1 << prefix) - 1) {
+	if (*result < (1U << prefix) - 1U) {
 		iter->buf++;
 		return (ITER_DONE(iter));
 	}
@@ -196,9 +201,9 @@ num_encode(struct hpk_iter *iter, uint8_t prefix, uint32_t num)
 	assert(prefix <= 8);
 	assert(iter->buf < iter->end);
 
-	uint8_t pmax = (1 << prefix) - 1;
+	uint8_t pmax = (1U << prefix) - 1U;
 
-	*iter->buf &= 0xff << prefix;
+	*iter->buf &= 0xffU << prefix;
 	if (num <=  pmax) {
 		*iter->buf++ |= num;
 		return (ITER_DONE(iter));
@@ -256,7 +261,7 @@ str_decode(struct hpk_iter *iter, struct txt *t)
 	if (num > iter->end - iter->buf)
 		return (hpk_err);
 	if (huff) { /*Huffman encoding */
-		t->ptr = malloc((num * 8) / 5L + 1L);
+		t->ptr = malloc((num * 8L) / 5L + 1L);
 		AN(t->ptr);
 		num = huff_decode(t->ptr, (num * 8) / 5, iter, num);
 		if (!num) {
@@ -392,7 +397,7 @@ HPK_EncHdr(struct hpk_iter *iter, const struct hpk_hdr *h)
 	switch (h->t) {
 		case hpk_idx:
 			*iter->buf = 0x80;
-			num_encode(iter, 7, h->i);
+			assert(num_encode(iter, 7, h->i) != hpk_err);
 			return (ITER_DONE(iter));
 		case hpk_inc:
 			*iter->buf = 0x40;

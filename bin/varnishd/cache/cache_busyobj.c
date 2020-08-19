@@ -32,13 +32,11 @@
 
 #include "config.h"
 
-#include <stddef.h>
 #include <stdlib.h>
 
-#include "cache.h"
-
-#include "hash/hash_slinger.h"
-#include "cache/cache_filter.h"
+#include "cache_varnishd.h"
+#include "cache_filter.h"
+#include "cache_objhead.h"
 
 static struct mempool		*vbopool;
 
@@ -123,6 +121,11 @@ VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 	p = (void*)PRNDUP(p);
 	assert(p < bo->end);
 
+	bo->vfc = (void*)p;
+	p += sizeof (*bo->vfc);
+	p = (void*)PRNDUP(p);
+	INIT_OBJ(bo->vfc, VFP_CTX_MAGIC);
+
 	WS_Init(bo->ws, "bo", p, bo->end - p);
 
 	bo->do_stream = 1;
@@ -135,10 +138,6 @@ VBO_GetBusyObj(struct worker *wrk, const struct req *req)
 
 	memcpy(bo->digest, req->digest, sizeof bo->digest);
 
-	VRTPRIV_init(bo->privs);
-
-	VFP_Setup(bo->vfc);
-
 	return (bo);
 }
 
@@ -147,15 +146,14 @@ VBO_ReleaseBusyObj(struct worker *wrk, struct busyobj **pbo)
 {
 	struct busyobj *bo;
 
-	CHECK_OBJ_ORNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	TAKE_OBJ_NOTNULL(bo, pbo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_ORNULL(bo->fetch_objcore, OBJCORE_MAGIC);
 
 	AZ(bo->htc);
 	AZ(bo->stale_oc);
 
-	VRTPRIV_dynamic_kill(bo->privs, (uintptr_t)bo);
-	assert(VTAILQ_EMPTY(&bo->privs->privs));
+	AZ(bo->privs->magic);
 
 	VSLb(bo->vsl, SLT_BereqAcct, "%ju %ju %ju %ju %ju %ju",
 	    (uintmax_t)bo->acct.bereq_hdrbytes,
@@ -169,8 +167,10 @@ VBO_ReleaseBusyObj(struct worker *wrk, struct busyobj **pbo)
 
 	AZ(bo->htc);
 
+	if (WS_Overflowed(bo->ws))
+		wrk->stats->ws_backend_overflow++;
+
 	if (bo->fetch_objcore != NULL) {
-		AN(wrk);
 		(void)HSH_DerefObjCore(wrk, &bo->fetch_objcore,
 		    HSH_RUSH_POLICY);
 	}

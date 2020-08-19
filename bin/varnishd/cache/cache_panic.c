@@ -35,18 +35,17 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include "vtim.h"
-
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_transport.h"
 
 #include "cache_filter.h"
 #include "common/heritage.h"
+#include "waiter/waiter.h"
 
-#include "vrt.h"
-#include "cache_director.h"
 #include "storage/storage.h"
 #include "vcli_serve.h"
+#include "vtim.h"
+#include "vcs.h"
 
 /*
  * The panic string is constructed in memory, then copied to the
@@ -58,9 +57,10 @@
  */
 
 static struct vsb pan_vsb_storage, *pan_vsb;
-static pthread_mutex_t panicstr_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t panicstr_mtx;
 
 static void pan_sess(struct vsb *, const struct sess *);
+static void pan_req(struct vsb *, const struct req *);
 
 /*--------------------------------------------------------------------*/
 
@@ -118,7 +118,7 @@ sess_close_2str(enum sess_close sc, int want_desc)
 
 /*--------------------------------------------------------------------*/
 
-#define N_ALREADY 64
+#define N_ALREADY 256
 static const void *already_list[N_ALREADY];
 static int already_idx;
 
@@ -317,8 +317,6 @@ pan_wrk(struct vsb *vsb, const struct worker *wrk)
 		return;
 	VSB_indent(vsb, 2);
 	PAN_CheckMagic(vsb, wrk, WORKER_MAGIC);
-	VSB_printf(vsb, "stack = {0x%jx -> 0x%jx},\n",
-	    (uintmax_t)wrk->stack_start, (uintmax_t)wrk->stack_end);
 	pan_ws(vsb, wrk->aws);
 
 	m = wrk->cur_method;
@@ -357,9 +355,44 @@ pan_wrk(struct vsb *vsb, const struct worker *wrk)
 }
 
 static void
-pan_busyobj(struct vsb *vsb, const struct busyobj *bo)
+pan_vfp(struct vsb *vsb, const struct vfp_ctx *vfc)
 {
 	struct vfp_entry *vfe;
+
+	VSB_printf(vsb, "vfc = %p {\n", vfc);
+	VSB_indent(vsb, 2);
+	VSB_printf(vsb, "failed = %d,\n", vfc->failed);
+	VSB_printf(vsb, "req = %p,\n", vfc->req);
+	VSB_printf(vsb, "resp = %p,\n", vfc->resp);
+	VSB_printf(vsb, "wrk = %p,\n", vfc->wrk);
+	VSB_printf(vsb, "oc = %p,\n", vfc->oc);
+
+	if (!VTAILQ_EMPTY(&vfc->vfp)) {
+		VSB_printf(vsb, "filters = {\n");
+		VSB_indent(vsb, 2);
+		VTAILQ_FOREACH(vfe, &vfc->vfp, list) {
+			VSB_printf(vsb, "%s = %p {\n",
+				   vfe->vfp->name, vfe);
+			VSB_indent(vsb, 2);
+			VSB_printf(vsb, "priv1 = %p,\n", vfe->priv1);
+			VSB_printf(vsb, "priv2 = %zd,\n", vfe->priv2);
+			VSB_printf(vsb, "closed = %d\n", vfe->closed);
+			VSB_indent(vsb, -2);
+			VSB_printf(vsb, "},\n");
+		}
+		VSB_indent(vsb, -2);
+		VSB_printf(vsb, "},\n");
+	}
+
+	VSB_printf(vsb, "obj_flags = 0x%x,\n", vfc->obj_flags);
+	VSB_indent(vsb, -2);
+	VSB_printf(vsb, "},\n");
+}
+
+
+static void
+pan_busyobj(struct vsb *vsb, const struct busyobj *bo)
+{
 	const char *p;
 
 	VSB_printf(vsb, "busyobj = %p {\n", bo);
@@ -367,9 +400,37 @@ pan_busyobj(struct vsb *vsb, const struct busyobj *bo)
 		return;
 	VSB_indent(vsb, 2);
 	PAN_CheckMagic(vsb, bo, BUSYOBJ_MAGIC);
+	VSB_printf(vsb, "end = %p,\n", bo->end);
+	VSB_printf(vsb, "retries = %d,\n", bo->retries);
+
+	if (bo->req != NULL)
+		pan_req(vsb, bo->req);
+	if (bo->sp != NULL)
+		pan_sess(vsb, bo->sp);
+	if (bo->wrk != NULL)
+		pan_wrk(vsb, bo->wrk);
+
+	if (bo->vfc != NULL)
+		pan_vfp(vsb, bo->vfc);
+
 	pan_ws(vsb, bo->ws);
-	VSB_printf(vsb, "retries = %d, ", bo->retries);
-	VSB_printf(vsb, "failed = %d, ", bo->vfc->failed);
+	VSB_printf(vsb, "ws_bo = %p,\n", (void *)bo->ws_bo);
+
+	// bereq0 left out
+	if (bo->bereq != NULL && bo->bereq->ws != NULL)
+		pan_http(vsb, "bereq", bo->bereq);
+	if (bo->beresp != NULL && bo->beresp->ws != NULL)
+		pan_http(vsb, "beresp", bo->beresp);
+	if (bo->stale_oc)
+		pan_objcore(vsb, "stale_oc", bo->stale_oc);
+	if (bo->fetch_objcore)
+		pan_objcore(vsb, "fetch", bo->fetch_objcore);
+
+	if (VALID_OBJ(bo->htc, HTTP_CONN_MAGIC))
+		pan_htc(vsb, bo->htc);
+
+	// fetch_task left out
+
 	VSB_printf(vsb, "flags = {");
 	p = "";
 /*lint -save -esym(438,p) -e539 */
@@ -379,32 +440,14 @@ pan_busyobj(struct vsb *vsb, const struct busyobj *bo)
 /*lint -restore */
 	VSB_printf(vsb, "},\n");
 
-	if (VALID_OBJ(bo->htc, HTTP_CONN_MAGIC))
-		pan_htc(vsb, bo->htc);
-
-	if (!VTAILQ_EMPTY(&bo->vfc->vfp)) {
-		VSB_printf(vsb, "filters =");
-		VTAILQ_FOREACH(vfe, &bo->vfc->vfp, list)
-			VSB_printf(vsb, " %s=%d",
-			    vfe->vfp->name, (int)vfe->closed);
-		VSB_printf(vsb, "\n");
-	}
+	// timeouts/timers/acct/storage left out
 
 	VDI_Panic(bo->director_req, vsb, "director_req");
 	if (bo->director_resp == bo->director_req)
 		VSB_printf(vsb, "director_resp = director_req,\n");
 	else
 		VDI_Panic(bo->director_resp, vsb, "director_resp");
-	if (bo->bereq != NULL && bo->bereq->ws != NULL)
-		pan_http(vsb, "bereq", bo->bereq);
-	if (bo->beresp != NULL && bo->beresp->ws != NULL)
-		pan_http(vsb, "beresp", bo->beresp);
-	if (bo->fetch_objcore)
-		pan_objcore(vsb, "fetch", bo->fetch_objcore);
-	if (bo->stale_oc)
-		pan_objcore(vsb, "ims", bo->stale_oc);
 	VCL_Panic(vsb, bo->vcl);
-	VMOD_Panic(vsb);
 	VSB_indent(vsb, -2);
 	VSB_printf(vsb, "},\n");
 }
@@ -469,7 +512,6 @@ pan_req(struct vsb *vsb, const struct req *req)
 		pan_http(vsb, "resp", req->resp);
 
 	VCL_Panic(vsb, req->vcl);
-	VMOD_Panic(vsb);
 
 	if (req->body_oc != NULL)
 		pan_objcore(vsb, "BODY", req->body_oc);
@@ -482,6 +524,8 @@ pan_req(struct vsb *vsb, const struct req *req)
 #include "tbl/req_flags.h"
 	VSB_indent(vsb, -2);
 	VSB_printf(vsb, "},\n");
+
+	pan_privs(vsb, req->privs);
 
 	VSB_indent(vsb, -2);
 	VSB_printf(vsb, "},\n");
@@ -506,6 +550,7 @@ pan_sess(struct vsb *vsb, const struct sess *sp)
 	    sp->fd, VXID(sp->vxid));
 	VSB_printf(vsb, "t_open = %f,\n", sp->t_open);
 	VSB_printf(vsb, "t_idle = %f,\n", sp->t_idle);
+	pan_ws(vsb, sp->ws);
 	VSB_printf(vsb, "transport = %s",
 	    xp == NULL ? "<none>" : xp->name);
 	if (xp != NULL && xp->sess_panic != NULL) {
@@ -518,9 +563,11 @@ pan_sess(struct vsb *vsb, const struct sess *sp)
 	VSB_printf(vsb, "\n");
 	ci = SES_Get_String_Attr(sp, SA_CLIENT_IP);
 	cp = SES_Get_String_Attr(sp, SA_CLIENT_PORT);
-	VSB_printf(vsb, "client = %s %s,\n", ci, cp);
-
-	pan_privs(vsb, sp->privs);
+	if (VALID_OBJ(sp->listen_sock, LISTEN_SOCK_MAGIC))
+		VSB_printf(vsb, "client = %s %s %s,\n", ci, cp,
+			   sp->listen_sock->endpoint);
+	else
+		VSB_printf(vsb, "client = %s %s <unknown>\n", ci, cp);
 
 	VSB_indent(vsb, -2);
 	VSB_printf(vsb, "},\n");
@@ -628,7 +675,7 @@ pan_ic(const char *func, const char *file, int line, const char *cond,
 	VSB_printf(pan_vsb, "version = %s, vrt api = %u.%u\n",
 	    VCS_version, VRT_MAJOR_VERSION, VRT_MINOR_VERSION);
 	VSB_printf(pan_vsb, "ident = %s,%s\n",
-	    VSB_data(vident) + 1, Waiter_GetName());
+	    heritage.ident, Waiter_GetName());
 	VSB_printf(pan_vsb, "now = %f (mono), %f (real)\n",
 	    VTIM_mono(), VTIM_real());
 
@@ -652,6 +699,7 @@ pan_ic(const char *func, const char *file, int line, const char *cond,
 		pan_busyobj(pan_vsb, bo);
 		if (bo != NULL)
 			VSL_Flush(bo->vsl, 0);
+		VMOD_Panic(pan_vsb);
 	} else {
 		VSB_printf(pan_vsb,
 		    "Feature short panic supressed details.\n");
@@ -667,7 +715,7 @@ pan_ic(const char *func, const char *file, int line, const char *cond,
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 ccf_panic(struct cli *cli, const char * const *av, void *priv)
 {
 
@@ -690,11 +738,16 @@ void
 PAN_Init(void)
 {
 
-	VAS_Fail = pan_ic;
+	AZ(pthread_mutex_init(&panicstr_mtx, NULL));
+	VAS_Fail_Func = pan_ic;
 	pan_vsb = &pan_vsb_storage;
 	AN(heritage.panic_str);
 	AN(heritage.panic_str_len);
 	AN(VSB_new(pan_vsb, heritage.panic_str, heritage.panic_str_len,
 	    VSB_FIXEDLEN));
+	VSB_printf(pan_vsb, "This is a test\n");
+	AZ(VSB_finish(pan_vsb));
+	VSB_clear(pan_vsb);
+	heritage.panic_str[0] = '\0';
 	CLI_AddFuncs(debug_cmds);
 }

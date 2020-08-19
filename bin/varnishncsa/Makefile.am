@@ -9,9 +9,8 @@ bin_PROGRAMS = varnishncsa
 varnishncsa_SOURCES = \
 	varnishncsa.c \
 	varnishncsa_options.h \
-	varnishncsa_options.c \
-	base64.h \
-	base64.c
+	b64.h \
+	b64.c
 
 varnishncsa_CFLAGS = \
 	@SAN_CFLAGS@

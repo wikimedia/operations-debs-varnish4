@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2011 Varnish Software AS
+ * Copyright (c) 2006-2019 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -52,7 +52,7 @@ enum wait_event {
 	WAITER_CLOSE
 };
 
-typedef void waiter_handle_f(struct waited *, enum wait_event, double now);
+typedef void waiter_handle_f(struct waited *, enum wait_event, vtim_real now);
 
 struct waited {
 	unsigned		magic;
@@ -62,8 +62,8 @@ struct waited {
 	void			*priv1;
 	uintptr_t		priv2;
 	waiter_handle_f		*func;
-	volatile double		*tmo;
-	double			idle;
+	vtim_dur		tmo;
+	vtim_real		idle;
 };
 
 /* cache_waiter.c */

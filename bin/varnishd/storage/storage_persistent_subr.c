@@ -35,8 +35,8 @@
 
 #include "config.h"
 
-#include <stddef.h>
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
+#include "common/heritage.h"
 
 #include <sys/mman.h>
 
@@ -45,9 +45,12 @@
 
 #include "storage/storage.h"
 
+#include "vrnd.h"
 #include "vsha256.h"
 
 #include "storage/storage_persistent.h"
+
+static void smp_msync(const void *addr, size_t length);
 
 /*--------------------------------------------------------------------
  * SIGNATURE functions
@@ -82,8 +85,8 @@ smp_def_sign(const struct smp_sc *sc, struct smp_signctx *ctx,
 int
 smp_chk_sign(struct smp_signctx *ctx)
 {
-	struct SHA256Context cx;
-	unsigned char sign[SHA256_LEN];
+	struct VSHA256Context cx;
+	unsigned char sign[VSHA256_LEN];
 	int r = 0;
 
 	if (strncmp(ctx->id, ctx->ss->ident, sizeof ctx->ss->ident))
@@ -93,13 +96,13 @@ smp_chk_sign(struct smp_signctx *ctx)
 	else if ((uintptr_t)ctx->ss != ctx->ss->mapped)
 		r = 3;
 	else {
-		SHA256_Init(&ctx->ctx);
-		SHA256_Update(&ctx->ctx, ctx->ss,
+		VSHA256_Init(&ctx->ctx);
+		VSHA256_Update(&ctx->ctx, ctx->ss,
 		    offsetof(struct smp_sign, length));
-		SHA256_Update(&ctx->ctx, SIGN_DATA(ctx), ctx->ss->length);
+		VSHA256_Update(&ctx->ctx, SIGN_DATA(ctx), ctx->ss->length);
 		cx = ctx->ctx;
-		SHA256_Update(&cx, &ctx->ss->length, sizeof(ctx->ss->length));
-		SHA256_Final(sign, &cx);
+		VSHA256_Update(&cx, &ctx->ss->length, sizeof(ctx->ss->length));
+		VSHA256_Final(sign, &cx);
 		if (memcmp(sign, SIGN_END(ctx), sizeof sign))
 			r = 4;
 	}
@@ -114,19 +117,19 @@ smp_chk_sign(struct smp_signctx *ctx)
 /*--------------------------------------------------------------------
  * Append data to a signature
  */
-void
+static void
 smp_append_sign(struct smp_signctx *ctx, const void *ptr, uint32_t len)
 {
-	struct SHA256Context cx;
-	unsigned char sign[SHA256_LEN];
+	struct VSHA256Context cx;
+	unsigned char sign[VSHA256_LEN];
 
 	if (len != 0) {
-		SHA256_Update(&ctx->ctx, ptr, len);
+		VSHA256_Update(&ctx->ctx, ptr, len);
 		ctx->ss->length += len;
 	}
 	cx = ctx->ctx;
-	SHA256_Update(&cx, &ctx->ss->length, sizeof(ctx->ss->length));
-	SHA256_Final(sign, &cx);
+	VSHA256_Update(&cx, &ctx->ss->length, sizeof(ctx->ss->length));
+	VSHA256_Final(sign, &cx);
 	memcpy(SIGN_END(ctx), sign, sizeof sign);
 }
 
@@ -143,8 +146,8 @@ smp_reset_sign(struct smp_signctx *ctx)
 	strcpy(ctx->ss->ident, ctx->id);
 	ctx->ss->unique = ctx->unique;
 	ctx->ss->mapped = (uintptr_t)ctx->ss;
-	SHA256_Init(&ctx->ctx);
-	SHA256_Update(&ctx->ctx, ctx->ss,
+	VSHA256_Init(&ctx->ctx);
+	VSHA256_Update(&ctx->ctx, ctx->ss,
 	    offsetof(struct smp_sign, length));
 	smp_append_sign(ctx, NULL, 0);
 }
@@ -176,7 +179,7 @@ smp_new_sign(const struct smp_sc *sc, struct smp_signctx *ctx,
  * Define a signature space by location, size and identifier
  */
 
-void
+static void
 smp_def_signspace(const struct smp_sc *sc, struct smp_signspace *spc,
 		  uint64_t off, uint64_t size, const char *id)
 {
@@ -233,22 +236,6 @@ smp_copy_signspace(struct smp_signspace *dst, const struct smp_signspace *src)
 }
 
 /*--------------------------------------------------------------------
- * Reapplies the sign over the len first bytes of the
- * signspace. Prepares for appending.
- */
-
-void
-smp_trunc_signspace(struct smp_signspace *spc, uint32_t len)
-{
-	assert(len <= SIGNSPACE_LEN(spc));
-	spc->ctx.ss->length = 0;
-	SHA256_Init(&spc->ctx.ctx);
-	SHA256_Update(&spc->ctx.ctx, spc->ctx.ss,
-		      offsetof(struct smp_sign, length));
-	smp_append_signspace(spc, len);
-}
-
-/*--------------------------------------------------------------------
  * Create a new signature space and force the signature to backing store.
  */
 
@@ -266,8 +253,8 @@ smp_new_signspace(const struct smp_sc *sc, struct smp_signspace *spc,
  * the backing store.
  */
 
-void
-smp_msync(void *addr, size_t length)
+static void
+smp_msync(const void *addr, size_t length)
 {
 	uintptr_t start, end, pagesize;
 
@@ -294,7 +281,7 @@ smp_newsilo(struct smp_sc *sc)
 	assert(strlen(SMP_IDENT_STRING) < sizeof si->ident);
 
 	/* Choose a new random number */
-	sc->unique = random();
+	AZ(VRND_RandomCrypto(&sc->unique, sizeof sc->unique));
 
 	smp_reset_sign(&sc->idn);
 	si = sc->ident;
@@ -372,7 +359,7 @@ smp_valid_silo(struct smp_sc *sc)
 
 	/* XXX: Sanity check stuff[6] */
 
-	assert(si->stuff[SMP_BAN1_STUFF] > sizeof *si + SHA256_LEN);
+	assert(si->stuff[SMP_BAN1_STUFF] > sizeof *si + VSHA256_LEN);
 	assert(si->stuff[SMP_BAN2_STUFF] > si->stuff[SMP_BAN1_STUFF]);
 	assert(si->stuff[SMP_SEG1_STUFF] > si->stuff[SMP_BAN2_STUFF]);
 	assert(si->stuff[SMP_SEG2_STUFF] > si->stuff[SMP_SEG1_STUFF]);

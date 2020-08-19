@@ -32,7 +32,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH SYNOPSIS
 .sp
-varnishlog [\-a] [\-A] [\-b] [\-c] [\-C] [\-d] [\-D] [\-g <session|request|vxid|raw>] [\-h] [\-i <taglist>] [\-I <[taglist:]regex>] [\-k <num>] [\-L <limit>] [\-n <dir>] [\-N <filename>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-t <seconds|off>] [\-T <seconds>] [\-v] [\-V] [\-w <filename>] [\-x <taglist>] [\-X <[taglist:]regex>]
+varnishlog [\-a] [\-A] [\-b] [\-c] [\-C] [\-d] [\-D] [\-g <session|request|vxid|raw>] [\-h] [\-i <taglist>] [\-I <[taglist:]regex>] [\-k <num>] [\-L <limit>] [\-n <dir>] [\-P <file>] [\-q <query>] [\-r <filename>] [\-R <limit[/duration]>] [\-t <seconds|off>] [\-T <seconds>] [\-v] [\-V] [\-w <filename>] [\-x <taglist>] [\-X <[taglist:]regex>]
 .SH OPTIONS
 .sp
 The following options are available:
@@ -71,7 +71,7 @@ Include log records of these tags in output. Taglist is a comma\-separated list 
 If a tag include option is the first of any tag selection options, all tags are first marked excluded.
 .TP
 .BI \-I \ <[taglist:]regex>
-Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent.
+Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent. Multiple \-I options may be given.
 .sp
 If a tag include option is the first of any tag selection options, all tags are first marked excluded.
 .TP
@@ -84,9 +84,6 @@ Sets the upper limit of incomplete transactions kept before the oldest transacti
 .BI \-n \ <dir>
 Specify the varnishd working directory (also known as instance name) to get logs from. If \-n is not specified, the host name is used.
 .TP
-.BI \-N \ <filename>
-Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
-.TP
 .BI \-P \ <file>
 Write the process\(aq PID to the specified file.
 .TP
@@ -95,6 +92,9 @@ Specifies the VSL query to use.
 .TP
 .BI \-r \ <filename>
 Read log in binary file format from this file. The file can be created with \fBvarnishlog \-w filename\fP\&.
+.TP
+.BI \-R \ <limit[/duration]>
+Restrict the output to the specified limit. Transactions exceeding the limit will be suppressed. The limit is specified as the maximum number of transactions (with respect to the chosen grouping method) and an optional time period. If no duration is specified, a default of \fBs\fP is used. The duration field can be formatted as in VCL (e.g. \fB\-R 10/2m\fP) or as a simple time period without the prefix (e.g. \fB\-R 5/m\fP). When in \fB\-g raw\fP grouping mode, this setting can not be used alongside \fB\-i\fP, \fB\-I\fP, \fB\-x\fP or \fB\-X\fP, and we advise using \fB\-q\fP instead.
 .TP
 .BI \-t \ <seconds|off>
 Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to "off", the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.
@@ -115,7 +115,10 @@ Redirect output to file. The file will be overwritten unless the \-a option was 
 Exclude log records of these tags in output. Taglist is a comma\-separated list of tag globs. Multiple \-x options may be given.
 .TP
 .BI \-X \ <[taglist:]regex>
-Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent.
+Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent. Multiple \-X options may be given.
+.TP
+.B \-\-optstring
+Print the optstring parameter to \fBgetopt(3)\fP to help writing wrapper scripts.
 .UNINDENT
 .SH SIGNALS
 .INDENT 0.0
