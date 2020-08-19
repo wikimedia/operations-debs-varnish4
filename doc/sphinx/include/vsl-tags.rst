@@ -9,6 +9,10 @@ Backend - Backend selected
 		|  +---- VCL name
 		+------- Connection file descriptor
 	
+		NOTE: This tag is currently not in use in the Varnish log.
+		It is mentioned here to document legacy versions of the log,
+		or reserved for possible use in future versions.
+	
 
 
 BackendClose - Backend connection closed
@@ -69,17 +73,29 @@ Backend_health - Backend health check
 	
 	The format is::
 	
-		%s %s %s %u %u %u %f %f %s
-		|  |  |  |  |  |  |  |  |
-		|  |  |  |  |  |  |  |  +- Probe HTTP response
-		|  |  |  |  |  |  |  +---- Average response time
-		|  |  |  |  |  |  +------- Response time
-		|  |  |  |  |  +---------- Probe window size
-		|  |  |  |  +------------- Probe threshold level
-		|  |  |  +---------------- Number of good probes in window
-		|  |  +------------------- Probe window bits
-		|  +---------------------- Status message
-		+------------------------- Backend name
+		%s %s %s %s %u %u %u %f %f %s
+		|  |  |  |  |  |  |  |  |  |
+		|  |  |  |  |  |  |  |  |  +- Probe HTTP response / error information
+		|  |  |  |  |  |  |  |  +---- Average response time
+		|  |  |  |  |  |  |  +------- Response time
+		|  |  |  |  |  |  +---------- Probe window size
+		|  |  |  |  |  +------------- Probe threshold level
+		|  |  |  |  +---------------- Number of good probes in window
+		|  |  |  +------------------- Probe window bits
+		|  |  +---------------------- "healthy" or "sick"
+		|  +------------------------- "Back", "Still" or "Went"
+		+---------------------------- Backend name
+	
+	Probe window bits are::
+	
+		'4': Good IPv4
+		'6': Good IPv6
+		'U': Good UNIX
+		'x': Error Xmit
+		'X': Good Xmit
+		'r': Error Recv
+		'R': Good Recv
+		'H': Happy
 	
 
 
@@ -179,6 +195,8 @@ CLI - CLI communication
 Debug - Debug messages
 	Debug messages can normally be ignored, but are sometimes helpful during trouble-shooting.  Most debug messages must be explicitly enabled with parameters.
 	
+	Debug messages may be added, changed or removed without prior notice and shouldn't be considered stable.
+	
 
 
 ESI_xmlerror - ESI parser error or warning message
@@ -251,7 +269,19 @@ ExpKill - Object expiry event
 FetchError - Error while fetching object
 	Logs the error message of a failed fetch operation.
 	
-
+	Error messages should be self-explanatory, yet the http connection(HTC) class of errors is reported with these symbols:
+	
+		* junk (-5): Received unexpected data
+		* close (-4): Connection closed
+		* timeout (-3): Timed out
+		* overflow (-2): Buffer/workspace too small
+		* eof (-1): Unexpected end of input
+		* empty (0): Empty response
+		* more (1): More data required
+		* complete (2): Data complete (no error)
+		* idle (3): Connection was closed while idle
+	
+	Notice that some HTC errors are never emitted.
 
 Fetch_Body - Body fetched from backend
 	Ready to fetch body from backend.
@@ -263,6 +293,15 @@ Fetch_Body - Body fetched from backend
 		|   |    +---- 'stream' or '-'
 		|   +--------- Text description of body fetch mode
 		+------------- Body fetch mode
+	
+
+
+Filters - Body filters
+	List of filters applied to the body.
+	
+		NOTE: This tag is currently not in use in the Varnish log.
+		It is mentioned here to document legacy versions of the log,
+		or reserved for possible use in future versions.
 	
 
 
@@ -309,17 +348,40 @@ Hash - Value added to hash
 
 
 Hit - Hit object in cache
-	Object looked up in cache. Shows the VXID of the object.
+	Object looked up in cache.
+	
+	The format is::
+	
+		%u %f %f %f
+		|  |  |  |
+		|  |  |  +- Keep period
+		|  |  +---- Grace period
+		|  +------- Remaining TTL
+		+---------- VXID of the object
 	
 
 
 HitMiss - Hit for miss object in cache.
-	Hit-for-miss object looked up in cache. Shows the VXID of the hit-for-miss object.
+	Hit-for-miss object looked up in cache.
+	
+	The format is::
+	
+		%u %f
+		|  |
+		|  +- Remaining TTL
+		+---- VXID of the object
 	
 
 
 HitPass - Hit for pass object in cache.
-	Hit-for-pass object looked up in cache. Shows the VXID of the hit-for-pass object.
+	Hit-for-pass object looked up in cache.
+	
+	The format is::
+	
+		%u %f
+		|  |
+		|  +- Remaining TTL
+		+---- VXID of the object
 	
 
 
@@ -404,6 +466,8 @@ Proxy - PROXY protocol information
 		|  |  +------- client port
 		|  +---------- client ip
 		+------------- PROXY protocol version
+		
+		All fields are "local" for PROXY local connections (command 0x0)
 	
 
 
@@ -414,8 +478,8 @@ ProxyGarbage - Unparseable PROXY request
 
 ReqAcct - Request handling byte counts
 	Contains byte counts for the request handling.
-	ESI sub-request counts are also added to their parent request.
-	The body bytes count does not include transmission (ie: chunked encoding) overhead.
+	The body bytes count includes transmission overhead (ie: chunked encoding).
+	ESI sub-requests show the body bytes this ESI fragment including any subfragments contributed to the top level request.
 	The format is::
 	
 		%d %d %d %d %d %d
@@ -452,14 +516,15 @@ ReqProtocol - Client request protocol
 
 
 ReqStart - Client request start
-	Start of request processing. Logs the client IP address and port number.
+	Start of request processing. Logs the client address, port number  and listener endpoint name (from the -a command-line argument).
 	
 	The format is::
 	
-		%s %s
-		|  |
-		|  +- Client Port number
-		+---- Client IP4/6 address
+		%s %s %s
+		|  |  |
+		|  |  +-- Listener name (from -a)
+		|  +----- Client Port number (0 for Unix domain sockets)
+		+-------- Client IP4/6 address (0.0.0.0 for UDS)
 	
 
 
@@ -507,6 +572,26 @@ SessClose - Client connection closed
 	
 
 
+SessError - Client connection accept failed
+	Accepting a client connection has failed.
+	
+	The format is::
+	
+		%s %s %s %d %d %s
+		|  |  |  |  |  |
+		|  |  |  |  |  +- Detailed error message
+		|  |  |  |  +---- Error Number (errno) from accept(2)
+		|  |  |  +------- File descriptor number
+		|  |  +---------- Local TCP port / 0 for UDS
+		|  +------------- Local IPv4/6 address / 0.0.0.0 for UDS
+		+---------------- Socket name (from -a argument)
+	
+		NOTE: This tag is currently not in use in the Varnish log.
+		It is mentioned here to document legacy versions of the log,
+		or reserved for possible use in future versions.
+	
+
+
 SessOpen - Client connection opened
 	The first record for a client connection, with the socket-endpoints of the connection.
 	
@@ -517,7 +602,7 @@ SessOpen - Client connection opened
 		|  |  |  |  |  +- File descriptor number
 		|  |  |  |  +---- Local TCP port
 		|  |  |  +------- Local IPv4/6 address
-		|  |  +---------- Listen socket (-a argument)
+		|  |  +---------- Socket name (from -a argument)
 		|  +------------- Remote TCP port
 		+---------------- Remote IPv4/6 address
 	
@@ -536,36 +621,37 @@ Storage - Where object is stored
 
 
 TTL - TTL set on object
-	A TTL record is emitted whenever the ttl, grace or keep values for an object is set.
+	A TTL record is emitted whenever the ttl, grace or keep values for an object is set as well as whether the object is  cacheable or not.
 	
 	The format is::
 	
-		%s %d %d %d %d [ %d %d %u %u ]
-		|  |  |  |  |    |  |  |  |
-		|  |  |  |  |    |  |  |  +- Max-Age from Cache-Control header
-		|  |  |  |  |    |  |  +---- Expires header
-		|  |  |  |  |    |  +------- Date header
-		|  |  |  |  |    +---------- Age (incl Age: header value)
-		|  |  |  |  +--------------- Reference time for TTL
-		|  |  |  +------------------ Keep
-		|  |  +--------------------- Grace
-		|  +------------------------ TTL
-		+--------------------------- "RFC", "VCL" or "HFP"
+		%s %d %d %d %d [ %d %d %u %u ] %s
+		|  |  |  |  |    |  |  |  |    |
+		|  |  |  |  |    |  |  |  |    +- "cacheable" or "uncacheable"
+		|  |  |  |  |    |  |  |  +------ Max-Age from Cache-Control header
+		|  |  |  |  |    |  |  +--------- Expires header
+		|  |  |  |  |    |  +------------ Date header
+		|  |  |  |  |    +--------------- Age (incl Age: header value)
+		|  |  |  |  +-------------------- Reference time for TTL
+		|  |  |  +----------------------- Keep
+		|  |  +-------------------------- Grace
+		|  +----------------------------- TTL
+		+-------------------------------- "RFC", "VCL" or "HFP"
 	
-	The last four fields are only present in "RFC" headers.
+	The four optional fields are only present in "RFC" headers.
 	
 	Examples::
 	
-		RFC 60 10 -1 1312966109 1312966109 1312966109 0 60
-		VCL 120 10 0 1312966111
-		HFP 2 0 0 1312966113
+		RFC 60 10 -1 1312966109 1312966109 1312966109 0 60 cacheable
+		VCL 120 10 0 1312966111 uncacheable
+		HFP 2 0 0 1312966113 uncacheable
 	
 
 
 Timestamp - Timing information
 	Contains timing information for the Varnish worker threads.
 	
-	Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See vsl(7) for information about the individual timestamps.
+	Time stamps are issued by Varnish on certain events, and show the absolute time of the event, the time spent since the start of the work unit, and the time spent since the last timestamp was logged. See the TIMESTAMPS section below for information about the individual time stamps.
 	
 	The format is::
 	
@@ -606,13 +692,28 @@ VCL_trace - VCL trace data
 	
 	The format is::
 	
-		%u %u.%u
-		|  |  |
-		|  |  +- VCL program line position
-		|  +---- VCL program line number
-		+------- VCL trace point index
+		%s %u %u.%u.%u
+		|  |  |  |  |
+		|  |  |  |  +- VCL program line position
+		|  |  |  +---- VCL program line number
+		|  |  +------- VCL program source index
+		|  +---------- VCL trace point index
+		+------------- VCL configname
 	
 	NB: This log record is masked by default.
+	
+
+
+VCL_use - VCL in use
+	Records the name of the VCL being used.
+	
+	The format is::
+	
+		%s [ %s %s ]
+		|    |  |
+		|    |  +- Name of label used to find it
+		|    +---- "via"
+		+--------- Name of VCL put in use
 	
 
 

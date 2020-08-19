@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 
 #include <stdio.h>
 
@@ -81,7 +81,7 @@ WS_Assert_Allocated(const struct ws *ws, const void *ptr, ssize_t len)
 	WS_Assert(ws);
 	if (len < 0)
 		len = strlen(p) + 1;
-	assert(p >= ws->s && (p + len) < ws->f);
+	assert(p >= ws->s && (p + len) <= ws->f);
 }
 
 /*
@@ -202,7 +202,7 @@ WS_Printf(struct ws *ws, const char *fmt, ...)
 	va_list ap;
 	char *p;
 
-	u = WS_Reserve(ws, 0);
+	u = WS_ReserveAll(ws);
 	p = ws->f;
 	va_start(ap, fmt);
 	v = vsnprintf(p, u, fmt, ap);
@@ -227,6 +227,56 @@ WS_Snapshot(struct ws *ws)
 	return (ws->f == ws->s ? 0 : (uintptr_t)ws->f);
 }
 
+/*
+ * WS_Release() must be called in all cases
+ */
+unsigned
+WS_ReserveAll(struct ws *ws)
+{
+	unsigned b;
+
+	WS_Assert(ws);
+	assert(ws->r == NULL);
+
+	ws->r = ws->e;
+	b = pdiff(ws->f, ws->r);
+
+	WS_Assert(ws);
+	DSL(DBG_WORKSPACE, 0, "WS_ReserveAll(%p) = %u", ws, b);
+
+	return (b);
+}
+
+/*
+ * WS_Release() must be called for retval > 0 only
+ */
+unsigned
+WS_ReserveSize(struct ws *ws, unsigned bytes)
+{
+	unsigned b2;
+
+	WS_Assert(ws);
+	assert(ws->r == NULL);
+	assert(bytes > 0);
+
+	b2 = PRNDDN(ws->e - ws->f);
+	if (bytes < b2)
+		b2 = PRNDUP(bytes);
+
+	if (bytes > b2) {
+		WS_MarkOverflow(ws);
+		return (0);
+	}
+	ws->r = ws->f + b2;
+	DSL(DBG_WORKSPACE, 0, "WS_ReserveSize(%p, %u/%u) = %u",
+	    ws, b2, bytes, pdiff(ws->f, ws->r));
+	WS_Assert(ws);
+	return (pdiff(ws->f, ws->r));
+}
+
+/*
+ * XXX remove for 2020-03-15 release
+ */
 unsigned
 WS_Reserve(struct ws *ws, unsigned bytes)
 {
@@ -253,11 +303,7 @@ WS_Reserve(struct ws *ws, unsigned bytes)
 unsigned
 WS_ReserveLumps(struct ws *ws, size_t sz)
 {
-	unsigned u;
-
-	u = WS_Reserve(ws, 0);
-	u /= sz;
-	return (u);
+	return (WS_ReserveAll(ws) / sz);
 }
 
 void
@@ -275,7 +321,7 @@ WS_Release(struct ws *ws, unsigned bytes)
 }
 
 void
-WS_ReleaseP(struct ws *ws, char *ptr)
+WS_ReleaseP(struct ws *ws, const char *ptr)
 {
 	WS_Assert(ws);
 	DSL(DBG_WORKSPACE, 0, "WS_ReleaseP(%p, %p (%zd))", ws, ptr, ptr - ws->f);

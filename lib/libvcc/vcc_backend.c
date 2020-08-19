@@ -35,6 +35,19 @@
 
 #include "vcc_compile.h"
 
+const char *
+vcc_default_probe(struct vcc *tl)
+{
+
+	if (tl->default_probe != NULL)
+		return (tl->default_probe);
+	VSB_printf(tl->sb, "No default probe defined\n");
+	vcc_ErrToken(tl, tl->t);
+	VSB_printf(tl->sb, " at\n");
+	vcc_ErrWhere(tl, tl->t);
+	return ("");
+}
+
 /*--------------------------------------------------------------------
  * Struct sockaddr is not really designed to be a compile time
  * initialized data structure, so we encode it as a byte-string
@@ -68,20 +81,19 @@ Emit_Sockaddr(struct vcc *tl, const struct token *t_host,
 		Fb(tl, 0, "\t.ipv6_addr = \"%s\",\n", ipv6a);
 	}
 	Fb(tl, 0, "\t.port = \"%s\",\n", pa);
+	Fb(tl, 0, "\t.path = (void *) 0,\n");
 }
 
 /*--------------------------------------------------------------------
- * Parse a backend probe specification
+ * Disallow mutually exclusive field definitions
  */
 
 static void
-vcc_ProbeRedef(struct vcc *tl, struct token **t_did,
+vcc_Redef(struct vcc *tl, const char *redef, struct token **t_did,
     struct token *t_field)
 {
-	/* .url and .request are mutually exclusive */
-
 	if (*t_did != NULL) {
-		VSB_printf(tl->sb, "Probe request redefinition at:\n");
+		VSB_printf(tl->sb, "%s redefinition at:\n", redef);
 		vcc_ErrWhere(tl, t_field);
 		VSB_printf(tl->sb, "Previous definition:\n");
 		vcc_ErrWhere(tl, *t_did);
@@ -90,8 +102,12 @@ vcc_ProbeRedef(struct vcc *tl, struct token **t_did,
 	*t_did = t_field;
 }
 
+/*--------------------------------------------------------------------
+ * Parse a backend probe specification
+ */
+
 static void
-vcc_ParseProbeSpec(struct vcc *tl, const struct token *nm, char **name)
+vcc_ParseProbeSpec(struct vcc *tl, const struct symbol *sym, char **name)
 {
 	struct fld_spec *fs;
 	struct token *t_field;
@@ -117,12 +133,13 @@ vcc_ParseProbeSpec(struct vcc *tl, const struct token *nm, char **name)
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	if (nm != NULL)
-		VSB_printf(vsb, "vgc_probe_%.*s", PF(nm));
+	if (sym != NULL)
+		VSB_cat(vsb, sym->rname);
 	else
 		VSB_printf(vsb, "vgc_probe__%d", tl->nprobe++);
 	AZ(VSB_finish(vsb));
 	retval = TlDup(tl, VSB_data(vsb));
+	AN(retval);
 	VSB_destroy(&vsb);
 	if (name != NULL)
 		*name = retval;
@@ -131,14 +148,14 @@ vcc_ParseProbeSpec(struct vcc *tl, const struct token *nm, char **name)
 	threshold = 0;
 	initial = 0;
 	status = 0;
-	Fh(tl, 0, "static const struct vrt_backend_probe %s = {\n", retval);
+	Fh(tl, 0, "static const struct vrt_backend_probe %s[] = {{\n", retval);
 	Fh(tl, 0, "\t.magic = VRT_BACKEND_PROBE_MAGIC,\n");
 	while (tl->t->tok != '}') {
 
 		vcc_IsField(tl, &t_field, fs);
 		ERRCHK(tl);
 		if (vcc_IdIs(t_field, "url")) {
-			vcc_ProbeRedef(tl, &t_did, t_field);
+			vcc_Redef(tl, "Probe request", &t_did, t_field);
 			ERRCHK(tl);
 			ExpectErr(tl, CSTR);
 			Fh(tl, 0, "\t.url = ");
@@ -146,7 +163,7 @@ vcc_ParseProbeSpec(struct vcc *tl, const struct token *nm, char **name)
 			Fh(tl, 0, ",\n");
 			vcc_NextToken(tl);
 		} else if (vcc_IdIs(t_field, "request")) {
-			vcc_ProbeRedef(tl, &t_did, t_field);
+			vcc_Redef(tl, "Probe request", &t_did, t_field);
 			ERRCHK(tl);
 			ExpectErr(tl, CSTR);
 			Fh(tl, 0, "\t.request =\n");
@@ -237,7 +254,7 @@ vcc_ParseProbeSpec(struct vcc *tl, const struct token *nm, char **name)
 		Fh(tl, 0, "\t.initial = ~0U,\n");
 	if (status > 0)
 		Fh(tl, 0, "\t.exp_status = %u,\n", status);
-	Fh(tl, 0, "};\n");
+	Fh(tl, 0, "}};\n");
 	SkipToken(tl, '}');
 }
 
@@ -248,24 +265,22 @@ vcc_ParseProbeSpec(struct vcc *tl, const struct token *nm, char **name)
 void
 vcc_ParseProbe(struct vcc *tl)
 {
-	struct token *t_probe;
+	struct symbol *sym;
 	char *p;
 
 	vcc_NextToken(tl);			/* ID: probe */
 
-	vcc_ExpectCid(tl, "backend probe");	/* ID: name */
+	vcc_ExpectVid(tl, "backend probe");	/* ID: name */
 	ERRCHK(tl);
-	t_probe = tl->t;
-	vcc_NextToken(tl);
-
-	(void)VCC_HandleSymbol(tl, t_probe, PROBE, "&vgc_probe_%.*s",
-	    PF(t_probe));
-	ERRCHK(tl);
-
-	vcc_ParseProbeSpec(tl, t_probe, &p);
-	if (vcc_IdIs(t_probe, "default")) {
-		vcc_AddRef(tl, t_probe, SYM_PROBE);
+	if (vcc_IdIs(tl->t, "default")) {
+		vcc_NextToken(tl);
+		vcc_ParseProbeSpec(tl, NULL, &p);
 		tl->default_probe = p;
+	} else {
+		sym = VCC_HandleSymbol(tl, PROBE, "vgc_probe");
+		ERRCHK(tl);
+		AN(sym);
+		vcc_ParseProbeSpec(tl, sym, &p);
 	}
 }
 
@@ -282,7 +297,10 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 	struct token *t_val;
 	struct token *t_host = NULL;
 	struct token *t_port = NULL;
+	struct token *t_path = NULL;
 	struct token *t_hosthdr = NULL;
+	struct symbol *pb;
+	struct token *t_did = NULL;
 	struct fld_spec *fs;
 	struct inifin *ifp;
 	struct vsb *vsb;
@@ -291,8 +309,9 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 	double t;
 
 	fs = vcc_FldSpec(tl,
-	    "!host",
+	    "?host",
 	    "?port",
+	    "?path",
 	    "?host_header",
 	    "?connect_timeout",
 	    "?first_byte_timeout",
@@ -302,11 +321,22 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 	    "?proxy_header",
 	    NULL);
 
-	SkipToken(tl, '{');
-
 	vsb = VSB_new_auto();
 	AN(vsb);
 	tl->fb = vsb;
+
+	if (tl->t->tok == ID &&
+	    (vcc_IdIs(tl->t, "none") || vcc_IdIs(tl->t, "None"))) {
+		Fb(tl, 0, "\n\t%s = (NULL);\n", vgcname);
+		vcc_NextToken(tl);
+		SkipToken(tl, ';');
+		ifp = New_IniFin(tl);
+		VSB_printf(ifp->ini, "\t(void)%s;\n", vgcname);
+		VSB_printf(ifp->fin, "\t\t(void)%s;\n", vgcname);
+		return;
+	}
+
+	SkipToken(tl, '{');
 
 	Fb(tl, 0, "\nstatic const struct vrt_backend vgc_dir_priv_%s = {\n",
 	    vgcname);
@@ -332,6 +362,8 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 		vcc_IsField(tl, &t_field, fs);
 		ERRCHK(tl);
 		if (vcc_IdIs(t_field, "host")) {
+			vcc_Redef(tl, "Address", &t_did, t_field);
+			ERRCHK(tl);
 			ExpectErr(tl, CSTR);
 			assert(tl->t->dec != NULL);
 			t_host = tl->t;
@@ -341,6 +373,23 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 			ExpectErr(tl, CSTR);
 			assert(tl->t->dec != NULL);
 			t_port = tl->t;
+			vcc_NextToken(tl);
+			SkipToken(tl, ';');
+		} else if (vcc_IdIs(t_field, "path")) {
+			if (tl->syntax < VCL_41) {
+				VSB_printf(tl->sb,
+				    "Unix socket backends only supported"
+				    " in VCL4.1 and higher.\n");
+				vcc_ErrToken(tl, tl->t);
+				VSB_printf(tl->sb, " at ");
+				vcc_ErrWhere(tl, tl->t);
+				return;
+			}
+			vcc_Redef(tl, "Address", &t_did, t_field);
+			ERRCHK(tl);
+			ExpectErr(tl, CSTR);
+			assert(tl->t->dec != NULL);
+			t_path = tl->t;
 			vcc_NextToken(tl);
 			SkipToken(tl, ';');
 		} else if (vcc_IdIs(t_field, "host_header")) {
@@ -386,18 +435,19 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 			Fb(tl, 0, "\t.proxy_header = %u,\n", u);
 		} else if (vcc_IdIs(t_field, "probe") && tl->t->tok == '{') {
 			vcc_ParseProbeSpec(tl, NULL, &p);
-			Fb(tl, 0, "\t.probe = &%s,\n", p);
+			Fb(tl, 0, "\t.probe = %s,\n", p);
 			ERRCHK(tl);
 		} else if (vcc_IdIs(t_field, "probe") && tl->t->tok == ID) {
-			if (!VCC_SymbolTok(tl, NULL, tl->t, SYM_PROBE, 0)) {
-				VSB_printf(tl->sb, "Probe %.*s not found\n",
-				    PF(tl->t));
-				vcc_ErrWhere(tl, tl->t);
-				return;
+			if (vcc_IdIs(tl->t, "default")) {
+				vcc_NextToken(tl);
+				(void)vcc_default_probe(tl);
+			} else {
+				pb = VCC_SymbolGet(tl, SYM_PROBE,
+				    "Probe not found", XREF_REF);
+				ERRCHK(tl);
+				AN(pb);
+				Fb(tl, 0, "\t.probe = %s,\n", pb->rname);
 			}
-			Fb(tl, 0, "\t.probe = &vgc_probe_%.*s,\n", PF(tl->t));
-			vcc_AddRef(tl, tl->t, SYM_PROBE);
-			vcc_NextToken(tl);
 			SkipToken(tl, ';');
 		} else if (vcc_IdIs(t_field, "probe")) {
 			VSB_printf(tl->sb,
@@ -416,9 +466,19 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 	vcc_FieldsOk(tl, fs);
 	ERRCHK(tl);
 
-	/* Check that the hostname makes sense */
-	assert(t_host != NULL);
-	Emit_Sockaddr(tl, t_host, t_port);
+	if (t_host == NULL && t_path == NULL) {
+		VSB_printf(tl->sb, "Expected .host or .path.\n");
+		vcc_ErrWhere(tl, t_be);
+		return;
+	}
+
+	assert(t_host != NULL || t_path != NULL);
+	if (t_host != NULL)
+		/* Check that the hostname makes sense */
+		Emit_Sockaddr(tl, t_host, t_port);
+	else
+		/* Check that the path can be a legal UDS */
+		Emit_UDS_Path(tl, t_path, "Backend path");
 	ERRCHK(tl);
 
 	ExpectErr(tl, '}');
@@ -426,11 +486,14 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 	/* We have parsed it all, emit the ident string */
 
 	/* Emit the hosthdr field, fall back to .host if not specified */
+	/* If .path is specified, set "0.0.0.0". */
 	Fb(tl, 0, "\t.hosthdr = ");
 	if (t_hosthdr != NULL)
 		EncToken(tl->fb, t_hosthdr);
-	else
+	else if (t_host != NULL)
 		EncToken(tl->fb, t_host);
+	else
+		Fb(tl, 0, "\"0.0.0.0\"");
 	Fb(tl, 0, ",\n");
 
 	/* Close the struct */
@@ -445,8 +508,10 @@ vcc_ParseHostDef(struct vcc *tl, const struct token *t_be, const char *vgcname)
 
 	ifp = New_IniFin(tl);
 	VSB_printf(ifp->ini,
-	    "\t%s =\n\t    VRT_new_backend(ctx, &vgc_dir_priv_%s);",
+	    "\t%s =\n\t    VRT_new_backend_clustered(ctx, vsc_cluster,\n"
+	    "\t\t&vgc_dir_priv_%s);",
 	    vgcname, vgcname);
+	VSB_printf(ifp->fin, "\t\tVRT_delete_backend(ctx, &%s);", vgcname);
 }
 
 /*--------------------------------------------------------------------
@@ -458,44 +523,60 @@ vcc_ParseBackend(struct vcc *tl)
 {
 	struct token *t_first, *t_be;
 	struct symbol *sym;
-	char vgcname[MAX_BACKEND_NAME + 20];
+	const char *dn;
 
+	tl->ndirector++;
 	t_first = tl->t;
-	vcc_NextToken(tl);		/* ID: backend */
+	SkipToken(tl, ID);		/* ID: backend */
 
-	vcc_ExpectCid(tl, "backend");	/* ID: name */
+	vcc_ExpectVid(tl, "backend");	/* ID: name */
 	ERRCHK(tl);
-
-	if (tl->t->e - tl->t->b > MAX_BACKEND_NAME) {
-		VSB_printf(tl->sb,
-		    "Name of %.*s too long (max %d, is %zu):\n",
-		    PF(t_first), MAX_BACKEND_NAME,
-		    (size_t)(tl->t->e - tl->t->b));
-		vcc_ErrWhere(tl, tl->t);
-		return;
-	}
 
 	t_be = tl->t;
-	vcc_NextToken(tl);
-
-	bprintf(vgcname, "vgc_backend_%.*s", PF(t_be));
-	Fh(tl, 0, "\nstatic struct director *%s;\n", vgcname);
-
-	sym = VCC_HandleSymbol(tl, t_be, BACKEND, "%s", vgcname);
-	ERRCHK(tl);
-
-	vcc_ParseHostDef(tl, t_be, vgcname);
-	ERRCHK(tl);
-
+	if (vcc_IdIs(tl->t, "default")) {
+		if (tl->first_director != NULL) {
+			tl->first_director->noref = 0;
+			tl->first_director = NULL;
+			tl->default_director = NULL;
+		}
+		if (tl->default_director != NULL) {
+			VSB_printf(tl->sb,
+			    "Only one default director possible.\n");
+			vcc_ErrWhere(tl, t_first);
+			return;
+		}
+		vcc_NextToken(tl);
+		dn = "vgc_backend_default";
+		tl->default_director = dn;
+	} else {
+		sym = VCC_HandleSymbol(tl, BACKEND, "vgc_backend");
+		ERRCHK(tl);
+		dn = sym->rname;
+		if (tl->default_director == NULL) {
+			tl->first_director = sym;
+			tl->default_director = dn;
+			sym->noref = 1;
+		}
+	}
+	Fh(tl, 0, "\nstatic struct director *%s;\n", dn);
+	vcc_ParseHostDef(tl, t_be, dn);
 	if (tl->err) {
 		VSB_printf(tl->sb,
 		    "\nIn %.*s specification starting at:\n", PF(t_first));
 		vcc_ErrWhere(tl, t_first);
 		return;
 	}
+}
 
-	if (tl->default_director == NULL || vcc_IdIs(t_be, "default")) {
-		tl->default_director = sym->rname;
-		tl->t_default_director = t_be;
-	}
+void
+vcc_Backend_Init(struct vcc *tl)
+{
+	struct inifin *ifp;
+
+	Fh(tl, 0, "\nstatic struct vsmw_cluster *vsc_cluster;\n");
+	ifp = New_IniFin(tl);
+	VSB_printf(ifp->ini, "\tvsc_cluster = VRT_VSM_Cluster_New(ctx,\n"
+	    "\t    ndirector * VRT_backend_vsm_need(ctx));\n");
+	VSB_printf(ifp->ini, "\tif (vsc_cluster == 0)\n\t\treturn(1);");
+	VSB_printf(ifp->fin, "\t\tVRT_VSM_Cluster_Destroy(ctx, &vsc_cluster);");
 }

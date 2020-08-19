@@ -34,6 +34,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "vdef.h"
+
 #include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
 #include "miniobj.h"
 
@@ -50,7 +52,7 @@ struct vlu {
 };
 
 struct vlu *
-VLU_New(void *priv, vlu_f *func, unsigned bufsize)
+VLU_New(vlu_f *func, void *priv, unsigned bufsize)
 {
 	struct vlu *l;
 
@@ -71,9 +73,20 @@ VLU_New(void *priv, vlu_f *func, unsigned bufsize)
 }
 
 void
-VLU_Destroy(struct vlu *l)
+VLU_Reset(struct vlu *l)
 {
+	CHECK_OBJ_NOTNULL(l, LINEUP_MAGIC);
+	l->bufp = 0;
+}
 
+void
+VLU_Destroy(struct vlu **lp)
+{
+	struct vlu *l;
+
+	AN(lp);
+	l = *lp;
+	*lp = NULL;
 	CHECK_OBJ_NOTNULL(l, LINEUP_MAGIC);
 	free(l->buf);
 	FREE_OBJ(l);
@@ -111,14 +124,54 @@ LineUpProcess(struct vlu *l)
 }
 
 int
-VLU_Fd(int fd, struct vlu *l)
+VLU_Fd(struct vlu *l, int fd)
 {
 	int i;
 
 	CHECK_OBJ_NOTNULL(l, LINEUP_MAGIC);
 	i = read(fd, l->buf + l->bufp, l->bufl - l->bufp);
-	if (i <= 0)
+	if (i == 0)
+		return (-2);
+	if (i < 0)
 		return (-1);
 	l->bufp += i;
 	return (LineUpProcess(l));
+}
+
+int
+VLU_File(int fd, vlu_f *func, void *priv, unsigned bufsize)
+{
+	struct vlu *vlu;
+	int i;
+
+	vlu = VLU_New(func, priv, bufsize);
+	AN(vlu);
+	do {
+		i = VLU_Fd(vlu, fd);
+	} while (i == 0);
+	VLU_Destroy(&vlu);
+	return (i);
+}
+
+int
+VLU_Feed(struct vlu *l, const char *ptr, int len)
+{
+	int i = 0, ll;
+
+	CHECK_OBJ_NOTNULL(l, LINEUP_MAGIC);
+	AN(ptr);
+	assert(len > 0);
+	while (len > 0) {
+		ll = len;
+		if (ll > l->bufl - l->bufp)
+			ll = l->bufl - l->bufp;
+		memcpy(l->buf + l->bufp, ptr, ll);
+		len -= ll;
+		ptr += ll;
+		l->bufp += ll;
+		i = LineUpProcess(l);
+		if (i)
+			return (i);
+	}
+	return (i);
 }

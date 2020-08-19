@@ -61,13 +61,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #ifdef __MACH__
 #include <mach/mach_time.h>
 #endif
 
+#include "vdef.h"
+
 #include "vas.h"
 #include "vtim.h"
+
+/* relax vtim parsing */
+unsigned VTIM_postel = 0;
 
 static const char * const weekday_name[] = {
 	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
@@ -114,22 +118,23 @@ init(void)
 #endif
 
 /*
- * Note on Solaris: for some reason, clock_gettime(CLOCK_MONOTONIC, &ts) is not
- * implemented in assembly, but falls into a syscall, while gethrtime() doesn't,
- * so we save a syscall by using gethrtime() if it is defined.
+ * On older Solaris-incarnations, gethrtime() was faster than
+ * clock_gettime(CLOCK_MONOTONIC). Our configure script prefers
+ * clock_gettime if it is consistently at least twice as fast as
+ * gethrtime(), which is the case on modern Solaris descendents.
  */
 
-double
+vtim_mono
 VTIM_mono(void)
 {
-#ifdef HAVE_GETHRTIME
-	return (gethrtime() * 1e-9);
-#elif  HAVE_CLOCK_GETTIME
+#if defined(HAVE_CLOCK_GETTIME) && !defined(USE_GETHRTIME)
 	struct timespec ts;
 
 	AZ(clock_gettime(CLOCK_MONOTONIC, &ts));
 	return (ts.tv_sec + 1e-9 * ts.tv_nsec);
-#elif  defined(__MACH__)
+#elif defined(HAVE_GETHRTIME)
+	return (gethrtime() * 1e-9);
+#elif defined(__MACH__)
 	uint64_t mt = mach_absolute_time() - mt_base;
 
 	return (mt * mt_scale);
@@ -138,7 +143,7 @@ VTIM_mono(void)
 #endif
 }
 
-double
+vtim_real
 VTIM_real(void)
 {
 #ifdef HAVE_CLOCK_GETTIME
@@ -155,7 +160,7 @@ VTIM_real(void)
 }
 
 void
-VTIM_format(double t, char *p)
+VTIM_format(vtim_real t, char *p)
 {
 	struct tm tm;
 	time_t tt;
@@ -231,13 +236,16 @@ VTIM_format(double t, char *p)
 		DIGIT(1, sec);					\
 	} while(0)
 
-double
+vtim_real
 VTIM_parse(const char *p)
 {
-	double t;
+	vtim_real t;
 	int month = 0, year = 0, weekday = -1, mday = 0;
 	int hour = 0, min = 0, sec = 0;
 	int d, leap;
+
+	if (p == NULL || *p == '\0')
+		FAIL();
 
 	while (*p == ' ')
 		p++;
@@ -263,8 +271,12 @@ VTIM_parse(const char *p)
 			/* RFC822 & RFC1123 - "Sun, 06 Nov 1994 08:49:37 GMT" */
 			p++;
 			MUSTBE(' ');
-			DIGIT(10, mday);
-			DIGIT(1, mday);
+			if (VTIM_postel && *p && p[1] == ' ')
+				DIGIT(1, mday);
+			else {
+				DIGIT(10, mday);
+				DIGIT(1, mday);
+			}
 			MUSTBE(' ');
 			MONTH();
 			MUSTBE(' ');
@@ -382,7 +394,7 @@ VTIM_parse(const char *p)
 }
 
 void
-VTIM_sleep(double t)
+VTIM_sleep(vtim_dur t)
 {
 #ifdef HAVE_NANOSLEEP
 	struct timespec ts;
@@ -403,20 +415,22 @@ VTIM_sleep(double t)
 }
 
 struct timeval
-VTIM_timeval(double t)
+VTIM_timeval(vtim_real t)
 {
 	struct timeval tv;
 
+	AZ(isnan(t));
 	tv.tv_sec = (time_t)trunc(t);
 	tv.tv_usec = (int)(1e6 * (t - tv.tv_sec));
 	return (tv);
 }
 
 struct timespec
-VTIM_timespec(double t)
+VTIM_timespec(vtim_real t)
 {
 	struct timespec tv;
 
+	AZ(isnan(t));
 	tv.tv_sec = (time_t)trunc(t);
 	tv.tv_nsec = (int)(1e9 * (t - tv.tv_sec));
 	return (tv);
@@ -450,8 +464,9 @@ tst(const char *s, time_t good)
 	}
 }
 
+/* XXX keep as double for the time being */
 static int
-tst_delta_check(const char *name, double begin, double end, double ref)
+tst_delta_check(const char *name, double begin, double end, vtim_dur ref)
 {
 	const double tol_max = 1.1;
 	const double tol_min = 1;
@@ -473,9 +488,9 @@ tst_delta_check(const char *name, double begin, double end, double ref)
 static void
 tst_delta()
 {
-	double m_begin, m_end;
-	double r_begin, r_end;
-	const double ref = 1;
+	vtim_mono m_begin, m_end;
+	vtim_real r_begin, r_end;
+	const vtim_dur ref = 1;
 	int err = 0;
 
 	r_begin = VTIM_real();
@@ -488,7 +503,7 @@ tst_delta()
 	err += tst_delta_check("VTIM_real", r_begin, r_end, ref);
 
 	if (err) {
-		printf("%d time delta test errrors\n", err);
+		printf("%d time delta test errors\n", err);
 		exit(4);
 	}
 }
@@ -496,24 +511,65 @@ tst_delta()
 static void
 bench()
 {
-	double s, e, t;
+	vtim_mono s, e;
+	vtim_mono t_m;
+	vtim_real t_r;
+	unsigned long t_i;
 	int i;
+	char buf[64];
 
-	t = 0;
-	s = VTIM_real();
+	t_r = 0;
+	s = VTIM_mono();
 	for (i=0; i<100000; i++)
-		t += VTIM_real();
-	e = VTIM_real();
+		t_r += VTIM_real();
+	e = VTIM_mono();
 	printf("real: %fs / %d = %fns - tst val %f\n",
-	    e - s, i, 1e9 * (e - s) / i, t);
+	    e - s, i, 1e9 * (e - s) / i, t_r);
 
-	t = 0;
-	s = VTIM_real();
+	t_i = 0;
+	s = VTIM_mono();
 	for (i=0; i<100000; i++)
-		t += VTIM_mono();
-	e = VTIM_real();
+		t_m += VTIM_mono();
+	e = VTIM_mono();
 	printf("mono: %fs / %d = %fns - tst val %f\n",
-	    e - s, i, 1e9 * (e - s) / i, t);
+	    e - s, i, 1e9 * (e - s) / i, t_m);
+
+	t_i = 0;
+	s = VTIM_mono();
+	for (i=0; i<100000; i++) {
+		snprintf(buf, sizeof(buf), "%.6f", s);
+		t_i += buf[4];
+	}
+	e = VTIM_mono();
+	printf("printf %%.6f: %fs / %d = %fns - tst val %lu %s\n",
+	    e - s, i, 1e9 * (e - s) / i, t_i, buf);
+
+	t_i = 0;
+	s = VTIM_mono();
+	for (i=0; i<100000; i++) {
+		snprintf(buf, sizeof(buf), "%ju.%06ju",
+		    (uint64_t)floor(s),
+		    (uint64_t)floor((s * 1e6)) % 1000000UL);
+		t_i += buf[4];
+	}
+	e = VTIM_mono();
+	printf("printf %%ju.%%06ju: %fs / %d = %fns - tst val %lu %s\n",
+	    e - s, i, 1e9 * (e - s) / i, t_i, buf);
+}
+
+void
+parse_check(time_t t, const char *s)
+{
+	vtim_real tt;
+	char buf[BUFSIZ];
+
+	tt = VTIM_parse(s);
+	if (tt != t) {
+		VTIM_format(tt, buf);
+		printf("  fm: %12jd <%s>\n", (intmax_t)t, s);
+		printf("  to: %12.0f <%s>\n", tt, buf);
+		exit(2);
+	}
 }
 
 int
@@ -521,7 +577,6 @@ main(int argc, char **argv)
 {
 	time_t t;
 	struct tm tm;
-	double tt;
 	char buf[BUFSIZ];
 	char buf1[BUFSIZ];
 
@@ -540,41 +595,17 @@ main(int argc, char **argv)
 			    buf1, buf, (intmax_t)t);
 			exit(2);
 		}
-		tt = VTIM_parse(buf1);
-		if (tt != t) {
-			VTIM_format(tt, buf);
-			printf("  fm: %12jd <%s>\n", (intmax_t)t, buf1);
-			printf("  to: %12.0f <%s>\n", tt, buf);
-			exit(2);
-		}
+		parse_check(t, buf1);
 
 		strftime(buf1, sizeof buf1, "%a %b %e %T %Y", &tm);
-		tt = VTIM_parse(buf1);
-		if (tt != t) {
-			VTIM_format(tt, buf);
-			printf("  fm: %12jd <%s>\n", (intmax_t)t, buf1);
-			printf("  to: %12.0f <%s>\n", tt, buf);
-			exit(2);
-		}
+		parse_check(t, buf1);
 
 		strftime(buf1, sizeof buf1, "%Y-%m-%dT%T", &tm);
-		tt = VTIM_parse(buf1);
-		if (tt != t) {
-			VTIM_format(tt, buf);
-			printf("  fm: %12jd <%s>\n", (intmax_t)t, buf1);
-			printf("  to: %12.0f <%s>\n", tt, buf);
-			exit(2);
-		}
+		parse_check(t, buf1);
 
 		if (tm.tm_year >= 69 && tm.tm_year < 169) {
 			strftime(buf1, sizeof buf1, "%A, %d-%b-%y %T GMT", &tm);
-			tt = VTIM_parse(buf1);
-			if (tt != t) {
-				VTIM_format(tt, buf);
-				printf("  fm: %12jd <%s>\n", (intmax_t)t, buf1);
-				printf("  to: %12.0f <%s>\n", tt, buf);
-				exit(2);
-			}
+			parse_check(t, buf1);
 		}
 	}
 

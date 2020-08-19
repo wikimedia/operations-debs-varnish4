@@ -31,7 +31,8 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
+#include "common/heritage.h"
 
 #include <sys/mman.h>
 
@@ -44,6 +45,8 @@
 
 #include "vnum.h"
 #include "vfil.h"
+
+#include "VSC_smf.h"
 
 #ifndef MAP_NOCORE
 #define MAP_NOCORE 0 /* XXX Linux */
@@ -64,7 +67,7 @@
  */
 #define NBUCKET			(128 / 4 + 1)
 
-static struct VSC_C_lck *lck_smf;
+static struct VSC_lck *lck_smf;
 
 /*--------------------------------------------------------------------*/
 
@@ -91,7 +94,7 @@ struct smf_sc {
 	unsigned		magic;
 #define SMF_SC_MAGIC		0x52962ee7
 	struct lock		mtx;
-	struct VSC_C_smf	*stats;
+	struct VSC_smf		*stats;
 
 	const char		*filename;
 	int			fd;
@@ -398,7 +401,7 @@ smf_open_chunk(struct smf_sc *sc, off_t sz, off_t off, off_t *fail, off_t *sum)
 	smf_open_chunk(sc, sz - h, off + h, fail, sum);
 }
 
-static void __match_proto__(storage_open_f)
+static void v_matchproto_(storage_open_f)
 smf_open(struct stevedore *st)
 {
 	struct smf_sc *sc;
@@ -408,10 +411,9 @@ smf_open(struct stevedore *st)
 	ASSERT_CLI();
 	st->lru = LRU_Alloc();
 	if (lck_smf == NULL)
-		lck_smf = Lck_CreateClass("smf");
+		lck_smf = Lck_CreateClass(NULL, "smf");
 	CAST_OBJ_NOTNULL(sc, st->priv, SMF_SC_MAGIC);
-	sc->stats = VSM_Alloc(sizeof *sc->stats,
-	    VSC_CLASS, VSC_type_smf, st->ident);
+	sc->stats = VSC_smf_New(NULL, NULL, st->ident);
 	Lck_New(&sc->mtx, lck_smf);
 	Lck_Lock(&sc->mtx);
 	smf_open_chunk(sc, sc->filesize, 0, &fail, &sum);
@@ -428,7 +430,7 @@ smf_open(struct stevedore *st)
 
 /*--------------------------------------------------------------------*/
 
-static struct storage * __match_proto__(sml_alloc_f)
+static struct storage * v_matchproto_(sml_alloc_f)
 smf_alloc(const struct stevedore *st, size_t size)
 {
 	struct smf *smf;
@@ -464,7 +466,7 @@ smf_alloc(const struct stevedore *st, size_t size)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(sml_free_f)
+static void v_matchproto_(sml_free_f)
 smf_free(struct storage *s)
 {
 	struct smf *smf;

@@ -29,10 +29,19 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef HAVE_SIGALTSTACK
+#  include <sys/mman.h>
+#endif
+
+#ifdef HAVE_PTHREAD_NP_H
+#  include <pthread_np.h>
+#endif
 
 #include "common/heritage.h"
 
@@ -42,7 +51,20 @@
 #include "hash/hash_slinger.h"
 
 
-volatile struct params	*cache_param;
+volatile struct params		*cache_param;
+static pthread_mutex_t		cache_vrnd_mtx;
+
+static void
+cache_vrnd_lock(void)
+{
+	AZ(pthread_mutex_lock(&cache_vrnd_mtx));
+}
+
+static void
+cache_vrnd_unlock(void)
+{
+	AZ(pthread_mutex_unlock(&cache_vrnd_mtx));
+}
 
 /*--------------------------------------------------------------------
  * Per thread storage for the session currently being processed by
@@ -96,11 +118,11 @@ THR_SetName(const char *name)
 	pthread_set_name_np(pthread_self(), name);
 #elif defined(HAVE_PTHREAD_SETNAME_NP)
 #if defined(__APPLE__)
-	pthread_setname_np(name);
+	(void)pthread_setname_np(name);
 #elif defined(__NetBSD__)
-	pthread_setname_np(pthread_self(), "%s", (char *)(uintptr_t)name);
+	(void)pthread_setname_np(pthread_self(), "%s", (char *)(uintptr_t)name);
 #else
-	pthread_setname_np(pthread_self(), name);
+	(void)pthread_setname_np(pthread_self(), name);
 #endif
 #endif
 }
@@ -110,6 +132,22 @@ THR_GetName(void)
 {
 
 	return (pthread_getspecific(name_key));
+}
+
+/*--------------------------------------------------------------------
+ * Generic setup all our threads should call
+ */
+#ifdef HAVE_SIGALTSTACK
+static stack_t altstack;
+#endif
+
+void
+THR_Init(void)
+{
+#ifdef HAVE_SIGALTSTACK
+	if (altstack.ss_sp != NULL)
+		AZ(sigaltstack(&altstack, NULL));
+#endif
 }
 
 /*--------------------------------------------------------------------
@@ -154,7 +192,7 @@ VXID_Get(struct worker *wrk, uint32_t mask)
  * Dumb down the VXID allocation to make it predictable for
  * varnishtest cases
  */
-static void
+static void v_matchproto_(cli_func_t)
 cli_debug_xid(struct cli *cli, const char * const *av, void *priv)
 {
 	(void)priv;
@@ -169,7 +207,7 @@ cli_debug_xid(struct cli *cli, const char * const *av, void *priv)
  * Default to seed=1, this is the only seed value POSIXl guarantees will
  * result in a reproducible random number sequence.
  */
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 cli_debug_srandom(struct cli *cli, const char * const *av, void *priv)
 {
 	unsigned seed = 1;
@@ -191,7 +229,7 @@ static struct cli_proto debug_cmds[] = {
  * XXX: Think more about which order we start things
  */
 
-#if defined(__FreeBSD__) && __FreeBSD__version >= 1000000
+#if defined(__FreeBSD__) && __FreeBSD_version >= 1000000
 static void
 child_malloc_fail(void *p, const char *s)
 {
@@ -201,14 +239,107 @@ child_malloc_fail(void *p, const char *s)
 }
 #endif
 
-void
-child_main(void)
+/*=====================================================================
+ * signal handler for child process
+ */
+
+static void v_matchproto_()
+child_signal_handler(int s, siginfo_t *si, void *c)
 {
+	char buf[1024];
+	struct sigaction sa;
+	struct req *req;
+	const char *a, *p, *info = NULL;
+
+	(void)c;
+	/* Don't come back */
+	memset(&sa, 0, sizeof sa);
+	sa.sa_handler = SIG_DFL;
+	(void)sigaction(SIGSEGV, &sa, NULL);
+	(void)sigaction(SIGBUS, &sa, NULL);
+	(void)sigaction(SIGABRT, &sa, NULL);
+
+	while (s == SIGSEGV || s == SIGBUS) {
+		req = THR_GetRequest();
+		if (req == NULL || req->wrk == NULL)
+			break;
+		a = TRUST_ME(si->si_addr);
+		p = TRUST_ME(req->wrk);
+		p += sizeof *req->wrk;
+		// rough safe estimate - top of stack
+		if (a > p + cache_param->wthread_stacksize)
+			break;
+		if (a < p - 2 * cache_param->wthread_stacksize)
+			break;
+		info = "\nTHIS PROBABLY IS A STACK OVERFLOW - "
+			"check thread_pool_stack parameter";
+		break;
+	}
+	bprintf(buf, "Signal %d (%s) received at %p si_code %d%s",
+		s, strsignal(s), si->si_addr, si->si_code,
+		info ? info : "");
+
+	VAS_Fail(__func__,
+		 __FILE__,
+		 __LINE__,
+		 buf,
+		 VAS_WRONG);
+}
+
+/*=====================================================================
+ * Magic for panicing properly on signals
+ */
+
+static void
+child_sigmagic(size_t altstksz)
+{
+	struct sigaction sa;
+
+	memset(&sa, 0, sizeof sa);
+
+#ifdef HAVE_SIGALTSTACK
+	size_t sz = SIGSTKSZ + 4096;
+	if (sz < altstksz)
+		sz = altstksz;
+	altstack.ss_sp = mmap(NULL, sz,  PROT_READ | PROT_WRITE,
+			      MAP_PRIVATE | MAP_ANONYMOUS,
+			      -1, 0);
+	AN(altstack.ss_sp != MAP_FAILED);
+	AN(altstack.ss_sp);
+	altstack.ss_size = sz;
+	altstack.ss_flags = 0;
+	sa.sa_flags |= SA_ONSTACK;
+#else
+	(void)altstksz;
+#endif
+
+	THR_Init();
+
+	sa.sa_sigaction = child_signal_handler;
+	sa.sa_flags |= SA_SIGINFO;
+	(void)sigaction(SIGBUS, &sa, NULL);
+	(void)sigaction(SIGABRT, &sa, NULL);
+	(void)sigaction(SIGSEGV, &sa, NULL);
+}
+
+
+/*=====================================================================
+ * Run the child process
+ */
+
+void
+child_main(int sigmagic, size_t altstksz)
+{
+
+	if (sigmagic)
+		child_sigmagic(altstksz);
+	(void)signal(SIGINT, SIG_DFL);
+	(void)signal(SIGTERM, SIG_DFL);
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 	printf("Child starts\n");
-#if defined(__FreeBSD__) && __FreeBSD__version >= 1000000
+#if defined(__FreeBSD__) && __FreeBSD_version >= 1000000
 	malloc_message = child_malloc_fail;
 #endif
 
@@ -220,6 +351,10 @@ child_main(void)
 	AZ(pthread_key_create(&name_key, NULL));
 
 	THR_SetName("cache-main");
+
+	AZ(pthread_mutex_init(&cache_vrnd_mtx, NULL));
+	VRND_Lock = cache_vrnd_lock;
+	VRND_Unlock = cache_vrnd_unlock;
 
 	VSM_Init();	/* First, LCK needs it. */
 
@@ -238,7 +373,9 @@ child_main(void)
 	HTTP_Init();
 
 	VBO_Init();
+	VTP_Init();
 	VBP_Init();
+	VDI_Init();
 	VBE_InitCfg();
 	Pool_Init();
 	V1P_Init();
@@ -254,15 +391,19 @@ child_main(void)
 
 	VMOD_Init();
 
+	WRK_Init();
+
 	BAN_Compile();
 
 	VRND_SeedAll();
 
 	CLI_AddFuncs(debug_cmds);
 
+#if WITH_PERSISTENT_STORAGE
 	/* Wait for persistent storage to load if asked to */
 	if (FEATURE(FEATURE_WAIT_SILO))
 		SMP_Ready();
+#endif
 
 	CLI_Run();
 

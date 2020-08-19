@@ -35,11 +35,13 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "VSC_lck.h"
 
 struct ilck {
 	unsigned		magic;
@@ -48,7 +50,7 @@ struct ilck {
 	pthread_mutex_t		mtx;
 	pthread_t		owner;
 	const char		*w;
-	struct VSC_C_lck	*stat;
+	struct VSC_lck		*stat;
 };
 
 static pthread_mutexattr_t attr;
@@ -102,7 +104,7 @@ Lck_Witness_Unlock(const struct ilck *il)
 
 /*--------------------------------------------------------------------*/
 
-void __match_proto__()
+void v_matchproto_()
 Lck__Lock(struct lock *lck, const char *p, int l)
 {
 	struct ilck *ilck;
@@ -117,7 +119,7 @@ Lck__Lock(struct lock *lck, const char *p, int l)
 	ilck->held = 1;
 }
 
-void __match_proto__()
+void v_matchproto_()
 Lck__Unlock(struct lock *lck, const char *p, int l)
 {
 	struct ilck *ilck;
@@ -145,7 +147,7 @@ Lck__Unlock(struct lock *lck, const char *p, int l)
 		Lck_Witness_Unlock(ilck);
 }
 
-int __match_proto__()
+int v_matchproto_()
 Lck__Trylock(struct lock *lck, const char *p, int l)
 {
 	struct ilck *ilck;
@@ -184,11 +186,10 @@ Lck__Owned(const struct lock *lck)
 	return (pthread_equal(ilck->owner, pthread_self()));
 }
 
-int __match_proto__()
-Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double when)
+int v_matchproto_()
+Lck_CondWait(pthread_cond_t *cond, struct lock *lck, vtim_real when)
 {
 	struct ilck *ilck;
-	int retval = 0;
 	struct timespec ts;
 	double t;
 
@@ -197,24 +198,25 @@ Lck_CondWait(pthread_cond_t *cond, struct lock *lck, double when)
 	assert(pthread_equal(ilck->owner, pthread_self()));
 	ilck->held = 0;
 	if (when == 0) {
-		AZ(pthread_cond_wait(cond, &ilck->mtx));
+		errno = pthread_cond_wait(cond, &ilck->mtx);
+		AZ(errno);
 	} else {
 		assert(when > 1e9);
 		ts.tv_nsec = (long)(modf(when, &t) * 1e9);
 		ts.tv_sec = (long)t;
-		retval = pthread_cond_timedwait(cond, &ilck->mtx, &ts);
-		assert(retval == 0 ||
-		    retval == ETIMEDOUT ||
-		    retval == EINTR);
+		errno = pthread_cond_timedwait(cond, &ilck->mtx, &ts);
+		assert(errno == 0 ||
+		    errno == ETIMEDOUT ||
+		    errno == EINTR);
 	}
 	AZ(ilck->held);
 	ilck->held = 1;
 	ilck->owner = pthread_self();
-	return (retval);
+	return (errno);
 }
 
 void
-Lck__New(struct lock *lck, struct VSC_C_lck *st, const char *w)
+Lck__New(struct lock *lck, struct VSC_lck *st, const char *w)
 {
 	struct ilck *ilck;
 
@@ -242,14 +244,19 @@ Lck_Delete(struct lock *lck)
 	FREE_OBJ(ilck);
 }
 
-struct VSC_C_lck *
-Lck_CreateClass(const char *name)
+struct VSC_lck *
+Lck_CreateClass(struct vsc_seg **sg, const char *name)
 {
-	return(VSM_Alloc(sizeof(struct VSC_C_lck),
-	   VSC_CLASS, VSC_type_lck, name));
+	return(VSC_lck_New(NULL, sg, name));
 }
 
-#define LOCK(nam) struct VSC_C_lck *lck_##nam;
+void
+Lck_DestroyClass(struct vsc_seg **sg)
+{
+	VSC_lck_Destroy(sg);
+}
+
+#define LOCK(nam) struct VSC_lck *lck_##nam;
 #include "tbl/locks.h"
 
 void
@@ -257,9 +264,7 @@ LCK_Init(void)
 {
 
 	AZ(pthread_mutexattr_init(&attr));
-#if !defined(__APPLE__) && !defined(__MACH__)
 	AZ(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK));
-#endif
-#define LOCK(nam)	lck_##nam = Lck_CreateClass(#nam);
+#define LOCK(nam)	lck_##nam = Lck_CreateClass(NULL, #nam);
 #include "tbl/locks.h"
 }

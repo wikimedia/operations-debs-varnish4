@@ -31,9 +31,9 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h> /* for MUSL */
 
 #include "vdef.h"
 #include "vas.h"
@@ -141,7 +141,7 @@ vxp_Lexer(struct vxp *vxp)
 			vxp_add_token(vxp, VAL, p, q);
 			if (quote != '\0') {
 				VSB_printf(vxp->sb, "Unterminated string ");
-				vxp_ErrWhere(vxp, vxp->t, q - p - 1);
+				vxp_ErrWhere(vxp, vxp->t, q - p);
 				return;
 			}
 			if (vxp_decstr(vxp, 1))
@@ -174,6 +174,7 @@ vxp_Lexer(struct vxp *vxp)
 }
 
 #ifdef VXP_DEBUG
+#include <stdio.h>
 void
 vxp_PrintTokens(const struct vxp *vxp)
 {

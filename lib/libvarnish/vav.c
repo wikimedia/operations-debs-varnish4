@@ -43,6 +43,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "vdef.h"
+
 #include "vas.h"
 #include "vav.h"
 
@@ -112,7 +114,7 @@ VAV_BackSlashDecode(const char *s, const char *e)
 	if (e == NULL)
 		e = strchr(s, '\0');
 	assert(e != NULL);
-	p = calloc((e - s) + 1, 1);
+	p = calloc(1, (e - s) + 1L);
 	if (p == NULL)
 		return (p);
 	for (r = p, q = s; q < e; ) {
@@ -142,7 +144,7 @@ VAV_Parse(const char *s, int *argc, int flag)
 	assert(s != NULL);
 	nargv = 1;
 	largv = 16;
-	argv = calloc(sizeof *argv, largv);
+	argv = calloc(largv, sizeof *argv);
 	if (argv == NULL)
 		return (NULL);
 
@@ -193,7 +195,7 @@ VAV_Parse(const char *s, int *argc, int flag)
 			assert(argv != NULL);
 		}
 		if (flag & ARGV_NOESC) {
-			argv[nargv] = malloc(1 + (s - p));
+			argv[nargv] = malloc(1L + (s - p));
 			assert(argv[nargv] != NULL);
 			memcpy(argv[nargv], p, s - p);
 			argv[nargv][s - p] = '\0';

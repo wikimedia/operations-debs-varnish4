@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,8 +91,9 @@ vtc_logopen(const char *id)
 }
 
 void
-vtc_logclose(struct vtclog *vl)
+vtc_logclose(void *arg)
 {
+	struct vtclog *vl = arg;
 
 	CHECK_OBJ_NOTNULL(vl, VTCLOG_MAGIC);
 	if (pthread_getspecific(log_key) == vl)
@@ -101,7 +103,7 @@ vtc_logclose(struct vtclog *vl)
 	FREE_OBJ(vl);
 }
 
-static void __attribute__((__noreturn__))
+static void v_noreturn_
 vtc_logfail(void)
 {
 
@@ -154,7 +156,7 @@ vtc_log_emit(const struct vtclog *vl)
 		return;
 	AZ(pthread_mutex_lock(&vtclog_mtx));
 	assert(vtclog_left > l);
-	memcpy(vtclog_buf,VSB_data(vl->vsb), l);
+	memcpy(vtclog_buf, VSB_data(vl->vsb), l);
 	vtclog_buf += l;
 	*vtclog_buf = '\0';
 	vtclog_left -= l;
@@ -267,22 +269,24 @@ vtc_hexdump(struct vtclog *vl, int lvl, const char *pfx,
 
 /**********************************************************************/
 
-static void __attribute__((__noreturn__))
+static void v_noreturn_
 vtc_log_VAS_Fail(const char *func, const char *file, int line,
     const char *cond, enum vas_e why)
 {
 	struct vtclog *vl;
+	int e = errno;
 
 	(void)why;
 	vl = pthread_getspecific(log_key);
 	if (vl == NULL || vl->act) {
 		fprintf(stderr,
 		    "Assert error in %s(), %s line %d:\n"
-		    "  Condition(%s) not true.\n",
-		    func, file, line, cond);
+		    "  Condition(%s) not true. (errno=%d %s)\n",
+		    func, file, line, cond, e, strerror(e));
 	} else
 		vtc_fatal(vl, "Assert error in %s(), %s line %d:"
-		    "  Condition(%s) not true.\n", func, file, line, cond);
+		    "  Condition(%s) not true."
+		    "  Errno=%d %s", func, file, line, cond, e, strerror(e));
 	abort();
 }
 
@@ -292,7 +296,7 @@ void
 vtc_loginit(char *buf, unsigned buflen)
 {
 
-	VAS_Fail = vtc_log_VAS_Fail;
+	VAS_Fail_Func = vtc_log_VAS_Fail;
 	t0 = VTIM_mono();
 	vtclog_buf = buf;
 	vtclog_left = buflen;

@@ -31,6 +31,19 @@
  * NB: When this file is changed, lib/libvcc/generate.py *MUST* be rerun.
  */
 
+#ifdef CACHE_H_INCLUDED
+#  error "vrt.h included after cache.h - they are inclusive"
+#endif
+
+#ifdef VRT_H_INCLUDED
+#  error "vrt.h included multiple times"
+#endif
+#define VRT_H_INCLUDED
+
+#ifndef VDEF_H_INCLUDED
+#  error "include vdef.h before vrt.h"
+#endif
+
 /***********************************************************************
  * Major and minor VRT API versions.
  *
@@ -39,8 +52,33 @@
  * binary/load-time compatible, increment MAJOR version
  *
  *
- * 6.1 (unreleased):
+ * 7.1 (unreleased)
+ *	VRT_Strands() added
+ *	VRT_StrandsWS() added
+ *	VRT_CollectStrands() added
+ *	VRT_STRANDS_string() removed from vrt.h (never implemented)
+ * 7.0 (2018-03-15)
+ *	lots of stuff moved from cache.h to cache_varnishd.h
+ *	   (ie: from "$Abi vrt" to "$Abi strict")
+ *	VCL_INT and VCL_BYTES are always 64 bits.
+ *	path field added to struct vrt_backend
+ *	VRT_Healthy() added
+ *	VRT_VSC_Alloc() added
+ *	VRT_VSC_Destroy() added
+ *	VRT_VSC_Hide() added
+ *	VRT_VSC_Reveal() added
+ *	VRT_VSC_Overhead() added
+ *	struct director.event added
+ *	struct director.destroy added
+ *	VRT_r_beresp_storage_hint() VCL <= 4.0  #2509
+ *	VRT_l_beresp_storage_hint() VCL <= 4.0  #2509
+ *	VRT_blob() added
+ *	VCL_STRANDS added
+ * 6.1 (2017-09-15 aka 5.2)
  *	http_CollectHdrSep added
+ *	VRT_purge modified (may fail a transaction, signature changed)
+ *	VRT_r_req_hash() added
+ *	VRT_r_bereq_hash() added
  * 6.0 (2017-03-15):
  *	VRT_hit_for_pass added
  *	VRT_ipcmp added
@@ -65,21 +103,16 @@
  *	vrt_acl type added
  */
 
-#define VRT_MAJOR_VERSION	6U
+#define VRT_MAJOR_VERSION	7U
 
-#define VRT_MINOR_VERSION	0U
-
+#define VRT_MINOR_VERSION	1U
 
 /***********************************************************************/
 
-#ifdef __v_printflike
-#  define __vrt_printflike(a,b) __v_printflike(a,b)
-#else
-#  define __vrt_printflike(a,b)
-#endif
+#include <stddef.h>		// NULL, size_t
+#include <stdint.h>		// [u]int%d_t
 
 struct VCL_conf;
-struct vrt_acl;
 struct busyobj;
 struct director;
 struct http;
@@ -88,9 +121,19 @@ struct stevedore;
 struct suckaddr;
 struct vcl;
 struct vmod;
+struct vmod_priv;
+struct vrt_acl;
 struct vsb;
+struct vsc_seg;
+struct vsmw_cluster;
 struct vsl_log;
 struct ws;
+struct VSC_main;
+
+struct strands {
+	int		n;
+	const char	**p;
+};
 
 /***********************************************************************
  * This is the central definition of the mapping from VCL types to
@@ -103,21 +146,31 @@ typedef const struct director *			VCL_BACKEND;
 typedef const struct vmod_priv *		VCL_BLOB;
 typedef const char *				VCL_BODY;
 typedef unsigned				VCL_BOOL;
-typedef long long				VCL_BYTES;
-typedef double					VCL_DURATION;
+typedef int64_t					VCL_BYTES;
+typedef vtim_dur				VCL_DURATION;
 typedef const char *				VCL_ENUM;
 typedef const struct gethdr_s *			VCL_HEADER;
 typedef struct http *				VCL_HTTP;
 typedef void					VCL_INSTANCE;
-typedef long					VCL_INT;
+typedef int64_t					VCL_INT;
 typedef const struct suckaddr *			VCL_IP;
 typedef const struct vrt_backend_probe *	VCL_PROBE;
 typedef double					VCL_REAL;
 typedef const struct stevedore *		VCL_STEVEDORE;
+typedef const struct strands *			VCL_STRANDS;
 typedef const char *				VCL_STRING;
-typedef double					VCL_TIME;
+typedef vtim_real				VCL_TIME;
 typedef struct vcl *				VCL_VCL;
 typedef void					VCL_VOID;
+
+struct vrt_type {
+	unsigned			magic;
+#define VRT_TYPE_MAGIC			0xa943bc32
+	const char			*lname;
+	const char			*uname;
+	const char			*ctype;
+	size_t				szof;
+};
 
 /***********************************************************************
  * This is the composite argument we pass to compiled VCL and VRT
@@ -128,8 +181,10 @@ struct vrt_ctx {
 	unsigned			magic;
 #define VRT_CTX_MAGIC			0x6bb8f0db
 
+	unsigned			syntax;
 	unsigned			method;
-	unsigned			*handling;
+	unsigned			*handling;	// not in director context
+	unsigned			vclver;
 
 	struct vsb			*msg;	// Only in ...init()
 	struct vsl_log			*vsl;
@@ -147,11 +202,11 @@ struct vrt_ctx {
 	struct http			*http_bereq;
 	struct http			*http_beresp;
 
-	double				now;
+	vtim_real			now;
 
 	/*
 	 * method specific argument:
-	 *    hash:		struct SHA256Context
+	 *    hash:		struct VSHA256Context
 	 *    synth+error:	struct vsb *
 	 */
 	void				*specific;
@@ -159,7 +214,9 @@ struct vrt_ctx {
 
 #define VRT_CTX		const struct vrt_ctx *ctx
 
-/***********************************************************************/
+/***********************************************************************
+ * This is the interface structure to a compiled VMOD
+ */
 
 struct vmod_data {
 	/* The version/id fields must be first, they protect the rest */
@@ -171,19 +228,22 @@ struct vmod_data {
 	const void			*func;
 	int				func_len;
 	const char			*proto;
-	const char			* const *spec;
+	const char			*json;
 	const char			*abi;
 };
 
-/***********************************************************************/
+/***********************************************************************
+ * Enum for events sent to compiled VCL and from there to Vmods
+ */
 
-enum gethdr_e { HDR_REQ, HDR_REQ_TOP, HDR_RESP, HDR_OBJ, HDR_BEREQ,
-		HDR_BERESP };
-
-struct gethdr_s {
-	enum gethdr_e	where;
-	const char	*what;
+enum vcl_event_e {
+	VCL_EVENT_LOAD,
+	VCL_EVENT_WARM,
+	VCL_EVENT_COLD,
+	VCL_EVENT_DISCARD,
 };
+
+/***********************************************************************/
 
 extern const void * const vrt_magic_string_end;
 extern const void * const vrt_magic_string_unset;
@@ -203,10 +263,11 @@ extern const void * const vrt_magic_string_unset;
 	rigid char			*ipv4_addr;		\
 	rigid char			*ipv6_addr;		\
 	rigid char			*port;			\
+	rigid char			*path;			\
 	rigid char			*hosthdr;		\
-	double				connect_timeout;	\
-	double				first_byte_timeout;	\
-	double				between_bytes_timeout;	\
+	vtim_dur			connect_timeout;	\
+	vtim_dur			first_byte_timeout;	\
+	vtim_dur			between_bytes_timeout;	\
 	unsigned			max_connections;	\
 	unsigned			proxy_header;
 
@@ -216,6 +277,7 @@ extern const void * const vrt_magic_string_unset;
 		DA(ipv4_addr);			\
 		DA(ipv6_addr);			\
 		DA(port);			\
+		DA(path);			\
 		DA(hosthdr);			\
 		DN(connect_timeout);		\
 		DN(first_byte_timeout);		\
@@ -234,8 +296,8 @@ struct vrt_backend {
 };
 
 #define VRT_BACKEND_PROBE_FIELDS(rigid)				\
-	double				timeout;		\
-	double				interval;		\
+	vtim_dur			timeout;		\
+	vtim_dur			interval;		\
 	unsigned			exp_status;		\
 	unsigned			window;			\
 	unsigned			threshold;		\
@@ -259,11 +321,8 @@ struct vrt_backend_probe {
 	VRT_BACKEND_PROBE_FIELDS(const)
 };
 
-/***********************************************************************/
-
-/*
- * other stuff.
- * XXX: document when bored
+/***********************************************************************
+ * VRT_count() refers to this structure for coordinates into the VCL source.
  */
 
 struct vrt_ref {
@@ -274,8 +333,11 @@ struct vrt_ref {
 	const char	*token;
 };
 
-/* ACL related */
-#define VRT_ACL_MAXADDR		16	/* max(IPv4, IPv6) */
+void VRT_count(VRT_CTX, unsigned);
+
+/***********************************************************************
+ * Implementation details of ACLs
+ */
 
 typedef int acl_match_f(VRT_CTX, const VCL_IP);
 
@@ -285,62 +347,98 @@ struct vrt_acl {
 	acl_match_f	*match;
 };
 
-void VRT_acl_log(VRT_CTX, const char *msg);
+void VRT_acl_log(VRT_CTX, const char *);
 int VRT_acl_match(VRT_CTX, VCL_ACL, VCL_IP);
 
-/* req related */
+/***********************************************************************
+ * Compile time regexp
+ */
+
+void VRT_re_init(void **, const char *);
+void VRT_re_fini(void *);
+int VRT_re_match(VRT_CTX, const char *, void *);
+
+/***********************************************************************
+ * Getting hold of the various struct http
+ */
+
+enum gethdr_e {
+	HDR_REQ,
+	HDR_REQ_TOP,
+	HDR_RESP,
+	HDR_OBJ,
+	HDR_BEREQ,
+	HDR_BERESP
+};
+
+struct gethdr_s {
+	enum gethdr_e	where;
+	const char	*what;
+};
+
+VCL_HTTP VRT_selecthttp(VRT_CTX, enum gethdr_e);
+VCL_STRING VRT_GetHdr(VRT_CTX, const struct gethdr_s *);
+
+/***********************************************************************
+ * req related
+ */
 
 VCL_BYTES VRT_CacheReqBody(VRT_CTX, VCL_BYTES maxsize);
 
 /* Regexp related */
-void VRT_re_init(void **, const char *);
-void VRT_re_fini(void *);
-int VRT_re_match(VRT_CTX, const char *, void *re);
+
 const char *VRT_regsub(VRT_CTX, int all, const char *, void *, const char *);
+VCL_VOID VRT_ban_string(VRT_CTX, VCL_STRING);
+VCL_INT VRT_purge(VRT_CTX, VCL_DURATION, VCL_DURATION, VCL_DURATION);
+VCL_VOID VRT_synth(VRT_CTX, VCL_INT, VCL_STRING);
+VCL_VOID VRT_hit_for_pass(VRT_CTX, VCL_DURATION);
 
-void VRT_ban_string(VRT_CTX, const char *);
-void VRT_purge(VRT_CTX, double ttl, double grace, double keep);
-
-void VRT_count(VRT_CTX, unsigned);
-void VRT_synth(VRT_CTX, unsigned, const char *);
-void VRT_hit_for_pass(VRT_CTX, VCL_DURATION);
-
-struct http *VRT_selecthttp(VRT_CTX, enum gethdr_e);
-const char *VRT_GetHdr(VRT_CTX, const struct gethdr_s *);
-void VRT_SetHdr(VRT_CTX, const struct gethdr_s *, const char *, ...);
-void VRT_handling(VRT_CTX, unsigned hand);
-void VRT_fail(VRT_CTX, const char *fmt, ...) __vrt_printflike(2,3);
-
-void VRT_hashdata(VRT_CTX, const char *str, ...);
+VCL_VOID VRT_SetHdr(VRT_CTX, const struct gethdr_s *, const char *, ...);
+VCL_VOID VRT_handling(VRT_CTX, unsigned hand);
+VCL_VOID VRT_fail(VRT_CTX, const char *fmt, ...) v_printflike_(2,3);
+VCL_VOID VRT_hashdata(VRT_CTX, const char *str, ...);
 
 /* Simple stuff */
 int VRT_strcmp(const char *s1, const char *s2);
 void VRT_memmove(void *dst, const void *src, unsigned len);
-int VRT_ipcmp(const struct suckaddr *sua1, const struct suckaddr *sua2);
+VCL_BOOL VRT_ipcmp(VCL_IP, VCL_IP);
+VCL_BLOB VRT_blob(VRT_CTX, const char *, const void *, size_t);
 
-void VRT_Rollback(VRT_CTX, const struct http *);
+VCL_VOID VRT_Rollback(VRT_CTX, VCL_HTTP);
 
 /* Synthetic pages */
-void VRT_synth_page(VRT_CTX, const char *, ...);
+VCL_VOID VRT_synth_page(VRT_CTX, const char *, ...);
 
 /* Backend related */
 struct director *VRT_new_backend(VRT_CTX, const struct vrt_backend *);
+struct director *VRT_new_backend_clustered(VRT_CTX,
+    struct vsmw_cluster *, const struct vrt_backend *);
+size_t VRT_backend_vsm_need(VRT_CTX);
 void VRT_delete_backend(VRT_CTX, struct director **);
+int VRT_backend_healthy(VRT_CTX, struct director *);
+
+/* VSM related */
+struct vsmw_cluster *VRT_VSM_Cluster_New(VRT_CTX, size_t);
+void VRT_VSM_Cluster_Destroy(VRT_CTX, struct vsmw_cluster **);
+
+/* cache_director.c */
+int VRT_Healthy(VRT_CTX, VCL_BACKEND);
 
 /* Suckaddr related */
 int VRT_VSA_GetPtr(const struct suckaddr *sua, const unsigned char ** dst);
 
 /* VMOD/Modules related */
-int VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len,
+int VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, unsigned nbr, void *ptr, int len,
     const char *nm, const char *path, const char *file_id, const char *backup);
-void VRT_Vmod_Fini(struct vmod **hdl);
+void VRT_Vmod_Unload(VRT_CTX, struct vmod **hdl);
 
 /* VCL program related */
 VCL_VCL VRT_vcl_get(VRT_CTX, const char *);
 void VRT_vcl_rel(VRT_CTX, VCL_VCL);
 void VRT_vcl_select(VRT_CTX, VCL_VCL);
 
-struct vmod_priv;
+typedef int vmod_event_f(VRT_CTX, struct vmod_priv *, enum vcl_event_e);
+
 typedef void vmod_priv_free_f(void *);
 struct vmod_priv {
 	void			*priv;
@@ -348,17 +446,13 @@ struct vmod_priv {
 	vmod_priv_free_f	*free;
 };
 
-#ifdef VCL_RET_MAX
-typedef int vmod_event_f(VRT_CTX, struct vmod_priv *, enum vcl_event_e);
-#endif
-
 struct vclref;
 struct vclref * VRT_ref_vcl(VRT_CTX, const char *);
 void VRT_rel_vcl(VRT_CTX, struct vclref **);
 
 void VRT_priv_fini(const struct vmod_priv *p);
-struct vmod_priv *VRT_priv_task(VRT_CTX, void *vmod_id);
-struct vmod_priv *VRT_priv_top(VRT_CTX, void *vmod_id);
+struct vmod_priv *VRT_priv_task(VRT_CTX, const void *vmod_id);
+struct vmod_priv *VRT_priv_top(VRT_CTX, const void *vmod_id);
 
 /* Stevedore related functions */
 int VRT_Stv(const char *nm);
@@ -366,11 +460,27 @@ VCL_STEVEDORE VRT_stevedore(const char *nm);
 
 /* Convert things to string */
 
-char *VRT_IP_string(VRT_CTX, VCL_IP);
-char *VRT_INT_string(VRT_CTX, VCL_INT);
-char *VRT_REAL_string(VRT_CTX, VCL_REAL);
-char *VRT_TIME_string(VRT_CTX, VCL_TIME);
-const char *VRT_BOOL_string(VCL_BOOL);
-const char *VRT_BACKEND_string(VCL_BACKEND);
-const char *VRT_STEVEDORE_string(VCL_STEVEDORE);
-const char *VRT_CollectString(VRT_CTX, const char *p, ...);
+VCL_STRANDS VRT_BundleStrands(int, struct strands *, char const **,
+    const char *f, ...);
+int VRT_CompareStrands(VCL_STRANDS a, VCL_STRANDS b);
+char *VRT_Strands(char *, size_t, VCL_STRANDS);
+VCL_STRING VRT_StrandsWS(struct ws *, const char *, VCL_STRANDS);
+VCL_STRING VRT_CollectStrands(VRT_CTX, VCL_STRANDS);
+
+VCL_STRING VRT_BACKEND_string(VCL_BACKEND);
+VCL_STRING VRT_BOOL_string(VCL_BOOL);
+VCL_STRING VRT_CollectString(VRT_CTX, const char *p, ...);
+VCL_STRING VRT_INT_string(VRT_CTX, VCL_INT);
+VCL_STRING VRT_IP_string(VRT_CTX, VCL_IP);
+VCL_STRING VRT_REAL_string(VRT_CTX, VCL_REAL);
+VCL_STRING VRT_STEVEDORE_string(VCL_STEVEDORE);
+VCL_STRING VRT_TIME_string(VRT_CTX, VCL_TIME);
+
+#ifdef va_start	// XXX: hackish
+void *VRT_VSC_Alloc(struct vsmw_cluster *, struct vsc_seg **,
+    const char *, size_t, const unsigned char *, size_t, const char *, va_list);
+#endif
+void VRT_VSC_Destroy(const char *, struct vsc_seg *);
+void VRT_VSC_Hide(const struct vsc_seg *);
+void VRT_VSC_Reveal(const struct vsc_seg *);
+size_t VRT_VSC_Overhead(size_t);

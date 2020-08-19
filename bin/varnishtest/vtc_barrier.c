@@ -29,15 +29,14 @@
 #include "config.h"
 
 #include <errno.h>
-#include <pthread.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/select.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h> /* for MUSL */
 
 #include "vtc.h"
 #include "vtcp.h"
@@ -127,11 +126,10 @@ barrier_sock_thread(void *priv)
 {
 	struct barrier *b;
 	struct vtclog *vl;
-	struct timeval tmo;
 	const char *err;
 	char abuf[16], pbuf[6];
 	int i, sock, *conns;
-	fd_set rfds;
+	struct pollfd pfd[1];
 
 	CAST_OBJ_NOTNULL(b, priv, BARRIER_MAGIC);
 	assert(b->type == BARRIER_SOCK);
@@ -139,7 +137,7 @@ barrier_sock_thread(void *priv)
 	AZ(pthread_mutex_lock(&b->mtx));
 
 	vl = vtc_logopen(b->name);
-	AN(vl);
+	pthread_cleanup_push(vtc_logclose, vl);
 
 	sock = VTCP_listen_on("127.0.0.1:0", NULL, b->expected, &err);
 	if (sock < 0) {
@@ -149,7 +147,7 @@ barrier_sock_thread(void *priv)
 		    b->name, err, strerror(errno), errno);
 	}
 	assert(sock > 0);
-	(void)VTCP_nonblocking(sock);
+	VTCP_nonblocking(sock);
 	VTCP_myname(sock, abuf, sizeof abuf, pbuf, sizeof pbuf);
 
 	macro_def(vl, b->name, "addr", "%s", abuf);
@@ -163,12 +161,10 @@ barrier_sock_thread(void *priv)
 	AN(conns);
 
 	while (b->active) {
-		FD_ZERO(&rfds);
-		FD_SET(sock, &rfds);
+		pfd[0].fd = sock;
+		pfd[0].events = POLLIN;
 
-		tmo.tv_sec = 1;
-		tmo.tv_usec = 0;
-		i = select(sock + 1, &rfds, NULL, NULL, &tmo);
+		i = poll(pfd, 1, 1000);
 		if (i == 0)
 			continue;
 		if (i < 0) {
@@ -221,7 +217,8 @@ barrier_sock_thread(void *priv)
 	macro_undef(vl, b->name, "sock");
 	closefd(&sock);
 	free(conns);
-
+	pthread_cleanup_pop(0);
+	vtc_logclose(vl);
 	return (NULL);
 }
 
@@ -279,8 +276,7 @@ barrier_cond_sync(struct barrier *b, struct vtclog *vl)
 	if (++b->waiters == b->expected) {
 		vtc_log(vl, 4, "Barrier(%s) wake %u", b->name, b->expected);
 		AZ(pthread_cond_broadcast(&b->cond));
-	}
-	else {
+	} else {
 		vtc_log(vl, 4, "Barrier(%s) wait %u of %u",
 		    b->name, b->waiters, b->expected);
 		AZ(pthread_cond_wait(&b->cond, &b->mtx));
@@ -302,9 +298,7 @@ barrier_sock_sync(struct barrier *b, struct vtclog *vl)
 	CHECK_OBJ_NOTNULL(b, BARRIER_MAGIC);
 	assert(b->type == BARRIER_SOCK);
 
-	i = snprintf(buf, sizeof buf, "${%s_sock}", b->name);
-	assert(i > 0 && i < sizeof buf);
-	vsb = macro_expand(vl, buf);
+	vsb = macro_expandf(vl, "${%s_sock}", b->name);
 	vtc_log(vl, 4, "Barrier(%s) sync with socket", b->name);
 
 	sock = VTCP_open(VSB_data(vsb), NULL, 0., &err);
@@ -354,8 +348,7 @@ barrier_sync(struct barrier *b, struct vtclog *vl)
 
 /* SECTION: barrier barrier
  *
- * NOTE: this can be used from the top-level as well as from client and server
- * specifications.
+ * NOTE: This command is available everywhere commands are given.
  *
  * Barriers allows you to synchronize different threads to make sure events
  * occur in the right order. It's even possible to use them in VCL.
@@ -427,7 +420,8 @@ cmd_barrier(CMD_ARGS)
 			default:
 				WRONG("Wrong barrier type");
 			}
-			AZ(pthread_mutex_unlock(&b->mtx));
+			if (r == 0)
+				AZ(pthread_mutex_unlock(&b->mtx));
 		}
 		return;
 	}

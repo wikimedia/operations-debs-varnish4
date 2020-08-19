@@ -32,10 +32,10 @@
 
 #include <pcre.h>
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_ban.h"
+#include "cache_objhead.h"
 
-#include "hash/hash_slinger.h"
 #include "vcli_serve.h"
 #include "vend.h"
 #include "vmb.h"
@@ -47,6 +47,8 @@ struct ban * volatile ban_start;
 
 static pthread_t ban_thread;
 static int ban_holds;
+uint64_t bans_persisted_bytes;
+uint64_t bans_persisted_fragmentation;
 
 struct ban_test {
 	uint8_t			oper;
@@ -165,8 +167,9 @@ ban_mark_completed(struct ban *b)
 		VWMB();
 		vbe32enc(b->spec + BANS_LENGTH, BANS_HEAD_LEN);
 		VSC_C_main->bans_completed++;
-		VSC_C_main->bans_persisted_fragmentation +=
-		    ln - ban_len(b->spec);
+		bans_persisted_fragmentation += ln - ban_len(b->spec);
+		VSC_C_main->bans_persisted_fragmentation =
+		    bans_persisted_fragmentation;
 	}
 }
 
@@ -303,19 +306,19 @@ ban_export(void)
 	unsigned ln;
 
 	Lck_AssertHeld(&ban_mtx);
-	ln = VSC_C_main->bans_persisted_bytes -
-	    VSC_C_main->bans_persisted_fragmentation;
+	ln = bans_persisted_bytes - bans_persisted_fragmentation;
 	vsb = VSB_new_auto();
 	AN(vsb);
-	VTAILQ_FOREACH_REVERSE(b, &ban_head, banhead_s, list) {
+	VTAILQ_FOREACH_REVERSE(b, &ban_head, banhead_s, list)
 		AZ(VSB_bcat(vsb, b->spec, ban_len(b->spec)));
-	}
 	AZ(VSB_finish(vsb));
 	assert(VSB_len(vsb) == ln);
 	STV_BanExport((const uint8_t *)VSB_data(vsb), VSB_len(vsb));
 	VSB_destroy(&vsb);
-	VSC_C_main->bans_persisted_bytes = ln;
-	VSC_C_main->bans_persisted_fragmentation = 0;
+	VSC_C_main->bans_persisted_bytes =
+	    bans_persisted_bytes = ln;
+	VSC_C_main->bans_persisted_fragmentation =
+	    bans_persisted_fragmentation = 0;
 }
 
 /*
@@ -356,7 +359,6 @@ ban_reload(const uint8_t *ban, unsigned len)
 	struct ban *b, *b2;
 	int duplicate = 0;
 	double t0, t1, t2 = 9e99;
-
 	ASSERT_CLI();
 	Lck_AssertHeld(&ban_mtx);
 
@@ -395,7 +397,8 @@ ban_reload(const uint8_t *ban, unsigned len)
 		VTAILQ_INSERT_TAIL(&ban_head, b2, list);
 	else
 		VTAILQ_INSERT_BEFORE(b, b2, list);
-	VSC_C_main->bans_persisted_bytes += len;
+	bans_persisted_bytes += len;
+	VSC_C_main->bans_persisted_bytes = bans_persisted_bytes;
 
 	/* Hunt down older duplicates */
 	for (b = VTAILQ_NEXT(b2, list); b != NULL; b = VTAILQ_NEXT(b, list)) {
@@ -533,6 +536,7 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 	struct ban *b0, *bn;
 	unsigned tests;
 
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	Lck_AssertHeld(&oc->objhead->mtx);
@@ -562,6 +566,8 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 	if (b0 == bn)
 		return (0);
 
+	AN(b0);
+	AN(bn);
 
 	/*
 	 * This loop is safe without locks, because we know we hold
@@ -591,6 +597,8 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 		oc->ban = b0;
 		b = NULL;
 	}
+	if (b != NULL)
+		VSC_C_main->bans_obj_killed++;
 
 	if (VTAILQ_LAST(&ban_head, banhead_s)->refcount == 0)
 		ban_kick_lurker();
@@ -603,7 +611,6 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
 		return (0);
 	} else {
 		VSLb(vsl, SLT_ExpBan, "%u banned lookup", ObjGetXID(wrk, oc));
-		VSC_C_main->bans_obj_killed++;
 		return (1);
 	}
 }
@@ -612,7 +619,7 @@ BAN_CheckObject(struct worker *wrk, struct objcore *oc, struct req *req)
  * CLI functions to add bans
  */
 
-static void
+static void v_matchproto_(cli_func_t)
 ccf_ban(struct cli *cli, const char * const *av, void *priv)
 {
 	int narg, i;
@@ -649,8 +656,10 @@ ccf_ban(struct cli *cli, const char * const *av, void *priv)
 			break;
 	}
 
-	if (err == NULL)
+	if (err == NULL) {
+		// XXX racy - grab wstat lock?
 		err = BAN_Commit(bp);
+	}
 
 	if (err != NULL) {
 		VCLI_Out(cli, "%s", err);
@@ -660,7 +669,7 @@ ccf_ban(struct cli *cli, const char * const *av, void *priv)
 }
 
 static void
-ban_render(struct cli *cli, const uint8_t *bs)
+ban_render(struct cli *cli, const uint8_t *bs, int quote)
 {
 	struct ban_test bt;
 	const uint8_t *be;
@@ -695,26 +704,20 @@ ban_render(struct cli *cli, const uint8_t *bs)
 		default:
 			WRONG("Wrong BANS_OPER");
 		}
-		VCLI_Out(cli, "%s", bt.arg2);
+		if (quote)
+			VCLI_Quote(cli, bt.arg2);
+		else
+			VCLI_Out(cli, "%s", bt.arg2);
 		if (bs < be)
 			VCLI_Out(cli, " && ");
 	}
 }
 
 static void
-ccf_ban_list(struct cli *cli, const char * const *av, void *priv)
+ban_list(struct cli *cli, struct ban *bl)
 {
-	struct ban *b, *bl;
+	struct ban *b;
 	int64_t o;
-
-	(void)av;
-	(void)priv;
-
-	/* Get a reference so we are safe to traverse the list */
-	Lck_Lock(&ban_mtx);
-	bl = VTAILQ_LAST(&ban_head, banhead_s);
-	bl->refcount++;
-	Lck_Unlock(&ban_mtx);
 
 	VCLI_Out(cli, "Present bans:\n");
 	VTAILQ_FOREACH(b, &ban_head, list) {
@@ -729,7 +732,7 @@ ccf_ban_list(struct cli *cli, const char * const *av, void *priv)
 			    b);
 		}
 		VCLI_Out(cli, "  ");
-		ban_render(cli, b->spec);
+		ban_render(cli, b->spec, 0);
 		VCLI_Out(cli, "\n");
 		if (VCLI_Overflow(cli))
 			break;
@@ -741,6 +744,80 @@ ccf_ban_list(struct cli *cli, const char * const *av, void *priv)
 			Lck_Unlock(&ban_mtx);
 		}
 	}
+}
+
+static void
+ban_list_json(struct cli *cli, const char * const *av, struct ban *bl)
+{
+	struct ban *b;
+	int64_t o;
+	int n = 0;
+	int ocs;
+
+	VCLI_JSON_begin(cli, 2, av);
+	VCLI_Out(cli, ",\n");
+	VTAILQ_FOREACH(b, &ban_head, list) {
+		o = bl == b ? 1 : 0;
+		VCLI_Out(cli, "%s", n ? ",\n" : "");
+		n++;
+		VCLI_Out(cli, "{\n");
+		VSB_indent(cli->sb, 2);
+		VCLI_Out(cli, "\"time\": %.6f,\n", ban_time(b->spec));
+		VCLI_Out(cli, "\"refs\": %ju,\n", (intmax_t)(b->refcount - o));
+		VCLI_Out(cli, "\"completed\": %s,\n",
+			 b->flags & BANS_FLAG_COMPLETED ? "true" : "false");
+		VCLI_Out(cli, "\"spec\": \"");
+		ban_render(cli, b->spec, 1);
+		VCLI_Out(cli, "\"");
+
+		if (DO_DEBUG(DBG_LURKER)) {
+			VCLI_Out(cli, ",\n");
+			VCLI_Out(cli, "\"req_tests\": %s,\n",
+				 b->flags & BANS_FLAG_REQ ? "true" : "false");
+			VCLI_Out(cli, "\"obj_tests\": %s,\n",
+				 b->flags & BANS_FLAG_OBJ ? "true" : "false");
+			VCLI_Out(cli, "\"pointer\": \"%p\",\n", b);
+			if (VCLI_Overflow(cli))
+				break;
+
+			ocs = 0;
+			VCLI_Out(cli, "\"objcores\": [\n");
+			VSB_indent(cli->sb, 2);
+			Lck_Lock(&ban_mtx);
+			struct objcore *oc;
+			VTAILQ_FOREACH(oc, &b->objcore, ban_list) {
+				if (ocs)
+					VCLI_Out(cli, ",\n");
+				VCLI_Out(cli, "%p", oc);
+				ocs++;
+			}
+			Lck_Unlock(&ban_mtx);
+			VSB_indent(cli->sb, -2);
+			VCLI_Out(cli, "\n]");
+		}
+		VSB_indent(cli->sb, -2);
+		VCLI_Out(cli, "\n}");
+	}
+	VCLI_JSON_end(cli);
+}
+
+static void v_matchproto_(cli_func_t)
+ccf_ban_list(struct cli *cli, const char * const *av, void *priv)
+{
+	struct ban *bl;
+
+	(void)priv;
+
+	/* Get a reference so we are safe to traverse the list */
+	Lck_Lock(&ban_mtx);
+	bl = VTAILQ_LAST(&ban_head, banhead_s);
+	bl->refcount++;
+	Lck_Unlock(&ban_mtx);
+
+	if (av[2] != NULL && strcmp(av[2], "-j") == 0)
+		ban_list_json(cli, av, bl);
+	else
+		ban_list(cli, bl);
 
 	Lck_Lock(&ban_mtx);
 	bl->refcount--;
@@ -750,7 +827,8 @@ ccf_ban_list(struct cli *cli, const char * const *av, void *priv)
 
 static struct cli_proto ban_cmds[] = {
 	{ CLICMD_BAN,				"", ccf_ban },
-	{ CLICMD_BAN_LIST,			"", ccf_ban_list },
+	{ CLICMD_BAN_LIST,			"", ccf_ban_list,
+	  ccf_ban_list },
 	{ NULL }
 };
 

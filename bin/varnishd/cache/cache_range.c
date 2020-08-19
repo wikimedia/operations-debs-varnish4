@@ -29,10 +29,11 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
-#include "cache/cache_filter.h"
+#include "cache_varnishd.h"
+#include "cache_filter.h"
 
 #include "vct.h"
+#include <vtim.h>
 
 /*--------------------------------------------------------------------*/
 
@@ -44,7 +45,20 @@ struct vrg_priv {
 	ssize_t			range_off;
 };
 
-static int __match_proto__(vdp_bytes)
+static int v_matchproto_(vdp_fini_f)
+vrg_range_fini(struct req *req, void **priv)
+{
+	struct vrg_priv *vrg_priv;
+
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	CAST_OBJ_NOTNULL(vrg_priv, *priv, VRG_PRIV_MAGIC);
+	if (vrg_priv->range_off < vrg_priv->range_high)
+		Req_Fail(req, SC_RANGE_SHORT);
+	*priv = NULL;	/* struct on ws, no need to free */
+	return (0);
+}
+
+static int v_matchproto_(vdp_bytes_f)
 vrg_range_bytes(struct req *req, enum vdp_action act, void **priv,
     const void *ptr, ssize_t len)
 {
@@ -54,15 +68,7 @@ vrg_range_bytes(struct req *req, enum vdp_action act, void **priv,
 	struct vrg_priv *vrg_priv;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-	if (act == VDP_INIT)
-		return (0);
 	CAST_OBJ_NOTNULL(vrg_priv, *priv, VRG_PRIV_MAGIC);
-	if (act == VDP_FINI) {
-		if (vrg_priv->range_off < vrg_priv->range_high)
-			Req_Fail(req, SC_RANGE_SHORT);
-		*priv = NULL;	/* struct on ws, no need to free */
-		return (0);
-	}
 
 	l = vrg_priv->range_low - vrg_priv->range_off;
 	if (l > 0) {
@@ -87,7 +93,7 @@ vrg_range_bytes(struct req *req, enum vdp_action act, void **priv,
 /*--------------------------------------------------------------------*/
 
 static const char *
-vrg_dorange(struct req *req, const char *r)
+vrg_dorange(struct req *req, const char *r, void **priv)
 {
 	ssize_t low, high, has_low, has_high, t;
 	struct vrg_priv *vrg_priv;
@@ -170,34 +176,101 @@ vrg_dorange(struct req *req, const char *r)
 	vrg_priv->range_off = 0;
 	vrg_priv->range_low = low;
 	vrg_priv->range_high = high + 1;
-	VDP_push(req, vrg_range_bytes, vrg_priv, 1, "RNG");
+	*priv = vrg_priv;
 	http_PutResponse(req->resp, "HTTP/1.1", 206, NULL);
 	return (NULL);
 }
 
+/*
+ * return 1 if range should be observed, based on if-range value
+ * if-range can either be a date or an ETag [RFC7233 3.2 p8]
+ */
+static int
+vrg_ifrange(struct req *req)
+{
+	const char *p, *e;
+	vtim_real ims, lm, d;
+
+	if (!http_GetHdr(req->http, H_If_Range, &p))	// rfc7233,l,455,456
+		return (1);
+
+	/* strong validation needed */
+	if (p[0] == 'W' && p[1] == '/')			// rfc7233,l,500,501
+		return (0);
+
+	/* ETag */
+	if (p[0] == '"') {				// rfc7233,l,512,514
+		if (!http_GetHdr(req->resp, H_ETag, &e))
+			return (0);
+		if ((e[0] == 'W' && e[1] == '/'))	// rfc7232,l,547,548
+			return (0);
+		return (strcmp(p, e) == 0);		// rfc7232,l,548,548
+	}
+
+	/* assume date, strong check [RFC7232 2.2.2 p7] */
+	if (!(ims = VTIM_parse(p)))			// rfc7233,l,502,512
+		return (0);
+
+	/* the response needs a Date */
+	// rfc7232 fc7232,l,439,440
+	if (!http_GetHdr(req->resp, H_Date, &p) || !(d = VTIM_parse(p)))
+		return (0);
+
+	/* grab the Last Modified value */
+	if (!http_GetHdr(req->resp, H_Last_Modified, &p))
+		return (0);
+
+	lm = VTIM_parse(p);
+	if (!lm)
+		return (0);
+	
+	/* Last Modified must be 60 seconds older than Date */
+	if (lm > d + 60)				// rfc7232,l,442,443
+		return (0);
+
+	if (lm != ims)					// rfc7233,l,455,456
+		return (0);
+	return (1);
+}
+
+static int v_matchproto_(vdp_init_f)
+vrg_range_init(struct req *req, void **priv)
+{
+	const char *r;
+	const char *err;
+
+	assert(http_GetHdr(req->http, H_Range, &r));
+	if (!vrg_ifrange(req))	// rfc7233,l,455,456
+		return (1);
+	err = vrg_dorange(req, r, priv);
+	if (err == NULL)
+		return (*priv == NULL ? 1 : 0);
+
+	VSLb(req->vsl, SLT_Debug, "RANGE_FAIL %s", err);
+	if (req->resp_len >= 0)
+		http_PrintfHeader(req->resp,
+		    "Content-Range: bytes */%jd",
+		    (intmax_t)req->resp_len);
+	http_PutResponse(req->resp, "HTTP/1.1", 416, NULL);
+	/*
+	 * XXX: We ought to produce a body explaining things.
+	 * XXX: That really calls for us to hit vcl_synth{}
+	 */
+	req->resp_len = 0;
+	return (1);
+}
+
+static const struct vdp vrg_vdp = {
+	.name =		"range",
+	.init =		vrg_range_init,
+	.bytes =	vrg_range_bytes,
+	.fini =		vrg_range_fini,
+};
+
 void
 VRG_dorange(struct req *req, const char *r)
 {
-	const char *err;
 
-	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
-	assert(http_IsStatus(req->resp, 200));
-
-	/* We must snapshot the length if we're streaming from the backend */
-
-	err = vrg_dorange(req, r);
-	if (err != NULL) {
-		VSLb(req->vsl, SLT_Debug, "RANGE_FAIL %s", err);
-		if (req->resp_len >= 0)
-			http_PrintfHeader(req->resp,
-			    "Content-Range: bytes */%jd",
-			    (intmax_t)req->resp_len);
-		http_PutResponse(req->resp, "HTTP/1.1", 416, NULL);
-		/*
-		 * XXX: We ought to produce a body explaining things.
-		 * XXX: That really calls for us to hit vcl_synth{}
-		 */
-		req->resp_len = 0;
-	}
+	(void)r;
+	AZ(VDP_Push(req, &vrg_vdp, NULL));
 }

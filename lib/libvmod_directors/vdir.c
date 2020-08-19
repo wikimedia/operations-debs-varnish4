@@ -33,7 +33,6 @@
 #include "cache/cache.h"
 #include "cache/cache_director.h"
 
-#include "vrt.h"
 #include "vbm.h"
 
 #include "vdir.h"
@@ -51,11 +50,12 @@ vdir_expand(struct vdir *vd, unsigned n)
 }
 
 void
-vdir_new(struct vdir **vdp, const char *name, const char *vcl_name,
+vdir_new(VRT_CTX, struct vdir **vdp, const char *name, const char *vcl_name,
     vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv)
 {
 	struct vdir *vd;
 
+	AN(ctx);
 	AN(name);
 	AN(vcl_name);
 	AN(vdp);
@@ -72,6 +72,7 @@ vdir_new(struct vdir **vdp, const char *name, const char *vcl_name,
 	vd->dir->priv = priv;
 	vd->dir->healthy = healthy;
 	vd->dir->resolve = resolve;
+	vd->dir->admin_health = VDI_AH_HEALTHY;
 	vd->vbm = vbit_new(8);
 	AN(vd->vbm);
 }
@@ -114,12 +115,17 @@ vdir_unlock(struct vdir *vd)
 }
 
 
-unsigned
-vdir_add_backend(struct vdir *vd, VCL_BACKEND be, double weight)
+void
+vdir_add_backend(VRT_CTX, struct vdir *vd, VCL_BACKEND be, double weight)
 {
 	unsigned u;
 
 	CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
+	if (be == NULL) {
+		VRT_fail(ctx, "%s: NULL backend cannot be added",
+		    vd->dir->vcl_name);
+		return;
+	}
 	AN(be);
 	vdir_wrlock(vd);
 	if (vd->n_backend >= vd->l_backend)
@@ -130,17 +136,19 @@ vdir_add_backend(struct vdir *vd, VCL_BACKEND be, double weight)
 	vd->weight[u] = weight;
 	vd->total_weight += weight;
 	vdir_unlock(vd);
-	return (u);
 }
 
 void
-vdir_remove_backend(struct vdir *vd, VCL_BACKEND be, unsigned *cur)
+vdir_remove_backend(VRT_CTX, struct vdir *vd, VCL_BACKEND be, unsigned *cur)
 {
 	unsigned u, n;
 
 	CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
-	if (be == NULL)
+	if (be == NULL) {
+		VRT_fail(ctx, "%s: NULL backend cannot be removed",
+		    vd->dir->vcl_name);
 		return;
+	}
 	CHECK_OBJ(be, DIRECTOR_MAGIC);
 	vdir_wrlock(vd);
 	for (u = 0; u < vd->n_backend; u++)
@@ -172,7 +180,7 @@ vdir_any_healthy(struct vdir *vd, const struct busyobj *bo, double *changed)
 	unsigned retval = 0;
 	VCL_BACKEND be;
 	unsigned u;
-	double c;
+	vtim_real c;
 
 	CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
 	CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);

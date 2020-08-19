@@ -38,11 +38,13 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "mgt/mgt.h"
+#include "common/heritage.h"
 
 #include "vcli_serve.h"
 #include "vev.h"
@@ -66,9 +68,11 @@ static int		cli_i = -1, cli_o = -1;
 struct VCLS		*mgt_cls;
 static const char	*secret_file;
 
+static struct vsb	*cli_buf = NULL;
+
 /*--------------------------------------------------------------------*/
 
-static void
+static void v_matchproto_(cli_func_t)
 mcf_banner(struct cli *cli, const char *const *av, void *priv)
 {
 
@@ -96,7 +100,7 @@ static struct cli_proto cli_proto[] = {
 
 /*--------------------------------------------------------------------*/
 
-static void
+static void v_matchproto_(cli_func_t)
 mcf_panic(struct cli *cli, const char * const *av, void *priv)
 {
 
@@ -113,7 +117,7 @@ static struct cli_proto cli_debug[] = {
 
 /*--------------------------------------------------------------------*/
 
-static void
+static void v_matchproto_(cli_func_t)
 mcf_askchild(struct cli *cli, const char * const *av, void *priv)
 {
 	int i;
@@ -158,10 +162,10 @@ mcf_askchild(struct cli *cli, const char * const *av, void *priv)
 }
 
 static const struct cli_cmd_desc CLICMD_WILDCARD[1] =
-    {{ "*", "<wild-card-entry>", "<fall through to cacher>", "", 0, -1 }};
+    {{ "*", "<wild-card-entry>", "<fall through to cacher>", "", 0, 999 }};
 
 static struct cli_proto cli_askchild[] = {
-	{ CLICMD_WILDCARD, "h*", mcf_askchild },
+	{ CLICMD_WILDCARD, "h*", mcf_askchild, mcf_askchild },
 	{ NULL }
 };
 
@@ -176,24 +180,30 @@ mgt_cli_askchild(unsigned *status, char **resp, const char *fmt, ...)
 	int i, j;
 	va_list ap;
 	unsigned u;
-	char buf[mgt_param.cli_buffer], *p;
+
+	if (cli_buf == NULL) {
+		cli_buf = VSB_new_auto();
+		AN(cli_buf);
+	} else {
+		VSB_clear(cli_buf);
+	}
 
 	if (resp != NULL)
 		*resp = NULL;
 	if (status != NULL)
 		*status = 0;
-	if (cli_i < 0|| cli_o < 0) {
+	if (cli_i < 0 || cli_o < 0) {
 		if (status != NULL)
 			*status = CLIS_CANT;
 		return (CLIS_CANT);
 	}
 	va_start(ap, fmt);
-	vbprintf(buf, fmt, ap);
+	AZ(VSB_vprintf(cli_buf, fmt, ap));
 	va_end(ap);
-	p = strchr(buf, '\0');
-	assert(p != NULL && p > buf && p[-1] == '\n');
-	i = p - buf;
-	j = write(cli_o, buf, i);
+	AZ(VSB_finish(cli_buf));
+	i = VSB_len(cli_buf);
+	assert(i > 0 && VSB_data(cli_buf)[i - 1] == '\n');
+	j = write(cli_o, VSB_data(cli_buf), i);
 	if (j != i) {
 		if (status != NULL)
 			*status = CLIS_COMMS;
@@ -297,7 +307,7 @@ mcf_auth(struct cli *cli, const char *const *av, void *priv)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 mcf_help(struct cli *cli, const char * const *av, void *priv)
 {
 	if (cli_o <= 0)
@@ -306,7 +316,7 @@ mcf_help(struct cli *cli, const char * const *av, void *priv)
 		mcf_askchild(cli, av, priv);
 }
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 mcf_help_json(struct cli *cli, const char * const *av, void *priv)
 {
 	if (cli_o <= 0)
@@ -317,7 +327,7 @@ mcf_help_json(struct cli *cli, const char * const *av, void *priv)
 
 static struct cli_proto cli_auth[] = {
 	{ CLICMD_HELP,		"", mcf_help, mcf_help_json },
-	{ CLICMD_PING,		"", VCLS_func_ping },
+	{ CLICMD_PING,		"", VCLS_func_ping, VCLS_func_ping_json },
 	{ CLICMD_AUTH,		"", mcf_auth },
 	{ CLICMD_QUIT,		"", VCLS_func_close },
 	{ NULL }
@@ -330,8 +340,8 @@ mgt_cli_cb_before(const struct cli *cli)
 {
 
 	if (cli->priv == stderr)
-		fprintf(stderr, "> %s\n", cli->cmd);
-	MGT_Complain(C_CLI, "CLI %s Rd %s", cli->ident, cli->cmd);
+		fprintf(stderr, "> %s\n", VSB_data(cli->cmd));
+	MGT_Complain(C_CLI, "CLI %s Rd %s", cli->ident, VSB_data(cli->cmd));
 }
 
 static void
@@ -341,7 +351,7 @@ mgt_cli_cb_after(const struct cli *cli)
 	MGT_Complain(C_CLI, "CLI %s Wr %03u %s",
 	    cli->ident, cli->result, VSB_data(cli->sb));
 	if (cli->priv == stderr &&
-	    cli->result != CLIS_OK && cli->cmd[0] != '-') {
+	    cli->result != CLIS_OK && *VSB_data(cli->cmd) != '-') {
 		MGT_Complain(C_ERR, "-I file CLI command failed (%d)\n%s\n",
 		    cli->result, VSB_data(cli->sb));
 		exit(2);
@@ -354,9 +364,10 @@ void
 mgt_cli_init_cls(void)
 {
 
-	mgt_cls = VCLS_New(mgt_cli_cb_before, mgt_cli_cb_after,
-	    &mgt_param.cli_buffer, &mgt_param.cli_limit);
+	mgt_cls = VCLS_New(NULL);
 	AN(mgt_cls);
+	VCLS_SetLimit(mgt_cls, &mgt_param.cli_limit);
+	VCLS_SetHooks(mgt_cls, mgt_cli_cb_before, mgt_cli_cb_after);
 	VCLS_AddFunc(mgt_cls, MCF_NOAUTH, cli_auth);
 	VCLS_AddFunc(mgt_cls, MCF_AUTH, cli_proto);
 	VCLS_AddFunc(mgt_cls, MCF_AUTH, cli_debug);
@@ -383,9 +394,8 @@ mgt_cli_callback2(const struct vev *e, int what)
 {
 	int i;
 
-	(void)e;
 	(void)what;
-	i = VCLS_PollFd(mgt_cls, e->fd, 0);
+	i = VCLS_Poll(mgt_cls, e->priv, 0);
 	return (i);
 }
 
@@ -412,14 +422,14 @@ mgt_cli_setup(int fdi, int fdo, int auth, const char *ident,
 	AZ(VSB_finish(cli->sb));
 	(void)VCLI_WriteResult(fdo, cli->result, VSB_data(cli->sb));
 
-	ev = vev_new();
+	ev = VEV_Alloc();
 	AN(ev);
 	ev->name = cli->ident;
 	ev->fd = fdi;
-	ev->fd_flags = EV_RD;
+	ev->fd_flags = VEV__RD;
 	ev->callback = mgt_cli_callback2;
 	ev->priv = cli;
-	AZ(vev_add(mgt_evb, ev));
+	AZ(VEV_Start(mgt_evb, ev));
 }
 
 /*--------------------------------------------------------------------*/
@@ -443,41 +453,12 @@ sock_id(const char *pfx, int fd)
 
 /*--------------------------------------------------------------------*/
 
-struct telnet {
-	unsigned		magic;
-#define TELNET_MAGIC		0x53ec3ac0
-	int			fd;
-	struct vev		*ev;
-};
-
-static void
-telnet_close(void *priv)
-{
-	struct telnet *tn;
-
-	CAST_OBJ_NOTNULL(tn, priv, TELNET_MAGIC);
-	(void)close(tn->fd);
-	FREE_OBJ(tn);
-}
-
-static struct telnet *
-telnet_new(int fd)
-{
-	struct telnet *tn;
-
-	ALLOC_OBJ(tn, TELNET_MAGIC);
-	AN(tn);
-	tn->fd = fd;
-	return (tn);
-}
-
 static int
 telnet_accept(const struct vev *ev, int what)
 {
 	struct vsb *vsb;
 	struct sockaddr_storage addr;
 	socklen_t addrlen;
-	struct telnet *tn;
 	int i;
 
 	(void)what;
@@ -489,9 +470,8 @@ telnet_accept(const struct vev *ev, int what)
 		return (0);
 
 	MCH_TrackHighFd(i);
-	tn = telnet_new(i);
 	vsb = sock_id("telnet", i);
-	mgt_cli_setup(i, i, 0, VSB_data(vsb), telnet_close, tn);
+	mgt_cli_setup(i, i, 0, VSB_data(vsb), NULL, NULL);
 	VSB_destroy(&vsb);
 	return (0);
 }
@@ -503,7 +483,7 @@ mgt_cli_secret(const char *S_arg)
 	char buf[BUFSIZ];
 
 	/* Save in shmem */
-	mgt_SHM_static_alloc(S_arg, strlen(S_arg) + 1L, "Arg", "-S", "");
+	mgt_SHM_static_alloc(S_arg, strlen(S_arg) + 1L, "Arg", "-S");
 
 	VJ_master(JAIL_MASTER_FILE);
 	fd = open(S_arg, O_RDONLY);
@@ -526,7 +506,7 @@ mgt_cli_secret(const char *S_arg)
 	secret_file = S_arg;
 }
 
-static int __match_proto__(vss_resolved_f)
+static int v_matchproto_(vss_resolved_f)
 mct_callback(void *priv, const struct suckaddr *sa)
 {
 	int sock;
@@ -534,7 +514,7 @@ mct_callback(void *priv, const struct suckaddr *sa)
 	const char *err;
 	char abuf[VTCP_ADDRBUFSIZE];
 	char pbuf[VTCP_PORTBUFSIZE];
-	struct telnet *tn;
+	struct vev *ev;
 
 	VJ_master(JAIL_MASTER_PRIVPORT);
 	sock = VTCP_listen(sa, 10, &err);
@@ -543,14 +523,12 @@ mct_callback(void *priv, const struct suckaddr *sa)
 	if (sock > 0) {
 		VTCP_myname(sock, abuf, sizeof abuf, pbuf, sizeof pbuf);
 		VSB_printf(vsb, "%s %s\n", abuf, pbuf);
-		tn = telnet_new(sock);
-		tn->ev = vev_new();
-		AN(tn->ev);
-		tn->ev->fd = sock;
-		tn->ev->fd_flags = POLLIN;
-		tn->ev->callback = telnet_accept;
-		tn->ev->priv = tn;
-		AZ(vev_add(mgt_evb, tn->ev));
+		ev = VEV_Alloc();
+		AN(ev);
+		ev->fd = sock;
+		ev->fd_flags = POLLIN;
+		ev->callback = telnet_accept;
+		AZ(VEV_Start(mgt_evb, ev));
 	}
 	return (0);
 }
@@ -567,13 +545,14 @@ mgt_cli_telnet(const char *T_arg)
 	AN(vsb);
 	error = VSS_resolver(T_arg, NULL, mct_callback, vsb, &err);
 	if (err != NULL)
-		ARGV_ERR("Could not resolve -T argument to address\n\t%s\n", err);
+		ARGV_ERR("Could not resolve -T argument to address\n\t%s\n",
+		    err);
 	AZ(error);
 	AZ(VSB_finish(vsb));
 	if (VSB_len(vsb) == 0)
 		ARGV_ERR("-T %s could not be listened on.\n", T_arg);
 	/* Save in shmem */
-	mgt_SHM_static_alloc(VSB_data(vsb), VSB_len(vsb) + 1, "Arg", "-T", "");
+	mgt_SHM_static_alloc(VSB_data(vsb), VSB_len(vsb) + 1, "Arg", "-T");
 	VSB_destroy(&vsb);
 }
 
@@ -593,16 +572,16 @@ static double M_poll = 0.1;
 static VTAILQ_HEAD(,m_addr)	m_addr_list =
     VTAILQ_HEAD_INITIALIZER(m_addr_list);
 
-static void
+static int v_matchproto_(mgt_cli_close_f)
 Marg_closer(void *priv)
 {
 
 	(void)priv;
-	(void)close(M_fd);
 	M_fd = -1;
+	return(0);
 }
 
-static int __match_proto__(vev_cb_f)
+static int v_matchproto_(vev_cb_f)
 Marg_connect(const struct vev *e, int what)
 {
 	struct vsb *vsb;
@@ -613,7 +592,8 @@ Marg_connect(const struct vev *e, int what)
 
 	M_fd = VTCP_connected(M_fd);
 	if (M_fd < 0) {
-		MGT_Complain(C_INFO, "Could not connect to CLI-master: %m");
+		MGT_Complain(C_INFO, "Could not connect to CLI-master: %s",
+			strerror(errno));
 		ma = VTAILQ_FIRST(&m_addr_list);
 		AN(ma);
 		VTAILQ_REMOVE(&m_addr_list, ma, list);
@@ -629,7 +609,7 @@ Marg_connect(const struct vev *e, int what)
 	return (1);
 }
 
-static int __match_proto__(vev_cb_f)
+static int v_matchproto_(vev_cb_f)
 Marg_poker(const struct vev *e, int what)
 {
 	int s;
@@ -652,18 +632,18 @@ Marg_poker(const struct vev *e, int what)
 
 	MCH_TrackHighFd(s);
 
-	M_conn = vev_new();
+	M_conn = VEV_Alloc();
 	AN(M_conn);
 	M_conn->callback = Marg_connect;
 	M_conn->name = "-M connector";
-	M_conn->fd_flags = EV_WR;
+	M_conn->fd_flags = VEV__WR;
 	M_conn->fd = s;
 	M_fd = s;
-	AZ(vev_add(mgt_evb, M_conn));
+	AZ(VEV_Start(mgt_evb, M_conn));
 	return (0);
 }
 
-static int __match_proto__(vss_resolved_f)
+static int v_matchproto_(vss_resolved_f)
 marg_cb(void *priv, const struct suckaddr *sa)
 {
 	struct m_addr *ma;
@@ -686,17 +666,18 @@ mgt_cli_master(const char *M_arg)
 
 	error = VSS_resolver(M_arg, NULL, marg_cb, NULL, &err);
 	if (err != NULL)
-		ARGV_ERR("Could not resolve -M argument to address\n\t%s\n", err);
+		ARGV_ERR("Could not resolve -M argument to address\n\t%s\n",
+		    err);
 	AZ(error);
 	if (VTAILQ_EMPTY(&m_addr_list))
 		ARGV_ERR("Could not resolve -M argument to address\n");
 	AZ(M_poker);
-	M_poker = vev_new();
+	M_poker = VEV_Alloc();
 	AN(M_poker);
 	M_poker->timeout = M_poll;
 	M_poker->callback = Marg_poker;
 	M_poker->name = "-M poker";
-	AZ(vev_add(mgt_evb, M_poker));
+	AZ(VEV_Start(mgt_evb, M_poker));
 }
 
 static int

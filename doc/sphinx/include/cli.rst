@@ -4,11 +4,13 @@ auth <response>
 ~~~~~~~~~~~~~~~
   Authenticate.
 
-.. _ref_cli_backend.list [-p] [<backend_pattern>]:
+.. _ref_cli_backend.list [-j] [-p] [<backend_pattern>]:
 
-backend.list [-p] [<backend_pattern>]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend.list [-j] [-p] [<backend_pattern>]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   List backends.  -p also shows probe status.
+
+``-j`` specifies JSON output.
 
 .. _ref_cli_backend.set_health <backend_pattern> [auto|healthy|sick]:
 
@@ -24,13 +26,13 @@ ban <field> <operator> <arg> [&& <field> <oper> <arg> ...]
 
 See :ref:`vcl(7)_ban` for details
 
-.. _ref_cli_ban.list:
+.. _ref_cli_ban.list [-j]:
 
-ban.list
-~~~~~~~~
+ban.list [-j]
+~~~~~~~~~~~~~
   List the active bans.
 
-  The output format is:
+ Unless ``-j`` is specified (for JSON output),  the output format is:
 
   * Time the ban was issued.
 
@@ -54,11 +56,13 @@ banner
 ~~~~~~
   Print welcome banner.
 
-.. _ref_cli_help [<command>]:
+.. _ref_cli_help [-j] [<command>]:
 
-help [<command>]
-~~~~~~~~~~~~~~~~
+help [-j] [<command>]
+~~~~~~~~~~~~~~~~~~~~~
   Show command/protocol help.
+
+``-j`` specifies JSON output.
 
 .. _ref_cli_panic.clear [-z]:
 
@@ -66,11 +70,19 @@ panic.clear [-z]
 ~~~~~~~~~~~~~~~~
   Clear the last panic, if any, -z will clear related varnishstat counter(s)
 
-.. _ref_cli_panic.show:
+.. _ref_cli_panic.show [-j]:
 
-panic.show
-~~~~~~~~~~
+panic.show [-j]
+~~~~~~~~~~~~~~~
   Return the last panic, if any.
+
+``-j`` specifies JSON output -- the panic message is returned as an unstructured JSON string.
+
+.. _ref_cli_param.reset <param>:
+
+param.reset <param>
+~~~~~~~~~~~~~~~~~~~
+  Reset parameter to default value.
 
 .. _ref_cli_param.set <param> <value>:
 
@@ -78,17 +90,21 @@ param.set <param> <value>
 ~~~~~~~~~~~~~~~~~~~~~~~~~
   Set parameter value.
 
-.. _ref_cli_param.show [-l] [<param>]:
+.. _ref_cli_param.show [-l|-j] [<param>|changed]:
 
-param.show [-l] [<param>]
-~~~~~~~~~~~~~~~~~~~~~~~~~
+param.show [-l|-j] [<param>|changed]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   Show parameters and their values.
 
-.. _ref_cli_ping [<timestamp>]:
+The long form with ``-l`` shows additional information, including documentation and minimum, maximum and default values, if defined for the parameter. JSON output is specified with ``-j``, in which the information for the long form is included; only one of ``-l`` or ``-j`` is permitted. If a parameter is specified with ``<param>``, show only that parameter. If ``changed`` is specified, show only those parameters whose values differ from their defaults.
 
-ping [<timestamp>]
-~~~~~~~~~~~~~~~~~~
+.. _ref_cli_ping [-j] [<timestamp>]:
+
+ping [-j] [<timestamp>]
+~~~~~~~~~~~~~~~~~~~~~~~
   Keep connection alive.
+
+The response is formatted as JSON if ``-j`` is specified.
 
 .. _ref_cli_quit:
 
@@ -102,11 +118,13 @@ start
 ~~~~~
   Start the Varnish cache process.
 
-.. _ref_cli_status:
+.. _ref_cli_status [-j]:
 
-status
-~~~~~~
+status [-j]
+~~~~~~~~~~~
   Check status of Varnish cache process.
+
+``-j`` specifies JSON output.
 
 .. _ref_cli_stop:
 
@@ -114,11 +132,13 @@ stop
 ~~~~
   Stop the Varnish cache process.
 
-.. _ref_cli_storage.list:
+.. _ref_cli_storage.list [-j]:
 
-storage.list
-~~~~~~~~~~~~
+storage.list [-j]
+~~~~~~~~~~~~~~~~~
   List storage devices.
+
+``-j`` specifies JSON output.
 
 .. _ref_cli_vcl.discard <configname|label>:
 
@@ -140,11 +160,13 @@ vcl.label <label> <configname>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   Apply label to configuration.
 
-.. _ref_cli_vcl.list:
+.. _ref_cli_vcl.list [-j]:
 
-vcl.list
-~~~~~~~~
+vcl.list [-j]
+~~~~~~~~~~~~~
   List all loaded configuration.
+
+``-j`` specifies JSON output.
 
 .. _ref_cli_vcl.load <configname> <filename> [auto|cold|warm]:
 

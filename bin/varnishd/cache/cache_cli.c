@@ -36,7 +36,7 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "common/heritage.h"
 
 #include "vcli_serve.h"
@@ -44,7 +44,7 @@
 pthread_t		cli_thread;
 static struct lock	cli_mtx;
 static int		add_check;
-static struct VCLS	*cls;
+static struct VCLS	*cache_cls;
 
 /*
  * The CLI commandlist is split in three:
@@ -64,7 +64,7 @@ CLI_AddFuncs(struct cli_proto *p)
 
 	AZ(add_check);
 	Lck_Lock(&cli_mtx);
-	VCLS_AddFunc(cls, 0, p);
+	VCLS_AddFunc(cache_cls, 0, p);
 	Lck_Unlock(&cli_mtx);
 }
 
@@ -73,7 +73,7 @@ cli_cb_before(const struct cli *cli)
 {
 
 	ASSERT_CLI();
-	VSL(SLT_CLI, 0, "Rd %s", cli->cmd);
+	VSL(SLT_CLI, 0, "Rd %s", VSB_data(cli->cmd));
 	VCL_Poll();
 	VBE_Poll();
 	Lck_Lock(&cli_mtx);
@@ -93,21 +93,25 @@ void
 CLI_Run(void)
 {
 	int i;
+	struct cli *cli;
 
 	add_check = 1;
 
-	AN(VCLS_AddFd(cls, heritage.cli_in, heritage.cli_out, NULL, NULL));
+	cli = VCLS_AddFd(cache_cls,
+	    heritage.cli_in, heritage.cli_out, NULL, NULL);
+	AN(cli);
+	cli->auth = 255;	// Non-zero to disable paranoia in vcli_serve
 
 	do {
-		i = VCLS_Poll(cls, -1);
-	} while (i > 0);
+		i = VCLS_Poll(cache_cls, cli, -1);
+	} while (i == 0);
 	VSL(SLT_CLI, 0, "EOF on CLI connection, worker stops");
 }
 
 /*--------------------------------------------------------------------*/
 
 static struct cli_proto cli_cmds[] = {
-	{ CLICMD_PING,	"i", VCLS_func_ping },
+	{ CLICMD_PING,	"i", VCLS_func_ping, VCLS_func_ping_json },
 	{ CLICMD_HELP,	"i", VCLS_func_help, VCLS_func_help_json },
 	{ NULL }
 };
@@ -123,10 +127,10 @@ CLI_Init(void)
 	Lck_New(&cli_mtx, lck_cli);
 	cli_thread = pthread_self();
 
-	cls = VCLS_New(cli_cb_before, cli_cb_after,
-	    &cache_param->cli_buffer, &cache_param->cli_limit);
-	AN(cls);
-	VCLS_Clone(cls, mgt_cls);
+	cache_cls = VCLS_New(heritage.cls);
+	AN(cache_cls);
+	VCLS_SetLimit(cache_cls, &cache_param->cli_limit);
+	VCLS_SetHooks(cache_cls, cli_cb_before, cli_cb_after);
 
 	CLI_AddFuncs(cli_cmds);
 }

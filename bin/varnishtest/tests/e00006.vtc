@@ -17,7 +17,7 @@ server s2 {
 	rxreq
 	expect req.url == "/body"
 	txresp -body {
-		Included file
+		<pre>Included file</pre>
 	}
 } -start
 
@@ -38,7 +38,7 @@ client c1 {
 	txreq -url /foo/bar -hdr "Host: froboz"
 	rxresp
 	expect resp.status == 200
-	expect resp.bodylen == 67
+	expect resp.bodylen == 78
 }
 
 client c1 -run
@@ -68,9 +68,9 @@ varnish v1 -vcl+backend {
 varnish v1 -cliok "param.set feature +esi_ignore_https"
 
 logexpect l1 -v v1 -g raw {
-	expect * * ESI_xmlerror "ERR at 35 ESI 1.0 <esi:include> invalid src= URL"
-	expect * * ESI_xmlerror "WARN at 36 ESI 1.0 <esi:include> https:// treated as http://"
-	expect * * ESI_xmlerror "ERR at 36 ESI 1.0 <esi:include> invalid src= URL"
+	expect * * ESI_xmlerror "ERR after 0 ESI 1.0 <esi:include> invalid src= URL"
+	expect * * ESI_xmlerror "WARN after 0 ESI 1.0 <esi:include> https:// treated as http://"
+	expect * * ESI_xmlerror "ERR after 0 ESI 1.0 <esi:include> invalid src= URL"
 } -start
 
 client c1 {

@@ -27,7 +27,24 @@
  * SUCH DAMAGE.
  */
 
-#include "shard_parse_vcc_enums.h"
+enum by_e {
+	_BY_E_INVALID = 0,
+#define VMODENUM(x) BY_ ## x,
+#include "tbl_by.h"
+	_BY_E_MAX
+};
+
+enum healthy_e {
+	_HEALTHY_E_INVALID = 0,
+#define VMODENUM(x) x,
+#include "tbl_healthy.h"
+	_HEALTHY_E_MAX
+};
+
+enum resolve_e {
+#define VMODENUM(x) x,
+#include "tbl_resolve.h"
+};
 
 struct vbitmap;
 
@@ -38,7 +55,10 @@ struct shard_circlepoint {
 
 struct shard_backend {
 	VCL_BACKEND		backend;
-	const char		*ident;	// XXX COPY IN !
+	union {
+		const char	*ident;
+		void		*freeptr;
+	};
 	VCL_DURATION		rampup;
 	uint32_t		canon_point;
 };
@@ -103,11 +123,14 @@ sharddir_backend_ident(const struct sharddir *shardd, int host)
 
 void sharddir_debug(struct sharddir *shardd, const uint32_t flags);
 void sharddir_err(VRT_CTX, enum VSL_tag_e tag,  const char *fmt, ...);
+uint32_t sharddir_sha256v(const char *s, va_list ap);
+uint32_t sharddir_sha256(const char *s, ...);
 void sharddir_new(struct sharddir **sharddp, const char *vcl_name);
 void sharddir_delete(struct sharddir **sharddp);
-void sharddir_rdlock(struct sharddir *shardd);
 void sharddir_wrlock(struct sharddir *shardd);
 void sharddir_unlock(struct sharddir *shardd);
+unsigned sharddir_any_healthy(struct sharddir *shardd, const struct busyobj *bo,
+    double *changed);
 VCL_BACKEND sharddir_pick_be(VRT_CTX, struct sharddir *, uint32_t, VCL_INT,
    VCL_REAL, VCL_BOOL, enum healthy_e);
 

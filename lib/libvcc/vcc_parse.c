@@ -29,7 +29,6 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <string.h>
 
 #include "vcc_compile.h"
@@ -80,11 +79,12 @@ vcc_Conditional(struct vcc *tl)
  *	null
  */
 
-static void
-vcc_IfStmt(struct vcc *tl)
+void v_matchproto_(sym_act_f)
+vcc_Act_If(struct vcc *tl, struct token *t, struct symbol *sym)
 {
 
-	SkipToken(tl, ID);
+	(void)t;
+	(void)sym;
 	Fb(tl, 1, "if ");
 	vcc_Conditional(tl);
 	ERRCHK(tl);
@@ -142,14 +142,17 @@ vcc_IfStmt(struct vcc *tl)
 static void
 vcc_Compound(struct vcc *tl)
 {
-	int i;
+	struct symbol *sym;
+	struct token *t;
 
 	SkipToken(tl, '{');
 	Fb(tl, 1, "{\n");
 	tl->indent += INDENT;
 	C(tl, ";");
+	Fb(tl, 1, "END_;\n");
 	while (1) {
 		ERRCHK(tl);
+		t = tl->t;
 		switch (tl->t->tok) {
 		case '{':
 			vcc_Compound(tl);
@@ -177,18 +180,25 @@ vcc_Compound(struct vcc *tl)
 			tl->err = 1;
 			return;
 		case ID:
-			if (vcc_IdIs(tl->t, "if")) {
-				vcc_IfStmt(tl);
-				break;
-			} else {
-				i = vcc_ParseAction(tl);
-				ERRCHK(tl);
-				if (i) {
-					SkipToken(tl, ';');
-					break;
-				}
+			sym = VCC_SymbolGet(tl, SYM_NONE, SYMTAB_NOERR,
+			    XREF_NONE);
+			if (sym == NULL) {
+				VSB_printf(tl->sb, "Symbol not found.\n");
+				vcc_ErrWhere(tl, tl->t);
+				return;
 			}
-			/* FALLTHROUGH */
+			if (sym->action == NULL) {
+				VSB_printf(tl->sb,
+				    "Symbol cannot be used here.\n");
+				vcc_ErrWhere(tl, tl->t);
+				return;
+			}
+			if (sym->action_mask != 0)
+				vcc_AddUses(tl, t, NULL,
+				    sym->action_mask,
+				    "Not a valid action");
+			sym->action(tl, t, sym);
+			break;
 		default:
 			/* We deliberately do not mention inline C */
 			VSB_printf(tl->sb,
@@ -196,7 +206,7 @@ vcc_Compound(struct vcc *tl)
 			vcc_ErrWhere(tl, tl->t);
 			return;
 		}
-		Fb(tl, 1, "if (*ctx->handling) return;\n");
+		Fb(tl, 1, "END_;\n");
 	}
 }
 
@@ -209,49 +219,56 @@ vcc_Compound(struct vcc *tl)
 static void
 vcc_ParseFunction(struct vcc *tl)
 {
-	int m, i;
+	struct symbol *sym;
+	struct token *t;
+	struct proc *p;
 
 	vcc_NextToken(tl);
-	vcc_ExpectCid(tl, "function");
+	vcc_ExpectVid(tl, "function");
 	ERRCHK(tl);
 
-	m = IsMethod(tl->t);
-	if (m == -2) {
-		VSB_printf(tl->sb,
-		    "VCL sub's named 'vcl*' are reserved names.\n");
-		vcc_ErrWhere(tl, tl->t);
-		VSB_printf(tl->sb, "Valid vcl_* methods are:\n");
-		for (i = 1; method_tab[i].name != NULL; i++)
-			VSB_printf(tl->sb, "\t%s\n", method_tab[i].name);
-		return;
-	} else if (m != -1) {
-		assert(m < VCL_MET_MAX);
-		tl->fb = tl->fm[m];
-		if (tl->mprocs[m] == NULL) {
-			(void)vcc_AddDef(tl, tl->t, SYM_SUB);
-			vcc_AddRef(tl, tl->t, SYM_SUB);
-			tl->mprocs[m] = vcc_AddProc(tl, tl->t);
-		}
-		tl->curproc = tl->mprocs[m];
-		Fb(tl, 1, "  /* ... from ");
-		vcc_Coord(tl, tl->fb, NULL);
-		Fb(tl, 0, " */\n");
-	} else {
-		tl->fb = tl->fc;
-		i = vcc_AddDef(tl, tl->t, SYM_SUB);
-		if (i > 1) {
+	t = tl->t;
+	sym = VCC_SymbolGet(tl, SYM_SUB, SYMTAB_CREATE, XREF_DEF);
+	ERRCHK(tl);
+	AN(sym);
+	p = sym->proc;
+	if (p == NULL) {
+		if ((t->b[0] == 'v'|| t->b[0] == 'V') &&
+		    (t->b[1] == 'c'|| t->b[1] == 'C') &&
+		    (t->b[2] == 'l'|| t->b[2] == 'L')) {
 			VSB_printf(tl->sb,
-			    "Function '%.*s' redefined\n", PF(tl->t));
-			vcc_ErrWhere(tl, tl->t);
+			    "The names 'vcl*' are reserved for subroutines.\n");
+			vcc_ErrWhere(tl, t);
+			VSB_printf(tl->sb, "Valid vcl_* subroutines are:\n");
+			VTAILQ_FOREACH(p, &tl->procs, list) {
+				if (p->method != NULL)
+					VSB_printf(tl->sb, "\t%s\n",
+					    p->method->name);
+			}
 			return;
 		}
-		tl->curproc = vcc_AddProc(tl, tl->t);
-		Fh(tl, 0, "void VGC_function_%.*s(VRT_CTX);\n", PF(tl->t));
-		Fc(tl, 1, "\nvoid __match_proto__(vcl_func_t)\n");
-		Fc(tl, 1, "VGC_function_%.*s(VRT_CTX)\n",
-		    PF(tl->t));
+		VCC_GlobalSymbol(sym, SUB, "VGC_function");
+		p = vcc_NewProc(tl, sym);
+		p->name = t;
+		VSB_printf(p->cname, "%s", sym->rname);
+	} else if (p->method == NULL) {
+		VSB_printf(tl->sb, "Function '%s' redefined\n", sym->name);
+		vcc_ErrWhere(tl, t);
+		VSB_printf(tl->sb, "Previously defined here:\n");
+		vcc_ErrWhere(tl, p->name);
+		return;
+	} else {
+		/* Add to VCL sub */
+		AN(p->method);
+		if (p->name == NULL)
+			p->name = t;
 	}
-	vcc_NextToken(tl);
+	CHECK_OBJ_NOTNULL(p, PROC_MAGIC);
+	tl->fb = p->body;
+	Fb(tl, 1, "  /* ... from ");
+	vcc_Coord(tl, p->body, NULL);
+	Fb(tl, 0, " */\n");
+	tl->curproc = p;
 	tl->indent += INDENT;
 	Fb(tl, 1, "{\n");
 	L(tl, vcc_Compound(tl));
@@ -267,29 +284,51 @@ vcc_ParseFunction(struct vcc *tl)
 static void
 vcc_ParseVcl(struct vcc *tl)
 {
-	struct token *tok;
+	struct token *tok0;
+	int syntax;
 
 	assert(vcc_IdIs(tl->t, "vcl"));
+	tok0 = tl->t;
 	vcc_NextToken(tl);
-	tok = tl->t;
-	tok->src->syntax = vcc_DoubleVal(tl);
-	ERRCHK(tl);
-	if (tl->t->e - tok->b > 4) {
+
+	Expect(tl, FNUM);
+	if (tl->t->e - tl->t->b != 3 || tl->t->b[1] != '.') {
 		VSB_printf(tl->sb,
 		    "Don't play silly buggers with VCL version numbers\n");
-		vcc_ErrWhere2(tl, tok, tl->t);
+		vcc_ErrWhere(tl, tl->t);
 		ERRCHK(tl);
 	}
-	if (tl->syntax != 0.0 && tok->src->syntax > tl->syntax) {
+	syntax = (tl->t->b[0] - '0') * 10 + (tl->t->b[2] - '0');
+	vcc_NextToken(tl);
+
+	if (syntax < VCL_LOW || syntax > VCL_HIGH) {
+		VSB_printf(tl->sb, "VCL version %.1f not supported.\n",
+		    .1 * syntax);
+		vcc_ErrWhere2(tl, tok0, tl->t);
+		ERRCHK(tl);
+	}
+
+	if (tl->t->tok != ';') {
+		/* Special handling, because next token might be 'vcl'
+		 * in the built-in VCL, and that would give a very
+		 * confusing error message
+		 */
+		VSB_printf(tl->sb,
+		    "Expected 'vcl N.N;' found no semi-colon\n");
+		vcc_ErrWhere2(tl, tok0, tl->t);
+		ERRCHK(tl);
+	}
+	vcc_NextToken(tl);
+	if (tl->syntax == 0)
+		tl->syntax = syntax;
+	if (syntax > tl->syntax) {
 		VSB_printf(tl->sb,
 		    "VCL version %.1f higher than"
 		    " the top level version %.1f\n",
-		    tok->src->syntax, tl->syntax);
-		vcc_ErrWhere2(tl, tok, tl->t);
+		    .1 * syntax, .1 * tl->syntax);
+		vcc_ErrWhere2(tl, tok0, tl->t);
 		ERRCHK(tl);
 	}
-	ExpectErr(tl, ';');
-	vcc_NextToken(tl);
 }
 
 /*--------------------------------------------------------------------
@@ -308,13 +347,16 @@ typedef void parse_f(struct vcc *tl);
 static struct toplev {
 	const char	*name;
 	parse_f		*func;
+	unsigned	vcllo;
+	unsigned	vclhi;
 } toplev[] = {
-	{ "acl",		vcc_ParseAcl },
-	{ "sub",		vcc_ParseFunction },
-	{ "backend",		vcc_ParseBackend },
-	{ "probe",		vcc_ParseProbe },
-	{ "import",		vcc_ParseImport },
-	{ "vcl",		vcc_ParseVcl },
+	{ "acl",		vcc_ParseAcl,		VCL_41,	VCL_HIGH },
+	{ "sub",		vcc_ParseFunction,	VCL_41,	VCL_HIGH },
+	{ "backend",		vcc_ParseBackend,	VCL_41,	VCL_HIGH },
+	{ "probe",		vcc_ParseProbe,		VCL_41,	VCL_HIGH },
+	{ "import",		vcc_ParseImport,	VCL_41,	VCL_HIGH },
+	{ "vcl",		vcc_ParseVcl,		VCL_41,	VCL_HIGH },
+	{ "default",		NULL,			VCL_41, VCL_HIGH },
 	{ NULL, NULL }
 };
 
@@ -322,29 +364,21 @@ void
 vcc_Parse(struct vcc *tl)
 {
 	struct toplev *tp;
-	struct token *tok;
 
 	AZ(tl->indent);
 	if (tl->t->tok != ID || !vcc_IdIs(tl->t, "vcl")) {
 		VSB_printf(tl->sb,
 		    "VCL version declaration missing\n"
 		    "Update your VCL to Version 4 syntax, and add\n"
-		    "\tvcl 4.0;\n"
+		    "\tvcl 4.1;\n"
 		    "on the first line of the VCL files.\n"
 		);
 		vcc_ErrWhere(tl, tl->t);
 		ERRCHK(tl);
 	}
-	tok = tl->t;
 	vcc_ParseVcl(tl);
-	if (tok->src->syntax != 4.0) {
-		VSB_printf(tl->sb, "VCL version %.1f not supported.\n",
-		    tok->src->syntax);
-		vcc_ErrWhere2(tl, tok, tl->t);
-		ERRCHK(tl);
-	}
-	tl->syntax = tl->t->src->syntax;
 	ERRCHK(tl);
+	AN(tl->syntax);
 	while (tl->t->tok != EOI) {
 		ERRCHK(tl);
 		switch (tl->t->tok) {
@@ -364,6 +398,8 @@ vcc_Parse(struct vcc *tl)
 			break;
 		case ID:
 			for (tp = toplev; tp->name != NULL; tp++) {
+				if (tp->func == NULL)
+					continue;
 				if (!vcc_IdIs(tl->t, tp->name))
 					continue;
 				tp->func(tl);
@@ -390,4 +426,13 @@ vcc_Parse(struct vcc *tl)
 		}
 	}
 	AZ(tl->indent);
+}
+
+void
+vcc_Parse_Init(struct vcc *tl)
+{
+	struct toplev *tp;
+
+	for (tp = toplev; tp->name != NULL; tp++)
+		AN(VCC_MkSym(tl, tp->name, SYM_NONE, tp->vcllo, tp->vclhi));
 }

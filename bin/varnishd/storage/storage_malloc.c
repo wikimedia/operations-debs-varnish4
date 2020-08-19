@@ -31,7 +31,8 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
+#include "common/heritage.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,8 +40,9 @@
 #include "storage/storage.h"
 #include "storage/storage_simple.h"
 
-#include "vrt.h"
 #include "vnum.h"
+
+#include "VSC_sma.h"
 
 struct sma_sc {
 	unsigned		magic;
@@ -48,7 +50,7 @@ struct sma_sc {
 	struct lock		sma_mtx;
 	size_t			sma_max;
 	size_t			sma_alloc;
-	struct VSC_C_sma	*stats;
+	struct VSC_sma		*stats;
 };
 
 struct sma {
@@ -59,9 +61,9 @@ struct sma {
 	struct sma_sc		*sc;
 };
 
-static struct VSC_C_lck *lck_sma;
+static struct VSC_lck *lck_sma;
 
-static struct storage * __match_proto__(sml_alloc_f)
+static struct storage * v_matchproto_(sml_alloc_f)
 sma_alloc(const struct stevedore *st, size_t size)
 {
 	struct sma_sc *sma_sc;
@@ -127,7 +129,7 @@ sma_alloc(const struct stevedore *st, size_t size)
 	return (&sma->s);
 }
 
-static void __match_proto__(sml_free_f)
+static void v_matchproto_(sml_free_f)
 sma_free(struct storage *s)
 {
 	struct sma_sc *sma_sc;
@@ -149,7 +151,7 @@ sma_free(struct storage *s)
 	free(sma);
 }
 
-static VCL_BYTES __match_proto__(stv_var_used_space)
+static VCL_BYTES v_matchproto_(stv_var_used_space)
 sma_used_space(const struct stevedore *st)
 {
 	struct sma_sc *sma_sc;
@@ -158,7 +160,7 @@ sma_used_space(const struct stevedore *st)
 	return (sma_sc->sma_alloc);
 }
 
-static VCL_BYTES __match_proto__(stv_var_free_space)
+static VCL_BYTES v_matchproto_(stv_var_free_space)
 sma_free_space(const struct stevedore *st)
 {
 	struct sma_sc *sma_sc;
@@ -200,7 +202,7 @@ sma_init(struct stevedore *parent, int ac, char * const *av)
 	sc->sma_max = u;
 }
 
-static void __match_proto__(storage_open_f)
+static void v_matchproto_(storage_open_f)
 sma_open(struct stevedore *st)
 {
 	struct sma_sc *sma_sc;
@@ -208,12 +210,10 @@ sma_open(struct stevedore *st)
 	ASSERT_CLI();
 	st->lru = LRU_Alloc();
 	if (lck_sma == NULL)
-		lck_sma = Lck_CreateClass("sma");
+		lck_sma = Lck_CreateClass(NULL, "sma");
 	CAST_OBJ_NOTNULL(sma_sc, st->priv, SMA_SC_MAGIC);
 	Lck_New(&sma_sc->sma_mtx, lck_sma);
-	sma_sc->stats = VSM_Alloc(sizeof *sma_sc->stats,
-	    VSC_CLASS, VSC_type_sma, st->ident);
-	memset(sma_sc->stats, 0, sizeof *sma_sc->stats);
+	sma_sc->stats = VSC_sma_New(NULL, NULL, st->ident);
 	if (sma_sc->sma_max != SIZE_MAX)
 		sma_sc->stats->g_space = sma_sc->sma_max;
 }

@@ -3,7 +3,7 @@
 # itself. See LICENCE for details.
 #
 # Copyright (c) 2013-2015 Varnish Software AS
-# Copyright 2009-2016 UPLEX - Nils Goroll Systemoptimierung
+# Copyright 2009-2018 UPLEX - Nils Goroll Systemoptimierung
 # All rights reserved.
 #
 # Authors: Poul-Henning Kamp <phk@FreeBSD.org>
@@ -32,7 +32,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-$Module directors 3 Varnish Directors Module
+$Module directors 3 "Varnish Directors Module"
+$ABI strict
 
 DESCRIPTION
 ===========
@@ -77,7 +78,6 @@ Description
 	Add a backend to the round-robin director.
 Example
 	vdir.add_backend(backend1);
-	vdir.add_backend(backend2);
 
 $Method VOID .remove_backend(BACKEND)
 
@@ -85,7 +85,6 @@ Description
 	Remove a backend from the round-robin director.
 Example
 	vdir.remove_backend(backend1);
-	vdir.remove_backend(backend2);
 
 $Method BACKEND .backend()
 
@@ -120,7 +119,6 @@ Description
 
 Example
 	vdir.add_backend(backend1);
-	vdir.add_backend(backend2);
 
 $Method VOID .remove_backend(BACKEND)
 
@@ -128,7 +126,6 @@ Description
 	Remove a backend from the director.
 Example
 	vdir.remove_backend(backend1);
-	vdir.remove_backend(backend2);
 
 $Method BACKEND .backend()
 
@@ -156,14 +153,14 @@ $Method VOID .add_backend(BACKEND, REAL)
 Description
 	Add a backend to the director with a given weight.
 
-	Each backend backend will receive approximately
-	100 * (weight / (sum(all_added_weights))) per cent of the traffic sent
-	to this director.
+	Each backend will receive approximately 100 * (weight /
+	(sum(all_added_weights))) per cent of the traffic sent to this
+	director.
 
 Example
-	# 2/3 to backend1, 1/3 to backend2.
-	vdir.add_backend(backend1, 10.0);
-	vdir.add_backend(backend2, 5.0);
+	| # 2/3 to backend1, 1/3 to backend2.
+	| vdir.add_backend(backend1, 10.0);
+	| vdir.add_backend(backend2, 5.0);
 
 $Method VOID .remove_backend(BACKEND)
 
@@ -171,7 +168,6 @@ Description
 	Remove a backend from the director.
 Example
 	vdir.remove_backend(backend1);
-	vdir.remove_backend(backend2);
 
 $Method BACKEND .backend()
 
@@ -204,7 +200,6 @@ Description
 
 Example
 	vdir.add_backend(backend1, 1.0);
-	vdir.add_backend(backend2, 1.0);
 
 $Method VOID .remove_backend(BACKEND)
 
@@ -212,7 +207,6 @@ Description
 	Remove a backend from the director.
 Example
 	vdir.remove_backend(backend1);
-	vdir.remove_backend(backend2);
 
 $Method BACKEND .backend(STRING_LIST)
 
@@ -221,8 +215,8 @@ Description
 
 	Use the string or list of strings provided to pick the backend.
 Example
-	# pick a backend based on the cookie header from the client
-	set req.backend_hint = vdir.backend(req.http.cookie);
+	| # pick a backend based on the cookie header from the client
+	| set req.backend_hint = vdir.backend(req.http.cookie);
 
 $Object shard()
 
@@ -231,6 +225,9 @@ Create a shard director.
 Note that the shard director needs to be configured using at least one
 ``shard.add_backend()`` call(s) **followed by a**
 ``shard.reconfigure()`` **call** before it can hand out backends.
+
+_Note_ that due to various restrictions (documented below), it is
+recommended to use the shard director on the backend side.
 
 Introduction
 ````````````
@@ -306,10 +303,11 @@ Method
 ``````
 
 When ``.reconfigure()`` is called, a consistent hashing circular data
-structure gets built from hash values of "ident%d" (default ident
-being the backend name) for each backend and for a running number from
-1 to n (n is the number of `replicas`). Hashing creates the seemingly
-random order for placement of backends on the consistent hashing ring.
+structure gets built from the last 32 bits of SHA256 hash values of
+`<ident>`\ `<n>` (default `ident` being the backend name) for each
+backend and for a running number `n` from 1 to `replicas`. Hashing
+creates the seemingly random order for placement of backends on the
+consistent hashing ring.
 
 When ``.backend()`` is called, a load balancing key gets generated
 unless provided. The smallest hash value in the circle is looked up
@@ -341,19 +339,26 @@ when configuring the shard director, you are advised to check::
 $Method VOID .set_warmup(REAL probability=0.0)
 
 Set the default warmup probability. See the `warmup` parameter of
-``shard.backend()``.
-
-Default: 0.0 (no warmup)
+``shard.backend()``. If probability is 0.0 (default), warmup is
+disabled.
 
 $Method VOID .set_rampup(DURATION duration=0)
 
 Set the default rampup duration. See `rampup` parameter of
-`shard.backend()`.
+`shard.backend()`. If duration is 0 (default), rampup is disabled.
 
-Default: 0s (no rampup)
+$Method VOID .associate(BLOB param=0)
+
+Associate a default `obj_shard_param`_ object or clear an association.
+
+The value of the `param` argument must be a call to the
+`func_shard_param.use`_ method. No argument clears the association.
+
+The association can be changed per backend request using the `param`
+argument of `func_shard.backend`_.
 
 $Method BOOL .add_backend(PRIV_TASK, BACKEND backend,
-	STRING ident=0, DURATION rampup=973279260)
+	[STRING ident], [DURATION rampup])
 
 Add a backend `backend` to the director.
 
@@ -365,13 +370,13 @@ backend name.
 `ident` allows to add multiple instances of the same backend.
 
 `rampup`: Optionally specify a specific rampup time for this
-backend. The magic default value of `973279260s` instructs the shard
-director to use the default rampup time (see :ref:`func_shard.set_rampup`).
+backend. Otherwise, the per-director rampup time is used (see
+:ref:`func_shard.set_rampup`).
 
 NOTE: Backend changes need to be finalized with `shard.reconfigure()`
 and are only supported on one shard director at a time.
 
-$Method BOOL .remove_backend(PRIV_TASK, BACKEND backend=0, STRING ident=0)
+$Method BOOL .remove_backend(PRIV_TASK, [BACKEND backend=0], [STRING ident=0])
 
 Remove backend(s) from the director. Either `backend` or `ident` must
 be specified. `ident` removes a specific instance. If `backend` is
@@ -387,29 +392,35 @@ Remove all backends from the director.
 NOTE: Backend changes need to be finalized with `shard.reconfigure()`
 and are only supported on one shard director at a time.
 
-$Method BOOL .reconfigure(PRIV_TASK, INT replicas=67,
-	ENUM { CRC32, SHA256, RS } alg="SHA256")
+$Method BOOL .reconfigure(PRIV_TASK, INT replicas=67)
 
 Reconfigure the consistent hashing ring to reflect backend changes.
 
 This method must be called at least once before the director can be
 used.
 
-$Method INT .key(STRING string, ENUM { CRC32, SHA256, RS } alg="SHA256")
+$Method INT .key(STRING_LIST)
 
-Utility method to generate a sharding key for use with the
-``shard.backend()`` method by hashing `string` with hash algorithm
-`alg`.
+Convenience method to generate a sharding key for use with the `key`
+argument to the ``shard.backend()`` method by hashing the given string
+with SHA256.
+
+To generate sharding keys using other hashes, use a custom vmod like
+`vmod blobdigest`_ with the `key_blob` argument of the
+``shard.backend()`` method.
+
+.. _vmod blobdigest: https://code.uplex.de/uplex-varnish/libvmod-blobdigest/blob/master/README.rst
 
 $Method BACKEND .backend(
-	ENUM {HASH, URL, KEY, BLOB} by="HASH",
-	INT key=0,
-	BLOB key_blob=0,
-	INT alt=0,
-	REAL warmup=-1,
-	BOOL rampup=1,
-	ENUM {CHOSEN, IGNORE, ALL} healthy="CHOSEN")
-
+	[ ENUM {HASH, URL, KEY, BLOB} by=HASH ],
+	[ INT key ],
+	[ BLOB key_blob ],
+	[ INT alt=0 ],
+	[ REAL warmup=-1 ],
+	[ BOOL rampup=1 ],
+	[ ENUM {CHOSEN, IGNORE, ALL} healthy=CHOSEN ],
+	[ BLOB param ],
+	[ ENUM {NOW, LAZY} resolve] )
 
 Lookup a backend on the consistent hashing ring.
 
@@ -422,14 +433,12 @@ is _not_ the order given when backends are added.
 
 * `by` how to determine the sharding key
 
-  default: `HASH`
-
   * `HASH`:
 
     * when called in backend context: Use the varnish hash value as
       set by `vcl_hash`
 
-    * when called in client content: hash `req.url`
+    * when called in client context: hash `req.url`
 
   * `URL`: hash req.url / bereq.url
 
@@ -437,20 +446,18 @@ is _not_ the order given when backends are added.
 
   * `BLOB`: use the `key_blob` argument
 
-  * `key` lookup key with `by=KEY`
+* `key` lookup key with `by=KEY`
 
-    the `shard.key()` function may come handy to generate a sharding
-    key from custom strings.
+  the `shard.key()` function may come handy to generate a sharding
+  key from custom strings.
 
-  * `key_blob` lookup key with `by=BLOB`
+* `key_blob` lookup key with `by=BLOB`
 
-    Currently, this uses the first 4 bytes from the given blob in
-    network byte order (big endian), left-padded with zeros for blobs
-    smaller than 4 bytes.
+  Currently, this uses the first 4 bytes from the given blob in
+  network byte order (big endian), left-padded with zeros for blobs
+  smaller than 4 bytes.
 
 * `alt` alternative backend selection
-
-  default: `0`
 
   Select the `alt`-th alternative backend for the given `key`.
 
@@ -461,8 +468,6 @@ is _not_ the order given when backends are added.
   The rampup and warmup features are only active for `alt==0`
 
 * `rampup` slow start for servers which just went healthy
-
-  default: `true`
 
   If `alt==0` and the chosen backend is in its rampup period, with a
   probability proportional to the fraction of time since the backup
@@ -477,8 +482,6 @@ is _not_ the order given when backends are added.
 
   possible values: -1, 0..1
 
-  default: `-1`
-
   `-1`: use the warmup probability from the director definition
 
   Only used for `alt==0`: Sets the ratio of requests (0.0 to 1.0) that
@@ -490,8 +493,6 @@ is _not_ the order given when backends are added.
   over two backends under normal operating conditions.
 
 * `healthy`
-
-  default: `CHOSEN`
 
   * CHOSEN: Return a healthy backend if possible.
 
@@ -512,15 +513,151 @@ is _not_ the order given when backends are added.
     For `alt > 0`, return the `alt`-th alternative backend of all
     those healthy, the last healthy backend found or none.
 
+* `resolve`
+
+  default: `LAZY` in ``vcl_init{}``, `NOW` otherwise
+
+  * ``NOW``: look up a backend and return it.
+
+    Can not be used in ``vcl_init{}``.
+
+  * ``LAZY``: return an instance of this director for later backend resolution.
+
+    ``LAZY`` mode is required for referencing shard director instances,
+    for example as backends for other directors (director layering).
+
+    In ``vcl_init{}`` and on the client side, ``LAZY`` mode can not be
+    used with any other argument.
+
+    On the backend side, parameters from arguments or an associated
+    parameter set affect the shard director instance for the backend
+    request irrespective of where it is referenced.
+
+* `param`
+
+  Use or associate a parameter set. The value of the `param` argument
+  must be a call to the `func_shard_param.use`_ method.
+
+  default: as set by `func_shard.associate`_ or unset.
+
+  * for ``resolve=NOW`` take parameter defaults from the
+    `obj_shard_param`_ parameter set
+
+  * for ``resolve=LAZY`` associate the `obj_shard_param`_ parameter
+    set for this backend request
+
+    Implementation notes for use of parameter sets with
+    ``resolve=LAZY``:
+
+    * A `param` argument remains associated and any changes to the
+      associated parameter set affect the sharding decision once the
+      director resolves to an actual backend.
+
+    * If other parameter arguments are also given, they have preference
+      and are kept even if the parameter set given by the `param`
+      argument is subsequently changed within the same backend request.
+
+    * Each call to `func_shard.backend`_ overrides any previous call.
+
 $Method VOID .debug(INT)
 
 `intentionally undocumented`
 
+$Object shard_param()
+
+Create a shard parameter set.
+
+A parameter set allows for re-use of `func_shard.backend`_ arguments
+across many shard director instances and simplifies advanced use cases
+(e.g. shard director with custom parameters layered below other
+directors).
+
+Parameter sets have two scopes:
+
+* per-VCL scope defined in ``vcl_init{}``
+* per backend request scope
+
+The per-VCL scope defines defaults for the per backend scope. Any
+changes to a parameter set in backend context only affect the
+respective backend request.
+
+Parameter sets can not be used in client context.
+
+$Method VOID .clear()
+
+Reset the parameter set to default values as documented for
+`func_shard.backend`_.
+
+* in ``vcl_init{}``, resets the parameter set default for this VCL
+* in backend context, resets the parameter set for this backend
+  request to the VCL defaults
+
+This method may not be used in client context
+
+$Method VOID .set(
+	[ ENUM {HASH, URL, KEY, BLOB} by ],
+	[ INT key ],
+	[ BLOB key_blob ],
+	[ INT alt ],
+	[ REAL warmup ],
+	[ BOOL rampup ],
+	[ ENUM {CHOSEN, IGNORE, ALL} healthy ])
+
+Change the given parameters of a parameter set as documented for
+`func_shard.backend`_.
+
+* in ``vcl_init{}``, changes the parameter set default for this VCL
+
+* in backend context, changes the parameter set for this backend
+  request, keeping the defaults set for this VCL for unspecified
+  arguments.
+
+This method may not be used in client context
+
+$Method STRING .get_by()
+
+Get a string representation of the `by` enum argument which denotes
+how a shard director using this parameter object would derive the
+shard key. See `func_shard.backend`_.
+
+$Method INT .get_key()
+
+Get the key which a shard director using this parameter object would
+use. See `func_shard.backend`_.
+
+$Method INT .get_alt()
+
+Get the `alt` parameter which a shard director using this parameter
+object would use. See `func_shard.backend`_.
+
+$Method REAL .get_warmup()
+
+Get the `warmup` parameter which a shard director using this parameter
+object would use. See `func_shard.backend`_.
+
+$Method BOOL .get_rampup()
+
+Get the `rampup` parameter which a shard director using this parameter
+object would use. See `func_shard.backend`_.
+
+$Method STRING .get_healthy()
+
+Get a string representation of the `healthy` enum argument which a
+shard director using this parameter object would use. See
+`func_shard.backend`_.
+
+$Method BLOB .use()
+
+This method may only be used in backend context.
+
+For use with the `param` argument of `func_shard.backend`_ to associate
+this shard parameter set with a shard director.
+
 ACKNOWLEDGEMENTS
 ================
 
-Development of a previous version of the shard director was partly sponsored
-by Deutsche Telekom AG - Products & Innovation.
+Development of a previous version of the shard director was partly
+sponsored by Deutsche Telekom AG - Products & Innovation.
 
-Development of this version of the shard director was partly sponsored
-by BILD GmbH & Co KG.
+Development of a previous version of the shard director was partly
+sponsored by BILD GmbH & Co KG.

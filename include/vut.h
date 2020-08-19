@@ -29,13 +29,17 @@
  * Common functions for the utilities
  */
 
+struct VUT;
 struct vopt_spec;
 
-typedef int VUT_cb_f(void);
+typedef void VUT_sighandler_f(int);
+typedef int VUT_cb_f(struct VUT *);
+typedef void VUT_error_f(struct VUT *, int, const char *, va_list);
 
 struct VUT {
+	unsigned	magic;
+#define VUT_MAGIC	0xdf3b3de8
 	const char	*progname;
-	char		*name;
 
 	/* Options */
 	int		d_opt;
@@ -43,17 +47,15 @@ struct VUT {
 	int		g_arg;
 	int		k_arg;
 	char		*n_arg;
-	char		*N_arg;
 	char		*P_arg;
 	char		*q_arg;
 	char		*r_arg;
-	double		t_arg;
+	char		*t_arg;
 
 	/* State */
 	struct VSL_data	*vsl;
-	struct VSM_data	*vsm;
+	struct vsm	*vsm;
 	struct VSLQ	*vslq;
-	struct vpf_fh	*pfh;
 	int		sighup;
 	int		sigint;
 	int		sigusr1;
@@ -61,24 +63,24 @@ struct VUT {
 	/* Callback functions */
 	VUT_cb_f	*idle_f;
 	VUT_cb_f	*sighup_f;
+	VUT_error_f	*error_f;
 	VSLQ_dispatch_f	*dispatch_f;
 	void		*dispatch_priv;
 };
 
-extern struct VUT VUT;
+void VUT_Error(struct VUT *, int status, const char *fmt, ...)
+    v_noreturn_ v_printflike_(3, 4);
 
-void VUT_Error(int status, const char *fmt, ...)
-	__v_printflike(2, 3);
+int VUT_Arg(struct VUT *, int opt, const char *arg);
 
-int VUT_g_Arg(const char *arg);
+#define VUT_InitProg(argc, argv, spec) VUT_Init(argv[0], argc, argv, spec)
 
-int VUT_Arg(int opt, const char *arg);
-
-void VUT_Setup(void);
-
-void VUT_Init(const char *progname, int argc, char * const *argv,
+struct VUT * VUT_Init(const char *progname, int argc, char * const *argv,
     const struct vopt_spec *);
 
-void VUT_Fini(void);
+void VUT_Signal(VUT_sighandler_f);
+void VUT_Signaled(struct VUT *, int);
 
-int VUT_Main(void);
+void VUT_Setup(struct VUT *);
+int  VUT_Main(struct VUT *);
+void VUT_Fini(struct VUT **);

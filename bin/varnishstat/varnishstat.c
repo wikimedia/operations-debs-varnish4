@@ -32,57 +32,52 @@
 
 #include "config.h"
 
-#include <sys/time.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
-#include <stdint.h>
+
+#define VOPT_DEFINITION
+#define VOPT_INC "varnishstat_options.h"
 
 #include "vapi/voptget.h"
 #include "vapi/vsl.h"
 #include "vdef.h"
-#include "vnum.h"
-#include "vtim.h"
 #include "vut.h"
 
 #include "varnishstat.h"
 
-static const char progname[] = "varnishstat";
+static struct VUT *vut;
 
 /*--------------------------------------------------------------------*/
 
-static int
+static int v_matchproto_(VSC_iter_f)
 do_xml_cb(void *priv, const struct VSC_point * const pt)
 {
 	uint64_t val;
-	const struct VSC_section *sec;
 
 	(void)priv;
 	if (pt == NULL)
 		return (0);
-	AZ(strcmp(pt->desc->ctype, "uint64_t"));
+	AZ(strcmp(pt->ctype, "uint64_t"));
 	val = *(const volatile uint64_t*)pt->ptr;
-	sec = pt->section;
 
 	printf("\t<stat>\n");
-	if (strcmp(sec->fantom->type, ""))
-		printf("\t\t<type>%s</type>\n", sec->fantom->type);
-	if (strcmp(sec->fantom->ident, ""))
-		printf("\t\t<ident>%s</ident>\n", sec->fantom->ident);
-	printf("\t\t<name>%s</name>\n", pt->desc->name);
+	printf("\t\t<name>%s</name>\n", pt->name);
 	printf("\t\t<value>%ju</value>\n", (uintmax_t)val);
-	printf("\t\t<flag>%c</flag>\n", pt->desc->semantics);
-	printf("\t\t<format>%c</format>\n", pt->desc->format);
-	printf("\t\t<description>%s</description>\n", pt->desc->sdesc);
+	printf("\t\t<flag>%c</flag>\n", pt->semantics);
+	printf("\t\t<format>%c</format>\n", pt->format);
+	printf("\t\t<description>%s</description>\n", pt->sdesc);
 	printf("\t</stat>\n");
 	return (0);
 }
 
 static void
-do_xml(struct VSM_data *vd)
+do_xml(struct vsm *vsm, struct vsc *vsc)
 {
 	char time_stamp[20];
 	time_t now;
@@ -91,27 +86,25 @@ do_xml(struct VSM_data *vd)
 	now = time(NULL);
 	(void)strftime(time_stamp, 20, "%Y-%m-%dT%H:%M:%S", localtime(&now));
 	printf("<varnishstat timestamp=\"%s\">\n", time_stamp);
-	(void)VSC_Iter(vd, NULL, do_xml_cb, NULL);
+	(void)VSC_Iter(vsc, vsm, do_xml_cb, NULL);
 	printf("</varnishstat>\n");
 }
 
 
 /*--------------------------------------------------------------------*/
 
-static int
+static int v_matchproto_(VSC_iter_f)
 do_json_cb(void *priv, const struct VSC_point * const pt)
 {
 	uint64_t val;
 	int *jp;
-	const struct VSC_section *sec;
 
 	if (pt == NULL)
 		return (0);
 
 	jp = priv;
-	AZ(strcmp(pt->desc->ctype, "uint64_t"));
+	AZ(strcmp(pt->ctype, "uint64_t"));
 	val = *(const volatile uint64_t*)pt->ptr;
-	sec = pt->section;
 
 	if (*jp)
 		*jp = 0;
@@ -120,19 +113,11 @@ do_json_cb(void *priv, const struct VSC_point * const pt)
 
 	printf("  \"");
 	/* build the JSON key name.  */
-	if (sec->fantom->type[0])
-		printf("%s.", sec->fantom->type);
-	if (sec->fantom->ident[0])
-		printf("%s.", sec->fantom->ident);
-	printf("%s\": {\n", pt->desc->name);
-	printf("    \"description\": \"%s\",\n", pt->desc->sdesc);
+	printf("%s\": {\n", pt->name);
+	printf("    \"description\": \"%s\",\n", pt->sdesc);
 
-	if (strcmp(sec->fantom->type, ""))
-		printf("    \"type\": \"%s\", ", sec->fantom->type);
-	if (strcmp(sec->fantom->ident, ""))
-		printf("\"ident\": \"%s\", ", sec->fantom->ident);
-	printf("\"flag\": \"%c\", ", pt->desc->semantics);
-	printf("\"format\": \"%c\",\n", pt->desc->format);
+	printf("    \"flag\": \"%c\", ", pt->semantics);
+	printf("\"format\": \"%c\",\n", pt->format);
 	printf("    \"value\": %ju", (uintmax_t)val);
 	printf("\n  }");
 
@@ -142,7 +127,7 @@ do_json_cb(void *priv, const struct VSC_point * const pt)
 }
 
 static void
-do_json(struct VSM_data *vd)
+do_json(struct vsm *vsm, struct vsc *vsc)
 {
 	char time_stamp[20];
 	time_t now;
@@ -155,7 +140,7 @@ do_json(struct VSM_data *vd)
 
 	(void)strftime(time_stamp, 20, "%Y-%m-%dT%H:%M:%S", localtime(&now));
 	printf("  \"timestamp\": \"%s\",\n", time_stamp);
-	(void)VSC_Iter(vd, NULL, do_json_cb, &jp);
+	(void)VSC_Iter(vsc, vsm, do_json_cb, &jp);
 	printf("\n}\n");
 }
 
@@ -167,95 +152,105 @@ struct once_priv {
 	int pad;
 };
 
-static int
+static int v_matchproto_(VSC_iter_f)
+do_once_cb_first(void *priv, const struct VSC_point * const pt)
+{
+	struct once_priv *op;
+	uint64_t val;
+
+	if (pt == NULL)
+		return (0);
+	op = priv;
+	AZ(strcmp(pt->ctype, "uint64_t"));
+	if (strcmp(pt->name, "MAIN.uptime"))
+		return (0);
+	val = *(const volatile uint64_t*)pt->ptr;
+	op->up = (double)val;
+	return (1);
+}
+
+static int v_matchproto_(VSC_iter_f)
 do_once_cb(void *priv, const struct VSC_point * const pt)
 {
 	struct once_priv *op;
 	uint64_t val;
 	int i;
-	const struct VSC_section *sec;
 
 	if (pt == NULL)
 		return (0);
 	op = priv;
-	AZ(strcmp(pt->desc->ctype, "uint64_t"));
+	AZ(strcmp(pt->ctype, "uint64_t"));
 	val = *(const volatile uint64_t*)pt->ptr;
-	sec = pt->section;
 	i = 0;
-	if (strcmp(sec->fantom->type, ""))
-		i += printf("%s.", sec->fantom->type);
-	if (strcmp(sec->fantom->ident, ""))
-		i += printf("%s.", sec->fantom->ident);
-	i += printf("%s", pt->desc->name);
+	i += printf("%s", pt->name);
 	if (i >= op->pad)
 		op->pad = i + 1;
 	printf("%*.*s", op->pad - i, op->pad - i, "");
-	if (pt->desc->semantics == 'c')
+	if (pt->semantics == 'c')
 		printf("%12ju %12.2f %s\n",
-		    (uintmax_t)val, val / op->up, pt->desc->sdesc);
+		    (uintmax_t)val, op->up ? val / op->up : 0,
+		    pt->sdesc);
 	else
 		printf("%12ju %12s %s\n",
-		    (uintmax_t)val, ".  ", pt->desc->sdesc);
+		    (uintmax_t)val, ".  ", pt->sdesc);
 	return (0);
 }
 
 static void
-do_once(struct VSM_data *vd, const struct VSC_C_main *VSC_C_main)
+do_once(struct vsm *vsm, struct vsc *vsc)
 {
+	struct vsc *vsconce = VSC_New();
 	struct once_priv op;
 
+	AN(vsconce);
+	AN(VSC_Arg(vsconce, 'f', "MAIN.uptime"));
+
 	memset(&op, 0, sizeof op);
-	if (VSC_C_main != NULL)
-		op.up = VSC_C_main->uptime;
 	op.pad = 18;
 
-	(void)VSC_Iter(vd, NULL, do_once_cb, &op);
+	(void)VSC_Iter(vsconce, vsm, do_once_cb_first, &op);
+	VSC_Destroy(&vsconce, vsm);
+	(void)VSC_Iter(vsc, vsm, do_once_cb, &op);
 }
 
 /*--------------------------------------------------------------------*/
 
-static int
+static int v_matchproto_(VSC_iter_f)
 do_list_cb(void *priv, const struct VSC_point * const pt)
 {
 	int i;
-	const struct VSC_section * sec;
 
 	(void)priv;
 
 	if (pt == NULL)
 		return (0);
 
-	sec = pt->section;
 	i = 0;
-	if (strcmp(sec->fantom->type, ""))
-		i += printf("%s.", sec->fantom->type);
-	if (strcmp(sec->fantom->ident, ""))
-		i += printf("%s.", sec->fantom->ident);
-	i += printf("%s", pt->desc->name);
+	i += printf("%s", pt->name);
 	if (i < 30)
 		printf("%*s", i - 30, "");
-	printf(" %s\n", pt->desc->sdesc);
+	printf(" %s\n", pt->sdesc);
 	return (0);
 }
 
 static void
-list_fields(struct VSM_data *vd)
+list_fields(struct vsm *vsm, struct vsc *vsc)
 {
 	printf("Varnishstat -f option fields:\n");
 	printf("Field name                     Description\n");
 	printf("----------                     -----------\n");
 
-	(void)VSC_Iter(vd, NULL, do_list_cb, NULL);
+	(void)VSC_Iter(vsc, vsm, do_list_cb, NULL);
 }
 
 /*--------------------------------------------------------------------*/
 
-static void __attribute__((__noreturn__))
+static void v_noreturn_
 usage(int status)
 {
 	const char **opt;
 
-	fprintf(stderr, "Usage: %s <options>\n\n", progname);
+	fprintf(stderr, "Usage: %s <options>\n\n", vut->progname);
 	fprintf(stderr, "Options:\n");
 	for (opt = vopt_spec.vopt_usage; *opt != NULL; opt +=2)
 		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
@@ -265,15 +260,19 @@ usage(int status)
 int
 main(int argc, char * const *argv)
 {
-	struct VSM_data *vd;
-	double t_arg = 5.0, t_start = NAN;
+	struct vsm *vd;
 	int once = 0, xml = 0, json = 0, f_list = 0, curses = 0;
 	signed char opt;
 	int i;
+	int has_f = 0;
+	struct vsc *vsc;
 
-	VUT_Init(progname, argc, argv, &vopt_spec);
+	vut = VUT_InitProg(argc, argv, &vopt_spec);
+	AN(vut);
 	vd = VSM_New();
 	AN(vd);
+	vsc = VSC_New();
+	AN(vsc);
 
 	while ((opt = getopt(argc, argv, vopt_spec.vopt_optstring)) != -1) {
 		switch (opt) {
@@ -283,33 +282,27 @@ main(int argc, char * const *argv)
 		case 'h':
 			/* Usage help */
 			usage(0);
+			break;
 		case 'l':
 			f_list = 1;
 			break;
-		case 't':
-			if (!strcasecmp(optarg, "off"))
-				t_arg = -1.;
-			else {
-				t_arg = VNUM(optarg);
-				if (isnan(t_arg))
-					VUT_Error(1, "-t: Syntax error");
-				if (t_arg < 0.)
-					VUT_Error(1, "-t: Range error");
-			}
-			break;
-		case 'V':
-			VCS_Message("varnishstat");
-			exit(0);
 		case 'x':
 			xml = 1;
 			break;
 		case 'j':
 			json = 1;
 			break;
+		case 'f':
+			AN(VSC_Arg(vsc, opt, optarg));
+			has_f = 1;
+			break;
+		case 'V':
+			AN(VUT_Arg(vut, opt, optarg));
+			break;
 		default:
-			i = VSC_Arg(vd, opt, optarg);
+			i = VSM_Arg(vd, opt, optarg);
 			if (i < 0)
-				VUT_Error(1, "%s", VSM_Error(vd));
+				VUT_Error(vut, 1, "%s", VSM_Error(vd));
 			if (!i)
 				usage(1);
 		}
@@ -321,41 +314,26 @@ main(int argc, char * const *argv)
 	if (!(xml || json || once || f_list))
 		curses = 1;
 
-	while (1) {
-		i = VSM_Open(vd);
-		if (!i)
-			break;
-		if (isnan(t_start) && t_arg > 0.) {
-			VUT_Error(0, "Can't open log -"
-			    " retrying for %.0f seconds", t_arg);
-			t_start = VTIM_real();
-		}
-		if (t_arg <= 0.)
-			break;
-		if (VTIM_real() - t_start > t_arg)
-			break;
-		VSM_ResetError(vd);
-		VTIM_sleep(0.5);
-	}
+	if (VSM_Attach(vd, STDERR_FILENO))
+		VUT_Error(vut, 1, "%s", VSM_Error(vd));
 
 	if (curses) {
-		if (i && t_arg >= 0.)
-			VUT_Error(1, "%s", VSM_Error(vd));
-		do_curses(vd, 1.0);
-		exit(0);
+		if (has_f) {
+			AN(VSC_Arg(vsc, 'f', "MGT.uptime"));
+			AN(VSC_Arg(vsc, 'f', "MAIN.uptime"));
+			AN(VSC_Arg(vsc, 'f', "MAIN.cache_hit"));
+			AN(VSC_Arg(vsc, 'f', "MAIN.cache_miss"));
+		}
+		do_curses(vd, vsc);
 	}
-
-	if (i)
-		VUT_Error(1, "%s", VSM_Error(vd));
-
-	if (xml)
-		do_xml(vd);
+	else if (xml)
+		do_xml(vd, vsc);
 	else if (json)
-		do_json(vd);
+		do_json(vd, vsc);
 	else if (once)
-		do_once(vd, VSC_Main(vd, NULL));
+		do_once(vd, vsc);
 	else if (f_list)
-		list_fields(vd);
+		list_fields(vd, vsc);
 	else
 		assert(0);
 

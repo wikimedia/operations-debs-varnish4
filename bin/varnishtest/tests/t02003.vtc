@@ -43,10 +43,10 @@ client c1 {
 		expect goaway.err == PROTOCOL_ERROR
 	} -start
 	stream 3 {
-		txprio
+		txreq
 	} -run
 	stream 1 {
-		txprio
+		txreq
 	} -run
 	stream 0 -wait
 } -run
@@ -63,13 +63,13 @@ varnish v1 -expect MEMPOOL.sess1.live == 0
 
 client c1 {
 	stream 1 {
-		txprio
+		txreq -nostrend
 		txwinup -size 0
 		rxrst
 		expect rst.err == PROTOCOL_ERROR
 	} -run
 	stream 3 {
-		txprio
+		txreq -nostrend
 		txwinup -size 0x40000000
 		txwinup -size 0x40000000
 		rxrst
@@ -81,7 +81,7 @@ client c1 {
 		expect goaway.err == FRAME_SIZE_ERROR
 	} -start
 	stream 5 {
-		txprio
+		txreq -nostrend
 		sendhex "000003 08 00 00000005"
 		delay .1
 		sendhex 01
@@ -167,10 +167,25 @@ client c1 {
 		expect goaway.laststream == 1
 	} -start
 	stream 1 {
-		txprio
+		txreq -nostrend
 		sendhex "000008 05 00 00000001 0001020304050607"
 	} -run
 	stream 0 -wait
+} -run
+
+client c1 {
+	stream 0 {
+		rxgoaway
+		expect goaway.err == PROTOCOL_ERROR
+		expect goaway.laststream == 1
+	} -start
+	stream 1 {
+		txreq
+		rxresp
+		delay .1
+		# send a PUSH_PROMISE after a request
+		sendhex "000008 05 00 00000001 0001020304050607"
+	} -start
 } -run
 
 varnish v1 -vsl_catchup
@@ -200,7 +215,7 @@ client c1 {
 		expect goaway.laststream == 1
 	} -start
 	stream 1 {
-		txprio
+		txreq -nostrend
 		# RST wrong length
 		sendhex "000005 03 00 00000001 0000000800"
 	} -run
@@ -369,6 +384,58 @@ client c1 {
 	} -run
 } -run
 
+
+#2349: Padding exceeds frame size
+client c1 {
+	stream 1 {
+		sendhex 000001
+		sendhex 01
+		sendhex 09
+		sendhex 00000001
+		sendhex { ff }
+	} -run
+	stream 0 {
+		rxgoaway
+		expect goaway.err == PROTOCOL_ERROR
+		expect goaway.laststream == 1
+	} -run
+	expect_close
+} -run
+
+#2349: Padding equal to frame size
+client c1 {
+	stream 1 {
+		sendhex 000001
+		sendhex 01
+		sendhex 09
+		sendhex 00000001
+		sendhex 01
+	} -run
+	stream 0 {
+		rxgoaway
+		expect goaway.err == PROTOCOL_ERROR
+		expect goaway.laststream == 1
+	} -run
+	expect_close
+} -run
+
+#2349: Integer underrun may also occur when the priority flag is set
+client c1 {
+	stream 1 {
+		sendhex 000004
+		sendhex 01
+		sendhex 21
+		sendhex 00000001
+		sendhex { aabb ccdd }
+	} -run
+	stream 0 {
+		rxgoaway
+		expect goaway.err == PROTOCOL_ERROR
+		expect goaway.laststream == 1
+	} -run
+	expect_close
+} -run
+
 varnish v1 -vsl_catchup
 
 varnish v1 -expect MEMPOOL.req0.live == 0
@@ -407,6 +474,29 @@ client c1 {
 		sendhex ffffffff
 		rxgoaway
 		expect goaway.err == COMPRESSION_ERROR
+	} -run
+} -run
+
+client c1 {
+	stream 1 {
+		txreq -nohdrend
+		txcont -hdr "bar" "foo"
+		rxresp
+		expect resp.status == 200
+	} -run
+} -run
+
+# 2350: Don't accept a continuation frame after stream is closed
+client c1 {
+	stream 1 {
+		txreq
+		rxresp
+		txcont -hdr "foo" "bar"
+	} -run
+
+	stream 0 {
+		rxgoaway
+		expect goaway.err == PROTOCOL_ERROR
 	} -run
 } -run
 

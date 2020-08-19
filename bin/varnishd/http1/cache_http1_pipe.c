@@ -31,14 +31,14 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
 #include <poll.h>
 #include <stdio.h>
 
-#include "vrt.h"
-
 #include "cache_http1.h"
+
+#include "VSC_vbe.h"
 
 static struct lock pipestat_mtx;
 
@@ -63,7 +63,7 @@ rdf(int fd0, int fd1, uint64_t *pcnt)
 }
 
 void
-V1P_Charge(struct req *req, const struct v1p_acct *a, struct VSC_C_vbe *b)
+V1P_Charge(struct req *req, const struct v1p_acct *a, struct VSC_vbe *b)
 {
 
 	AN(b);
@@ -84,7 +84,7 @@ V1P_Charge(struct req *req, const struct v1p_acct *a, struct VSC_C_vbe *b)
 }
 
 void
-V1P_Process(struct req *req, int fd, struct v1p_acct *v1a)
+V1P_Process(const struct req *req, int fd, struct v1p_acct *v1a)
 {
 	struct pollfd fds[2];
 	int i, j;
@@ -104,9 +104,9 @@ V1P_Process(struct req *req, int fd, struct v1p_acct *v1a)
 	}
 	memset(fds, 0, sizeof fds);
 	fds[0].fd = fd;
-	fds[0].events = POLLIN | POLLERR;
+	fds[0].events = POLLIN;
 	fds[1].fd = req->sp->fd;
-	fds[1].events = POLLIN | POLLERR;
+	fds[1].events = POLLIN;
 
 	while (fds[0].fd > -1 || fds[1].fd > -1) {
 		fds[0].revents = 0;

@@ -47,13 +47,15 @@
 	)
 
 #define HIS_OPT_P							\
-	VOPT("P:", "[-P <[cb:]tag:field_num:min:max>]",			\
+	VOPT("P:", "[-P <[cb:]tag:[prefix]:field_num[:min:max]>]",	\
 	    "Custom profile definition",				\
 	    "Graph the given custom definition defined as: an optional" \
 	    " (c)lient or (b)ackend filter (defaults to client), the"	\
-	    " tag we'll look for, and the field number of the value we" \
-	    " are interested in. min and max are the boundaries of the" \
-	    " graph (these are power of ten)."				\
+	    " tag we'll look for, a prefix to look for (can be empty,"	\
+	    " but must be terminated by a colon) and the field number"	\
+	    " of the value we are interested in. min and max are the"	\
+	    " boundaries of the graph in powers of ten and default to"	\
+	    " -6 and 3."						\
 	)
 
 #define HIS_OPT_B							\
@@ -73,16 +75,15 @@ HIS_OPT_g
 VUT_OPT_h
 VSL_OPT_L
 VUT_OPT_n
-VUT_OPT_N
 HIS_OPT_p
 #define HIS_CLIENT	"client"
 #define HIS_BACKEND	"backend"
 #define HIS_NO_PREFIX	""
-#define HIS_PROF(name,cb,tag,prefix,field,hist_low,high_high,doc)	\
+#define HIS_PROF(name,cb,tg,prefix,fld,hist_low,high_high,doc)		\
 	VOPT("P:", "[-P " name "]",					\
 	     "Predefined " cb " profile",				\
 	     "Predefined " cb " profile: " doc				\
-	     " (field " #field " of " #tag " " prefix " VSL tag)."	\
+	     " (field " #fld " of " #tg " " prefix " VSL tag)."		\
 	    )
 #include "varnishhist_profiles.h"
 #undef HIS_NO_PREFIX
@@ -94,4 +95,4 @@ VUT_OPT_q
 VUT_OPT_r
 VUT_OPT_t
 VSL_OPT_T
-VUT_OPT_V
+VUT_GLOBAL_OPT_V

@@ -29,10 +29,9 @@
 #include "config.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "cache/cache.h"
-
-#include "vrt.h"
 
 #include "vcc_if.h"
 
@@ -49,7 +48,7 @@ compa(const void *a, const void *b)
 	return (0);
 }
 
-VCL_STRING __match_proto__(td_std_querysort)
+VCL_STRING v_matchproto_(td_std_querysort)
 vmod_querysort(VRT_CTX, VCL_STRING url)
 {
 	const char *cq, *cu;

@@ -27,7 +27,6 @@
  *
  */
 
-struct busyobj;
 struct req;
 struct vfp_entry;
 struct vfp_ctx;
@@ -47,12 +46,11 @@ typedef enum vfp_status
 typedef void vfp_fini_f(struct vfp_ctx *, struct vfp_entry *);
 
 struct vfp {
-	const char	*name;
-	vfp_init_f	*init;
-	vfp_pull_f	*pull;
-	vfp_fini_f	*fini;
-	const void	*priv1;
-	intptr_t	priv2;
+	const char		*name;
+	vfp_init_f		*init;
+	vfp_pull_f		*pull;
+	vfp_fini_f		*fini;
+	const void		*priv1;
 };
 
 struct vfp_entry {
@@ -67,51 +65,75 @@ struct vfp_entry {
 	uint64_t		bytes_out;
 };
 
+/*--------------------------------------------------------------------
+ * VFP filter state
+ */
 
-extern const struct vfp vfp_gunzip;
-extern const struct vfp vfp_gzip;
-extern const struct vfp vfp_testgunzip;
-extern const struct vfp vfp_esi;
-extern const struct vfp vfp_esi_gzip;
+VTAILQ_HEAD(vfp_entry_s, vfp_entry);
 
-struct vfp_entry *VFP_Push(struct vfp_ctx *, const struct vfp *, int top);
-void VFP_Setup(struct vfp_ctx *vc);
-int VFP_Open(struct vfp_ctx *bo);
-void VFP_Close(struct vfp_ctx *bo);
+struct vfp_ctx {
+	unsigned		magic;
+#define VFP_CTX_MAGIC		0x61d9d3e5
+	int			failed;
+	struct http		*req;
+	struct http		*resp;
+	struct worker		*wrk;
+	struct objcore		*oc;
+
+	struct vfp_entry_s	vfp;
+	struct vfp_entry	*vfp_nxt;
+	unsigned		obj_flags;
+};
+
 enum vfp_status VFP_Suck(struct vfp_ctx *, void *p, ssize_t *lp);
 enum vfp_status VFP_Error(struct vfp_ctx *, const char *fmt, ...)
-    __v_printflike(2, 3);
-
-/* cache_fetch_proc.c */
-enum vfp_status VFP_GetStorage(struct vfp_ctx *, ssize_t *sz, uint8_t **ptr);
-void VFP_Extend(const struct vfp_ctx *, ssize_t sz);
+    v_printflike_(2, 3);
 
 /* Deliver processors ------------------------------------------------*/
 
 enum vdp_action {
-	VDP_INIT,		/* Happens on VDP_push() */
-	VDP_FINI,		/* Happens on VDP_pop() */
 	VDP_NULL,		/* Input buffer valid after call */
 	VDP_FLUSH,		/* Input buffer will be invalidated */
 };
 
-typedef int vdp_bytes(struct req *, enum vdp_action, void **priv,
+typedef int vdp_init_f(struct req *, void **priv);
+/*
+ * Return value:
+ *	negative:	Error - abandon delivery
+ *	zero:		OK
+ *	positive:	Don't push this VDP anyway
+ */
+
+typedef int vdp_fini_f(struct req *, void **priv);
+typedef int vdp_bytes_f(struct req *, enum vdp_action, void **priv,
     const void *ptr, ssize_t len);
+
+struct vdp {
+	const char		*name;
+	vdp_init_f		*init;
+	vdp_bytes_f		*bytes;
+	vdp_fini_f		*fini;
+};
 
 struct vdp_entry {
 	unsigned		magic;
 #define VDP_ENTRY_MAGIC		0x353eb781
-	vdp_bytes		*func;
+	const struct vdp	*vdp;
 	void			*priv;
-	const char		*id;
 	VTAILQ_ENTRY(vdp_entry)	list;
 };
 
-int VDP_bytes(struct req *, enum vdp_action act, const void *ptr, ssize_t len);
-void VDP_push(struct req *, vdp_bytes *func, void *priv, int bottom,
-    const char *id);
-void VDP_close(struct req *req);
-int VDP_DeliverObj(struct req *req);
+VTAILQ_HEAD(vdp_entry_s, vdp_entry);
 
-vdp_bytes VDP_gunzip;
-vdp_bytes VDP_ESI;
+struct vdp_ctx {
+	unsigned		magic;
+#define VDP_CTX_MAGIC		0xee501df7
+	struct vdp_entry_s	vdp;
+	struct vdp_entry	*nxt;
+	int			retval;
+};
+
+int VDP_bytes(struct req *, enum vdp_action act, const void *ptr, ssize_t len);
+int VDP_Push(struct req *, const struct vdp *, void *priv);
+void VRT_AddVDP(VRT_CTX, const struct vdp *);
+void VRT_RemoveVDP(VRT_CTX, const struct vdp *);

@@ -33,24 +33,42 @@
 #endif
 #define MGT_MGT_H
 
-#include <stdio.h>
 
-#include "common/common.h"
-#include "common/com_params.h"
+#include <stdint.h>
+
+#include <sys/types.h>
+
+#include "vdef.h"
+
+#include "miniobj.h"
+#include "vas.h"
+#include "vcs.h"
+#include "vqueue.h"
+#include "vsb.h"
+
+#include "common/common_param.h"
+
+struct vsc_seg;
+struct vsmw_cluster;
+#include "VSC_mgt.h"
 
 struct cli;
 struct parspec;
 struct vcc;
 struct vclprog;
 
-extern struct vev_base	*mgt_evb;
+extern struct vev_root	*mgt_evb;
 extern unsigned		d_flag;
 extern int		exit_status;
+
+/* builtin_vcl.c */
+
+extern const char * const builtin_vcl;
 
 /* mgt_acceptor.c */
 
 void MAC_Arg(const char *);
-void MAC_reopen_sockets(struct cli *);
+int MAC_reopen_sockets(void);
 
 /* mgt_child.c */
 void MCH_Init(void);
@@ -61,12 +79,13 @@ void MCH_TrackHighFd(int fd);
 void MCH_Cli_Fail(void);
 
 /* mgt_cli.c */
+extern struct VCLS	*mgt_cls;
 
-typedef void mgt_cli_close_f(void *priv);
+typedef int mgt_cli_close_f(void *priv);
 void mgt_cli_setup(int fdi, int fdo, int auth, const char *ident,
     mgt_cli_close_f *close_func, void *priv);
 int mgt_cli_askchild(unsigned *status, char **resp, const char *fmt, ...)
-    __v_printflike(3, 4);
+    v_printflike_(3, 4);
 void mgt_cli_start_child(int fdi, int fdo);
 void mgt_cli_stop_child(void);
 void mgt_cli_telnet(const char *T_arg);
@@ -95,11 +114,17 @@ enum jail_master_e {
 	JAIL_MASTER_KILL,
 };
 
+enum jail_fixfd_e {
+	JAIL_FIXFD_FILE,
+	JAIL_FIXFD_VSMMGT,
+	JAIL_FIXFD_VSMWRK,
+};
+
 typedef int jail_init_f(char **);
 typedef void jail_master_f(enum jail_master_e);
 typedef void jail_subproc_f(enum jail_subproc_e);
-typedef int jail_make_dir_f(const char *dname);
-typedef void jail_fixfile_f(int fd);
+typedef int jail_make_dir_f(const char *, const char *, struct vsb *);
+typedef void jail_fixfd_f(int, enum jail_fixfd_e);
 
 struct jail_tech {
 	unsigned		magic;
@@ -109,25 +134,23 @@ struct jail_tech {
 	jail_master_f		*master;
 	jail_subproc_f		*subproc;
 	jail_make_dir_f		*make_workdir;
-	jail_make_dir_f		*make_vcldir;
-	jail_fixfile_f		*vsm_file;
-	jail_fixfile_f		*storage_file;
+	jail_make_dir_f		*make_subdir;
+	jail_fixfd_f		*fixfd;
 };
 
-void VJ_Init(const char *j_arg);
-void VJ_master(enum jail_master_e jme);
-void VJ_subproc(enum jail_subproc_e jse);
-int VJ_make_workdir(const char *dname);
-int VJ_make_vcldir(const char *dname);
-void VJ_fix_vsm_file(int fd);
-void VJ_fix_storage_file(int fd);
+void VJ_Init(const char *);
+void VJ_master(enum jail_master_e);
+void VJ_subproc(enum jail_subproc_e);
+int VJ_make_workdir(const char *);
+int VJ_make_subdir(const char *, const char *, struct vsb *);
+void VJ_fix_fd(int, enum jail_fixfd_e);
 
 extern const struct jail_tech jail_tech_unix;
 extern const struct jail_tech jail_tech_solaris;
 
 /* mgt_main.c */
-extern struct VSC_C_mgt	*VSC_C_mgt;
-extern struct VSC_C_mgt static_VSC_C_mgt;
+extern struct vsb *vident;
+extern struct VSC_mgt	*VSC_C_mgt;
 struct choice {
 	const char      *name;
 	const void	*ptr;
@@ -141,14 +164,13 @@ extern const char C_CLI[];	// CLI traffic between master and child
 
 /* mgt_param.c */
 void MCF_InitParams(struct cli *);
-void MCF_CollectParams(void);
 enum mcf_which_e {
 	MCF_DEFAULT = 32,
 	MCF_MINIMUM = 33,
 	MCF_MAXIMUM = 34,
 };
 void MCF_ParamConf(enum mcf_which_e, const char *param, const char *, ...)
-    __v_printflike(3, 4);
+    v_printflike_(3, 4);
 
 void MCF_ParamSet(struct cli *, const char *param, const char *val);
 void MCF_ParamProtect(struct cli *, const char *arg);
@@ -159,19 +181,25 @@ extern struct params mgt_param;
 /* mgt_shmem.c */
 void mgt_SHM_Init(void);
 void mgt_SHM_static_alloc(const void *, ssize_t size,
-    const char *class, const char *type, const char *ident);
+    const char *class, const char *ident);
 void mgt_SHM_Create(void);
 void mgt_SHM_Destroy(int keep);
-void mgt_SHM_Size_Adjust(void);
+
+void mgt_SHM_ChildNew(void);
+void mgt_SHM_ChildDestroy(void);
 
 /* mgt_param_tcp.c */
 void MCF_TcpParams(void);
 
 /* mgt_util.c */
+char *mgt_HostName(void);
+void mgt_ProcTitle(const char *comp);
 void mgt_DumpRstVsl(void);
 struct vsb *mgt_BuildVident(void);
-void MGT_Complain(const char *, const char *, ...) __v_printflike(2, 3);
+void MGT_Complain(const char *, const char *, ...) v_printflike_(2, 3);
 const void *MGT_Pick(const struct choice *, const char *, const char *);
+char **MGT_NamedArg(const char *, const char **, const char *);
+
 
 /* stevedore_mgt.c */
 void STV_Config(const char *spec);
@@ -185,7 +213,7 @@ char *mgt_VccCompile(struct cli *, struct vclprog *, const char *vclname,
 void mgt_vcl_init(void);
 void mgt_vcl_startup(struct cli *, const char *vclsrc, const char *origin,
     const char *vclname, int Cflag);
-int mgt_push_vcls_and_start(struct cli *, unsigned *status, char **p);
+int mgt_push_vcls(struct cli *, unsigned *status, char **p);
 void mgt_vcl_export_labels(struct vcc *);
 int mgt_has_vcl(void);
 void mgt_vcl_depends(struct vclprog *vp1, const char *name);
@@ -201,16 +229,5 @@ extern unsigned mgt_vcc_unsafe_path;
 #error "Keep pthreads out of in manager process"
 #endif
 
-static inline int
-MGT_FEATURE(enum feature_bits x)
-{
-	return (mgt_param.feature_bits[(unsigned)x>>3] &
-	    (0x80U >> ((unsigned)x & 7)));
-}
-
-static inline int
-MGT_DO_DEBUG(enum debug_bits x)
-{
-	return (mgt_param.debug_bits[(unsigned)x>>3] &
-	    (0x80U >> ((unsigned)x & 7)));
-}
+#define MGT_FEATURE(x)	COM_FEATURE(mgt_param.feature_bits, x)
+#define MGT_DO_DEBUG(x)	COM_DO_DEBUG(mgt_param.debug_bits, x)

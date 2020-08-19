@@ -32,12 +32,14 @@
 
 #include <stdlib.h>
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_filter.h"
-#include "vtim.h"
-#include "hash/hash_slinger.h"
-#include "storage/storage.h"
+#include "cache_objhead.h"
 #include "cache_transport.h"
+
+#include "vtim.h"
+#include "storage/storage.h"
+#include "hash/hash_slinger.h"
 
 /*----------------------------------------------------------------------
  * Pull the req.body in via/into a objcore
@@ -71,7 +73,14 @@ vrb_pull(struct req *req, ssize_t maxsize, objiterate_f *func, void *priv)
 
 	req->storage = NULL;
 
-	XXXAN(STV_NewObject(req->wrk, req->body_oc, stv, 8));
+	if (STV_NewObject(req->wrk, req->body_oc, stv, 8) == 0) {
+		req->req_body_status = REQ_BODY_FAIL;
+		HSH_DerefBoc(req->wrk, req->body_oc);
+		AZ(HSH_DerefObjCore(req->wrk, &req->body_oc, 0));
+		(void)VFP_Error(vfc, "Object allocation failed:"
+		    " Ran out of space in %s", stv->vclname);
+		return (-1);
+	}
 
 	vfc->oc = req->body_oc;
 
@@ -223,7 +232,7 @@ VRB_Iterate(struct req *req, objiterate_f *func, void *priv)
  * just iterate it into oblivion.
  */
 
-static int __match_proto__(objiterate_f)
+static int v_matchproto_(objiterate_f)
 httpq_req_body_discard(void *priv, int flush, const void *ptr, ssize_t len)
 {
 

@@ -25,6 +25,7 @@ libvarnish_a_SOURCES = \
 	vfil.c \
 	vfl.c \
 	vin.c \
+	vjsn.c \
 	vlu.c \
 	vmb.c \
 	vnum.c \
@@ -37,15 +38,20 @@ libvarnish_a_SOURCES = \
 	vss.c \
 	vsub.c \
 	vtcp.c \
-	vtim.c
+	vtim.c \
+	vus.c
 
-TESTS = vnum_c_test
+TESTS = vjsn_test vnum_c_test binheap
 
 noinst_PROGRAMS = ${TESTS}
+
+binheap_SOURCES = binary_heap.c vas.c vrnd.c
+binheap_CFLAGS = -DTEST_DRIVER
 
 vnum_c_test_SOURCES = vnum.c vas.c
 vnum_c_test_CFLAGS = -DNUM_C_TEST -include config.h
 vnum_c_test_LDADD = ${LIBM}
 
-test: ${TESTS}
-	@for test in ${TESTS} ; do ./$${test} ; done
+vjsn_test_SOURCES = vjsn.c
+vjsn_test_CFLAGS = -DVJSN_TEST @SAN_CFLAGS@
+vjsn_test_LDADD = libvarnish.a @SAN_LDFLAGS@

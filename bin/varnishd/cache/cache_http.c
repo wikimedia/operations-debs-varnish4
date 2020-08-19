@@ -31,8 +31,7 @@
 
 #include "config.h"
 
-#include <stddef.h>
-#include "cache.h"
+#include "cache_varnishd.h"
 #include <stdio.h>
 
 #include "vend.h"
@@ -103,6 +102,7 @@ http_fail(const struct http *hp)
 {
 
 	VSC_C_main->losthdr++;
+	hp->ws->id[0] |= 0x20;		// cheesy tolower()
 	VSLb(hp->vsl, SLT_Error, "out of workspace (%s)", hp->ws->id);
 	WS_MarkOverflow(hp->ws);
 }
@@ -156,7 +156,7 @@ HTTP_create(void *p, uint16_t nhttp, unsigned len)
 	hp->hd = (void*)(hp + 1);
 	hp->shd = nhttp;
 	hp->hdf = (void*)(hp->hd + nhttp);
-	assert((unsigned char*)p + len == hp->hdf + nhttp);
+	assert((unsigned char*)p + len == hp->hdf + PRNDUP(nhttp));
 	return (hp);
 }
 
@@ -212,10 +212,11 @@ http_Proto(struct http *to)
 
 	fm = to->hd[HTTP_HDR_PROTO].b;
 
-	if ((fm[0] == 'H' || fm[0] == 'h') &&
-	    (fm[1] == 'T' || fm[0] == 't') &&
-	    (fm[2] == 'T' || fm[0] == 't') &&
-	    (fm[3] == 'P' || fm[0] == 'p') &&
+	if (fm != NULL &&
+	    (fm[0] == 'H' || fm[0] == 'h') &&
+	    (fm[1] == 'T' || fm[1] == 't') &&
+	    (fm[2] == 'T' || fm[2] == 't') &&
+	    (fm[3] == 'P' || fm[3] == 'p') &&
 	    fm[4] == '/' &&
 	    vct_isdigit(fm[5]) &&
 	    fm[6] == '.' &&
@@ -373,7 +374,7 @@ http_CollectHdrSep(struct http *hp, const char *hdr, const char *sep)
 		}
 		if (b == NULL) {
 			/* Found second header, start our collection */
-			ml = WS_Reserve(hp->ws, 0);
+			ml = WS_ReserveAll(hp->ws);
 			b = hp->ws->f;
 			e = b + ml;
 			x = Tlen(hp->hd[f]);
@@ -669,8 +670,9 @@ http_GetHdrField(const struct http *hp, const char *hdr,
 ssize_t
 http_GetContentLength(const struct http *hp)
 {
-	ssize_t cl, cll;
+	ssize_t cl;
 	const char *b;
+	unsigned n;
 
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 
@@ -679,12 +681,14 @@ http_GetContentLength(const struct http *hp)
 	cl = 0;
 	if (!vct_isdigit(*b))
 		return (-2);
-	for (;vct_isdigit(*b); b++) {
-		cll = cl;
-		cl *= 10;
-		cl += *b - '0';
-		if (cll != cl / 10)
+	for (; vct_isdigit(*b); b++) {
+		if (cl > (SSIZE_MAX / 10))
 			return (-2);
+		cl *= 10;
+		n = *b - '0';
+		if (cl > (SSIZE_MAX - n))
+			return (-2);
+		cl += n;
 	}
 	while (vct_islws(*b))
 		b++;
@@ -1204,14 +1208,15 @@ http_PrintfHeader(struct http *to, const char *fmt, ...)
 	unsigned l, n;
 
 	CHECK_OBJ_NOTNULL(to, HTTP_MAGIC);
-	l = WS_Reserve(to->ws, 0);
+	l = WS_ReserveAll(to->ws);
 	va_start(ap, fmt);
 	n = vsnprintf(to->ws->f, l, fmt, ap);
 	va_end(ap);
 	if (n + 1 >= l || to->nhd >= to->shd) {
 		http_fail(to);
-		VSLb(to->vsl, SLT_LostHeader, "%s",
-		    n + 1 >= l ? fmt : to->ws->f);
+		va_start(ap, fmt);
+		VSLbv(to->vsl, SLT_LostHeader, fmt, ap);
+		va_end(ap);
 		WS_Release(to->ws, 0);
 		return;
 	}
@@ -1229,6 +1234,11 @@ http_TimeHeader(struct http *to, const char *fmt, double now)
 	char *p;
 
 	CHECK_OBJ_NOTNULL(to, HTTP_MAGIC);
+	if (to->nhd >= to->shd) {
+		VSLb(to->vsl, SLT_LostHeader, "%s", fmt);
+		http_fail(to);
+		return;
+	}
 	p = WS_Alloc(to->ws, strlen(fmt) + VTIM_FORMAT_SIZE);
 	if (p == NULL) {
 		http_fail(to);

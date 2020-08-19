@@ -31,8 +31,10 @@
 
 #include <ctype.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "mgt/mgt.h"
 #include "common/heritage.h"
@@ -40,6 +42,10 @@
 #include "mgt/mgt_param.h"
 #include "vav.h"
 #include "vcli_serve.h"
+
+#if !defined(__has_feature)
+#define __has_feature(x)	0
+#endif
 
 struct plist {
 	unsigned			magic;
@@ -233,7 +239,7 @@ mcf_wrap(struct cli *cli, const char *text)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 {
 	int n;
@@ -329,6 +335,127 @@ mcf_param_show(struct cli *cli, const char * const *av, void *priv)
 	VSB_destroy(&vsb);
 }
 
+static inline void
+mcf_json_key_valstr(struct cli *cli, const char *key, const char *val)
+{
+	VCLI_Out(cli, "\"%s\": ", key);
+	VCLI_JSON_str(cli, val);
+	VCLI_Out(cli, ",\n");
+}
+
+static void v_matchproto_(cli_func_t)
+mcf_param_show_json(struct cli *cli, const char * const *av, void *priv)
+{
+	int n, comma = 0;
+	struct plist *pl;
+	const struct parspec *pp;
+	int chg = 0, flags;
+	struct vsb *vsb, *def;
+	const char *show = NULL;
+
+	(void)priv;
+
+	for (int i = 2; av[i] != NULL; i++) {
+		if (strcmp(av[i], "-l") == 0) {
+			VCLI_SetResult(cli, CLIS_PARAM);
+			VCLI_Out(cli, "-l not permitted with param.show -j");
+			return;
+		}
+		if (strcmp(av[i], "changed") == 0) {
+			chg = 1;
+			continue;
+		}
+		if (strcmp(av[i], "-j") == 0)
+			continue;
+		show = av[i];
+	}
+
+	vsb = VSB_new_auto();
+	def = VSB_new_auto();
+
+	n = 0;
+	VCLI_JSON_begin(cli, 2, av);
+	VCLI_Out(cli, ",\n");
+	VTAILQ_FOREACH(pl, &phead, list) {
+		pp = pl->spec;
+		if (show != NULL && strcmp(pp->name, show) != 0)
+			continue;
+		n++;
+
+		VSB_clear(vsb);
+		if (pp->func(vsb, pp, JSON_FMT))
+			VCLI_SetResult(cli, CLIS_PARAM);
+		AZ(VSB_finish(vsb));
+		VSB_clear(def);
+		if (pp->func(def, pp, NULL))
+			VCLI_SetResult(cli, CLIS_PARAM);
+		AZ(VSB_finish(def));
+		if (chg && pp->def != NULL && !strcmp(pp->def, VSB_data(def)))
+			continue;
+
+		VCLI_Out(cli, "%s", comma ? ",\n" : "");
+		comma++;
+		VCLI_Out(cli, "{\n");
+		VSB_indent(cli->sb, 2);
+		mcf_json_key_valstr(cli, "name", pp->name);
+		if (pp->flags & NOT_IMPLEMENTED) {
+			VCLI_Out(cli, "\"implemented\": false\n");
+			VSB_indent(cli->sb, -2);
+			VCLI_Out(cli, "}");
+			continue;
+		}
+		VCLI_Out(cli, "\"implemented\": true,\n");
+		VCLI_Out(cli, "\"value\": %s,\n", VSB_data(vsb));
+		if (pp->units != NULL && *pp->units != '\0')
+			mcf_json_key_valstr(cli, "units", pp->units);
+
+		if (pp->def != NULL)
+			mcf_json_key_valstr(cli, "default", pp->def);
+		if (pp->min != NULL)
+			mcf_json_key_valstr(cli, "minimum", pp->min);
+		if (pp->max != NULL)
+			mcf_json_key_valstr(cli, "maximum", pp->max);
+		mcf_json_key_valstr(cli, "description", pp->descr);
+
+		flags = 0;
+		VCLI_Out(cli, "\"flags\": [\n");
+		VSB_indent(cli->sb, 2);
+
+#define flag_out(flag, string) do {					\
+			if (pp->flags & flag) {				\
+				if (flags)				\
+					VCLI_Out(cli, ",\n");		\
+				VCLI_Out(cli, "\"%s\"", #string);	\
+				flags++;				\
+			}						\
+		} while(0)
+
+		flag_out(OBJ_STICKY, obj_sticky);
+		flag_out(DELAYED_EFFECT, delayed_effect);
+		flag_out(EXPERIMENTAL, experimental);
+		flag_out(MUST_RELOAD, must_reload);
+		flag_out(MUST_RESTART, must_restart);
+		flag_out(WIZARD, wizard);
+		flag_out(PROTECTED, protected);
+		flag_out(ONLY_ROOT, only_root);
+
+#undef flag_out
+
+		VSB_indent(cli->sb, -2);
+		VCLI_Out(cli, "\n]");
+		VSB_indent(cli->sb, -2);
+		VCLI_Out(cli, "\n}");
+	}
+	VCLI_JSON_end(cli);
+	if (show != NULL && n == 0) {
+		VSB_clear(cli->sb);
+		VCLI_SetResult(cli, CLIS_PARAM);
+		VCLI_Out(cli, "Unknown parameter \"%s\".", show);
+	}
+	VSB_destroy(&vsb);
+	VSB_destroy(&def);
+}
+
 /*--------------------------------------------------------------------
  * Mark parameters as protected
  */
@@ -378,6 +505,8 @@ MCF_ParamSet(struct cli *cli, const char *param, const char *val)
 		VCLI_Out(cli, "parameter \"%s\" is protected.", param);
 		return;
 	}
+	if (!val)
+		val = pp->def;
 	if (pp->func(cli->sb, pp, val))
 		VCLI_SetResult(cli, CLIS_PARAM);
 
@@ -399,12 +528,22 @@ MCF_ParamSet(struct cli *cli, const char *param, const char *val)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 mcf_param_set(struct cli *cli, const char * const *av, void *priv)
 {
 
 	(void)priv;
 	MCF_ParamSet(cli, av[2], av[3]);
+}
+
+/*--------------------------------------------------------------------*/
+
+static void v_matchproto_(cli_func_t)
+mcf_param_reset(struct cli *cli, const char * const *av, void *priv)
+{
+
+	(void)priv;
+	MCF_ParamSet(cli, av[2], NULL);
 }
 
 /*--------------------------------------------------------------------
@@ -465,13 +604,15 @@ mcf_wash_param(struct cli *cli, const struct parspec *pp, const char **val,
 /*--------------------------------------------------------------------*/
 
 static struct cli_proto cli_params[] = {
-	{ CLICMD_PARAM_SHOW,		"", mcf_param_show },
+	{ CLICMD_PARAM_SHOW,		"", mcf_param_show,
+	  mcf_param_show_json },
 	{ CLICMD_PARAM_SET,		"", mcf_param_set },
+	{ CLICMD_PARAM_RESET,		"", mcf_param_reset },
 	{ NULL }
 };
 
 /*--------------------------------------------------------------------
- * Wash the min/max/default values, and leave the default set.
+ * Configure the parameters
  */
 
 void
@@ -480,11 +621,54 @@ MCF_InitParams(struct cli *cli)
 	struct plist *pl;
 	struct parspec *pp;
 	struct vsb *vsb;
+	ssize_t def, low;
+
+	MCF_AddParams(mgt_parspec);
+	MCF_AddParams(WRK_parspec);
+	MCF_AddParams(VSL_parspec);
+
+	MCF_TcpParams();
+
+	if (sizeof(void *) < 8) {		/*lint !e506 !e774  */
+		/*
+		 * Adjust default parameters for 32 bit systems to conserve
+		 * VM space.
+		 */
+		MCF_ParamConf(MCF_DEFAULT, "workspace_client", "24k");
+		MCF_ParamConf(MCF_DEFAULT, "workspace_backend", "16k");
+		MCF_ParamConf(MCF_DEFAULT, "http_resp_size", "8k");
+		MCF_ParamConf(MCF_DEFAULT, "http_req_size", "12k");
+		MCF_ParamConf(MCF_DEFAULT, "gzip_buffer", "4k");
+		MCF_ParamConf(MCF_MAXIMUM, "vsl_space", "1G");
+	}
+
+#if !defined(HAVE_ACCEPT_FILTERS) || defined(__linux)
+	MCF_ParamConf(MCF_DEFAULT, "accept_filter", "off");
+#endif
+
+	low = sysconf(_SC_THREAD_STACK_MIN);
+	MCF_ParamConf(MCF_MINIMUM, "thread_pool_stack", "%jdb", (intmax_t)low);
+
+#if defined(__SANITIZER) || __has_feature(address_sanitizer)
+	def = 92 * 1024;
+#else
+	def = 48 * 1024;
+#endif
+	if (def < low)
+		def = low;
+	MCF_ParamConf(MCF_DEFAULT, "thread_pool_stack", "%jdb", (intmax_t)def);
+
+#if !defined(MAX_THREAD_POOLS)
+#  define MAX_THREAD_POOLS 32
+#endif
+
+	MCF_ParamConf(MCF_MAXIMUM, "thread_pools", "%d", MAX_THREAD_POOLS);
 
 	VCLS_AddFunc(mgt_cls, MCF_AUTH, cli_params);
 
 	vsb = VSB_new_auto();
 	AN(vsb);
+
 	VTAILQ_FOREACH(pl, &phead, list) {
 		pp = pl->spec;
 
@@ -498,17 +682,6 @@ MCF_InitParams(struct cli *cli)
 		mcf_wash_param(cli, pp, &pp->def, "default", vsb);
 	}
 	VSB_destroy(&vsb);
-}
-
-/*--------------------------------------------------------------------*/
-
-void
-MCF_CollectParams(void)
-{
-
-	MCF_AddParams(mgt_parspec);
-	MCF_AddParams(WRK_parspec);
-	MCF_AddParams(VSL_parspec);
 }
 
 /*--------------------------------------------------------------------*/
@@ -623,6 +796,7 @@ MCF_DumpRstParam(void)
 			t1 = strchr(p, '\t');
 			if (t1 != NULL && t1 < q) {
 				t2 = strchr(t1 + 1, '\t');
+				AN(t2);
 				printf("\n\t*");
 				(void)fwrite(t1 + 1, (t2 - 1) - t1, 1, stdout);
 				printf("*\n\t\t");

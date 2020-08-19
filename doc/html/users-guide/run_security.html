@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Security first &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>Security first &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="Starting and running Varnish" href="running.html" />
     <link rel="next" title="Important command line arguments" href="command-line.html" />
     <link rel="prev" title="Starting and running Varnish" href="running.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="running.html" title="Starting and running Varnish"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="running.html" accesskey="U">Starting and running Varnish</a> &#187;</li> 
       </ul>
@@ -92,16 +82,16 @@ in order to make them invulnerable to subsequent manipulation.</p>
 <p><cite>varnishd</cite> can be told to listen and offer CLI connections
 on a TCP socket. You can bind the socket to pretty
 much anything the kernel will accept:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">T</span> <span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span><span class="p">:</span><span class="mi">631</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">T</span> <span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span><span class="p">:</span><span class="mi">631</span>
 <span class="o">-</span><span class="n">T</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">9999</span>
 <span class="o">-</span><span class="n">T</span> <span class="mf">192.168</span><span class="o">.</span><span class="mf">1.1</span><span class="p">:</span><span class="mi">34</span>
 <span class="o">-</span><span class="n">T</span> <span class="s1">&#39;[fe80::1]:8082&#39;</span>
 </pre></div>
 </div>
-<p>The default is <code class="docutils literal"><span class="pre">-T</span> <span class="pre">localhost:0</span></code> which will pick a random
+<p>The default is <code class="docutils literal notranslate"><span class="pre">-T</span> <span class="pre">localhost:0</span></code> which will pick a random
 port number, which <cite>varnishadm(8)</cite> can learn from the shared
 memory.</p>
-<p>By using a &quot;localhost&quot; address, you restrict CLI access
+<p>By using a “localhost” address, you restrict CLI access
 to the local machine.</p>
 <p>You can also bind the CLI port to an IP address reachable across
 the net, and let other machines connect directly.</p>
@@ -109,26 +99,26 @@ the net, and let other machines connect directly.</p>
 go across the network as ASCII text with no encryption, but
 the -S/PSK authentication requires the remote end to know
 the shared secret.</p>
-<p>Alternatively you can bind the CLI port to a 'localhost' address,
+<p>Alternatively you can bind the CLI port to a ‘localhost’ address,
 and give remote users access via a secure connection to the local
 machine, using ssh/VPN or similar.</p>
 <p>If you use <cite>ssh</cite> you can restrict which commands each user can execute
 to just <cite>varnishadm</cite>, or even use a wrapper scripts around <cite>varnishadm</cite>
 to allow specific CLI commands.</p>
-<p>It is also possible to configure <cite>varnishd</cite> for &quot;reverse mode&quot;, using
-the '-M' argument.  In that case <cite>varnishd</cite> will attempt to open a
+<p>It is also possible to configure <cite>varnishd</cite> for “reverse mode”, using
+the ‘-M’ argument.  In that case <cite>varnishd</cite> will attempt to open a
 TCP connection to the specified address, and initiate a CLI connection
 to your central Varnish management facility.</p>
 <p>The connection in this case is also without encryption, but
 the remote end must still authenticate using -S/PSK.</p>
-<p>Finally, if you run varnishd with the '-d' option, you get a CLI
+<p>Finally, if you run varnishd with the ‘-d’ option, you get a CLI
 command on stdin/stdout, but since you started the process, it
-would be hard to prevent you getting CLI access, wouldn't it ?</p>
+would be hard to prevent you getting CLI access, wouldn’t it ?</p>
 </div>
 <div class="section" id="cli-interface-authentication">
 <h3>CLI interface authentication<a class="headerlink" href="#cli-interface-authentication" title="Permalink to this headline">¶</a></h3>
 <p>By default the CLI interface is protected with a simple, yet powerful
-&quot;Pre Shared Key&quot; authentication method, which do not provide secrecy
+“Pre Shared Key” authentication method, which do not provide secrecy
 (ie: The CLI commands and responses are not encrypted).</p>
 <p>The way -S/PSK works is really simple:  During startup a file is
 created with a random content and the file is only accessible to
@@ -142,10 +132,10 @@ provided it can read the secret file.</p>
 CLI connections, you must create your own secret file and make it possible
 for (only!) these users to read it.</p>
 <p>A good way to create the secret file is:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">dd</span> <span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">random</span> <span class="n">of</span><span class="o">=/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_secret</span> <span class="n">count</span><span class="o">=</span><span class="mi">1</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dd</span> <span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">random</span> <span class="n">of</span><span class="o">=/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_secret</span> <span class="n">count</span><span class="o">=</span><span class="mi">1</span>
 </pre></div>
 </div>
-<p>When you start <cite>varnishd</cite>, you specify the filename with '-S', and
+<p>When you start <cite>varnishd</cite>, you specify the filename with ‘-S’, and
 it goes without saying that the <cite>varnishd</cite> master process needs
 to be able to read the file too.</p>
 <p>You can change the contents of the secret file while <cite>varnishd</cite>
@@ -153,16 +143,16 @@ runs, it is read every time a CLI connection is authenticated.</p>
 <p>On the local system, <cite>varnishadm</cite> can retrieve the filename from
 shared memory, but on remote systems, you need to give <cite>varnishadm</cite>
 a copy of the secret file, with the -S argument.</p>
-<p>If you want to disable -S/PSK authentication, specify '-S' with
+<p>If you want to disable -S/PSK authentication, specify ‘-S’ with
 an empty argument to varnishd:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">varnishd</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">-</span><span class="n">S</span> <span class="s2">&quot;&quot;</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">varnishd</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">-</span><span class="n">S</span> <span class="s2">&quot;&quot;</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="parameters">
 <h3>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h3>
-<p>Parameters can be set from the command line, and made &quot;read-only&quot;
-(using '-r') so they cannot subsequently be modified from the CLI
+<p>Parameters can be set from the command line, and made “read-only”
+(using ‘-r’) so they cannot subsequently be modified from the CLI
 interface.</p>
 <p>Pretty much any parameter can be used to totally mess up your
 HTTP service, but a few can do more damage than others:</p>
@@ -195,13 +185,13 @@ certain parameters, but that will only protect the local filesystem,
 and operating system, it will not protect your HTTP service.</p>
 <p>We do not currently have a way to restrict specific CLI commands
 to specific CLI connections. One way to get such an effect is to
-&quot;wrap&quot; all CLI access in pre-approved scripts which use <cite>varnishadm(1)</cite></p>
+“wrap” all CLI access in pre-approved scripts which use <cite>varnishadm(1)</cite></p>
 <p>to submit the sanitized CLI commands, and restrict a remote user
-to only those scripts, for instance using sshd(8)'s configuration.</p>
+to only those scripts, for instance using sshd(8)’s configuration.</p>
 </div>
 <div class="section" id="vcl-programs">
 <h2>VCL programs<a class="headerlink" href="#vcl-programs" title="Permalink to this headline">¶</a></h2>
-<p>There are two &quot;dangerous&quot; mechanisms available in VCL code:  VMODs
+<p>There are two “dangerous” mechanisms available in VCL code:  VMODs
 and inline-C.</p>
 <p>Both of these mechanisms allow execution of arbitrary code and will
 thus allow a person to get access to the machine, with the
@@ -209,10 +199,10 @@ privileges of the child process.</p>
 <p>If <cite>varnishd</cite> is started as root/superuser, we sandbox the child
 process, using whatever facilities are available on the operating
 system, but if <cite>varnishd</cite> is not started as root/superuser, this is
-not possible. No, don't ask me why you have to be superuser to
-lower the privilege of a child process...</p>
+not possible. No, don’t ask me why you have to be superuser to
+lower the privilege of a child process…</p>
 <p>Inline-C is disabled by default starting with Varnish version 4, so unless
-you enable it, you don't have to worry about it.</p>
+you enable it, you don’t have to worry about it.</p>
 <p>The parameters mentioned above can restrict the loading of VMODs to only
 be loaded from a designated directory, restricting VCL wranglers to a
 pre-approved subset of VMODs.</p>
@@ -228,9 +218,9 @@ you should, generally speaking, not need to protect it any further.</p>
 decide exactly what to do with HTTP requests, you can also decide
 to do stupid and potentially dangerous things with them, including opening yourself up
 to various kinds of attacks and subversive activities.</p>
-<p>If you have &quot;administrative&quot; HTTP requests, for instance PURGE
+<p>If you have “administrative” HTTP requests, for instance PURGE
 requests, we strongly recommend that you restrict them to trusted
-IP numbers/nets using VCL's <a class="reference internal" href="vcl-syntax.html#vcl-syntax-acl"><span class="std std-ref">Access control lists (ACLs)</span></a>.</p>
+IP numbers/nets using VCL’s <a class="reference internal" href="vcl-syntax.html#vcl-syntax-acl"><span class="std std-ref">Access control lists (ACLs)</span></a>.</p>
 </div>
 </div>
 
@@ -240,7 +230,7 @@ IP numbers/nets using VCL's <a class="reference internal" href="vcl-syntax.html#
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Security first</a><ul>
 <li><a class="reference internal" href="#command-line-arguments">Command line arguments</a><ul>
@@ -265,18 +255,20 @@ IP numbers/nets using VCL's <a class="reference internal" href="vcl-syntax.html#
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/users-guide/run_security.txt"
+      <li><a href="../_sources/users-guide/run_security.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -295,14 +287,14 @@ IP numbers/nets using VCL's <a class="reference internal" href="vcl-syntax.html#
         <li class="right" >
           <a href="running.html" title="Starting and running Varnish"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Users Guide</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="running.html" >Starting and running Varnish</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

@@ -38,13 +38,15 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_director.h"
 #include "cache_filter.h"
+#include "cache_objhead.h"
 #include "cache_transport.h"
 
 #include "hash/hash_slinger.h"
 #include "storage/storage.h"
+#include "common/heritage.h"
 #include "vcl.h"
 #include "vsha256.h"
 #include "vtim.h"
@@ -79,10 +81,8 @@ cnt_transport(struct worker *wrk, struct req *req)
 	}
 
 	wrk->stats->client_req++;
-	wrk->stats->s_req++;
 
 	AZ(req->err_code);
-	req->ws_req = WS_Snapshot(req->ws);
 
 	req->doclose = http_DoConnection(req->http);
 	if (req->doclose == SC_RX_BAD) {
@@ -92,12 +92,12 @@ cnt_transport(struct worker *wrk, struct req *req)
 
 	if (req->req_body_status < REQ_BODY_TAKEN) {
 		AN(req->transport->req_body != NULL);
-		VFP_Setup(req->vfc);
-		req->vfc->http = req->http;
-		req->vfc->wrk = wrk;
+		VFP_Setup(req->vfc, wrk);
+		req->vfc->resp = req->http;		// XXX
 		req->transport->req_body(req);
 	}
 
+	req->ws_req = WS_Snapshot(req->ws);
 	HTTP_Copy(req->http0, req->http);	// For ESI & restart
 	req->req_step = R_STP_RECV;
 	return (REQ_FSM_MORE);
@@ -115,6 +115,7 @@ cnt_deliver(struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
 	CHECK_OBJ_NOTNULL(req->objcore->objhead, OBJHEAD_MAGIC);
+	AZ(req->stale_oc);
 	AN(req->vcl);
 
 	assert(req->objcore->refcnt > 0);
@@ -124,6 +125,7 @@ cnt_deliver(struct worker *wrk, struct req *req)
 	HTTP_Setup(req->resp, req->ws, req->vsl, SLT_RespMethod);
 	if (HTTP_Decode(req->resp,
 	    ObjGetAttr(req->wrk, req->objcore, OA_HEADERS, NULL))) {
+		(void)HSH_DerefObjCore(wrk, &req->objcore, HSH_RUSH_POLICY);
 		req->err_code = 500;
 		req->req_step = R_STP_SYNTH;
 		return (REQ_FSM_MORE);
@@ -149,7 +151,7 @@ cnt_deliver(struct worker *wrk, struct req *req)
 	http_PrintfHeader(req->resp, "Age: %.0f",
 	    floor(fmax(0., req->t_prev - req->objcore->t_origin)));
 
-	http_SetHeader(req->resp, "Via: 1.1 varnish (Varnish/5.1)");
+	http_SetHeader(req->resp, "Via: 1.1 varnish (Varnish/6.0)");
 
 	if (cache_param->http_gzip_support &&
 	    ObjCheckFlag(req->wrk, req->objcore, OF_GZIPED) &&
@@ -159,9 +161,7 @@ cnt_deliver(struct worker *wrk, struct req *req)
 	VCL_deliver_method(req->vcl, wrk, req, NULL, NULL);
 	VSLb_ts_req(req, "Process", W_TIM_real(wrk));
 
-	/* Stop the insanity before it turns "Hotel California" on us */
-	if (req->restarts >= cache_param->max_restarts)
-		wrk->handling = VCL_RET_DELIVER;
+	assert(req->restarts <= cache_param->max_restarts);
 
 	if (wrk->handling != VCL_RET_DELIVER) {
 		(void)HSH_DerefObjCore(wrk, &req->objcore, HSH_RUSH_POLICY);
@@ -186,9 +186,9 @@ cnt_deliver(struct worker *wrk, struct req *req)
 
 	assert(wrk->handling == VCL_RET_DELIVER);
 
-	if (req->esi_level == 0
-	    && http_IsStatus(req->resp, 200)
-	    && req->http->conds && RFC2616_Do_Cond(req))
+	if (req->esi_level == 0 &&
+	    http_IsStatus(req->resp, 200) &&
+	    req->http->conds && RFC2616_Do_Cond(req))
 		http_PutResponse(req->resp, "HTTP/1.1", 304, NULL);
 
 	req->req_step = R_STP_TRANSMIT;
@@ -206,8 +206,11 @@ cnt_vclfail(const struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 
-	HTTP_Copy(req->http, req->http0);
-	WS_Reset(req->ws, req->ws_req);
+	AZ(req->objcore);
+	AZ(req->stale_oc);
+
+	Req_Rollback(req);
+
 	req->err_code = 503;
 	req->err_reason = "VCL failed";
 	req->req_step = R_STP_SYNTH;
@@ -230,6 +233,9 @@ cnt_synth(struct worker *wrk, struct req *req)
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+
+	AZ(req->objcore);
+	AZ(req->stale_oc);
 
 	wrk->stats->s_synth++;
 
@@ -336,72 +342,92 @@ cnt_transmit(struct worker *wrk, struct req *req)
 	struct boc *boc;
 	const char *r;
 	uint16_t status;
-	int sendbody;
+	int err, sendbody, head;
 	intmax_t clval;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(req->transport, TRANSPORT_MAGIC);
+	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
+	AZ(req->stale_oc);
+	AZ(req->res_mode);
 
-	/* Grab a ref to the bo if there is one */
+	/* Grab a ref to the bo if there is one (=streaming) */
 	boc = HSH_RefBoc(req->objcore);
-
+	if (boc && boc->state < BOS_STREAM)
+		ObjWaitState(req->objcore, BOS_STREAM);
 	clval = http_GetContentLength(req->resp);
+	/* RFC 7230, 3.3.3 */
+	status = http_GetStatus(req->resp);
+	head = !strcmp(req->http0->hd[HTTP_HDR_METHOD].b, "HEAD");
+	err = 0;
+
 	if (boc != NULL)
 		req->resp_len = clval;
 	else
 		req->resp_len = ObjGetLen(req->wrk, req->objcore);
 
-	req->res_mode = 0;
-
-	/* RFC 7230, 3.3.3 */
-	status = http_GetStatus(req->resp);
-	if (!strcmp(req->http0->hd[HTTP_HDR_METHOD].b, "HEAD")) {
-		if (req->objcore->flags & OC_F_PASS)
-			sendbody = -1;
-		else
-			sendbody = 0;
-	} else if (status < 200 || status == 204 || status == 304) {
-		req->resp_len = -1;
+	if (head || status < 200 || status == 204 || status == 304) {
+		// rfc7230,l,1748,1752
 		sendbody = 0;
-	} else
-		sendbody = 1;
-
-	if (sendbody >= 0) {
-		if (!req->disable_esi && req->resp_len != 0 &&
-		    ObjHasAttr(wrk, req->objcore, OA_ESIDATA))
-			VDP_push(req, VDP_ESI, NULL, 0, "ESI");
-
-		if (cache_param->http_gzip_support &&
-		    ObjCheckFlag(req->wrk, req->objcore, OF_GZIPED) &&
-		    !RFC2616_Req_Gzip(req->http))
-			VDP_push(req, VDP_gunzip, NULL, 1, "GUZ");
-
-		if (cache_param->http_range_support &&
-		    http_IsStatus(req->resp, 200)) {
-			http_ForceHeader(req->resp, H_Accept_Ranges, "bytes");
-			if (sendbody && http_GetHdr(req->http, H_Range, &r))
-				VRG_dorange(req, r);
-		}
-	}
-
-	if (sendbody < 0) {
-		/* Don't touch pass+HEAD C-L */
-		sendbody = 0;
-	} else if (clval >= 0 && clval == req->resp_len) {
-		/* Reuse C-L header */
 	} else {
-		http_Unset(req->resp, H_Content_Length);
-		if (req->resp_len >= 0 && sendbody)
-			http_PrintfHeader(req->resp,
-			    "Content-Length: %jd", req->resp_len);
+		sendbody = 1;
 	}
 
-	req->transport->deliver(req, boc, sendbody);
+	if (!req->disable_esi && req->resp_len != 0 &&
+	    ObjHasAttr(wrk, req->objcore, OA_ESIDATA) &&
+	    VDP_Push(req, &VDP_esi, NULL) < 0)
+		err++;
+
+	if (cache_param->http_gzip_support &&
+	    ObjCheckFlag(req->wrk, req->objcore, OF_GZIPED) &&
+	    !RFC2616_Req_Gzip(req->http) &&
+	    VDP_Push(req, &VDP_gunzip, NULL) < 0)
+		err++;
+
+	if (cache_param->http_range_support && status == 200) {
+		http_ForceHeader(req->resp, H_Accept_Ranges, "bytes");
+		if (http_GetHdr(req->http, H_Range, &r))
+			VRG_dorange(req, r);
+	}
+
+	if (err) {
+		VSLb(req->vsl, SLT_Error, "Failure to push processors");
+		req->doclose = SC_OVERLOAD;
+	} else {
+		if (status < 200 || status == 204) {
+			// rfc7230,l,1691,1695
+			http_Unset(req->resp, H_Content_Length);
+		} else if (status == 304) {
+			// rfc7230,l,1675,1677
+			http_Unset(req->resp, H_Content_Length);
+		} else if (clval >= 0 && clval == req->resp_len) {
+			/* Reuse C-L header */
+		} else if (head && req->objcore->flags & OC_F_HFM) {
+			/*
+			 * Don't touch C-L header (debatable)
+			 *
+			 * The only way to do it correctly would be to GET
+			 * to the backend, and discard the body once the
+			 * filters have had a chance to chew on it, but that
+			 * would negate the "pass for huge objects" use case.
+			 */
+		} else {
+			http_Unset(req->resp, H_Content_Length);
+			if (req->resp_len >= 0)
+				http_PrintfHeader(req->resp,
+				    "Content-Length: %jd", req->resp_len);
+		}
+		if (req->resp_len == 0)
+			sendbody = 0;
+		req->transport->deliver(req, boc, sendbody);
+	}
 
 	VSLb_ts_req(req, "Resp", W_TIM_real(wrk));
 
-	if (req->objcore->flags & (OC_F_PRIVATE | OC_F_PASS)) {
+	if (req->objcore->flags & (OC_F_PRIVATE | OC_F_HFM | OC_F_HFP)) {
+		if (req->objcore->flags & OC_F_HFP)
+			AN(req->objcore->flags & OC_F_HFM);
 		if (boc != NULL) {
 			HSH_Abandon(req->objcore);
 			ObjWaitState(req->objcore, BOS_FINISHED);
@@ -415,6 +441,7 @@ cnt_transmit(struct worker *wrk, struct req *req)
 	(void)HSH_DerefObjCore(wrk, &req->objcore, HSH_RUSH_POLICY);
 	http_Teardown(req->resp);
 
+	req->res_mode = 0;
 	return (REQ_FSM_DONE);
 }
 
@@ -429,6 +456,7 @@ cnt_fetch(struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
+	AZ(req->stale_oc);
 
 	wrk->stats->s_fetch++;
 	(void)VRB_Ignore(req);
@@ -460,6 +488,7 @@ cnt_lookup(struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	AZ(req->objcore);
+	AZ(req->stale_oc);
 
 	AN(req->vcl);
 
@@ -468,7 +497,7 @@ cnt_lookup(struct worker *wrk, struct req *req)
 	AZ(req->objcore);
 	if (req->hash_objhead)
 		had_objhead = 1;
-	lr = HSH_Lookup(req, &oc, &busy, req->hash_always_miss ? 1 : 0);
+	lr = HSH_Lookup(req, &oc, &busy);
 	if (lr == HSH_BUSY) {
 		/*
 		 * We lost the session to a busy object, disembark the
@@ -489,39 +518,53 @@ cnt_lookup(struct worker *wrk, struct req *req)
 	}
 
 	AZ(req->objcore);
-	if (lr == HSH_MISS) {
-		/* Found nothing */
-		AZ(oc);
-		if (busy != NULL) {
-			AN(busy->flags & OC_F_BUSY);
-			req->objcore = busy;
-			req->req_step = R_STP_MISS;
-		} else {
-			req->req_step = R_STP_PASS;
-		}
+	if (lr == HSH_MISS || lr == HSH_HITMISS) {
+		AN(busy);
+		AN(busy->flags & OC_F_BUSY);
+		req->objcore = busy;
+		req->stale_oc = oc;
+		req->req_step = R_STP_MISS;
+		if (lr == HSH_HITMISS)
+			req->is_hitmiss = 1;
 		return (REQ_FSM_MORE);
 	}
+	if (lr == HSH_HITPASS) {
+		AZ(busy);
+		AZ(oc);
+		req->req_step = R_STP_PASS;
+		req->is_hitpass = 1;
+		return (REQ_FSM_MORE);
+	}
+
+	assert(lr == HSH_HIT || lr == HSH_GRACE);
 
 	CHECK_OBJ_NOTNULL(oc, OBJCORE_MAGIC);
 	AZ(oc->flags & OC_F_BUSY);
 	req->objcore = oc;
-	AZ(oc->flags & OC_F_PASS);
+	AZ(oc->flags & OC_F_HFM);
 
-	VSLb(req->vsl, SLT_Hit, "%u", ObjGetXID(wrk, req->objcore));
+	VSLb(req->vsl, SLT_Hit, "%u %.6f %.6f %.6f",
+	    ObjGetXID(wrk, req->objcore),
+	    EXP_Dttl(req, req->objcore),
+	    req->objcore->grace,
+	    req->objcore->keep);
 
 	VCL_hit_method(req->vcl, wrk, req, NULL, NULL);
 
 	switch (wrk->handling) {
 	case VCL_RET_DELIVER:
 		if (busy != NULL) {
-			AZ(oc->flags & OC_F_PASS);
+			AZ(oc->flags & OC_F_HFM);
 			CHECK_OBJ_NOTNULL(busy->boc, BOC_MAGIC);
+			// XXX: shouldn't we go to miss?
 			VBF_Fetch(wrk, req, busy, oc, VBF_BACKGROUND);
 		} else {
 			(void)VRB_Ignore(req);// XXX: handle err
 		}
 		wrk->stats->cache_hit++;
 		req->is_hit = 1;
+		if (lr == HSH_GRACE)
+			wrk->stats->cache_hit_grace++;
 		req->req_step = R_STP_DELIVER;
 		return (REQ_FSM_MORE);
 	case VCL_RET_MISS:
@@ -583,6 +626,7 @@ cnt_miss(struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	AN(req->vcl);
 	CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
+	CHECK_OBJ_ORNULL(req->stale_oc, OBJCORE_MAGIC);
 
 	VCL_miss_method(req->vcl, wrk, req, NULL, NULL);
 	switch (wrk->handling) {
@@ -627,6 +671,7 @@ cnt_pass(struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	AN(req->vcl);
 	AZ(req->objcore);
+	AZ(req->stale_oc);
 
 	VCL_pass_method(req->vcl, wrk, req, NULL, NULL);
 	switch (wrk->handling) {
@@ -664,6 +709,8 @@ cnt_pipe(struct worker *wrk, struct req *req)
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	AZ(req->objcore);
+	AZ(req->stale_oc);
 	AN(req->vcl);
 
 	wrk->stats->s_pipe++;
@@ -672,11 +719,13 @@ cnt_pipe(struct worker *wrk, struct req *req)
 	VSLb(bo->vsl, SLT_Begin, "bereq %u pipe", VXID(req->vsl->wid));
 	VSLb(req->vsl, SLT_Link, "bereq %u pipe", VXID(bo->vsl->wid));
 	THR_SetBusyobj(bo);
+	bo->sp = req->sp;
+	SES_Ref(bo->sp);
 
 	HTTP_Setup(bo->bereq, bo->ws, bo->vsl, SLT_BereqMethod);
 	http_FilterReq(bo->bereq, req->http, 0);	// XXX: 0 ?
 	http_PrintfHeader(bo->bereq, "X-Varnish: %u", VXID(req->vsl->wid));
-	http_SetHeader(bo->bereq, "Connection: close");
+	http_ForceHeader(bo->bereq, H_Connection, "close");
 
 	if (req->want100cont) {
 		http_SetHeader(bo->bereq, "Expect: 100-continue");
@@ -705,6 +754,7 @@ cnt_pipe(struct worker *wrk, struct req *req)
 		WRONG("Illegal return from vcl_pipe{}");
 	}
 	http_Teardown(bo->bereq);
+	SES_Rel(bo->sp);
 	VBO_ReleaseBusyObj(wrk, &bo);
 	THR_SetBusyobj(NULL);
 	return (nxt);
@@ -720,9 +770,10 @@ cnt_restart(struct worker *wrk, struct req *req)
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	AZ(req->objcore);
+	AZ(req->stale_oc);
 
-	req->director_hint = NULL;
-	if (++req->restarts >= cache_param->max_restarts) {
+	if (++req->restarts > cache_param->max_restarts) {
 		VSLb(req->vsl, SLT_VCL_Error, "Too many restarts");
 		req->err_code = 503;
 		req->req_step = R_STP_SYNTH;
@@ -735,39 +786,22 @@ cnt_restart(struct worker *wrk, struct req *req)
 		req->err_code = 0;
 		req->req_step = R_STP_RECV;
 	}
-	req->is_hit = 0;
 	return (REQ_FSM_MORE);
 }
 
-/*--------------------------------------------------------------------
- * We have a complete request, set everything up and start it.
- * We can come here both with a request from the client and with
- * a interior request during ESI delivery.
+/*
+ * prepare the request for vcl_recv, either initially or after a reset
+ * e.g. due to vcl switching
+ *
+ * TODO
+ * - make restarts == 0 bit re-usable for rollback
+ * - remove duplicatation with Req_Cleanup()
  */
 
-static enum req_fsm_nxt
-cnt_recv(struct worker *wrk, struct req *req)
+static void
+cnt_recv_prep(struct req *req, const char *ci)
 {
-	unsigned recv_handling;
-	struct SHA256Context sha256ctx;
 	const char *xff;
-	const char *ci, *cp;
-
-	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-	AN(req->vcl);
-	AZ(req->objcore);
-	AZ(req->err_code);
-
-	AZ(isnan(req->t_first));
-	AZ(isnan(req->t_prev));
-	AZ(isnan(req->t_req));
-
-	ci = SES_Get_String_Attr(req->sp, SA_CLIENT_IP);
-	cp = SES_Get_String_Attr(req->sp, SA_CLIENT_PORT);
-	VSLb(req->vsl, SLT_ReqStart, "%s %s", ci, cp);
-
-	http_VSL_log(req->http);
 
 	if (req->restarts == 0) {
 		/*
@@ -782,22 +816,61 @@ cnt_recv(struct worker *wrk, struct req *req)
 		} else {
 			http_PrintfHeader(req->http, "X-Forwarded-For: %s", ci);
 		}
+		http_CollectHdr(req->http, H_Cache_Control);
+
+		/* By default we use the first backend */
+		req->director_hint = VCL_DefaultDirector(req->vcl);
+
+		req->d_ttl = -1;
+		req->d_grace = -1;
+		req->disable_esi = 0;
+		req->hash_always_miss = 0;
+		req->hash_ignore_busy = 0;
+		req->client_identity = NULL;
+		req->storage = NULL;
 	}
 
-	/* By default we use the first backend */
-	AZ(req->director_hint);
-	req->director_hint = VCL_DefaultDirector(req->vcl);
-	AN(req->director_hint);
+	req->vdc->retval = 0;
+	req->is_hit = 0;
+	req->is_hitmiss = 0;
+	req->is_hitpass = 0;
+	req->err_code = 0;
+	req->err_reason = NULL;
+}
+/*--------------------------------------------------------------------
+ * We have a complete request, set everything up and start it.
+ * We can come here both with a request from the client and with
+ * a interior request during ESI delivery.
+ */
 
-	req->vdp_retval = 0;
-	req->d_ttl = -1;
-	req->disable_esi = 0;
-	req->hash_always_miss = 0;
-	req->hash_ignore_busy = 0;
-	req->client_identity = NULL;
-	req->storage = NULL;
+static enum req_fsm_nxt
+cnt_recv(struct worker *wrk, struct req *req)
+{
+	unsigned recv_handling;
+	struct VSHA256Context sha256ctx;
+	const char *ci, *cp, *endpname;
 
-	http_CollectHdr(req->http, H_Cache_Control);
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	AN(req->vcl);
+	AZ(req->objcore);
+	AZ(req->stale_oc);
+	AZ(req->err_code);
+
+	AZ(isnan(req->t_first));
+	AZ(isnan(req->t_prev));
+	AZ(isnan(req->t_req));
+
+	ci = SES_Get_String_Attr(req->sp, SA_CLIENT_IP);
+	cp = SES_Get_String_Attr(req->sp, SA_CLIENT_PORT);
+	CHECK_OBJ_NOTNULL(req->sp->listen_sock, LISTEN_SOCK_MAGIC);
+	endpname = req->sp->listen_sock->name;
+	AN(endpname);
+	VSLb(req->vsl, SLT_ReqStart, "%s %s %s", ci, cp, endpname);
+
+	http_VSL_log(req->http);
+
+	cnt_recv_prep(req, ci);
 
 	if (req->req_body_status == REQ_BODY_FAIL) {
 		req->doclose = SC_OVERLOAD;
@@ -806,10 +879,8 @@ cnt_recv(struct worker *wrk, struct req *req)
 
 	VCL_recv_method(req->vcl, wrk, req, NULL, NULL);
 	if (wrk->handling == VCL_RET_VCL && req->restarts == 0) {
-		req->director_hint = VCL_DefaultDirector(req->vcl);
-		HTTP_Copy(req->http, req->http0);
-		WS_Reset(req->ws, req->ws_req);
-		AN(req->director_hint);
+		Req_Rollback(req);
+		cnt_recv_prep(req, ci);
 		VCL_recv_method(req->vcl, wrk, req, NULL, NULL);
 	}
 
@@ -840,13 +911,13 @@ cnt_recv(struct worker *wrk, struct req *req)
 		}
 	}
 
-	SHA256_Init(&sha256ctx);
+	VSHA256_Init(&sha256ctx);
 	VCL_hash_method(req->vcl, wrk, req, NULL, &sha256ctx);
 	if (wrk->handling == VCL_RET_FAIL)
 		recv_handling = wrk->handling;
 	else
 		assert(wrk->handling == VCL_RET_LOOKUP);
-	SHA256_Final(req->digest, &sha256ctx);
+	VSHA256_Final(req->digest, &sha256ctx);
 
 	switch (recv_handling) {
 	case VCL_RET_VCL:
@@ -856,13 +927,13 @@ cnt_recv(struct worker *wrk, struct req *req)
 		    "Only from active VCL");
 		req->err_code = 503;
 		req->req_step = R_STP_SYNTH;
-		return (REQ_FSM_MORE);
+		break;
 	case VCL_RET_PURGE:
 		req->req_step = R_STP_PURGE;
-		return (REQ_FSM_MORE);
+		break;
 	case VCL_RET_HASH:
 		req->req_step = R_STP_LOOKUP;
-		return (REQ_FSM_MORE);
+		break;
 	case VCL_RET_PIPE:
 		if (req->esi_level > 0) {
 			VSLb(req->vsl, SLT_VCL_Error,
@@ -877,25 +948,29 @@ cnt_recv(struct worker *wrk, struct req *req)
 		} else {
 			req->req_step = R_STP_PIPE;
 		}
-		return (REQ_FSM_MORE);
+		break;
 	case VCL_RET_PASS:
 		req->req_step = R_STP_PASS;
-		return (REQ_FSM_MORE);
+		break;
 	case VCL_RET_SYNTH:
 		req->req_step = R_STP_SYNTH;
-		return (REQ_FSM_MORE);
+		break;
+	case VCL_RET_RESTART:
+		req->req_step = R_STP_RESTART;
+		break;
 	case VCL_RET_FAIL:
 		req->req_step = R_STP_VCLFAIL;
-		return (REQ_FSM_MORE);
+		break;
 	default:
 		WRONG("Illegal return from vcl_recv{}");
 	}
+	return (REQ_FSM_MORE);
 }
 
 /*--------------------------------------------------------------------
  * Find the objhead, purge it.
  *
- * XXX: We should ask VCL if we should fetch a new copy of the object.
+ * In VCL, a restart is necessary to get a new object
  */
 
 static enum req_fsm_nxt
@@ -907,19 +982,21 @@ cnt_purge(struct worker *wrk, struct req *req)
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
 	AZ(req->objcore);
+	AZ(req->stale_oc);
 
 	AN(req->vcl);
 
 	VRY_Prep(req);
 
 	AZ(req->objcore);
-	lr = HSH_Lookup(req, &oc, &boc, 1);
+	req->hash_always_miss = 1;
+	lr = HSH_Lookup(req, &oc, &boc);
 	assert (lr == HSH_MISS);
 	AZ(oc);
 	CHECK_OBJ_NOTNULL(boc, OBJCORE_MAGIC);
 	VRY_Finish(req, DISCARD);
 
-	HSH_Purge(wrk, boc->objhead, 0, 0, 0);
+	(void)HSH_Purge(wrk, boc->objhead, req->t_req, 0, 0, 0);
 
 	AZ(HSH_DerefObjCore(wrk, &boc, 1));
 
@@ -965,6 +1042,7 @@ CNT_Request(struct worker *wrk, struct req *req)
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	AN(req->vcl);
 
 	/*
 	 * Possible entrance states
@@ -976,8 +1054,11 @@ CNT_Request(struct worker *wrk, struct req *req)
 
 	AN(req->vsl->wid & VSL_CLIENTMARKER);
 
+	/* wrk can have changed for restarts */
 	req->vfc->wrk = req->wrk = wrk;
 	wrk->vsl = req->vsl;
+	if (req->req_step != R_STP_LOOKUP)
+		VCL_TaskEnter(req->vcl, req->privs);
 	for (nxt = REQ_FSM_MORE; nxt == REQ_FSM_MORE; ) {
 		/*
 		 * This is a good place to be paranoid about the various
@@ -986,14 +1067,6 @@ CNT_Request(struct worker *wrk, struct req *req)
 		CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 		CHECK_OBJ_ORNULL(wrk->nobjhead, OBJHEAD_MAGIC);
 		CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-
-		/*
-		 * We don't want the thread workspace to be used for
-		 * anything of long duration, so mandate that it be
-		 * empty on state-transitions.
-		 */
-		WS_Assert(wrk->aws);
-		AZ(WS_Snapshot(wrk->aws));
 
 		switch (req->req_step) {
 #define REQ_STEP(l,u,arg) \
@@ -1006,11 +1079,11 @@ CNT_Request(struct worker *wrk, struct req *req)
 		default:
 			WRONG("State engine misfire");
 		}
-		WS_Assert(wrk->aws);
 		CHECK_OBJ_ORNULL(wrk->nobjhead, OBJHEAD_MAGIC);
 	}
 	wrk->vsl = NULL;
 	if (nxt == REQ_FSM_DONE) {
+		VCL_TaskLeave(req->vcl, req->privs);
 		AN(req->vsl->wid);
 		VRB_Free(req);
 		req->wrk = NULL;

@@ -36,6 +36,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "vdef.h"
+
 #include "vnum.h"
 #include "vas.h"
 
@@ -108,6 +110,62 @@ VNUM(const char *p)
 
 /**********************************************************************/
 
+vtim_dur
+VNUM_duration(const char *p)
+{
+	const char *t;
+	vtim_dur r;
+	double sc = 1.0;
+
+	if (p == NULL)
+		return (nan(""));
+
+	r = VNUMpfx(p, &t);
+
+	if (isnan(r) || t == NULL)
+		return (nan(""));
+
+	while (isspace(*t))
+		t++;
+
+	// keep in sync with vcc_expr.c vcc_TimeUnit()
+	switch (*t++) {
+	case 's':
+		break;
+	case 'm':
+		if (*t == 's') {
+			sc = 1e-3;
+			t++;
+		} else
+			sc = 60.0;
+		break;
+	case 'h':
+		sc = 60.0 * 60.0;
+		break;
+	case 'd':
+		sc = 60.0 * 60.0 * 24.0;
+		break;
+	case 'w':
+		sc = 60.0 * 60.0 * 24.0 * 7.0;
+		break;
+	case 'y':
+		sc = 60.0 * 60.0 * 24.0 * 365.0;
+		break;
+	default:
+		return (nan(""));
+	}
+
+	while (isspace(*t))
+		t++;
+
+	if (*t != '\0')
+		return (nan(""));
+
+	return (r * sc);
+}
+
+/**********************************************************************/
+
 const char *
 VNUM_2bytes(const char *p, uintmax_t *r, uintmax_t rel)
 {
@@ -154,10 +212,6 @@ VNUM_2bytes(const char *p, uintmax_t *r, uintmax_t rel)
 			break;
 		case 'p': case 'P':
 			fval *= (uintmax_t)1 << 50;
-			++end;
-			break;
-		case 'e': case 'E':
-			fval *= (uintmax_t)1 << 60;
 			++end;
 			break;
 		default:
@@ -214,6 +268,11 @@ static struct test_case {
 	{ "1TB",		(uintmax_t)0,	(uintmax_t)1<<40 },
 	{ "1.3TB",		(uintmax_t)0,	(uintmax_t)1429365116109ULL },
 	{ "1.7TB",		(uintmax_t)0,	(uintmax_t)1869169767219ULL },
+
+	{ "1125899906842624",	(uintmax_t)0,	(uintmax_t)1125899906842624ULL},
+	{ "1P",			(uintmax_t)0,	(uintmax_t)1125899906842624ULL},
+	{ "1PB",		(uintmax_t)0,	(uintmax_t)1125899906842624ULL},
+	{ "1.3 PB",		(uintmax_t)0,	(uintmax_t)1463669878895411ULL},
 
 	{ "1%",			(uintmax_t)1024,	(uintmax_t)10 },
 	{ "2%",			(uintmax_t)1024,	(uintmax_t)20 },
@@ -290,15 +349,26 @@ main(int argc, char *argv[])
 
 	for (tc = test_cases; tc->str; ++tc) {
 		e = VNUM_2bytes(tc->str, &val, tc->rel);
-		if (e != tc->err) {
-			printf("%s: VNUM_2bytes(\"%s\", %ju) (%s) != (%s)\n",
-			    *argv, tc->str, tc->rel, tc->err, e);
-			++ec;
-		} else if (e == NULL && val != tc->val) {
-			printf("%s: VNUM_2bytes(\"%s\", %ju) %ju != %ju (%s)\n",
-			    *argv, tc->str, tc->rel, val, tc->val, e);
-			++ec;
-		}
+		if (e != NULL)
+			val = 0;
+		if (e == tc->err && val == tc->val)
+			continue;
+		++ec;
+		printf("%s: VNUM_2bytes(\"%s\", %ju)\n",
+		   *argv, tc->str, tc->rel);
+		printf("\tExpected:\tstatus %s - value %ju\n",
+		    tc->err ? tc->err : "Success", tc->val);
+		printf("\tGot:\t\tstatus %s - value %ju\n",
+		    e ? e : "Success", val);
+	}
+	if (!isnan(VNUM_duration(NULL))) {
+		printf("%s: VNUM_Duration(NULL) fail\n", *argv);
+		++ec;
+	}
+	d1 = VNUM_duration(" 365.24219d ");
+	if (d1 < 31556925.2159 || d1 > 31556925.2161) {
+		printf("%s: VNUM_Duration() wrong: %g\n", *argv, d1);
+		++ec;
 	}
 	/* TODO: test invalid strings */
 	if (!ec)

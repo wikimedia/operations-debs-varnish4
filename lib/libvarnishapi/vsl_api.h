@@ -32,15 +32,15 @@
 #define VSL_FILE_ID			"VSL"
 
 /*lint -esym(534, vsl_diag) */
-int vsl_diag(struct VSL_data *vsl, const char *fmt, ...)
-    __v_printflike(2, 3);
+int vsl_diag(struct VSL_data *vsl, const char *fmt, ...) v_printflike_(2, 3);
 void vsl_vbm_bitset(int bit, void *priv);
 void vsl_vbm_bitclr(int bit, void *priv);
 
 typedef void vslc_delete_f(const struct VSL_cursor *);
-typedef int vslc_next_f(const struct VSL_cursor *);
-typedef int vslc_reset_f(const struct VSL_cursor *);
-typedef int vslc_check_f(const struct VSL_cursor *, const struct VSLC_ptr *);
+typedef enum vsl_status vslc_next_f(const struct VSL_cursor *);
+typedef enum vsl_status vslc_reset_f(const struct VSL_cursor *);
+typedef enum vsl_check vslc_check_f(const struct VSL_cursor *,
+    const struct VSLC_ptr *);
 
 struct vslc_tbl {
 	unsigned			magic;
@@ -84,6 +84,8 @@ struct VSL_data {
 	int				c_opt;
 	int				C_opt;
 	int				L_opt;
+	int				R_opt_l;
+	vtim_dur			R_opt_p;
 	double				T_opt;
 	int				v_opt;
 };

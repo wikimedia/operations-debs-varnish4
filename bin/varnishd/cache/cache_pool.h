@@ -50,10 +50,12 @@ struct pool {
 	unsigned			nthr;
 	unsigned			dry;
 	unsigned			lqueue;
-	uintmax_t			ndropped;
+	uintmax_t			sdropped;
+	uintmax_t			rdropped;
 	uintmax_t			nqueued;
-	struct dstat			*a_stat;
-	struct dstat			*b_stat;
+	uintmax_t			ndequeued;
+	struct VSC_main_wrk		*a_stat;
+	struct VSC_main_wrk		*b_stat;
 
 	struct mempool			*mpl_req;
 	struct mempool			*mpl_sess;

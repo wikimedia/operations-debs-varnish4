@@ -30,8 +30,13 @@
 
 #include "config.h"
 
+#include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
+#include "vdef.h"
+
+#include "vas.h"
 #include "vct.h"
 
 /* NB: VCT always operate in ASCII, don't replace 0x0d with \r etc. */
@@ -49,9 +54,9 @@ const uint16_t vct_typtab[256] = {
 	[0x06]	=	VCT_CTL,
 	[0x07]	=	VCT_CTL,
 	[0x08]	=	VCT_CTL,
-	[0x09]	=	VCT_CTL | VCT_SP | VCT_SEPARATOR,
+	[0x09]	=	VCT_CTL | VCT_SP,
 	[0x0a]	=	VCT_CTL | VCT_CRLF,
-	[0x0b]	=	VCT_CTL,
+	[0x0b]	=	VCT_CTL | VCT_VT,
 	[0x0c]	=	VCT_CTL,
 	[0x0d]	=	VCT_CTL | VCT_CRLF,
 	[0x0e]	=	VCT_CTL,
@@ -72,7 +77,7 @@ const uint16_t vct_typtab[256] = {
 	[0x1d]	=	VCT_CTL,
 	[0x1e]	=	VCT_CTL,
 	[0x1f]	=	VCT_CTL,
-	[0x20]  =	VCT_SP | VCT_SEPARATOR,
+	[0x20]  =	VCT_SP,
 	[0x21]  =	VCT_TCHAR,
 	[0x22]  =	VCT_SEPARATOR,
 	[0x23]  =	VCT_TCHAR,
@@ -85,8 +90,8 @@ const uint16_t vct_typtab[256] = {
 	[0x2a]  =	VCT_TCHAR,
 	[0x2b]  =	VCT_TCHAR,
 	[0x2c]  =	VCT_SEPARATOR,
-	[0x2d]	=	VCT_XMLNAME | VCT_TCHAR,
-	[0x2e]	=	VCT_XMLNAME | VCT_TCHAR,
+	[0x2d]	=	VCT_XMLNAME | VCT_TCHAR | VCT_ID,
+	[0x2e]	=	VCT_XMLNAME | VCT_TCHAR | VCT_VAR,
 	[0x2f]  =	VCT_SEPARATOR,
 	[0x30]	=	VCT_DIGIT | VCT_HEX | VCT_XMLNAME,
 	[0x31]	=	VCT_DIGIT | VCT_HEX | VCT_XMLNAME,
@@ -135,7 +140,7 @@ const uint16_t vct_typtab[256] = {
 	[0x5c]  =	VCT_SEPARATOR,
 	[0x5d]  =	VCT_SEPARATOR,
 	[0x5e]  =	VCT_TCHAR,
-	[0x5f]	=	VCT_XMLNAMESTART | VCT_TCHAR,
+	[0x5f]	=	VCT_XMLNAMESTART | VCT_TCHAR | VCT_ID,
 	[0x60]	=	VCT_TCHAR,
 	[0x61]	=	VCT_LOALPHA | VCT_HEX | VCT_XMLNAMESTART,
 	[0x62]	=	VCT_LOALPHA | VCT_HEX | VCT_XMLNAMESTART,
@@ -232,3 +237,22 @@ const uint16_t vct_typtab[256] = {
 	[0xfe]	=	VCT_XMLNAMESTART,
 	[0xff]	=	VCT_XMLNAMESTART,
 };
+
+const char *
+VCT_invalid_name(const char *b, const char *e)
+{
+
+	AN(b);
+	if (e == NULL)
+		e = strchr(b, '\0');
+	assert(b < e);
+
+	if (!vct_isident1(*b))
+		return (b);
+
+	for (; b < e; b++)
+		if (!vct_isident(*b))
+			return (b);
+
+	return (NULL);
+}

@@ -31,17 +31,14 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 
 #include <dlfcn.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "vcli_serve.h"
-#include "vrt.h"
+#include "vmod_abi.h"
 
 /*--------------------------------------------------------------------
  * Modules stuff
@@ -56,6 +53,7 @@ struct vmod {
 	int			ref;
 
 	char			*nm;
+	unsigned		nbr;
 	char			*path;
 	char			*backup;
 	void			*hdl;
@@ -68,10 +66,20 @@ struct vmod {
 
 static VTAILQ_HEAD(,vmod)	vmods = VTAILQ_HEAD_INITIALIZER(vmods);
 
+static unsigned
+vmod_abi_mismatch(const struct vmod_data *d)
+{
+
+	if (d->vrt_major == 0 && d->vrt_minor == 0)
+		return (d->abi == NULL || strcmp(d->abi, VMOD_ABI_Version));
+
+	return (d->vrt_major != VRT_MAJOR_VERSION ||
+	    d->vrt_minor > VRT_MINOR_VERSION);
+}
 
 int
-VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len, const char *nm,
-    const char *path, const char *file_id, const char *backup)
+VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, unsigned nbr, void *ptr, int len,
+    const char *nm, const char *path, const char *file_id, const char *backup)
 {
 	struct vmod *v;
 	const struct vmod_data *d;
@@ -86,7 +94,8 @@ VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len, const char *nm,
 
 	dlhdl = dlopen(backup, RTLD_NOW | RTLD_LOCAL);
 	if (dlhdl == NULL) {
-		VSB_printf(ctx->msg, "Loading vmod %s from %s:\n", nm, backup);
+		VSB_printf(ctx->msg, "Loading vmod %s from %s (%s):\n",
+		    nm, backup, path);
 		VSB_printf(ctx->msg, "dlopen() failed: %s\n", dlerror());
 		return (1);
 	}
@@ -106,8 +115,8 @@ VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len, const char *nm,
 		if (d == NULL ||
 		    d->file_id == NULL ||
 		    strcmp(d->file_id, file_id)) {
-			VSB_printf(ctx->msg,
-			    "Loading vmod %s from %s:\n", nm, path);
+			VSB_printf(ctx->msg, "Loading vmod %s from %s (%s):\n",
+			    nm, backup, path);
 			VSB_printf(ctx->msg,
 			    "This is no longer the same file seen by"
 			    " the VCL-compiler.\n");
@@ -115,23 +124,22 @@ VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len, const char *nm,
 			FREE_OBJ(v);
 			return (1);
 		}
-		if (d->vrt_major != VRT_MAJOR_VERSION ||
-		    d->vrt_minor > VRT_MINOR_VERSION ||
+		if (vmod_abi_mismatch(d) ||
 		    d->name == NULL ||
 		    strcmp(d->name, nm) ||
 		    d->func == NULL ||
 		    d->func_len <= 0 ||
 		    d->proto == NULL ||
-		    d->spec == NULL ||
-		    d->abi == NULL) {
-			VSB_printf(ctx->msg,
-			    "Loading VMOD %s from %s:\n", nm, path);
+		    d->json == NULL) {
+			VSB_printf(ctx->msg, "Loading vmod %s from %s (%s):\n",
+			    nm, backup, path);
 			VSB_printf(ctx->msg, "VMOD data is mangled.\n");
 			(void)dlclose(v->hdl);
 			FREE_OBJ(v);
 			return (1);
 		}
 
+		v->nbr = nbr;
 		v->funclen = d->func_len;
 		v->funcs = d->func;
 		v->abi = d->abi;
@@ -154,13 +162,16 @@ VRT_Vmod_Init(VRT_CTX, struct vmod **hdl, void *ptr, int len, const char *nm,
 }
 
 void
-VRT_Vmod_Fini(struct vmod **hdl)
+VRT_Vmod_Unload(VRT_CTX, struct vmod **hdl)
 {
 	struct vmod *v;
 
 	ASSERT_CLI();
 
 	TAKE_OBJ_NOTNULL(v, hdl, VMOD_MAGIC);
+
+	VCL_TaskLeave(ctx->vcl, cli_task_privs);
+	VCL_TaskEnter(ctx->vcl, cli_task_privs);
 
 #ifndef DONT_DLCLOSE_VMODS
 	/*
@@ -196,7 +207,7 @@ VMOD_Panic(struct vsb *vsb)
 
 /*---------------------------------------------------------------------*/
 
-static void
+static void v_matchproto_(cli_func_t)
 ccf_debug_vmod(struct cli *cli, const char * const *av, void *priv)
 {
 	struct vmod *v;

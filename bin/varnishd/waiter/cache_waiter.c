@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2015 Varnish Software AS
+ * Copyright (c) 2006-2019 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -30,17 +30,17 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "binary_heap.h"
 
+#include "waiter/waiter.h"
 #include "waiter/waiter_priv.h"
 #include "waiter/mgt_waiter.h"
 
-static int __match_proto__(binheap_cmp_t)
+static int v_matchproto_(binheap_cmp_t)
 waited_cmp(void *priv, const void *a, const void *b)
 {
 	const struct waiter *ww;
@@ -53,7 +53,7 @@ waited_cmp(void *priv, const void *a, const void *b)
 	return (Wait_When(aa) < Wait_When(bb));
 }
 
-static void __match_proto__(binheap_update_t)
+static void v_matchproto_(binheap_update_t)
 waited_update(void *priv, void *p, unsigned u)
 {
 	struct waited *pp;
@@ -133,7 +133,6 @@ Wait_Enter(const struct waiter *w, struct waited *wp)
 	CHECK_OBJ_NOTNULL(wp, WAITED_MAGIC);
 	assert(wp->fd > 0);			// stdin never comes here
 	AN(wp->func);
-	AN(wp->tmo);
 	wp->idx = BINHEAP_NOIDX;
 	return (w->impl->enter(w->priv, wp));
 }

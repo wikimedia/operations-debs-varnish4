@@ -29,7 +29,7 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_filter.h"
 
 /* VDP_bytes
@@ -39,7 +39,7 @@
  * This function picks and calls the next delivery processor from the
  * list. The return value is the return value of the delivery
  * processor. Upon seeing a non-zero return value, that lowest value
- * observed is latched in req->vdp_retval and all subsequent calls to
+ * observed is latched in ->retval and all subsequent calls to
  * VDP_bytes will return that value directly without calling the next
  * processor.
  *
@@ -52,77 +52,94 @@ int
 VDP_bytes(struct req *req, enum vdp_action act, const void *ptr, ssize_t len)
 {
 	int retval;
-	struct vdp_entry *vdp;
+	struct vdp_entry *vdpe;
+	struct vdp_ctx *vdc;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	vdc = req->vdc;
 	assert(act == VDP_NULL || act == VDP_FLUSH);
-	if (req->vdp_retval)
-		return (req->vdp_retval);
-	vdp = req->vdp_nxt;
-	CHECK_OBJ_NOTNULL(vdp, VDP_ENTRY_MAGIC);
-	req->vdp_nxt = VTAILQ_NEXT(vdp, list);
+	if (vdc->retval)
+		return (vdc->retval);
+	vdpe = vdc->nxt;
+	CHECK_OBJ_NOTNULL(vdpe, VDP_ENTRY_MAGIC);
+	vdc->nxt = VTAILQ_NEXT(vdpe, list);
 
 	assert(act > VDP_NULL || len > 0);
 	/* Call the present layer, while pointing to the next layer down */
-	retval = vdp->func(req, act, &vdp->priv, ptr, len);
-	if (retval && (req->vdp_retval == 0 || retval < req->vdp_retval))
-		req->vdp_retval = retval; /* Latch error value */
-	req->vdp_nxt = vdp;
-	return (req->vdp_retval);
+	retval = vdpe->vdp->bytes(req, act, &vdpe->priv, ptr, len);
+	if (retval && (vdc->retval == 0 || retval < vdc->retval))
+		vdc->retval = retval; /* Latch error value */
+	vdc->nxt = vdpe;
+	return (vdc->retval);
 }
 
-void
-VDP_push(struct req *req, vdp_bytes *func, void *priv, int bottom,
-    const char *id)
+int
+VDP_Push(struct req *req, const struct vdp *vdp, void *priv)
 {
-	struct vdp_entry *vdp;
+	struct vdp_entry *vdpe;
+	struct vdp_ctx *vdc;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-	AN(func);
+	vdc = req->vdc;
+	AN(vdp);
+	AN(vdp->name);
+	AN(vdp->bytes);
 
-	vdp = WS_Alloc(req->ws, sizeof *vdp);
-	if (vdp == NULL)
-		return;
-	INIT_OBJ(vdp, VDP_ENTRY_MAGIC);
-	vdp->func = func;
-	vdp->priv = priv;
-	vdp->id = id;
-	if (bottom)
-		VTAILQ_INSERT_TAIL(&req->vdp, vdp, list);
-	else
-		VTAILQ_INSERT_HEAD(&req->vdp, vdp, list);
-	req->vdp_nxt = VTAILQ_FIRST(&req->vdp);
+	if (vdc->retval)
+		return (vdc->retval);
 
-	AZ(vdp->func(req, VDP_INIT, &vdp->priv, NULL, 0));
-}
+	if (DO_DEBUG(DBG_PROCESSORS))
+		VSLb(req->vsl, SLT_Debug, "VDP_push(%s)", vdp->name);
 
-static void
-vdp_pop(struct req *req, vdp_bytes *func)
-{
-	struct vdp_entry *vdp;
-	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+	vdpe = WS_Alloc(req->ws, sizeof *vdpe);
+	if (vdpe == NULL) {
+		AZ(vdc->retval);
+		vdc->retval = -1;
+		return (vdc->retval);
+	}
+	INIT_OBJ(vdpe, VDP_ENTRY_MAGIC);
+	vdpe->vdp = vdp;
+	vdpe->priv = priv;
+	VTAILQ_INSERT_TAIL(&vdc->vdp, vdpe, list);
+	vdc->nxt = VTAILQ_FIRST(&vdc->vdp);
 
-	vdp = VTAILQ_FIRST(&req->vdp);
-	CHECK_OBJ_NOTNULL(vdp, VDP_ENTRY_MAGIC);
-	assert(vdp->func == func);
-	VTAILQ_REMOVE(&req->vdp, vdp, list);
-	AZ(vdp->func(req, VDP_FINI, &vdp->priv, NULL, 0));
-	AZ(vdp->priv);
-	req->vdp_nxt = VTAILQ_FIRST(&req->vdp);
+	AZ(vdc->retval);
+	if (vdpe->vdp->init != NULL)
+		vdc->retval = vdpe->vdp->init(req, &vdpe->priv);
+	if (vdc->retval > 0) {
+		VTAILQ_REMOVE(&vdc->vdp, vdpe, list);
+		vdc->nxt = VTAILQ_FIRST(&vdc->vdp);
+		vdc->retval = 0;
+	}
+	return (vdc->retval);
 }
 
 void
 VDP_close(struct req *req)
 {
+	struct vdp_entry *vdpe;
+	struct vdp_ctx *vdc;
 
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
-	while (!VTAILQ_EMPTY(&req->vdp))
-		vdp_pop(req, VTAILQ_FIRST(&req->vdp)->func);
+	vdc = req->vdc;
+	while (!VTAILQ_EMPTY(&vdc->vdp)) {
+		vdpe = VTAILQ_FIRST(&vdc->vdp);
+		if (vdc->retval >= 0)
+			AN(vdpe);
+		if (vdpe != NULL) {
+			CHECK_OBJ_NOTNULL(vdpe, VDP_ENTRY_MAGIC);
+			VTAILQ_REMOVE(&vdc->vdp, vdpe, list);
+			if (vdpe->vdp->fini != NULL)
+				AZ(vdpe->vdp->fini(req, &vdpe->priv));
+			AZ(vdpe->priv);
+		}
+		vdc->nxt = VTAILQ_FIRST(&vdc->vdp);
+	}
 }
 
 /*--------------------------------------------------------------------*/
 
-static int __match_proto__(objiterate_f)
+static int v_matchproto_(objiterate_f)
 vdp_objiterator(void *priv, int flush, const void *ptr, ssize_t len)
 {
 	return (VDP_bytes(priv, flush ? VDP_FLUSH : VDP_NULL, ptr, len));

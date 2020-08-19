@@ -50,7 +50,7 @@
 #ifdef HAVE_SYS_VFS_H
 #  include <sys/vfs.h>
 #endif
-#if defined(__linux__) && defined(HAVE_FALLOCATE)
+#ifdef HAVE_FALLOCATE
 #  include <linux/magic.h>
 #endif
 
@@ -223,14 +223,17 @@ VFIL_fsinfo(int fd, unsigned *pbs, uintmax_t *psize, uintmax_t *pspace)
  *
  * Returns 0 on success, -1 on failure with errno set.
  */
+
 int
 VFIL_allocate(int fd, off_t size, int insist)
 {
 	struct stat st;
 	uintmax_t fsspace;
 	size_t l;
-	ssize_t l2;
-	char buf[64 * 1024];
+	ssize_t l2, l3;
+	char *buf;
+	ssize_t bufsiz;
+	int retval = 0;
 
 	if (ftruncate(fd, size))
 		return (-1);
@@ -268,18 +271,26 @@ VFIL_allocate(int fd, off_t size, int insist)
 
 	/* Write size zero bytes to make sure the entire file is allocated
 	   in the file system */
-	memset(buf, 0, sizeof buf);
+	if (size > 65536)
+		bufsiz = 64 * 1024;
+	else
+		bufsiz = size;
+	buf = calloc(1, bufsiz);
+	AN(buf);
 	assert(lseek(fd, 0, SEEK_SET) == 0);
 	for (l = 0; l < size; l += l2) {
-		l2 = sizeof buf;
+		l2 = bufsiz;
 		if (l + l2 > size)
 			l2 = size - l;
-		l2 = write(fd, buf, l2);
-		if (l2 < 0)
-			return (-1);
+		l3 = write(fd, buf, l2);
+		if (l3 != l2) {
+			retval = -1;
+			break;
+		}
 	}
 	assert(lseek(fd, 0, SEEK_SET) == 0);
-	return (0);
+	free(buf);
+	return (retval);
 }
 
 struct vfil_dir {
@@ -379,6 +390,8 @@ VFIL_searchpath(const struct vfil_path *vp, vfil_path_func_f *func, void *priv,
 		VSB_clear(vsb);
 		VSB_printf(vsb, "%s/%s", vd->dir, fni);
 		AZ(VSB_finish(vsb));
+		if (access(VSB_data(vsb), F_OK))
+			continue;
 		i = func(priv, VSB_data(vsb));
 		if (i <= 0) {
 			e = errno;

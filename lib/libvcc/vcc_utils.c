@@ -29,26 +29,28 @@
 
 #include "config.h"
 
-#include <stdio.h>
+#include <math.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
 
 #include "vcc_compile.h"
 
 #include "vre.h"
-#include "vrt.h"
 #include "vsa.h"
 #include "vss.h"
 #include "vtcp.h"
 
 /*--------------------------------------------------------------------*/
 
-const char *
-vcc_regexp(struct vcc *tl)
+void
+vcc_regexp(struct vcc *tl, struct vsb *vgc_name)
 {
-	char buf[BUFSIZ], *p;
+	char buf[BUFSIZ];
 	vre_t *t;
 	const char *error;
 	int erroroffset;
@@ -56,19 +58,18 @@ vcc_regexp(struct vcc *tl)
 
 	Expect(tl, CSTR);
 	if (tl->err)
-		return (NULL);
-	memset(&t, 0, sizeof t);
+		return;
 	t = VRE_compile(tl->t->dec, 0, &error, &erroroffset);
 	if (t == NULL) {
 		VSB_printf(tl->sb,
 		    "Regexp compilation error:\n\n%s\n\n", error);
 		vcc_ErrWhere(tl, tl->t);
-		return (NULL);
+		return;
 	}
 	VRE_free(&t);
 	bprintf(buf, "VGC_re_%u", tl->unique++);
-	p = TlAlloc(tl, strlen(buf) + 1);
-	strcpy(p, buf);
+	if (vgc_name)
+		VSB_cat(vgc_name, buf);
 
 	Fh(tl, 0, "static void *%s;\n", buf);
 	ifp = New_IniFin(tl);
@@ -76,7 +77,7 @@ vcc_regexp(struct vcc *tl)
 	EncToken(ifp->ini, tl->t);
 	VSB_printf(ifp->ini, ");");
 	VSB_printf(ifp->fin, "\t\tVRT_re_fini(%s);", buf);
-	return (p);
+	vcc_NextToken(tl);
 }
 
 /*
@@ -151,7 +152,7 @@ struct rss {
 	int			wrong;
 };
 
-static int __match_proto__(vss_resolved_f)
+static int v_matchproto_(vss_resolved_f)
 rs_callback(void *priv, const struct suckaddr *vsa)
 {
 	struct rss *rss;
@@ -163,6 +164,7 @@ rs_callback(void *priv, const struct suckaddr *vsa)
 	assert(VSA_Sane(vsa));
 
 	v = VSA_Get_Proto(vsa);
+	assert(v != AF_UNIX);
 	VTCP_name(vsa, a, sizeof a, p, sizeof p);
 	VSB_printf(rss->vsb, "\t%s:%s\n", a, p);
 	if (v == AF_INET) {
@@ -253,3 +255,161 @@ Resolve_Sockaddr(struct vcc *tl,
 	VSB_destroy(&rss->vsb);
 	FREE_OBJ(rss);
 }
+
+/*
+ * For UDS, we do not create a VSA. Check if it's an absolute path, can
+ * be accessed, and is a socket. If so, just emit the path field and set
+ * the IP suckaddrs to NULL.
+ */
+void
+Emit_UDS_Path(struct vcc *tl, const struct token *t_path, const char *errid)
+{
+	struct stat st;
+
+	AN(t_path);
+	AN(t_path->dec);
+
+	if (*t_path->dec != '/') {
+		VSB_printf(tl->sb,
+			   "%s: Must be an absolute path:\n", errid);
+		vcc_ErrWhere(tl, t_path);
+		return;
+	}
+	errno = 0;
+	if (stat(t_path->dec, &st) != 0) {
+		VSB_printf(tl->sb, "%s: Cannot stat: %s\n", errid,
+			   strerror(errno));
+		vcc_ErrWhere(tl, t_path);
+		return;
+	}
+	if (!S_ISSOCK(st.st_mode)) {
+		VSB_printf(tl->sb, "%s: Not a socket:\n", errid);
+		vcc_ErrWhere(tl, t_path);
+		return;
+	}
+	Fb(tl, 0, "\t.path = \"%s\",\n", t_path->dec);
+	Fb(tl, 0, "\t.ipv4_suckaddr = (void *) 0,\n");
+	Fb(tl, 0, "\t.ipv6_suckaddr = (void *) 0,\n");
+}
+
+/*--------------------------------------------------------------------
+ * Recognize and convert units of time, return seconds.
+ */
+
+double
+vcc_TimeUnit(struct vcc *tl)
+{
+	double sc = 1.0;
+
+	assert(tl->t->tok == ID);
+	if (vcc_IdIs(tl->t, "ms"))
+		sc = 1e-3;
+	else if (vcc_IdIs(tl->t, "s"))
+		sc = 1.0;
+	else if (vcc_IdIs(tl->t, "m"))
+		sc = 60.0;
+	else if (vcc_IdIs(tl->t, "h"))
+		sc = 60.0 * 60.0;
+	else if (vcc_IdIs(tl->t, "d"))
+		sc = 60.0 * 60.0 * 24.0;
+	else if (vcc_IdIs(tl->t, "w"))
+		sc = 60.0 * 60.0 * 24.0 * 7.0;
+	else if (vcc_IdIs(tl->t, "y"))
+		sc = 60.0 * 60.0 * 24.0 * 365.0;
+	else {
+		VSB_printf(tl->sb, "Unknown time unit ");
+		vcc_ErrToken(tl, tl->t);
+		VSB_printf(tl->sb,
+		    ".  Legal are 'ms', 's', 'm', 'h', 'd', 'w' and 'y'\n");
+		vcc_ErrWhere(tl, tl->t);
+		return (1.0);
+	}
+	vcc_NextToken(tl);
+	return (sc);
+}
+
+/*--------------------------------------------------------------------
+ * Recognize and convert { CNUM } to unsigned value
+ * The tokenizer made sure we only get digits.
+ */
+
+unsigned
+vcc_UintVal(struct vcc *tl)
+{
+	unsigned d = 0;
+	const char *p;
+
+	Expect(tl, CNUM);
+	for (p = tl->t->b; p < tl->t->e; p++) {
+		d *= 10;
+		d += *p - '0';
+	}
+	vcc_NextToken(tl);
+	return (d);
+}
+
+static double
+vcc_DoubleVal(struct vcc *tl)
+{
+	const size_t l = tl->t->e - tl->t->b;
+	char buf[l + 1];
+
+	assert(tl->t->tok == CNUM || tl->t->tok == FNUM);
+	memcpy(buf, tl->t->b, l);
+	vcc_NextToken(tl);
+	buf[l] = '\0';
+	return (strtod(buf, NULL));
+}
+
+/*--------------------------------------------------------------------*/
+
+void
+vcc_Duration(struct vcc *tl, double *d)
+{
+	double v, sc;
+
+	v = vcc_DoubleVal(tl);
+	ERRCHK(tl);
+	ExpectErr(tl, ID);
+	sc = vcc_TimeUnit(tl);
+	*d = v * sc;
+}
+
+/*--------------------------------------------------------------------*/
+
+void
+vcc_ByteVal(struct vcc *tl, double *d)
+{
+	double v, sc;
+
+	v = vcc_DoubleVal(tl);
+	ERRCHK(tl);
+	if (tl->t->tok != ID) {
+		VSB_printf(tl->sb, "Expected BYTES unit (B, KB, MB...) got ");
+		vcc_ErrToken(tl, tl->t);
+		VSB_printf(tl->sb, "\n");
+		vcc_ErrWhere(tl, tl->t);
+		return;
+	}
+	if (vcc_IdIs(tl->t, "B"))
+		sc = 1.;
+	else if (vcc_IdIs(tl->t, "KB"))
+		sc = 1024.;
+	else if (vcc_IdIs(tl->t, "MB"))
+		sc = 1024. * 1024.;
+	else if (vcc_IdIs(tl->t, "GB"))
+		sc = 1024. * 1024. * 1024.;
+	else if (vcc_IdIs(tl->t, "TB"))
+		sc = 1024. * 1024. * 1024. * 1024.;
+	else {
+		VSB_printf(tl->sb, "Unknown BYTES unit ");
+		vcc_ErrToken(tl, tl->t);
+		VSB_printf(tl->sb,
+		    ".  Legal are 'B', 'KB', 'MB', 'GB' and 'TB'\n");
+		vcc_ErrWhere(tl, tl->t);
+		return;
+	}
+	vcc_NextToken(tl);
+	*d = v * sc;
+}
+

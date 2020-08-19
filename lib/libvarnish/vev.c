@@ -54,7 +54,7 @@
 #endif
 
 struct vevsig {
-	struct vev_base		*vevb;
+	struct vev_root		*vevb;
 	struct vev		*vev;
 	struct sigaction	sigact;
 	unsigned char		happened;
@@ -63,7 +63,7 @@ struct vevsig {
 static struct vevsig		*vev_sigs;
 static int			vev_nsig;
 
-struct vev_base {
+struct vev_root {
 	unsigned		magic;
 #define VEV_BASE_MAGIC		0x477bcf3d
 	struct pollfd		*pfd;
@@ -92,10 +92,10 @@ struct vev_base {
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(binheap_update_t)
+static void v_matchproto_(binheap_update_t)
 vev_bh_update(void *priv, void *a, unsigned u)
 {
-	struct vev_base *evb;
+	struct vev_root *evb;
 	struct vev *e;
 
 	CAST_OBJ_NOTNULL(evb, priv, VEV_BASE_MAGIC);
@@ -106,14 +106,14 @@ vev_bh_update(void *priv, void *a, unsigned u)
 		evb->pev[u] = e;
 		evb->pfd[u].fd = e->fd;
 		evb->pfd[u].events =
-		    e->fd_flags & (EV_RD|EV_WR|EV_ERR|EV_HUP);
+		    e->fd_flags & (VEV__RD|VEV__WR|VEV__ERR|VEV__HUP);
 	}
 }
 
-static int __match_proto__(binheap_cmp_t)
+static int v_matchproto_(binheap_cmp_t)
 vev_bh_cmp(void *priv, const void *a, const void *b)
 {
-	struct vev_base *evb;
+	struct vev_root *evb;
 	const struct vev *ea, *eb;
 
 	CAST_OBJ_NOTNULL(evb, priv, VEV_BASE_MAGIC);
@@ -125,7 +125,7 @@ vev_bh_cmp(void *priv, const void *a, const void *b)
 /*--------------------------------------------------------------------*/
 
 static int
-vev_get_pfd(struct vev_base *evb)
+vev_get_pfd(struct vev_root *evb)
 {
 	unsigned u;
 
@@ -156,13 +156,14 @@ vev_get_sig(int sig)
 	if (sig < vev_nsig)
 		return (0);
 
-	os = calloc(sizeof *os, (sig + 1L));
+	os = calloc((sig + 1L), sizeof *os);
 	if (os == NULL)
 		return (ENOMEM);
 
-	memcpy(os, vev_sigs, vev_nsig * sizeof *os);
-
-	free(vev_sigs);
+	if (vev_sigs != NULL) {
+		memcpy(os, vev_sigs, vev_nsig * sizeof *os);
+		free(vev_sigs);
+	}
 	vev_sigs = os;
 	vev_nsig = sig + 1;
 
@@ -186,12 +187,12 @@ vev_sighandler(int sig)
 
 /*--------------------------------------------------------------------*/
 
-struct vev_base *
-vev_new_base(void)
+struct vev_root *
+VEV_New(void)
 {
-	struct vev_base *evb;
+	struct vev_root *evb;
 
-	evb = calloc(sizeof *evb, 1);
+	evb = calloc(1, sizeof *evb);
 	if (evb == NULL)
 		return (evb);
 	evb->lpfd = BINHEAP_NOIDX + 1;
@@ -214,10 +215,15 @@ vev_new_base(void)
 /*--------------------------------------------------------------------*/
 
 void
-vev_destroy_base(struct vev_base *evb)
+VEV_Destroy(struct vev_root **evbp)
 {
-	CHECK_OBJ_NOTNULL(evb, VEV_BASE_MAGIC);
+	struct vev_root *evb;
+
+	TAKE_OBJ_NOTNULL(evb, evbp, VEV_BASE_MAGIC);
 	assert(evb->thread == pthread_self());
+	free(evb->pfd);
+	free(evb->pev);
+	/* destroy evb->binheap */
 	evb->magic = 0;
 	free(evb);
 }
@@ -225,11 +231,11 @@ vev_destroy_base(struct vev_base *evb)
 /*--------------------------------------------------------------------*/
 
 struct vev *
-vev_new(void)
+VEV_Alloc(void)
 {
 	struct vev *e;
 
-	e = calloc(sizeof *e, 1);
+	e = calloc(1, sizeof *e);
 	if (e != NULL) {
 		e->fd = -1;
 	}
@@ -239,7 +245,7 @@ vev_new(void)
 /*--------------------------------------------------------------------*/
 
 int
-vev_add(struct vev_base *evb, struct vev *e)
+VEV_Start(struct vev_root *evb, struct vev *e)
 {
 	struct vevsig *es;
 
@@ -297,7 +303,7 @@ vev_add(struct vev_base *evb, struct vev *e)
 /*--------------------------------------------------------------------*/
 
 void
-vev_del(struct vev_base *evb, struct vev *e)
+VEV_Stop(struct vev_root *evb, struct vev *e)
 {
 	struct vevsig *es;
 
@@ -333,14 +339,14 @@ vev_del(struct vev_base *evb, struct vev *e)
 /*--------------------------------------------------------------------*/
 
 int
-vev_schedule(struct vev_base *evb)
+VEV_Loop(struct vev_root *evb)
 {
 	int i;
 
 	CHECK_OBJ_NOTNULL(evb, VEV_BASE_MAGIC);
 	assert(evb->thread == pthread_self());
 	do
-		i = vev_schedule_one(evb);
+		i = VEV_Once(evb);
 	while (i == 1);
 	return (i);
 }
@@ -348,14 +354,14 @@ vev_schedule(struct vev_base *evb)
 /*--------------------------------------------------------------------*/
 
 static int
-vev_sched_timeout(struct vev_base *evb, struct vev *e, double t)
+vev_sched_timeout(struct vev_root *evb, struct vev *e, vtim_mono t)
 {
 	int i;
 
 
 	i = e->callback(e, 0);
 	if (i) {
-		vev_del(evb, e);
+		VEV_Stop(evb, e);
 		free(e);
 	} else {
 		e->__when = t + e->timeout;
@@ -366,9 +372,9 @@ vev_sched_timeout(struct vev_base *evb, struct vev *e, double t)
 }
 
 static int
-vev_sched_signal(struct vev_base *evb)
+vev_sched_signal(struct vev_root *evb)
 {
-	int i, j;
+	int i, j, retval = 1;
 	struct vevsig *es;
 	struct vev *e;
 
@@ -380,21 +386,23 @@ vev_sched_signal(struct vev_base *evb)
 		es->happened = 0;
 		e = es->vev;
 		assert(e != NULL);
-		i = e->callback(e, EV_SIG);
+		i = e->callback(e, VEV__SIG);
 		if (i) {
-			vev_del(evb, e);
+			VEV_Stop(evb, e);
 			free(e);
 		}
+		if (i < 0)
+			retval = i;
 	}
-	return (1);
+	return (retval);
 }
 
 int
-vev_schedule_one(struct vev_base *evb)
+VEV_Once(struct vev_root *evb)
 {
 	double t;
 	struct vev *e;
-	int i, j, k, tmo;
+	int i, j, k, tmo, retval = 1;
 
 	CHECK_OBJ_NOTNULL(evb, VEV_BASE_MAGIC);
 	assert(evb->thread == pthread_self());
@@ -403,6 +411,7 @@ vev_schedule_one(struct vev_base *evb)
 	if (evb->psig)
 		return (vev_sched_signal(evb));
 
+	tmo = INFTIM;
 	e = binheap_root(evb->binheap);
 	if (e != NULL) {
 		CHECK_OBJ_NOTNULL(e, VEV_MAGIC);
@@ -410,11 +419,11 @@ vev_schedule_one(struct vev_base *evb)
 		t = VTIM_mono();
 		if (e->__when <= t)
 			return (vev_sched_timeout(evb, e, t));
-		tmo = (int)((e->__when - t) * 1e3);
+		if (e->__when < 9e99)
+			tmo = (int)((e->__when - t) * 1e3);
 		if (tmo == 0)
 			tmo = 1;
-	} else
-		tmo = INFTIM;
+	}
 
 	if (tmo == INFTIM && evb->lpfd == BINHEAP_NOIDX + 1)
 		return (0);
@@ -422,6 +431,8 @@ vev_schedule_one(struct vev_base *evb)
 	i = poll(evb->pfd + 1, evb->lpfd - 1, tmo);
 	if (i == -1 && errno == EINTR)
 		return (vev_sched_signal(evb));
+	if (i == -1)
+		return (-1);
 
 	if (i == 0) {
 		assert(e != NULL);
@@ -450,11 +461,13 @@ vev_schedule_one(struct vev_base *evb)
 			e->fd_events = 0;
 			i--;
 			if (k) {
-				vev_del(evb, e);
+				VEV_Stop(evb, e);
 				free(e);
 			}
+			if (k < 0)
+				retval = k;
 		}
 	}
 	AZ(i);
-	return (1);
+	return (retval);
 }

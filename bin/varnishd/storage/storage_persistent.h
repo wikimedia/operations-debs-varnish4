@@ -122,7 +122,7 @@ struct smp_sign {
 	uint64_t		length;		/* NB: Must be last */
 };
 
-#define SMP_SIGN_SPACE		(sizeof(struct smp_sign) + SHA256_LEN)
+#define SMP_SIGN_SPACE		(sizeof(struct smp_sign) + VSHA256_LEN)
 
 /*
  * A segment pointer.
@@ -168,7 +168,7 @@ struct smp_object {
 
 struct smp_signctx {
 	struct smp_sign		*ss;
-	struct SHA256Context	ctx;
+	struct VSHA256Context	ctx;
 	uint32_t		unique;
 	const char		*id;
 };
@@ -274,9 +274,7 @@ struct smp_sc {
 /*--------------------------------------------------------------------*/
 
 /* Pointer round up/down & assert */
-#define PRNDN(sc, x)	((void*)RDN2((uintptr_t)(x), sc->align))
 #define PRNUP(sc, x)	((void*)RUP2((uintptr_t)(x), sc->align))
-#define PASSERTALIGN(sc, x)	assert(PRNDN(sc, x) == (x))
 
 /* Integer round up/down & assert */
 #define IRNDN(sc, x)	RDN2(x, sc->align)
@@ -319,19 +317,14 @@ obj_event_f smp_oc_event;
 void smp_def_sign(const struct smp_sc *sc, struct smp_signctx *ctx,
     uint64_t off, const char *id);
 int smp_chk_sign(struct smp_signctx *ctx);
-void smp_append_sign(struct smp_signctx *ctx, const void *ptr, uint32_t len);
 void smp_reset_sign(struct smp_signctx *ctx);
 void smp_sync_sign(const struct smp_signctx *ctx);
 
-void smp_def_signspace(const struct smp_sc *sc, struct smp_signspace *spc,
-		       uint64_t off, uint64_t size, const char *id);
 int smp_chk_signspace(struct smp_signspace *spc);
 void smp_append_signspace(struct smp_signspace *spc, uint32_t len);
 void smp_reset_signspace(struct smp_signspace *spc);
 void smp_copy_signspace(struct smp_signspace *dst,
 			const struct smp_signspace *src);
-void smp_trunc_signspace(struct smp_signspace *spc, uint32_t len);
-void smp_msync(void *addr, size_t length);
 
 void smp_newsilo(struct smp_sc *sc);
 int smp_valid_silo(struct smp_sc *sc);

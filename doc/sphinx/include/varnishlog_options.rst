@@ -42,7 +42,7 @@
 
 -I <[taglist:]regex>
 
-	Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent.
+	Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent. Multiple -I options may be given.
 	
 	If a tag include option is the first of any tag selection options, all tags are first marked excluded.
 
@@ -58,10 +58,6 @@
 
 	Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.
 
--N <filename>
-
-	Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
-
 -P <file>
 
 	Write the process' PID to the specified file.
@@ -73,6 +69,10 @@
 -r <filename>
 
 	Read log in binary file format from this file. The file can be created with ``varnishlog -w filename``.
+
+-R <limit[/duration]>
+
+	Restrict the output to the specified limit. Transactions exceeding the limit will be suppressed. The limit is specified as the maximum number of transactions (with respect to the chosen grouping method) and an optional time period. If no duration is specified, a default of ``s`` is used. The duration field can be formatted as in VCL (e.g. ``-R 10/2m``) or as a simple time period without the prefix (e.g. ``-R 5/m``). When in ``-g raw`` grouping mode, this setting can not be used alongside ``-i``, ``-I``, ``-x`` or ``-X``, and we advise using ``-q`` instead.
 
 -t <seconds|off>
 
@@ -101,5 +101,9 @@
 
 -X <[taglist:]regex>
 
-	Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent.
+	Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent. Multiple -X options may be given.
+
+
+--optstring
+	Print the optstring parameter to ``getopt(3)`` to help writing wrapper scripts.
 

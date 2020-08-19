@@ -29,9 +29,10 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_director.h"
 #include "cache_filter.h"
+#include "cache_objhead.h"
 #include "hash/hash_slinger.h"
 #include "storage/storage.h"
 #include "vcl.h"
@@ -62,7 +63,6 @@ vbf_allocobj(struct busyobj *bo, unsigned l)
 		stv = bo->storage;
 
 	bo->storage = NULL;
-	bo->storage_hint = NULL;
 
 	if (stv == NULL)
 		return (0);
@@ -127,10 +127,14 @@ vbf_beresp2obj(struct busyobj *bo)
 	l += l2;
 
 	if (bo->uncacheable)
-		bo->fetch_objcore->flags |= OC_F_PASS;
+		bo->fetch_objcore->flags |= OC_F_HFM;
 
-	if (!vbf_allocobj(bo, l))
+	if (!vbf_allocobj(bo, l)) {
+		if (vary != NULL)
+			VSB_destroy(&vary);
+		AZ(vary);
 		return (-1);
+	}
 
 	if (vary != NULL) {
 		AN(ObjSetAttr(bo->wrk, bo->fetch_objcore, OA_VARY, varyl,
@@ -160,7 +164,7 @@ vbf_beresp2obj(struct busyobj *bo)
 }
 
 /*--------------------------------------------------------------------
- * Copy req->bereq and release req if not pass fetch
+ * Copy req->bereq and release req if no body
  */
 
 static enum fetch_step
@@ -174,28 +178,25 @@ vbf_stp_mkbereq(struct worker *wrk, struct busyobj *bo)
 
 	assert(bo->fetch_objcore->boc->state == BOS_INVALID);
 	AZ(bo->storage);
-	AZ(bo->storage_hint);
 
 	HTTP_Setup(bo->bereq0, bo->ws, bo->vsl, SLT_BereqMethod);
 	http_FilterReq(bo->bereq0, bo->req->http,
 	    bo->do_pass ? HTTPH_R_PASS : HTTPH_R_FETCH);
 
-	if (!bo->do_pass) {
+	if (bo->do_pass)
+		AZ(bo->stale_oc);
+	else {
 		http_ForceField(bo->bereq0, HTTP_HDR_METHOD, "GET");
-		http_ForceField(bo->bereq0, HTTP_HDR_PROTO, "HTTP/1.1");
 		if (cache_param->http_gzip_support)
 			http_ForceHeader(bo->bereq0, H_Accept_Encoding, "gzip");
-	} else {
-		AZ(bo->stale_oc);
-		if (bo->bereq0->protover > 11)
-			http_ForceField(bo->bereq0, HTTP_HDR_PROTO, "HTTP/1.1");
 	}
+	http_ForceField(bo->bereq0, HTTP_HDR_PROTO, "HTTP/1.1");
 	http_CopyHome(bo->bereq0);
 
 	if (bo->stale_oc != NULL &&
 	    ObjCheckFlag(bo->wrk, bo->stale_oc, OF_IMSCAND) &&
 	    (bo->stale_oc->boc != NULL || ObjGetLen(wrk, bo->stale_oc) != 0)) {
-		AZ(bo->stale_oc->flags & OC_F_PASS);
+		AZ(bo->stale_oc->flags & (OC_F_HFM|OC_F_PRIVATE));
 		q = HTTP_GetHdrPack(bo->wrk, bo->stale_oc, H_Last_Modified);
 		if (q != NULL)
 			http_PrintfHeader(bo->bereq0,
@@ -225,12 +226,8 @@ vbf_stp_mkbereq(struct worker *wrk, struct busyobj *bo)
 static enum fetch_step
 vbf_stp_retry(struct worker *wrk, struct busyobj *bo)
 {
-	struct vfp_ctx *vfc;
-
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	vfc = bo->vfc;
-	CHECK_OBJ_NOTNULL(vfc, VFP_CTX_MAGIC);
 
 	assert(bo->fetch_objcore->boc->state <= BOS_REQ_DONE);
 
@@ -241,12 +238,9 @@ vbf_stp_retry(struct worker *wrk, struct busyobj *bo)
 
 	/* reset other bo attributes - See VBO_GetBusyObj */
 	bo->storage = NULL;
-	bo->storage_hint = NULL;
 	bo->do_esi = 0;
 	bo->do_stream = 1;
-
-	/* reset fetch processors */
-	VFP_Setup(vfc);
+	bo->was_304 = 0;
 
 	// XXX: BereqEnd + BereqAcct ?
 	VSL_ChgId(bo->vsl, "bereq", "retry", VXID_Get(wrk, VSL_BACKENDMARKER));
@@ -270,9 +264,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
 	AZ(bo->storage);
-	AZ(bo->storage_hint);
-
-	bo->storage = STV_next();
+	bo->storage = bo->do_pass ? stv_transient : STV_next();
 
 	if (bo->retries > 0)
 		http_Unset(bo->bereq, "\012X-Varnish:");
@@ -285,13 +277,22 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	if (wrk->handling == VCL_RET_ABANDON || wrk->handling == VCL_RET_FAIL)
 		return (F_STP_FAIL);
 
-	assert (wrk->handling == VCL_RET_FETCH);
+	assert (wrk->handling == VCL_RET_FETCH || wrk->handling == VCL_RET_ERROR);
 
 	HTTP_Setup(bo->beresp, bo->ws, bo->vsl, SLT_BerespMethod);
 
 	assert(bo->fetch_objcore->boc->state <= BOS_REQ_DONE);
 
 	AZ(bo->htc);
+
+	VFP_Setup(bo->vfc, wrk);
+	bo->vfc->oc = bo->fetch_objcore;
+	bo->vfc->resp = bo->beresp;
+	bo->vfc->req = bo->bereq;
+
+	if (wrk->handling == VCL_RET_ERROR)
+		return (F_STP_ERROR);
+
 	i = VDI_GetHdr(wrk, bo);
 
 	now = W_TIM_real(wrk);
@@ -303,6 +304,14 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	}
 
 	http_VSL_log(bo->beresp);
+
+	if (bo->htc->body_status == BS_ERROR) {
+		bo->htc->doclose = SC_RX_BODY;
+		VDI_Finish(bo->wrk, bo);
+		VSLb(bo->vsl, SLT_Error, "Body cannot be fetched");
+		assert(bo->director_state == DIR_S_NULL);
+		return (F_STP_ERROR);
+	}
 
 	if (!http_GetHdr(bo->beresp, H_Date, NULL)) {
 		/*
@@ -327,68 +336,6 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	http_CollectHdr(bo->beresp, H_Cache_Control);
 	http_CollectHdr(bo->beresp, H_Vary);
 
-	/*
-	 * Figure out how the fetch is supposed to happen, before the
-	 * headers are adultered by VCL
-	 */
-	if (!strcasecmp(http_GetMethod(bo->bereq), "head")) {
-		/*
-		 * A HEAD request can never have a body in the reply,
-		 * no matter what the headers might say.
-		 * [RFC7231 4.3.2 p25]
-		 */
-		wrk->stats->fetch_head++;
-		bo->htc->body_status = BS_NONE;
-	} else if (http_GetStatus(bo->beresp) <= 199) {
-		/*
-		 * 1xx responses never have a body.
-		 * [RFC7230 3.3.2 p31]
-		 * ... but we should never see them.
-		 */
-		wrk->stats->fetch_1xx++;
-		bo->htc->body_status = BS_ERROR;
-	} else if (http_IsStatus(bo->beresp, 204)) {
-		/*
-		 * 204 is "No Content", obviously don't expect a body.
-		 * [RFC7230 3.3.1 p29 and 3.3.2 p31]
-		 */
-		wrk->stats->fetch_204++;
-		if ((http_GetHdr(bo->beresp, H_Content_Length, NULL) &&
-		    bo->htc->content_length != 0) ||
-		    http_GetHdr(bo->beresp, H_Transfer_Encoding, NULL))
-			bo->htc->body_status = BS_ERROR;
-		else
-			bo->htc->body_status = BS_NONE;
-	} else if (http_IsStatus(bo->beresp, 304)) {
-		/*
-		 * 304 is "Not Modified" it has no body.
-		 * [RFC7230 3.3 p28]
-		 */
-		wrk->stats->fetch_304++;
-		bo->htc->body_status = BS_NONE;
-	} else if (bo->htc->body_status == BS_CHUNKED) {
-		wrk->stats->fetch_chunked++;
-	} else if (bo->htc->body_status == BS_LENGTH) {
-		assert(bo->htc->content_length > 0);
-		wrk->stats->fetch_length++;
-	} else if (bo->htc->body_status == BS_EOF) {
-		wrk->stats->fetch_eof++;
-	} else if (bo->htc->body_status == BS_ERROR) {
-		wrk->stats->fetch_bad++;
-	} else if (bo->htc->body_status == BS_NONE) {
-		wrk->stats->fetch_none++;
-	} else {
-		WRONG("wrong bodystatus");
-	}
-
-	if (bo->htc->body_status == BS_ERROR) {
-		bo->htc->doclose = SC_RX_BODY;
-		VDI_Finish(bo->wrk, bo);
-		VSLb(bo->vsl, SLT_Error, "Body cannot be fetched");
-		assert(bo->director_state == DIR_S_NULL);
-		return (F_STP_ERROR);
-	}
-
 	if (bo->fetch_objcore->flags & OC_F_PRIVATE) {
 		/* private objects have negative TTL */
 		bo->fetch_objcore->t_origin = now;
@@ -411,6 +358,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	if (http_IsStatus(bo->beresp, 304)) {
 		if (bo->stale_oc != NULL &&
 		    ObjCheckFlag(bo->wrk, bo->stale_oc, OF_IMSCAND)) {
+			AZ(bo->stale_oc->flags & (OC_F_HFM|OC_F_PRIVATE));
 			if (ObjCheckFlag(bo->wrk, bo->stale_oc, OF_CHGGZIP)) {
 				/*
 				 * If we changed the gzip status of the object
@@ -436,18 +384,17 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 		}
 	}
 
-	bo->vfc->bo = bo;
-	bo->vfc->oc = bo->fetch_objcore;
-	bo->vfc->wrk = bo->wrk;
-	bo->vfc->http = bo->beresp;
-	bo->vfc->esi_req = bo->bereq;
-
 	VCL_backend_response_method(bo->vcl, wrk, NULL, bo, NULL);
 
-	if (wrk->handling == VCL_RET_ABANDON || wrk->handling == VCL_RET_FAIL) {
+	if (wrk->handling == VCL_RET_ABANDON || wrk->handling == VCL_RET_FAIL ||
+	    wrk->handling == VCL_RET_ERROR) {
 		bo->htc->doclose = SC_RESP_CLOSE;
+
 		VDI_Finish(bo->wrk, bo);
-		return (F_STP_FAIL);
+		if (wrk->handling == VCL_RET_ERROR)
+			return (F_STP_ERROR);
+		else
+			return (F_STP_FAIL);
 	}
 
 	if (wrk->handling == VCL_RET_RETRY) {
@@ -479,7 +426,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 		wrk->handling = VCL_RET_DELIVER;
 	}
 	if (bo->do_pass || bo->uncacheable)
-		bo->fetch_objcore->flags |= OC_F_PASS;
+		bo->fetch_objcore->flags |= OC_F_HFM;
 
 	assert(wrk->handling == VCL_RET_DELIVER);
 
@@ -512,13 +459,12 @@ vbf_stp_fetchbody(struct worker *wrk, struct busyobj *bo)
 		if (vfc->oc->flags & OC_F_ABANDON) {
 			/*
 			 * A pass object and delivery was terminated
-			 * We don't fail the fetch, in order for hit-for-pass
+			 * We don't fail the fetch, in order for HitMiss
 			 * objects to be created.
 			 */
-			AN(vfc->oc->flags & OC_F_PASS);
-			VSLb(wrk->vsl, SLT_FetchError,
-			    "Pass delivery abandoned");
-			vfps = VFP_END;
+			AN(vfc->oc->flags & OC_F_HFM);
+			VSLb(wrk->vsl, SLT_Debug,
+			    "Fetch: Pass delivery abandoned");
 			bo->htc->doclose = SC_RX_BODY;
 			break;
 		}
@@ -545,6 +491,7 @@ vbf_stp_fetchbody(struct worker *wrk, struct busyobj *bo)
 	if (vfc->failed) {
 		(void)VFP_Error(vfc, "Fetch pipeline failed to process");
 		bo->htc->doclose = SC_RX_BODY;
+		VFP_Close(vfc);
 		VDI_Finish(wrk, bo);
 		if (!bo->do_stream) {
 			assert(bo->fetch_objcore->boc->state < BOS_STREAM);
@@ -563,28 +510,10 @@ vbf_stp_fetchbody(struct worker *wrk, struct busyobj *bo)
 /*--------------------------------------------------------------------
  */
 
-#define vbf_vfp_push(bo, vfp, top)					\
-	do {								\
-		if (VFP_Push((bo)->vfc, (vfp), (top)) == NULL) {	\
-			assert (WS_Overflowed((bo)->vfc->http->ws));	\
-			(void)VFP_Error((bo)->vfc,			\
-			    "workspace_backend overflow");		\
-			(bo)->htc->doclose = SC_OVERLOAD;		\
-			VDI_Finish((bo)->wrk, bo);			\
-			return (F_STP_ERROR);				\
-		}							\
-	} while (0)
-
-static enum fetch_step
-vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
+static int
+vbf_figure_out_vfp(struct busyobj *bo)
 {
-	const char *p;
-
-	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
-	CHECK_OBJ_NOTNULL(bo->fetch_objcore, OBJCORE_MAGIC);
-
-	assert(wrk->handling == VCL_RET_DELIVER);
+	int is_gzip, is_gunzip;
 
 	/*
 	 * The VCL variables beresp.do_g[un]zip tells us how we want the
@@ -599,59 +528,69 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	 *
 	 */
 
-	/* We do nothing unless the param is set */
+	/* No body -> done */
+	if (bo->htc->body_status == BS_NONE ||
+	    bo->htc->content_length == 0) {
+		http_Unset(bo->beresp, H_Content_Encoding);
+		bo->do_gzip = bo->do_gunzip = 0;
+		bo->do_stream = 0;
+		return (0);
+	}
+
 	if (!cache_param->http_gzip_support)
 		bo->do_gzip = bo->do_gunzip = 0;
 
-	if (bo->htc->content_length == 0)
-		http_Unset(bo->beresp, H_Content_Encoding);
+	is_gzip = http_HdrIs(bo->beresp, H_Content_Encoding, "gzip");
+	is_gunzip = !http_GetHdr(bo->beresp, H_Content_Encoding, NULL);
+	assert(is_gzip == 0 || is_gunzip == 0);
 
-	if (bo->htc->body_status != BS_NONE) {
-		bo->is_gzip =
-		    http_HdrIs(bo->beresp, H_Content_Encoding, "gzip");
-		bo->is_gunzip =
-		    !http_GetHdr(bo->beresp, H_Content_Encoding, NULL);
-		assert(bo->is_gzip == 0 || bo->is_gunzip == 0);
-	}
-
-	/* We won't gunzip unless it is non-empty and gzip'ed */
-	if (bo->htc->body_status == BS_NONE ||
-	    bo->htc->content_length == 0 ||
-	    (bo->do_gunzip && !bo->is_gzip))
+	/* We won't gunzip unless it is gzip'ed */
+	if (bo->do_gunzip && !is_gzip)
 		bo->do_gunzip = 0;
 
-	/* We wont gzip unless it is non-empty and ungzip'ed */
-	if (bo->htc->body_status == BS_NONE ||
-	    bo->htc->content_length == 0 ||
-	    (bo->do_gzip && !bo->is_gunzip))
+	/* We wont gzip unless if it already is gzip'ed */
+	if (bo->do_gzip && !is_gunzip)
 		bo->do_gzip = 0;
 
 	/* But we can't do both at the same time */
 	assert(bo->do_gzip == 0 || bo->do_gunzip == 0);
 
-	if (bo->do_gunzip || (bo->is_gzip && bo->do_esi))
-		vbf_vfp_push(bo, &vfp_gunzip, 1);
+	if (bo->do_gunzip || (is_gzip && bo->do_esi))
+		if (VFP_Push(bo->vfc, &VFP_gunzip) == NULL)
+			return (-1);
 
-	if (bo->htc->content_length != 0) {
-		if (bo->do_esi && bo->do_gzip) {
-			vbf_vfp_push(bo, &vfp_esi_gzip, 1);
-		} else if (bo->do_esi && bo->is_gzip && !bo->do_gunzip) {
-			vbf_vfp_push(bo, &vfp_esi_gzip, 1);
-		} else if (bo->do_esi) {
-			vbf_vfp_push(bo, &vfp_esi, 1);
-		} else if (bo->do_gzip) {
-			vbf_vfp_push(bo, &vfp_gzip, 1);
-		} else if (bo->is_gzip && !bo->do_gunzip) {
-			vbf_vfp_push(bo, &vfp_testgunzip, 1);
-		}
+	if (bo->do_esi && (bo->do_gzip || (is_gzip && !bo->do_gunzip)))
+		return (VFP_Push(bo->vfc, &VFP_esi_gzip) == NULL ? -1 : 0);
+
+	if (bo->do_esi)
+		return (VFP_Push(bo->vfc, &VFP_esi) == NULL ? -1 : 0);
+
+	if (bo->do_gzip)
+		return (VFP_Push(bo->vfc, &VFP_gzip) == NULL ? -1 : 0);
+
+	if (is_gzip && !bo->do_gunzip)
+		return (VFP_Push(bo->vfc, &VFP_testgunzip) == NULL ? -1 : 0);
+
+	return (0);
+}
+
+static enum fetch_step
+vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
+{
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(bo->fetch_objcore, OBJCORE_MAGIC);
+
+	assert(wrk->handling == VCL_RET_DELIVER);
+
+	if (vbf_figure_out_vfp(bo)) {
+		(bo)->htc->doclose = SC_OVERLOAD;
+		VDI_Finish((bo)->wrk, bo);
+		return (F_STP_ERROR);
 	}
 
 	if (bo->fetch_objcore->flags & OC_F_PRIVATE)
 		AN(bo->uncacheable);
-
-	/* No reason to try streaming a non-existing body */
-	if (bo->htc->body_status == BS_NONE)
-		bo->do_stream = 0;
 
 	bo->fetch_objcore->boc->len_so_far = 0;
 
@@ -670,19 +609,15 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 		return (F_STP_ERROR);
 	}
 
-	if (bo->do_esi)
-		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_ESIPROC, 1);
+#define OBJ_FLAG(U, l, v)						\
+	if (bo->vfc->obj_flags & OF_##U)				\
+		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_##U, 1);
+#include "tbl/obj_attr.h"
 
-	if (bo->do_gzip || (bo->is_gzip && !bo->do_gunzip))
-		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_GZIPED, 1);
-
-	if (bo->do_gzip || bo->do_gunzip)
-		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_CHGGZIP, 1);
-
-	if (!(bo->fetch_objcore->flags & OC_F_PASS) &&
+	if (!(bo->fetch_objcore->flags & OC_F_HFM) &&
 	    http_IsStatus(bo->beresp, 200) && (
-	      http_GetHdr(bo->beresp, H_Last_Modified, &p) ||
-	      http_GetHdr(bo->beresp, H_ETag, &p)))
+	      http_GetHdr(bo->beresp, H_Last_Modified, NULL) ||
+	      http_GetHdr(bo->beresp, H_ETag, NULL)))
 		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_IMSCAND, 1);
 
 	if (bo->htc->body_status != BS_NONE &&
@@ -731,6 +666,7 @@ vbf_stp_fetchend(struct worker *wrk, struct busyobj *bo)
 		assert(bo->fetch_objcore->boc->state == BOS_STREAM);
 	else {
 		assert(bo->fetch_objcore->boc->state == BOS_REQ_DONE);
+		ObjSetState(wrk, bo->fetch_objcore, BOS_PREP_STREAM);
 		HSH_Unbusy(wrk, bo->fetch_objcore);
 	}
 
@@ -787,6 +723,8 @@ vbf_stp_condfetch(struct worker *wrk, struct busyobj *bo)
 		    OA_ESIDATA));
 
 	AZ(ObjCopyAttr(bo->wrk, bo->fetch_objcore, bo->stale_oc, OA_FLAGS));
+	if (bo->fetch_objcore->flags & OC_F_HFM)
+		ObjSetFlag(bo->wrk, bo->fetch_objcore, OF_IMSCAND, 0);
 	AZ(ObjCopyAttr(bo->wrk, bo->fetch_objcore, bo->stale_oc, OA_GZIPBITS));
 
 	if (bo->do_stream) {
@@ -826,7 +764,8 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	AN(bo->fetch_objcore->flags & OC_F_BUSY);
 	assert(bo->director_state == DIR_S_NULL);
 
-	wrk->stats->fetch_failed++;
+	if (wrk->handling !=  VCL_RET_ERROR)
+		wrk->stats->fetch_failed++;
 
 	now = W_TIM_real(wrk);
 	VSLb_ts_busyobj(bo, "Error", now);
@@ -834,10 +773,17 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	if (bo->fetch_objcore->stobj->stevedore != NULL)
 		ObjFreeObj(bo->wrk, bo->fetch_objcore);
 
+	if (bo->storage == NULL)
+		bo->storage = STV_next();
+
 	// XXX: reset all beresp flags ?
 
 	HTTP_Setup(bo->beresp, bo->ws, bo->vsl, SLT_BerespMethod);
-	http_PutResponse(bo->beresp, "HTTP/1.1", 503, "Backend fetch failed");
+	if (bo->err_code > 0)
+		http_PutResponse(bo->beresp, "HTTP/1.1", bo->err_code, bo->err_reason);
+	else
+		http_PutResponse(bo->beresp, "HTTP/1.1", 503, "Backend fetch failed");
+
 	http_TimeHeader(bo->beresp, "Date: ", now);
 	http_SetHeader(bo->beresp, "Server: Varnish");
 
@@ -881,11 +827,10 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 
 	assert(wrk->handling == VCL_RET_DELIVER);
 
-	bo->vfc->bo = bo;
-	bo->vfc->wrk = bo->wrk;
-	bo->vfc->oc = bo->fetch_objcore;
-	bo->vfc->http = bo->beresp;
-	bo->vfc->esi_req = bo->bereq;
+	assert(bo->vfc->wrk == bo->wrk);
+	assert(bo->vfc->oc == bo->fetch_objcore);
+	assert(bo->vfc->resp == bo->beresp);
+	assert(bo->vfc->req == bo->bereq);
 
 	if (vbf_beresp2obj(bo)) {
 		(void)VFP_Error(bo->vfc, "Could not get storage");
@@ -899,6 +844,8 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 		l = ll;
 		if (VFP_GetStorage(bo->vfc, &l, &ptr) != VFP_OK)
 			break;
+		if (l > ll)
+			l = ll;
 		memcpy(ptr, VSB_data(synth_body) + o, l);
 		VFP_Extend(bo->vfc, l);
 		ll -= l;
@@ -906,6 +853,7 @@ vbf_stp_error(struct worker *wrk, struct busyobj *bo)
 	}
 	AZ(ObjSetU64(wrk, bo->fetch_objcore, OA_LEN, o));
 	VSB_destroy(&synth_body);
+	ObjSetState(wrk, bo->fetch_objcore, BOS_PREP_STREAM);
 	HSH_Unbusy(wrk, bo->fetch_objcore);
 	ObjSetState(wrk, bo->fetch_objcore, BOS_FINISHED);
 	return (F_STP_DONE);
@@ -939,7 +887,7 @@ vbf_stp_done(void)
 	NEEDLESS(return(F_STP_DONE));
 }
 
-static void __match_proto__(task_func_t)
+static void v_matchproto_(task_func_t)
 vbf_fetch_thread(struct worker *wrk, void *priv)
 {
 	struct busyobj *bo;
@@ -968,9 +916,14 @@ vbf_fetch_thread(struct worker *wrk, void *priv)
 	}
 #endif
 
+	VCL_TaskEnter(bo->vcl, bo->privs);
 	while (stp != F_STP_DONE) {
 		CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 		assert(bo->fetch_objcore->boc->refcount >= 1);
+		if (bo->fetch_objcore->boc->state < BOS_REQ_DONE)
+			AN(bo->req);
+		else
+			AZ(bo->req);
 		switch (stp) {
 #define FETCH_STEP(l, U, arg)						\
 		case F_STP_##U:						\
@@ -984,6 +937,7 @@ vbf_fetch_thread(struct worker *wrk, void *priv)
 
 	assert(bo->director_state == DIR_S_NULL);
 
+	VCL_TaskLeave(bo->vcl, bo->privs);
 	http_Teardown(bo->bereq);
 	http_Teardown(bo->beresp);
 
@@ -1021,32 +975,37 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 	AN(oc->flags & OC_F_BUSY);
 	CHECK_OBJ_ORNULL(oldoc, OBJCORE_MAGIC);
 
-
-	switch (mode) {
-	case VBF_PASS:		how = "pass"; break;
-	case VBF_NORMAL:	how = "fetch"; break;
-	case VBF_BACKGROUND:	how = "bgfetch"; break;
-	default:		WRONG("Wrong fetch mode");
-	}
-
 	bo = VBO_GetBusyObj(wrk, req);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	AN(bo->vcl);
 
 	boc = HSH_RefBoc(oc);
 	CHECK_OBJ_NOTNULL(boc, BOC_MAGIC);
 
+	switch (mode) {
+	case VBF_PASS:
+		how = "pass";
+		bo->do_pass = 1;
+		break;
+	case VBF_NORMAL:
+		how = "fetch";
+		break;
+	case VBF_BACKGROUND:
+		how = "bgfetch";
+		bo->is_bgfetch = 1;
+		break;
+	default:
+		WRONG("Wrong fetch mode");
+	}
+
 	VSLb(bo->vsl, SLT_Begin, "bereq %u %s", VXID(req->vsl->wid), how);
+	VSLb(bo->vsl, SLT_VCL_use, "%s", VCL_Name(bo->vcl));
 	VSLb(req->vsl, SLT_Link, "bereq %u %s", VXID(bo->vsl->wid), how);
 
 	THR_SetBusyobj(bo);
 
 	bo->sp = req->sp;
 	SES_Ref(bo->sp);
-
-	AN(bo->vcl);
-
-	if (mode == VBF_PASS)
-		bo->do_pass = 1;
 
 	oc->boc->vary = req->vary_b;
 	req->vary_b = NULL;
@@ -1080,14 +1039,13 @@ VBF_Fetch(struct worker *wrk, struct req *req, struct objcore *oc,
 		bo = NULL; /* ref transferred to fetch thread */
 		if (mode == VBF_BACKGROUND) {
 			ObjWaitState(oc, BOS_REQ_DONE);
-			VRB_Ignore(req);
+			(void)VRB_Ignore(req);
 		} else {
 			ObjWaitState(oc, BOS_STREAM);
-			if (oc->boc->state == BOS_FAILED) {
+			if (oc->boc->state == BOS_FAILED)
 				AN((oc->flags & OC_F_FAILED));
-			} else {
+			else
 				AZ(oc->flags & OC_F_BUSY);
-			}
 		}
 	}
 	AZ(bo);

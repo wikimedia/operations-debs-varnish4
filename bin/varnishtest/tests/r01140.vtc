@@ -19,7 +19,7 @@ server s1 {
 } -start
 
 varnish v1 -arg "-p nuke_limit=0 -p shortlived=0" \
-	-arg "-smalloc,1m" -vcl+backend {
+	-arg "-sdefault,1m" -vcl+backend {
 	sub vcl_backend_response {
 		set beresp.do_stream = false;
 		# Unset Date header to not change the object sizes
@@ -36,7 +36,7 @@ client c1 {
 
 delay .1
 
-varnish v1 -expect SMA.s0.g_space < 1000
+varnish v1 -expect SM?.s0.g_space < 1000
 
 client c1 {
 	txreq -url /url2

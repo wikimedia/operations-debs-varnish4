@@ -31,19 +31,20 @@
 
 #include "config.h"
 
-#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
 
-#include "mgt/mgt.h"
-#include "common/heritage.h"
+#include "mgt.h"
 
 #include "vbm.h"
 #include "vcli_serve.h"
@@ -51,6 +52,9 @@
 #include "vfil.h"
 #include "vlu.h"
 #include "vtim.h"
+
+#include "common/heritage.h"
+#include "common/vsmw.h"
 
 static pid_t		child_pid = -1;
 
@@ -113,12 +117,9 @@ mgt_panic_clear(void)
 	VSB_destroy(&child_panic);
 }
 
-static void __match_proto__(cli_func_t)
-mch_cli_panic_show(struct cli *cli, const char * const *av, void *priv)
+static void
+cli_panic_show(struct cli *cli, const char * const *av, int json)
 {
-	(void)av;
-	(void)priv;
-
 	if (!child_panic) {
 		VCLI_SetResult(cli, CLIS_CANT);
 		VCLI_Out(cli,
@@ -126,10 +127,32 @@ mch_cli_panic_show(struct cli *cli, const char * const *av, void *priv)
 		return;
 	}
 
-	VCLI_Out(cli, "%s\n", VSB_data(child_panic));
+	if (!json) {
+		VCLI_Out(cli, "%s\n", VSB_data(child_panic));
+		return;
+	}
+
+	VCLI_JSON_begin(cli, 2, av);
+	VCLI_Out(cli, ",\n");
+	VCLI_JSON_str(cli, VSB_data(child_panic));
+	VCLI_JSON_end(cli);
 }
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
+mch_cli_panic_show(struct cli *cli, const char * const *av, void *priv)
+{
+	(void)priv;
+	cli_panic_show(cli, av, 0);
+}
+
+static void v_matchproto_(cli_func_t)
+mch_cli_panic_show_json(struct cli *cli, const char * const *av, void *priv)
+{
+	(void)priv;
+	cli_panic_show(cli, av, 1);
+}
+
+static void v_matchproto_(cli_func_t)
 mch_cli_panic_clear(struct cli *cli, const char * const *av, void *priv)
 {
 	(void)priv;
@@ -139,7 +162,7 @@ mch_cli_panic_clear(struct cli *cli, const char * const *av, void *priv)
 		VCLI_Out(cli, "Unknown parameter \"%s\".", av[2]);
 		return;
 	} else if (av[2] != NULL) {
-		VSC_C_mgt->child_panic = static_VSC_C_mgt.child_panic = 0;
+		VSC_C_mgt->child_panic = 0;
 		if (child_panic == NULL)
 			return;
 	}
@@ -160,11 +183,17 @@ mch_cli_panic_clear(struct cli *cli, const char * const *av, void *priv)
  * This is likely to a bit on the low side, as libc and other libraries
  * has a tendency to cache file descriptors (syslog, resolver, etc.)
  * so we add a margin of 100 fds.
+ *
+ * for added safety, we check that we see no file descriptor open for
+ * another margin above the limit for which we close by design
  */
 
 static int		mgt_max_fd;
 
 #define CLOSE_FD_UP_TO	(mgt_max_fd + 100)
+// XXX should work now - engage?
+//#define CLOSE_FD_UP_TO	mgt_max_fd
+#define CHECK_FD_UP_TO	(CLOSE_FD_UP_TO + 100)
 
 void
 MCH_TrackHighFd(int fd)
@@ -188,6 +217,9 @@ MCH_Fd_Inherit(int fd, const char *what)
 {
 
 	assert(fd >= 0);
+	// XXX why?
+	if (fd > 0)
+		MCH_TrackHighFd(fd);
 	if (fd_map == NULL)
 		fd_map = vbit_new(128);
 	AN(fd_map);
@@ -201,7 +233,7 @@ MCH_Fd_Inherit(int fd, const char *what)
  * Listen to stdout+stderr from the child
  */
 
-static int
+static int v_matchproto_(vlu_f)
 child_line(void *priv, const char *p)
 {
 	(void)priv;
@@ -214,11 +246,11 @@ child_line(void *priv, const char *p)
  * NB: Notice cleanup call from mgt_reap_child()
  */
 
-static int __match_proto__(vev_cb_f)
+static int v_matchproto_(vev_cb_f)
 child_listener(const struct vev *e, int what)
 {
 
-	if ((what & ~EV_RD) || VLU_Fd(child_output, child_std_vlu)) {
+	if ((what & ~VEV__RD) || VLU_Fd(child_std_vlu, child_output)) {
 		ev_listen = NULL;
 		if (e != NULL)
 			mgt_reap_child();
@@ -231,7 +263,7 @@ child_listener(const struct vev *e, int what)
  * Periodically poke the child, to see that it still lives
  */
 
-static int __match_proto__(vev_cb_f)
+static int v_matchproto_(vev_cb_f)
 child_poker(const struct vev *e, int what)
 {
 	char *r = NULL;
@@ -254,26 +286,6 @@ child_poker(const struct vev *e, int what)
 }
 
 /*=====================================================================
- * SIGSEGV handler for child process
- */
-
-static void __match_proto__()
-child_sigsegv_handler(int s, siginfo_t *si, void *c)
-{
-	char buf[1024];
-
-	(void)s;
-	(void)c;
-
-	bprintf(buf, "Segmentation fault by instruction at %p", si->si_addr);
-	VAS_Fail(__func__,
-		 __FILE__,
-		 __LINE__,
-		 buf,
-		 VAS_ASSERT);
-}
-
-/*=====================================================================
  * Launch the child process
  */
 
@@ -285,20 +297,21 @@ mgt_launch_child(struct cli *cli)
 	char *p;
 	struct vev *e;
 	int i, cp[2];
-	struct sigaction sa;
 
 	if (child_state != CH_STOPPED && child_state != CH_DIED)
 		return;
 
 	child_state = CH_STARTING;
 
-	/* Open pipe for mgr->child CLI */
+	/* Open pipe for mgt->child CLI */
 	AZ(pipe(cp));
 	heritage.cli_in = cp[0];
+	assert(cp[0] > STDERR_FILENO);	// See #2782
+	assert(cp[1] > STDERR_FILENO);
 	MCH_Fd_Inherit(heritage.cli_in, "cli_in");
 	child_cli_out = cp[1];
 
-	/* Open pipe for child->mgr CLI */
+	/* Open pipe for child->mgt CLI */
 	AZ(pipe(cp));
 	heritage.cli_out = cp[1];
 	MCH_Fd_Inherit(heritage.cli_out, "cli_out");
@@ -312,14 +325,13 @@ mgt_launch_child(struct cli *cli)
 	heritage.std_fd = cp[1];
 	child_output = cp[0];
 
-	AN(heritage.vsm);
-	mgt_SHM_Size_Adjust();
-	AN(heritage.vsm);
+	mgt_SHM_ChildNew();
+
 	AN(heritage.param);
+	AN(heritage.panic_str);
 	if ((pid = fork()) < 0) {
-		/* XXX */
 		perror("Could not fork child");
-		exit(1);
+		exit(1);		// XXX Harsh ?
 	}
 	if (pid == 0) {
 
@@ -341,36 +353,47 @@ mgt_launch_child(struct cli *cli)
 		 */
 		closelog();
 
-		for (i = STDERR_FILENO + 1; i < CLOSE_FD_UP_TO; i++) {
+		for (i = STDERR_FILENO + 1; i <= CLOSE_FD_UP_TO; i++) {
 			if (vbit_test(fd_map, i))
 				continue;
 			if (close(i) == 0)
 				VFIL_null_fd(i);
 		}
-#ifdef HAVE_SETPROCTITLE
-		setproctitle("Varnish-Chld %s", heritage.name);
-#endif
-
-		if (mgt_param.sigsegv_handler) {
-			memset(&sa, 0, sizeof sa);
-			sa.sa_sigaction = child_sigsegv_handler;
-			sa.sa_flags = SA_SIGINFO;
-			(void)sigaction(SIGSEGV, &sa, NULL);
-			(void)sigaction(SIGBUS, &sa, NULL);
-			(void)sigaction(SIGABRT, &sa, NULL);
+		for (i = CLOSE_FD_UP_TO + 1; i <= CHECK_FD_UP_TO; i++) {
+			assert(close(i) == -1);
+			assert(errno == EBADF);
 		}
-		(void)signal(SIGINT, SIG_DFL);
-		(void)signal(SIGTERM, SIG_DFL);
+
+		mgt_ProcTitle("Child");
+
+		heritage.cls = mgt_cls;
+		heritage.ident = VSB_data(vident) + 1;
 
 		VJ_subproc(JAIL_SUBPROC_WORKER);
 
-		child_main();
+		heritage.proc_vsmw = VSMW_New(heritage.vsm_fd, 0640, "_.index");
+		AN(heritage.proc_vsmw);
+
+		/*
+		 * We pass these two params because child_main needs them
+		 * Well before it has found its own param struct.
+		 */
+		child_main(mgt_param.sigsegv_handler,
+		    mgt_param.wthread_stacksize);
+
+		/*
+		 * It would be natural to clean VSMW up here, but it is apt
+		 * to fail in some scenarios because of the fall-back
+		 * "rm -rf" in mgt_SHM_ChildDestroy() which is there to
+		 * catch the cases were we don't get here.
+		 */
+		// VSMW_Destroy(&heritage.proc_vsmw);
 
 		exit(0);
 	}
 	assert(pid > 1);
 	MGT_Complain(C_DEBUG, "Child (%jd) Started", (intmax_t)pid);
-	VSC_C_mgt->child_start = ++static_VSC_C_mgt.child_start;
+	VSC_C_mgt->child_start++;
 
 	/* Close stuff the child got */
 	closefd(&heritage.std_fd);
@@ -381,40 +404,52 @@ mgt_launch_child(struct cli *cli)
 	MCH_Fd_Inherit(heritage.cli_out, NULL);
 	closefd(&heritage.cli_out);
 
-	child_std_vlu = VLU_New(NULL, child_line, 0);
+	child_std_vlu = VLU_New(child_line, NULL, 0);
 	AN(child_std_vlu);
 
 	AZ(ev_listen);
-	e = vev_new();
+	e = VEV_Alloc();
 	XXXAN(e);
 	e->fd = child_output;
-	e->fd_flags = EV_RD;
+	e->fd_flags = VEV__RD;
 	e->name = "Child listener";
 	e->callback = child_listener;
-	AZ(vev_add(mgt_evb, e));
+	AZ(VEV_Start(mgt_evb, e));
 	ev_listen = e;
 	AZ(ev_poker);
 	if (mgt_param.ping_interval > 0) {
-		e = vev_new();
+		e = VEV_Alloc();
 		XXXAN(e);
 		e->timeout = mgt_param.ping_interval;
 		e->callback = child_poker;
 		e->name = "child poker";
-		AZ(vev_add(mgt_evb, e));
+		AZ(VEV_Start(mgt_evb, e));
 		ev_poker = e;
 	}
 
 	mgt_cli_start_child(child_cli_in, child_cli_out);
 	child_pid = pid;
-	if (mgt_push_vcls_and_start(cli, &u, &p)) {
+
+	if (mgt_push_vcls(cli, &u, &p)) {
 		VCLI_SetResult(cli, u);
 		MGT_Complain(C_ERR, "Child (%jd) Pushing vcls failed:\n%s",
 		    (intmax_t)child_pid, p);
 		free(p);
-		child_state = CH_RUNNING;
 		MCH_Stop_Child();
-	} else
-		child_state = CH_RUNNING;
+		return;
+	}
+
+	if (mgt_cli_askchild(&u, &p, "start\n")) {
+		VCLI_SetResult(cli, u);
+		MGT_Complain(C_ERR, "Child (%jd) Acceptor start failed:\n%s",
+		    (intmax_t)child_pid, p);
+		free(p);
+		MCH_Stop_Child();
+		return;
+	}
+
+	free(p);
+	child_state = CH_RUNNING;
 }
 
 /*=====================================================================
@@ -459,14 +494,14 @@ mgt_reap_child(void)
 
 	/* Stop the poker */
 	if (ev_poker != NULL) {
-		vev_del(mgt_evb, ev_poker);
+		VEV_Stop(mgt_evb, ev_poker);
 		free(ev_poker);
+		ev_poker = NULL;
 	}
-	ev_poker = NULL;
 
 	/* Stop the listener */
 	if (ev_listen != NULL) {
-		vev_del(mgt_evb, ev_listen);
+		VEV_Stop(mgt_evb, ev_listen);
 		free(ev_listen);
 		ev_listen = NULL;
 	}
@@ -490,10 +525,8 @@ mgt_reap_child(void)
 		r = waitpid(child_pid, &status, 0);
 	}
 	if (r != child_pid)
-		fprintf(stderr, "WAIT 0x%jx\n", (uintmax_t)r);
+		fprintf(stderr, "WAIT 0x%jd\n", (intmax_t)r);
 	assert(r == child_pid);
-
-	MAC_reopen_sockets(NULL);
 
 	VSB_printf(vsb, "Child (%jd) %s", (intmax_t)r,
 	    status ? "died" : "ended");
@@ -501,20 +534,20 @@ mgt_reap_child(void)
 		VSB_printf(vsb, " status=%d", WEXITSTATUS(status));
 		exit_status |= 0x20;
 		if (WEXITSTATUS(status) == 1)
-			VSC_C_mgt->child_exit = ++static_VSC_C_mgt.child_exit;
+			VSC_C_mgt->child_exit++;
 		else
-			VSC_C_mgt->child_stop = ++static_VSC_C_mgt.child_stop;
+			VSC_C_mgt->child_stop++;
 	}
 	if (WIFSIGNALED(status)) {
 		VSB_printf(vsb, " signal=%d", WTERMSIG(status));
 		exit_status |= 0x40;
-		VSC_C_mgt->child_died = ++static_VSC_C_mgt.child_died;
+		VSC_C_mgt->child_died++;
 	}
 #ifdef WCOREDUMP
 	if (WCOREDUMP(status)) {
 		VSB_printf(vsb, " (core dumped)");
 		exit_status |= 0x80;
-		VSC_C_mgt->child_dump = ++static_VSC_C_mgt.child_dump;
+		VSC_C_mgt->child_dump++;
 	}
 #endif
 	AZ(VSB_finish(vsb));
@@ -524,24 +557,37 @@ mgt_reap_child(void)
 	/* Dispose of shared memory but evacuate panic messages first */
 	if (heritage.panic_str[0] != '\0') {
 		mgt_panic_record(r);
-		mgt_SHM_Destroy(1);
-		VSC_C_mgt->child_panic = ++static_VSC_C_mgt.child_panic;
-	} else {
-		mgt_SHM_Destroy(MGT_DO_DEBUG(DBG_VSM_KEEP));
+		VSC_C_mgt->child_panic++;
 	}
-	mgt_SHM_Create();
+
+	mgt_SHM_ChildDestroy();
 
 	if (child_state == CH_RUNNING)
 		child_state = CH_DIED;
 
 	/* Pick up any stuff lingering on stdout/stderr */
-	(void)child_listener(NULL, EV_RD);
+	(void)child_listener(NULL, VEV__RD);
 	closefd(&child_output);
-	VLU_Destroy(child_std_vlu);
+	VLU_Destroy(&child_std_vlu);
 
 	child_pid = -1;
 
 	MGT_Complain(C_DEBUG, "Child cleanup complete");
+
+	/* XXX number of retries? interval? */
+	for (i = 0; i < 3; i++) {
+		if (MAC_reopen_sockets() == 0)
+			break;
+		/* error already logged */
+		(void)sleep(1);
+	}
+	if (i == 3) {
+		/* We failed to reopen our listening sockets. No choice
+		 * but to exit. */
+		MGT_Complain(C_ERR,
+		    "Could not reopen listening sockets. Exiting.");
+		exit(1);
+	}
 
 	if (child_state == CH_DIED && mgt_param.auto_restart)
 		mgt_launch_child(NULL);
@@ -565,7 +611,7 @@ void
 MCH_Cli_Fail(void)
 {
 
-	if (child_state != CH_RUNNING)
+	if (child_state != CH_RUNNING && child_state != CH_STARTING)
 		return;
 	if (child_pid < 0)
 		return;
@@ -587,7 +633,7 @@ void
 MCH_Stop_Child(void)
 {
 
-	if (child_state != CH_RUNNING)
+	if (child_state != CH_RUNNING && child_state != CH_STARTING)
 		return;
 
 	child_state = CH_STOPPING;
@@ -624,7 +670,7 @@ MCH_Running(void)
  * CLI commands
  */
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 mch_cli_server_start(struct cli *cli, const char * const *av, void *priv)
 {
 
@@ -643,7 +689,7 @@ mch_cli_server_start(struct cli *cli, const char * const *av, void *priv)
 	}
 }
 
-static void __match_proto__(cli_func_t)
+static void v_matchproto_(cli_func_t)
 mch_cli_server_stop(struct cli *cli, const char * const *av, void *priv)
 {
 
@@ -657,7 +703,7 @@ mch_cli_server_stop(struct cli *cli, const char * const *av, void *priv)
 	}
 }
 
-static void
+static void v_matchproto_(cli_func_t)
 mch_cli_server_status(struct cli *cli, const char * const *av, void *priv)
 {
 	(void)av;
@@ -665,11 +711,23 @@ mch_cli_server_status(struct cli *cli, const char * const *av, void *priv)
 	VCLI_Out(cli, "Child in state %s", ch_state[child_state]);
 }
 
+static void v_matchproto_(cli_func_t)
+mch_cli_server_status_json(struct cli *cli, const char * const *av, void *priv)
+{
+	(void)priv;
+	VCLI_JSON_begin(cli, 2, av);
+	VCLI_Out(cli, ", ");
+	VCLI_JSON_str(cli, ch_state[child_state]);
+	VCLI_JSON_end(cli);
+}
+
 static struct cli_proto cli_mch[] = {
-	{ CLICMD_SERVER_STATUS,		"", mch_cli_server_status },
+	{ CLICMD_SERVER_STATUS,		"", mch_cli_server_status,
+	  mch_cli_server_status_json },
 	{ CLICMD_SERVER_START,		"", mch_cli_server_start },
 	{ CLICMD_SERVER_STOP,		"", mch_cli_server_stop },
-	{ CLICMD_PANIC_SHOW,		"", mch_cli_panic_show },
+	{ CLICMD_PANIC_SHOW,		"", mch_cli_panic_show,
+	  mch_cli_panic_show_json },
 	{ CLICMD_PANIC_CLEAR,		"", mch_cli_panic_clear },
 	{ NULL }
 };

@@ -1,8 +1,7 @@
 barrier
 -------
 
-NOTE: this can be used from the top-level as well as from client and server
-specifications.
+NOTE: This command is available everywhere commands are given.
 
 Barriers allows you to synchronize different threads to make sure events
 occur in the right order. It's even possible to use them in VCL.
@@ -81,16 +80,23 @@ Arguments
 \-repeat NUMBER
        Instead of processing the specification only once, do it NUMBER times.
 
+\-keepalive
+       For repeat, do not open new connections but rather run all
+       iterations in the same connection
+
 \-break (server only)
        Stop the server.
 
 \-listen STRING (server only)
        Dictate the listening socket for the server. STRING is of the form
-       "IP PORT".
+       "IP PORT", or "/PATH/TO/SOCKET" for a Unix domain socket. In the
+       latter case, the path must begin with '/', and the server must be
+       able to create it.
 
 \-connect STRING (client only)
        Indicate the server to connect to. STRING is also of the form
-       "IP PORT".
+       "IP PORT", or "/PATH/TO/SOCKET". As with "server -listen", a
+       Unix domain socket is recognized when STRING begins with a '/'.
 
 \-dispatch (server only, s0 only)
        Normally, to keep things simple, server threads only handle one
@@ -117,9 +123,9 @@ to the first Varnish server declared and the -vcl+backend switch of the
 
 Be careful though, servers will by default listen to the 127.0.0.1 IP and
 will pick a random port, and publish 3 macros: sNAME_addr, sNAME_port and
-sNAME_sock, but only once they are started. For varnishtest to
-create the vcl with the correct values, the server must be started when you
-use -vcl+backend.
+sNAME_sock, but only once they are started.
+For 'varnish -vcl+backend' to create the vcl with the correct values, the
+server must be started first.
 
 
 Specification
@@ -143,27 +149,18 @@ accept (server only)
 	that this new connection is HTTP/1.x.
 
 
-barrier
-	Same as for the top-level barrier
-
-
 chunked STRING
         Send STRING as chunked encoding.
 
 
 chunkedlen NUMBER
-        Do as ``chunked`` except that varnishtest will generate the string
+        Do as ``chunked`` except that the string will be generated
         for you, with a length of NUMBER characters.
 
 
 close (server only)
 	Close the connection. Note that if operating in HTTP/2 mode no
 	extra (GOAWAY) frame is sent, it's simply a TCP close.
-
-
-delay
-	Same as for the top-level delay.
-
 
 
 expect STRING1 OP STRING2
@@ -185,6 +182,7 @@ expect STRING1 OP STRING2
 
         - remote.ip
         - remote.port
+        - remote.path
         - req.method
         - req.url
         - req.proto
@@ -272,10 +270,9 @@ settings -dectbl INT
 	Force internal HTTP/2 settings to certain values. Currently only
 	support setting the decoding table size.
 
-shell
-.....
 
-Same as for the top-level shell.
+shell
+	Same as for the top-level shell.
 
 
 stream
@@ -322,8 +319,11 @@ txreq|txresp [...]
         These three switches can appear in any order but must come before the
         following ones.
 
+        \-nohost
+                Don't include a Host header in the request.
+
         \-nolen
-                Don't include a Content-Length header in the response.
+                Don't include a Content-Length header.
 
         \-hdr STRING
                 Add STRING as a header, it must follow this format:
@@ -364,11 +364,16 @@ write_body STRING
 delay
 -----
 
+NOTE: This command is available everywhere commands are given.
+
 Sleep for the number of seconds specified in the argument. The number
 can include a fractional part, e.g. 1.5.
 
+
 err_shell
 ---------
+
+NOTICE: err_shell is deprecated, use `shell -err -expect` instead.
 
 This is very similar to the the ``shell`` command, except it takes a first
 string as argument before the command::
@@ -381,8 +386,9 @@ failing the test case otherwise.
 feature
 -------
 
-Test that the required feature(s) for a test are available, and skip the test
-otherwise. feature takes any number of arguments from this list:
+Test that the required feature(s) for a test are available, and skip
+the test otherwise; or change the interpretation of the test, as
+documented below. feature takes any number of arguments from this list:
 
 SO_RCVTIMEO_WORKS
        The SO_RCVTIMEO socket option is working
@@ -393,9 +399,9 @@ SO_RCVTIMEO_WORKS
 dns
        DNS lookups are working
 topbuild
-       varnishtest has been started with '-i'
+       The test has been started with '-i'
 root
-       varnishtest has been invoked by the root user
+       The test has been invoked by the root user
 user_varnish
        The varnish user is present
 user_vcache
@@ -404,6 +410,87 @@ group_varnish
        The varnish group is present
 cmd <command-line>
        A command line that should execute with a zero exit status
+ignore_unknown_macro
+       Do not fail the test if a string of the form ${...} is not
+       recognized as a macro.
+
+persistent_storage
+       Varnish was built with the deprecated persistent storage.
+
+Be careful with ignore_unknown_macro, because it may cause a test with a
+misspelled macro to fail silently. You should only need it if you must
+run a test with strings of the form "${...}".
+
+haproxy
+-------
+
+Define and interact with haproxy instances.
+
+To define a haproxy server, you'll use this syntax::
+
+	haproxy hNAME -conf-OK CONFIG
+	haproxy hNAME -conf-BAD ERROR CONFIG
+	haproxy hNAME [-D] [-W] [-arg STRING] [-conf[+vcl] STRING]
+
+The first ``haproxy hNAME`` invocation will start the haproxy master
+process in the background, waiting for the ``-start`` switch to actually
+start the child.
+
+Arguments:
+
+hNAME
+	   Identify the HAProxy server with a string, it must starts with 'h'.
+
+\-conf-OK CONFIG
+        Run haproxy in '-c' mode to check config is OK
+	   stdout/stderr should contain 'Configuration file is valid'
+	   The exit code should be 0.
+
+\-conf-BAD ERROR CONFIG
+        Run haproxy in '-c' mode to check config is BAD.
+	   "ERROR" should be part of the diagnostics on stdout/stderr.
+	   The exit code should be 1.
+
+\-D
+        Run HAproxy in daemon mode.  If not given '-d' mode used.
+
+\-W
+        Enable HAproxy in Worker mode.
+
+\-arg STRING
+        Pass an argument to haproxy, for example "-h simple_list".
+
+\-cli STRING
+        Specify the spec to be run by the command line interface (CLI).
+
+\-conf STRING
+        Specify the configuration to be loaded by this HAProxy instance.
+
+\-conf+backend STRING
+        Specify the configuration to be loaded by this HAProxy instance,
+	   all server instances will be automatically appended
+
+\-start
+        Start this HAProxy instance.
+
+\-wait
+        Stop this HAProxy instance.
+
+\-expectexit NUMBER
+	   Expect haproxy to exit(3) with this value
+
+
+haproxy CLI Specification
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+expect OP STRING
+        Regex match the CLI reception buffer with STRING
+        if OP is ~ or, on the contraty, if OP is !~ check that there is
+        no regex match.
+
+send STRING
+        Push STRING on the CLI connection. STRING will be terminated by an
+        end of line character (\n).
 
 logexpect
 ---------
@@ -445,6 +532,8 @@ lNAME
 \-q query
         Filter records using a query expression, see ``man vsl-query`` for
         more information.
+\-m
+	   Also emit log records for misses (only for debugging)
 
 \-start
         Start the logexpect thread in the background.
@@ -489,11 +578,22 @@ previous matched record.
 process
 -------
 
-Run a process in the background with stdout and stderr redirected to
-${pNAME_out} and ${pNAME_err}, both located in ${pNAME_dir}::
+Run a process with stdin+stdout on a pseudo-terminal and stderr on a pipe.
 
-	process pNAME SPEC [-log] [-start] [-wait] [-run] [-kill STRING] \
-		[-stop] [-write STRING] [-writeln STRING] [-close]
+Output from the pseudo-terminal is copied verbatim to ${pNAME_out},
+and the -log/-dump/-hexdump flags will also put it in the vtc-log.
+
+The pseudo-terminal is not in ECHO mode, but if the programs run set
+it to ECHO mode ("stty sane") any input sent to the process will also
+appear in this stream because of the ECHO.
+
+Output from the stderr-pipe is copied verbatim to ${pNAME_err}, and
+is always included in the vtc_log.
+
+	process pNAME SPEC [-log] [-dump] [-hexdump] [-expect-exit N]
+		[-start] [-run]
+		[-write STRING] [-writeln STRING]
+		[-kill STRING] [-stop] [-wait] [-close]
 
 pNAME
 	Name of the process. It must start with 'p'.
@@ -501,11 +601,20 @@ pNAME
 SPEC
 	The command(s) to run in this process.
 
+\-hexdump
+	Log output with vtc_hexdump(). Must be before -start/-run.
+
+\-dump
+	Log output with vtc_dump(). Must be before -start/-run.
+
 \-log
-	Log stdout/stderr with vtc_dump(). Must be before -start/-run.
+	Log output with VLU/vtc_log(). Must be before -start/-run.
 
 \-start
 	Start the process.
+
+\-expect-exit N
+	Expect exit status N
 
 \-wait
 	Wait for the process to finish.
@@ -514,7 +623,7 @@ SPEC
 	Shorthand for -start -wait.
 
 	In most cases, if you just want to start a process and wait for it
-	to finish, you can use the varnishtest ``shell`` command instead.
+	to finish, you can use the ``shell`` command instead.
 	The following commands are equivalent::
 
 	    shell "do --something"
@@ -549,8 +658,24 @@ SPEC
 \-writeln STRING
 	Same as -write followed by a newline (\\n).
 
+\-writehex HEXSTRING
+	Same as -write but interpreted as hexadecimal bytes.
+
+\-need-bytes [+]NUMBER
+	Wait until at least NUMBER bytes have been received in total.
+	If '+' is prefixed, NUMBER new bytes must be received.
+
+\-expect-text LIN COL PAT
+	Wait for PAT to appear at LIN,COL on the virtual screen.
+	Lines and columns are numbered 1...N
+	LIN==0 means "on any line"
+	COL==0 means "anywhere on the line"
+
 \-close
-	Close the process' stdin.
+	Alias for "-kill HUP"
+
+\-screen_dump
+	Dump the virtual screen into vtc_log
 
 
 setenv
@@ -570,8 +695,10 @@ exist::
 shell
 -----
 
+NOTE: This command is available everywhere commands are given.
+
 Pass the string given as argument to a shell. If you have multiple
-commands to run, you can use curly barces to describe a multi-lines
+commands to run, you can use curly brackets to describe a multi-lines
 script, eg::
 
         shell {
@@ -582,8 +709,8 @@ script, eg::
 
 By default a zero exit code is expected, otherwise the vtc will fail.
 
-Notice that the commandstring is prefixed with "exec 2>&1;" to join
-stderr and stdout back to the varnishtest process.
+Notice that the commandstring is prefixed with "exec 2>&1;" to combine
+stderr and stdout back to the test process.
 
 Optional arguments:
 
@@ -804,11 +931,6 @@ arguments:
 	retrieve INT DATA frames.
 
 
-delay
-.....
-
-Same as for the top-level delay.
-
 
 Receive a frame, any frame.
 
@@ -816,7 +938,7 @@ sendhex
 .......
 
 Push bytes directly on the wire. sendhex takes exactly one argument: a string
-describing the bytes, in hex notation, will possible whitespaces between
+describing the bytes, in hex notation, with possible whitespaces between
 them. Here's an example::
 
 	sendhex "00 00 08 00 0900	8d"
@@ -826,13 +948,13 @@ rxgoaway
 
 Receive a GOAWAY frame.
 
-rxgoaway
+txgoaway
 ........
 
 Possible options include:
 
 \-err STRING|INT
-	set the error code to eplain the termination. The second argument
+	set the error code to explain the termination. The second argument
 	can be a integer or the string version of the error code as found
 	in rfc7540#7.
 
@@ -958,6 +1080,43 @@ received on that stream must of the correct type.
 
 Here the list of keywords you can look at.
 
+syslog
+------
+
+Define and interact with syslog instances (for use with haproxy)
+
+To define a syslog server, you'll use this syntax::
+
+    syslog SNAME
+
+Arguments:
+
+SNAME
+    Identify the syslog server with a string which must start with 'S'.
+
+\-level STRING
+        Set the default syslog priority level used by any subsequent "recv"
+        command.
+        Any syslog dgram with a different level will be skipped by
+        "recv" command. This default level value may be superseded
+        by "recv" command if supplied as first argument: "recv <level>".
+
+\-start
+        Start the syslog server thread in the background.
+
+\-repeat
+        Instead of processing the specification only once, do it
+	   NUMBER times.
+
+\-bind
+        Bind the syslog socket to a local address.
+
+\-wait
+        Wait for that thread to terminate.
+
+\-stop
+        Stop the syslog server thread.
+
 varnish
 -------
 
@@ -972,10 +1131,16 @@ The first ``varnish vNAME`` invocation will start the varnishd master
 process in the background, waiting for the ``-start`` switch to actually
 start the child.
 
-With:
+Types used in the description below:
+
+PATTERN
+        is a 'glob' style pattern (ie: fnmatch(3)) as used in shell filename
+        expansion.
+
+Arguments:
 
 vNAME
-        Identify the Varnish server with a string, it must starts with 'v'.
+	   Identify the Varnish server with a string, it must starts with 'v'.
 
 \-arg STRING
         Pass an argument to varnishd, for example "-h simple_list".
@@ -1010,7 +1175,7 @@ You can decide to start the Varnish instance and/or wait for several events::
         Stop the child process.
 
 \-syntax
-        Set the VCL syntax level (default: 4.0)
+        Set the VCL syntax level for this command (default: 4.1)
 
 \-wait
         Wait for that instance to terminate.
@@ -1023,13 +1188,13 @@ You can decide to start the Varnish instance and/or wait for several events::
 
 \-cleanup
         Once Varnish is stopped, clean everything after it. This is only used
-        in one test and you should never need it.
+        in very few tests and you should never need it.
 
 Once Varnish is started, you can talk to it (as you would through
 ``varnishadm``) with these additional switches::
 
         varnish vNAME [-cli STRING] [-cliok STRING] [-clierr STRING]
-                      [-expect STRING OP NUMBER]
+                      [-clijson STRING] [-expect STRING OP NUMBER]
 
 \-cli STRING|-cliok STRING|-clierr STATUS STRING|-cliexpect REGEXP STRING
         All four of these will send STRING to the CLI, the only difference
@@ -1037,17 +1202,21 @@ Once Varnish is started, you can talk to it (as you would through
         anything, -cliok expects 200, -clierr expects STATUS, and
         -cliexpect expects the REGEXP to match the returned response.
 
-\-expect STRING OP NUMBER
-        Look into the VSM and make sure the counter identified by STRING has
-        a correct value. OP can be ==, >, >=, <, <=. For example::
+\-clijson STRING
+	   Send STRING to the CLI, expect success (CLIS_OK/200) and check
+	   that the response is parsable JSON.
 
-                varnish v1 -expect SMA.s1.g_space > 1000000
+\-expect PATTERN OP NUMBER
+        Look into the VSM and make sure the first VSC counter identified by
+        PATTERN has a correct value. OP can be ==, >, >=, <, <=. For
+        example::
+
+                varnish v1 -expect SM?.s1.g_space > 1000000
+\-expectexit NUMBER
+	   Expect varnishd to exit(3) with this value
 
 \-vsc PATTERN
-        Dump VSC counters matching PATTERN.  The PATTERN is a 'glob'
-        style pattern (ie: fnmatch(3)) as used in shell filename expansion.
-        To see all counters use pattern "*", to see all counters about
-        requests use "*req*".
+        Dump VSC counters matching PATTERN.
 
 \-vsl_catchup
         Wait until the logging thread has idled to make sure that all
@@ -1056,11 +1225,17 @@ Once Varnish is started, you can talk to it (as you would through
 varnishtest
 -----------
 
+Alternate name for 'vtest', see above.
+
+
+vtest
+-----
+
 This should be the first command in your vtc as it will identify the test
 case with a short yet descriptive sentence. It takes exactly one argument, a
 string, eg::
 
-        varnishtest "Check that varnishtest is actually a valid command"
+        vtest "Check that vtest is actually a valid command"
 
 It will also print that string in the log.
 

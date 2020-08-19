@@ -32,7 +32,9 @@
 
 struct suckaddr;
 extern const int vsa_suckaddr_len;
+extern const struct suckaddr *bogo_ip;
 
+void VSA_Init(void);
 int VSA_Sane(const struct suckaddr *);
 unsigned VSA_Port(const struct suckaddr *);
 int VSA_Compare(const struct suckaddr *, const struct suckaddr *);
@@ -52,5 +54,12 @@ struct suckaddr *VSA_Malloc(const void *s, unsigned  sal);
  * 's' is a sockaddr of some kind, 'sal' is its length.
  */
 struct suckaddr *VSA_Build(void *d, const void *s, unsigned sal);
+
+/*
+ * This VRT interface is for the VCC generated ACL code, which needs
+ * to know the address family and a pointer to the actual address.
+ */
+
+int VSA_GetPtr(const struct suckaddr *sua, const unsigned char ** dst);
 
 #endif

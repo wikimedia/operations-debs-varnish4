@@ -40,8 +40,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "binary_heap.h"
+#include "vdef.h"
 #include "vas.h"
+#include "binary_heap.h"
 
 /* Parameters --------------------------------------------------------*/
 
@@ -207,7 +208,7 @@ binheap_new(void *priv, binheap_cmp_t *cmp_f, binheap_update_t *update_f)
 	struct binheap *bh;
 	unsigned u;
 
-	bh = calloc(sizeof *bh, 1);
+	bh = calloc(1, sizeof *bh);
 	if (bh == NULL)
 		return (bh);
 	bh->priv = priv;
@@ -223,8 +224,12 @@ binheap_new(void *priv, binheap_cmp_t *cmp_f, binheap_update_t *update_f)
 	bh->cmp = cmp_f;
 	bh->update = update_f;
 	bh->next = ROOT_IDX;
+#ifdef TEST_DRIVER
+	bh->rows = 1;		/* A tiny-ish number */
+#else
 	bh->rows = 16;		/* A tiny-ish number */
-	bh->array = calloc(sizeof *bh->array, bh->rows);
+#endif
+	bh->array = calloc(bh->rows, sizeof *bh->array);
 	assert(bh->array != NULL);
 	binheap_addrow(bh);
 	A(bh, ROOT_IDX) = NULL;
@@ -456,21 +461,12 @@ binheap_reorder(const struct binheap *bh, unsigned idx)
 #ifdef TEST_DRIVER
 
 #include <stdio.h>
+#include <string.h>
 
+#include "vrnd.h"
 #include "miniobj.h"
 
 /* Test driver -------------------------------------------------------*/
-
-static void
-vasfail(const char *func, const char *file, int line,
-    const char *cond, int err, int xxx)
-{
-	fprintf(stderr, "PANIC: %s %s %d %s %d %d\n",
-		func, file, line, cond, err, xxx);
-	abort();
-}
-
-vas_f *VAS_Fail = vasfail;
 
 struct foo {
 	unsigned	magic;
@@ -480,37 +476,35 @@ struct foo {
 	unsigned	n;
 };
 
-#if 1
-#define M 31011091	/* Number of operations */
-#define N 17313102	/* Number of items */
-#else
-#define M 3401		/* Number of operations */
-#define N 1131		/* Number of items */
-#endif
+#define M 500083	/* Number of operations */
+#define N 131101	/* Number of items */
 #define R -1		/* Random modulus */
 
 struct foo *ff[N];
 
-static int
-cmp(void *priv, void *a, void *b)
+static int v_matchproto_(binheap_cmp_t)
+cmp(void *priv, const void *a, const void *b)
 {
-	struct foo *fa, *fb;
+	const struct foo *fa, *fb;
 
+	(void)priv;
 	CAST_OBJ_NOTNULL(fa, a, FOO_MAGIC);
 	CAST_OBJ_NOTNULL(fb, b, FOO_MAGIC);
 	return (fa->key < fb->key);
 }
 
-void
+static void v_matchproto_(binheap_update_t)
 update(void *priv, void *a, unsigned u)
 {
 	struct foo *fa;
 
+	(void)priv;
 	CAST_OBJ_NOTNULL(fa, a, FOO_MAGIC);
 	fa->idx = u;
 }
 
-void
+#ifdef CHECK2
+static void
 chk2(struct binheap *bh)
 {
 	unsigned u, v;
@@ -523,20 +517,25 @@ chk2(struct binheap *bh)
 		assert(fa->key >= fb->key);
 	}
 }
+#endif
+
+static void
+vrnd_lock(void)
+{
+}
 
 int
-main(int argc, char **argv)
+main(void)
 {
 	struct binheap *bh;
-	unsigned u, v, lr, n;
+	unsigned j, u, v, lr, n;
 	struct foo *fp;
 
-	if (0) {
-		srandomdev();
-		u = random();
-		printf("Seed %u\n", u);
-		srandom(u);
-	}
+	VRND_SeedAll();
+	VRND_SeedTestable(1);
+	VRND_Lock = vrnd_lock;
+	VRND_Unlock = vrnd_lock;
+
 	bh = binheap_new(NULL, cmp, update);
 	for (n = 2; n; n += n) {
 		child(bh, n - 1, &u, &v);
@@ -544,10 +543,12 @@ main(int argc, char **argv)
 		child(bh, n + 1, &u, &v);
 	}
 
-	while (1) {
+	lr = 0; /* unconfuse some compilers... */
+
+	for (j = 0; j < 2; j++) {
 		/* First insert our N elements */
 		for (u = 0; u < N; u++) {
-			lr = random() % R;
+			lr = VRND_RandomTestable() % R;
 			ALLOC_OBJ(ff[u], FOO_MAGIC);
 			assert(ff[u] != NULL);
 			ff[u]->key = lr;
@@ -579,7 +580,7 @@ main(int argc, char **argv)
 			fp = ff[n];
 			fp->n = n;
 
-			lr = random() % R;
+			lr = VRND_RandomTestable() % R;
 			fp->key = lr;
 			binheap_insert(bh, fp);
 		}
@@ -599,7 +600,7 @@ main(int argc, char **argv)
 		fprintf(stderr, "%d removes OK\n", N);
 
 		for (u = 0; u < M; u++) {
-			v = random() % N;
+			v = VRND_RandomTestable() % N;
 			if (ff[v] != NULL) {
 				CHECK_OBJ_NOTNULL(ff[v], FOO_MAGIC);
 				AN(ff[v]->idx);
@@ -609,19 +610,20 @@ main(int argc, char **argv)
 					FREE_OBJ(ff[v]);
 					ff[v] = NULL;
 				} else {
-					ff[v]->key = random() % R;
+					ff[v]->key = VRND_RandomTestable() % R;
 					binheap_reorder(bh, ff[v]->idx);
 				}
 			} else {
 				ALLOC_OBJ(ff[v], FOO_MAGIC);
 				assert(ff[v] != NULL);
-				ff[v]->key = random() % R;
+				ff[v]->key = VRND_RandomTestable() % R;
 				binheap_insert(bh, ff[v]);
 				CHECK_OBJ_NOTNULL(ff[v], FOO_MAGIC);
 				AN(ff[v]->idx);
 			}
-			if (0)
-				chk2(bh);
+#ifdef CHECK2
+			chk2(bh);
+#endif
 		}
 		fprintf(stderr, "%d updates OK\n", M);
 	}

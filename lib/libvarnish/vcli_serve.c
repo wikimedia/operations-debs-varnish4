@@ -49,8 +49,8 @@
 
 #include "vav.h"
 #include "vcli_serve.h"
-#include "vlu.h"
 #include "vsb.h"
+#include "vtim.h"
 
 struct VCLS_fd {
 	unsigned			magic;
@@ -62,8 +62,9 @@ struct VCLS_fd {
 	cls_cb_f			*closefunc;
 	void				*priv;
 	struct vsb			*last_arg;
-	int				last_idx;
 	char				**argv;
+	int				argc;
+	char				*match;
 };
 
 struct VCLS {
@@ -73,14 +74,13 @@ struct VCLS {
 	unsigned			nfd;
 	VTAILQ_HEAD(,cli_proto)		funcs;
 	cls_cbc_f			*before, *after;
-	volatile unsigned		*maxlen;
 	volatile unsigned		*limit;
 	struct cli_proto		*wildcard;
 };
 
 /*--------------------------------------------------------------------*/
 
-void __match_proto__(cli_func_t)
+void v_matchproto_(cli_func_t)
 VCLS_func_close(struct cli *cli, const char *const *av, void *priv)
 {
 
@@ -92,7 +92,7 @@ VCLS_func_close(struct cli *cli, const char *const *av, void *priv)
 
 /*--------------------------------------------------------------------*/
 
-void __match_proto__(cli_func_t)
+void v_matchproto_(cli_func_t)
 VCLS_func_ping(struct cli *cli, const char * const *av, void *priv)
 {
 	time_t t;
@@ -103,9 +103,19 @@ VCLS_func_ping(struct cli *cli, const char * const *av, void *priv)
 	VCLI_Out(cli, "PONG %jd 1.0", (intmax_t)t);
 }
 
+void v_matchproto_(cli_func_t)
+VCLS_func_ping_json(struct cli *cli, const char * const *av, void *priv)
+{
+	(void)av;
+	(void)priv;
+	VCLI_JSON_begin(cli, 2, av);
+	VCLI_Out(cli, ", \"PONG\"\n");
+	VCLI_JSON_end(cli);
+}
+
 /*--------------------------------------------------------------------*/
 
-void __match_proto__(cli_func_t)
+void v_matchproto_(cli_func_t)
 VCLS_func_help(struct cli *cli, const char * const *av, void *priv)
 {
 	struct cli_proto *clp;
@@ -150,7 +160,7 @@ VCLS_func_help(struct cli *cli, const char * const *av, void *priv)
 	}
 }
 
-void __match_proto__(cli_func_t)
+void v_matchproto_(cli_func_t)
 VCLS_func_help_json(struct cli *cli, const char * const *av, void *priv)
 {
 	struct cli_proto *clp;
@@ -160,26 +170,35 @@ VCLS_func_help_json(struct cli *cli, const char * const *av, void *priv)
 	cs = cli->cls;
 	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
 
-	VCLI_JSON_ver(cli, 1, av);
+	VCLI_JSON_begin(cli, 2, av);
 	VTAILQ_FOREACH(clp, &cs->funcs, list) {
 		if (clp->auth > cli->auth)
 			continue;
-		VCLI_Out(cli, ",\n  {");
-		VCLI_Out(cli, "\n  \"request\": ");
+		VCLI_Out(cli, ",\n  {\n");
+		VSB_indent(cli->sb, 2);
+		VCLI_Out(cli, "\"request\": ");
 		VCLI_JSON_str(cli, clp->desc->request);
-		VCLI_Out(cli, ",\n  \"syntax\": ");
+		VCLI_Out(cli, ",\n");
+		VCLI_Out(cli, "\"syntax\": ");
 		VCLI_JSON_str(cli, clp->desc->syntax);
-		VCLI_Out(cli, ",\n  \"help\": ");
+		VCLI_Out(cli, ",\n");
+		VCLI_Out(cli, "\"help\": ");
 		VCLI_JSON_str(cli, clp->desc->help);
-		VCLI_Out(cli, ",\n  \"minarg\": %d", clp->desc->minarg);
-		VCLI_Out(cli, ", \"maxarg\": %d", clp->desc->maxarg);
-		VCLI_Out(cli, ", \"flags\": ");
+		VCLI_Out(cli, ",\n");
+		VCLI_Out(cli, "\"minarg\": %d", clp->desc->minarg);
+		VCLI_Out(cli, ",\n");
+		VCLI_Out(cli, "\"maxarg\": %d", clp->desc->maxarg);
+		VCLI_Out(cli, ",\n");
+		VCLI_Out(cli, "\"flags\": ");
 		VCLI_JSON_str(cli, clp->flags);
-		VCLI_Out(cli, ", \"json\": %s",
+		VCLI_Out(cli, ",\n");
+		VCLI_Out(cli, "\"json\": %s",
 		    clp->jsonfunc == NULL ? "false" : "true");
-		VCLI_Out(cli, "\n  }");
+		VCLI_Out(cli, "\n");
+		VSB_indent(cli->sb, -2);
+		VCLI_Out(cli, "}");
 	}
-	VCLI_Out(cli, "\n]\n");
+	VCLI_JSON_end(cli);
 }
 
 /*--------------------------------------------------------------------
@@ -216,7 +235,7 @@ cls_dispatch(struct cli *cli, const struct cli_proto *cp,
 		return;
 	}
 
-	if (ac - 1> cp->desc->maxarg + json) {
+	if (ac - 1 > cp->desc->maxarg + json) {
 		VCLI_Out(cli, "Too many parameters\n");
 		VCLI_SetResult(cli, CLIS_TOOMANY);
 		return;
@@ -234,9 +253,8 @@ cls_dispatch(struct cli *cli, const struct cli_proto *cp,
  */
 
 static int
-cls_vlu2(void *priv, char * const *av)
+cls_exec(struct VCLS_fd *cfd, char * const *av)
 {
-	struct VCLS_fd *cfd;
 	struct VCLS *cs;
 	struct cli_proto *clp;
 	struct cli *cli;
@@ -244,9 +262,10 @@ cls_vlu2(void *priv, char * const *av)
 	ssize_t len;
 	char *s;
 	unsigned lim;
+	int retval = 0;
 	const char *trunc = "!\n[response was truncated]\n";
 
-	CAST_OBJ_NOTNULL(cfd, priv, VCLS_FD_MAGIC);
+	CHECK_OBJ_NOTNULL(cfd, VCLS_FD_MAGIC);
 	cs = cfd->cls;
 	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
 
@@ -266,6 +285,12 @@ cls_vlu2(void *priv, char * const *av)
 	do {
 		if (av[0] != NULL) {
 			VCLI_Out(cli, "Syntax Error: %s\n", av[0]);
+			VCLI_SetResult(cli, CLIS_SYNTAX);
+			break;
+		}
+
+		if (av[1] == NULL) {
+			VCLI_Out(cli, "Empty CLI command.\n");
 			VCLI_SetResult(cli, CLIS_SYNTAX);
 			break;
 		}
@@ -314,106 +339,146 @@ cls_vlu2(void *priv, char * const *av)
 	}
 	if (VCLI_WriteResult(cfd->fdo, cli->result, s) ||
 	    cli->result == CLIS_CLOSE)
-		return (1);
+		retval = 1;
 
-	return (0);
+	/*
+	 * In unauthenticated mode we are very intolerant, and close the
+	 * connection at the least provocation.
+	 */
+	if (cli->auth == 0 && cli->result != CLIS_OK)
+		retval = 1;
+
+	return (retval);
 }
 
 static int
-cls_vlu(void *priv, const char *p)
+cls_feed(struct VCLS_fd *cfd, const char *p, const char *e)
 {
-	struct VCLS_fd *cfd;
 	struct cli *cli;
-	int i;
-	char **av;
+	int i, retval = 0, ac;
+	char **av, *q;
 
-	CAST_OBJ_NOTNULL(cfd, priv, VCLS_FD_MAGIC);
+	CHECK_OBJ_NOTNULL(cfd, VCLS_FD_MAGIC);
 	AN(p);
+	assert(e > p);
 
 	cli = cfd->cli;
 	CHECK_OBJ_NOTNULL(cli, CLI_MAGIC);
 
-	if (cfd->argv == NULL) {
-		/*
-		 * Lines with only whitespace are simply ignored, in order
-		 * to not complicate CLI-client side scripts and TELNET users
-		 */
-		for (; isspace(*p); p++)
+	for (;p < e; p++) {
+		if (cli->cmd == NULL && isspace(*p)) {
+			/* Ignore all leading space before cmd */
 			continue;
-		if (*p == '\0')
-			return (0);
-		REPLACE(cli->cmd, p);
-		AN(p);	/* for FlexeLint */
+		}
+		if (cfd->argv == NULL) {
 
-		/* We ignore a single leading '-' (for -I cli_file) */
-		if (p[0] == '-')
-			av = VAV_Parse(p + 1, NULL, 0);
-		else
-			av = VAV_Parse(p, NULL, 0);
-		AN(av);
-		if (av[0] != NULL) {
-			i = cls_vlu2(priv, av);
-			VAV_Free(av);
-			free(cli->cmd);
-			cli->cmd = NULL;
-			return (i);
+			/* Collect first line up to \n or \r */
+			if (cli->cmd == NULL) {
+				cli->cmd = VSB_new_auto();
+				AN(cli->cmd);
+			}
+
+			/* Until authenticated, limit length hard */
+			if (*p != '\n' && *p != '\r' &&
+			    (cli->auth > 0 || VSB_len(cli->cmd) < 80)) {
+				VSB_putc(cli->cmd, *p);
+				continue;
+			}
+
+			AZ(VSB_finish(cli->cmd));
+
+			/* Ignore leading '-' */
+			q = VSB_data(cli->cmd);
+			if (*q == '-')
+				q++;
+			av = VAV_Parse(q, &ac, 0);
+			AN(av);
+
+			if (cli->auth > 0 &&
+			    av[0] == NULL &&
+			    ac >= 3 &&
+			    !strcmp(av[ac-2], "<<") &&
+			    *av[ac - 1] != '\0') {
+				/* Go to "<< nonce" mode */
+				cfd->argv = av;
+				cfd->argc = ac;
+				cfd->match = av[ac - 1];
+				cfd->last_arg = VSB_new_auto();
+				AN(cfd->last_arg);
+			} else {
+				/* Plain command */
+				i = cls_exec(cfd, av);
+				VAV_Free(av);
+				VSB_destroy(&cli->cmd);
+				if (i)
+					return(i);
+			}
+		} else {
+			/* "<< nonce" mode */
+			AN(cfd->argv);
+			AN(cfd->argc);
+			AN(cfd->match);
+			AN(cfd->last_arg);
+			if (*cfd->match == '\0' && (*p == '\r' || *p == '\n')) {
+				AZ(VSB_finish(cfd->last_arg));
+				// NB: VAV lib internals trusted
+				REPLACE(cfd->argv[cfd->argc - 1], NULL);
+				REPLACE(cfd->argv[cfd->argc - 2], NULL);
+				cfd->argv[cfd->argc - 2] =
+				    VSB_data(cfd->last_arg);
+				i = cls_exec(cfd, cfd->argv);
+				cfd->argv[cfd->argc - 2] = NULL;
+				VAV_Free(cfd->argv);
+				cfd->argv = NULL;
+				VSB_destroy(&cfd->last_arg);
+				VSB_destroy(&cli->cmd);
+				if (i)
+					return (i);
+			} else if (*p == *cfd->match) {
+				cfd->match++;
+			} else if (cfd->match != cfd->argv[cfd->argc - 1]) {
+				q = cfd->argv[cfd->argc - 1];
+				VSB_bcat(cfd->last_arg, q, cfd->match - q);
+				cfd->match = q;
+				VSB_putc(cfd->last_arg, *p);
+			} else {
+				VSB_putc(cfd->last_arg, *p);
+			}
 		}
-		for (i = 1; av[i] != NULL; i++)
-			continue;
-		if (i < 3 || cli->auth == 0 || strcmp(av[i - 2], "<<")) {
-			i = cls_vlu2(priv, av);
-			VAV_Free(av);
-			free(cli->cmd);
-			cli->cmd = NULL;
-			return (i);
-		}
-		cfd->argv = av;
-		cfd->last_idx = i - 2;
-		cfd->last_arg = VSB_new_auto();
-		AN(cfd->last_arg);
-		return (0);
-	} else {
-		AN(cfd->argv[cfd->last_idx]);
-		AZ(strcmp(cfd->argv[cfd->last_idx], "<<"));
-		AN(cfd->argv[cfd->last_idx + 1]);
-		if (strcmp(p, cfd->argv[cfd->last_idx + 1])) {
-			VSB_cat(cfd->last_arg, p);
-			VSB_cat(cfd->last_arg, "\n");
-			return (0);
-		}
-		AZ(VSB_finish(cfd->last_arg));
-		free(cfd->argv[cfd->last_idx]);
-		cfd->argv[cfd->last_idx] = NULL;
-		free(cfd->argv[cfd->last_idx + 1]);
-		cfd->argv[cfd->last_idx + 1] = NULL;
-		cfd->argv[cfd->last_idx] = VSB_data(cfd->last_arg);
-		i = cls_vlu2(priv, cfd->argv);
-		cfd->argv[cfd->last_idx] = NULL;
-		VAV_Free(cfd->argv);
-		cfd->argv = NULL;
-		free(cli->cmd);
-		cli->cmd = NULL;
-		VSB_destroy(&cfd->last_arg);
-		cfd->last_idx = 0;
-		return (i);
 	}
+	return (retval);
 }
 
 struct VCLS *
-VCLS_New(cls_cbc_f *before, cls_cbc_f *after, volatile unsigned *maxlen,
-    volatile unsigned *limit)
+VCLS_New(struct VCLS *model)
 {
 	struct VCLS *cs;
+
+	CHECK_OBJ_ORNULL(model, VCLS_MAGIC);
 
 	ALLOC_OBJ(cs, VCLS_MAGIC);
 	AN(cs);
 	VTAILQ_INIT(&cs->fds);
 	VTAILQ_INIT(&cs->funcs);
+	if (model != NULL)
+		VTAILQ_CONCAT(&cs->funcs, &model->funcs, list);
+	return (cs);
+}
+
+void
+VCLS_SetLimit(struct VCLS *cs, volatile unsigned *limit)
+{
+	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
+	cs->limit = limit;
+}
+
+void
+VCLS_SetHooks(struct VCLS *cs, cls_cbc_f *before, cls_cbc_f *after)
+{
+
+	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
 	cs->before = before;
 	cs->after = after;
-	cs->maxlen = maxlen;
-	cs->limit = limit;
-	return (cs);
 }
 
 struct cli *
@@ -431,39 +496,37 @@ VCLS_AddFd(struct VCLS *cs, int fdi, int fdo, cls_cb_f *closefunc, void *priv)
 	cfd->fdo = fdo;
 	cfd->cli = &cfd->clis;
 	cfd->cli->magic = CLI_MAGIC;
-	cfd->cli->vlu = VLU_New(cfd, cls_vlu, *cs->maxlen);
 	cfd->cli->sb = VSB_new_auto();
+	AN(cfd->cli->sb);
 	cfd->cli->limit = cs->limit;
 	cfd->cli->priv = priv;
 	cfd->closefunc = closefunc;
 	cfd->priv = priv;
-	AN(cfd->cli->sb);
 	VTAILQ_INSERT_TAIL(&cs->fds, cfd, list);
 	cs->nfd++;
 	return (cfd->cli);
 }
 
-static void
+static int
 cls_close_fd(struct VCLS *cs, struct VCLS_fd *cfd)
 {
+	int retval = 0;
 
 	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
 	CHECK_OBJ_NOTNULL(cfd, VCLS_FD_MAGIC);
 
 	VTAILQ_REMOVE(&cs->fds, cfd, list);
 	cs->nfd--;
-	VLU_Destroy(cfd->cli->vlu);
 	VSB_destroy(&cfd->cli->sb);
-	if (cfd->closefunc == NULL) {
-		(void)close(cfd->fdi);
-		if (cfd->fdo != cfd->fdi)
-			(void)close(cfd->fdo);
-	} else {
-		cfd->closefunc(cfd->priv);
-	}
+	if (cfd->closefunc != NULL)
+		retval = cfd->closefunc(cfd->priv);
+	(void)close(cfd->fdi);
+	if (cfd->fdo != cfd->fdi)
+		(void)close(cfd->fdo);
 	if (cfd->cli->ident != NULL)
 		free(cfd->cli->ident);
 	FREE_OBJ(cfd);
+	return (retval);
 }
 
 void
@@ -498,32 +561,13 @@ VCLS_AddFunc(struct VCLS *cs, unsigned auth, struct cli_proto *clp)
 	}
 }
 
-/*
- * This function has *very* special semantics, related to the mgt/worker
- * process Copy-On-Write memory relationship.
- */
-
-void
-VCLS_Clone(struct VCLS *cs, struct VCLS *cso)
-{
-	struct cli_proto *clp, *clp2;
-
-	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
-	CHECK_OBJ_NOTNULL(cso, VCLS_MAGIC);
-	VTAILQ_FOREACH_SAFE(clp, &cso->funcs, list, clp2) {
-		VTAILQ_REMOVE(&cso->funcs, clp, list);
-		VTAILQ_INSERT_TAIL(&cs->funcs, clp, list);
-		clp->auth = 0;
-		clp->func = NULL;
-	}
-}
-
 int
-VCLS_PollFd(struct VCLS *cs, int fd, int timeout)
+VCLS_Poll(struct VCLS *cs, const struct cli *cli, int timeout)
 {
 	struct VCLS_fd *cfd;
 	struct pollfd pfd[1];
 	int i, j, k;
+	char buf[BUFSIZ];
 
 	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
 	if (cs->nfd == 0) {
@@ -534,7 +578,7 @@ VCLS_PollFd(struct VCLS *cs, int fd, int timeout)
 
 	i = 0;
 	VTAILQ_FOREACH(cfd, &cs->fds, list) {
-		if (cfd->fdi != fd)
+		if (cfd->cli != cli)
 			continue;
 		pfd[i].fd = cfd->fdi;
 		pfd[i].events = POLLIN;
@@ -550,54 +594,19 @@ VCLS_PollFd(struct VCLS *cs, int fd, int timeout)
 		return (j);
 	if (pfd[0].revents & POLLHUP)
 		k = 1;
-	else
-		k = VLU_Fd(cfd->fdi, cfd->cli->vlu);
-	if (k)
-		cls_close_fd(cs, cfd);
+	else {
+		i = read(cfd->fdi, buf, sizeof buf);
+		if (i <= 0)
+			k = 1;
+		else
+			k = cls_feed(cfd, buf, buf + i);
+	}
+	if (k) {
+		i = cls_close_fd(cs, cfd);
+		if (i < 0)
+			k = i;
+	}
 	return (k);
-}
-
-int
-VCLS_Poll(struct VCLS *cs, int timeout)
-{
-	struct VCLS_fd *cfd, *cfd2;
-	int i, j, k;
-
-	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
-	if (cs->nfd == 0) {
-		errno = 0;
-		return (-1);
-	}
-	assert(cs->nfd > 0);
-	{
-		struct pollfd pfd[cs->nfd];
-
-		i = 0;
-		VTAILQ_FOREACH(cfd, &cs->fds, list) {
-			pfd[i].fd = cfd->fdi;
-			pfd[i].events = POLLIN;
-			pfd[i].revents = 0;
-			i++;
-		}
-		assert(i == cs->nfd);
-
-		j = poll(pfd, cs->nfd, timeout);
-		if (j <= 0)
-			return (j);
-		i = 0;
-		VTAILQ_FOREACH_SAFE(cfd, &cs->fds, list, cfd2) {
-			assert(pfd[i].fd == cfd->fdi);
-			if (pfd[i].revents & POLLHUP)
-				k = 1;
-			else
-				k = VLU_Fd(cfd->fdi, cfd->cli->vlu);
-			if (k)
-				cls_close_fd(cs, cfd);
-			i++;
-		}
-		assert(i == j);
-	}
-	return (j);
 }
 
 void
@@ -607,11 +616,9 @@ VCLS_Destroy(struct VCLS **csp)
 	struct VCLS_fd *cfd, *cfd2;
 	struct cli_proto *clp;
 
-	cs = *csp;
-	*csp = NULL;
-	CHECK_OBJ_NOTNULL(cs, VCLS_MAGIC);
+	TAKE_OBJ_NOTNULL(cs, csp, VCLS_MAGIC);
 	VTAILQ_FOREACH_SAFE(cfd, &cs->fds, list, cfd2)
-		cls_close_fd(cs, cfd);
+		(void)cls_close_fd(cs, cfd);
 
 	while (!VTAILQ_EMPTY(&cs->funcs)) {
 		clp = VTAILQ_FIRST(&cs->funcs);
@@ -660,12 +667,14 @@ VCLI_JSON_str(struct cli *cli, const char *s)
 {
 
 	CHECK_OBJ_NOTNULL(cli, CLI_MAGIC);
+	VSB_putc(cli->sb, '"');
 	VSB_quote(cli->sb, s, -1, VSB_QUOTE_JSON);
+	VSB_putc(cli->sb, '"');
 }
 
 /*lint -e{818} cli could be const */
 void
-VCLI_JSON_ver(struct cli *cli, unsigned ver, const char * const * av)
+VCLI_JSON_begin(struct cli *cli, unsigned ver, const char * const * av)
 {
 	int i;
 
@@ -676,7 +685,16 @@ VCLI_JSON_ver(struct cli *cli, unsigned ver, const char * const * av)
 		if (av[i + 1] != NULL)
 			VCLI_Out(cli, ", ");
 	}
-	VCLI_Out(cli, "]");
+	VCLI_Out(cli, "], %.3f", VTIM_real());
+	VSB_indent(cli->sb, 2);
+}
+
+void
+VCLI_JSON_end(struct cli *cli)
+{
+	VSB_indent(cli->sb, -2);
+	VCLI_Out(cli, "\n");
+	VCLI_Out(cli, "]\n");
 }
 
 /*lint -e{818} cli could be const */

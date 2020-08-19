@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Why Sphinx and reStructuredText ? &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>Why Sphinx and reStructuredText ? &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="Poul-Hennings random outbursts" href="index.html" />
     <link rel="next" title="Notes from the Architect" href="notes.html" />
     <link rel="prev" title="Did you call them autocrap tools ?" href="autocrap.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="autocrap.html" title="Did you call them autocrap tools ?"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>  
@@ -56,22 +46,22 @@
   <div class="section" id="why-sphinx-and-restructuredtext">
 <span id="phk-sphinx"></span><h1>Why <a class="reference external" href="http://sphinx.pocoo.org/">Sphinx</a> and <a class="reference external" href="http://docutils.sourceforge.net/rst.html">reStructuredText</a> ?<a class="headerlink" href="#why-sphinx-and-restructuredtext" title="Permalink to this headline">¶</a></h1>
 <p>The first school of thought on documentation, is the one we subscribe
-to in Varnish right now: &quot;Documentation schmocumentation...&quot;  It does
+to in Varnish right now: “Documentation schmocumentation…”  It does
 not work for anybody.</p>
-<p>The second school is the &quot;Write a {La}TeX document&quot; school, where
+<p>The second school is the “Write a {La}TeX document” school, where
 the documentation is seen as a stand alone product, which is produced
 independently.  This works great for PDF output, and sucks royally
 for HTML and TXT output.</p>
-<p>The third school is the &quot;Literate programming&quot; school, which abandons
+<p>The third school is the “Literate programming” school, which abandons
 readability of <em>both</em> the program source code <em>and</em> the documentation
 source, which seems to be one of the best access protections
 one can put on the source code of either.</p>
-<p>The fourth school is the &quot;DoxyGen&quot; school, which lets a program
+<p>The fourth school is the “DoxyGen” school, which lets a program
 collect a mindless list of hyperlinked variable, procedure, class
-and filenames, and call that &quot;documentation&quot;.</p>
+and filenames, and call that “documentation”.</p>
 <p>And the fifth school is anything that uses a fileformat that
 cannot be put into a version control system, because it is
-binary and non-diff'able.  It doesn't matter if it is
+binary and non-diff’able.  It doesn’t matter if it is
 OpenOffice, LyX or Word, a non-diffable doc source is a no go
 with programmers.</p>
 <p>Quite frankly, none of these works very well in practice.</p>
@@ -99,7 +89,7 @@ it structurally into the more capable formats.</li>
 Python project, as wrapped by the <a class="reference external" href="http://sphinx.pocoo.org/">Sphinx</a> project.</p>
 <p>Unless there is something I have totally failed to spot, that is
 going to be the new documentation platform in Varnish.</p>
-<p>Take a peek at the Python docs, and try pressing the &quot;show source&quot;
+<p>Take a peek at the Python docs, and try pressing the “show source”
 link at the bottom of the left menu:</p>
 <p>(link to random python doc page:)</p>
 <blockquote>
@@ -128,18 +118,20 @@ from Tcl to Python in that case.</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/phk/sphinx.txt"
+      <li><a href="../_sources/phk/sphinx.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -158,13 +150,13 @@ from Tcl to Python in that case.</p>
         <li class="right" >
           <a href="autocrap.html" title="Did you call them autocrap tools ?"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >Poul-Hennings random outbursts</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

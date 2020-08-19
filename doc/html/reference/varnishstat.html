@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>varnishstat &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>varnishstat &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishtest" href="varnishtest.html" />
     <link rel="prev" title="varnishncsa" href="varnishncsa.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="varnishncsa.html" title="varnishncsa"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -67,7 +57,7 @@
 </table>
 <div class="section" id="synopsis">
 <h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
-<p>varnishstat [-1] [-f &lt;glob&gt;] [-h] [-j] [-l] [-n &lt;dir&gt;] [-N &lt;filename&gt;] [-t &lt;seconds|off&gt;] [-V] [-x]</p>
+<p>varnishstat [-1] [-f &lt;glob&gt;] [-h] [-j] [-l] [-n &lt;dir&gt;] [-t &lt;seconds|off&gt;] [-V] [-x]</p>
 </div>
 <div class="section" id="description">
 <h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
@@ -82,7 +72,7 @@
 <td>Instead of presenting a continuously updated display, print the statistics to stdout.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-f <var>&lt;glob&gt;</var></span></kbd></td>
-<td>Field inclusion glob. Use backslash to escape characters. If the argument starts with '^' it is used as an exclusion glob. Multiple -f arguments may be given, and they will be applied in order.</td></tr>
+<td>Field inclusion glob. Use backslash to escape characters. If the argument starts with ‘^’ it is used as an exclusive glob. Multiple -f arguments may be given. Inclusive globs are accumulative and are run before exclusive ones.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-h</span></kbd></td>
 <td>Print program usage and exit</td></tr>
@@ -95,19 +85,19 @@
 <tr><td class="option-group">
 <kbd><span class="option">-n <var>&lt;dir&gt;</var></span></kbd></td>
 <td>Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.</td></tr>
-<tr><td class="option-group">
-<kbd><span class="option">-N <var>&lt;filename&gt;</var></span></kbd></td>
-<td>Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-t <var>&lt;seconds|off&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to &quot;off&quot;, the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.</td></tr>
+<tr><td>&#160;</td><td>Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to “off”, the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-V</span></kbd></td>
 <td>Print version information and exit.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-x</span></kbd></td>
 <td>Print statistics to stdout as XML.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">--optstring</span></kbd></td>
+<td>Print the optstring parameter to <code class="docutils literal notranslate"><span class="pre">getopt(3)</span></code> to help writing wrapper scripts.</td></tr>
 </tbody>
 </table>
 </div>
@@ -132,7 +122,7 @@ counter.</p>
 <dd>The average per second change over the last update interval.</dd>
 <dt>Average</dt>
 <dd>The average value of this counter over the runtime of the
-Varnish daemon, or a period if the counter can't be averaged.</dd>
+Varnish daemon, or a period if the counter can’t be averaged.</dd>
 <dt>Avg_10</dt>
 <dd>The moving average over the last 10 update intervals.</dd>
 <dt>Avg_100</dt>
@@ -153,6 +143,10 @@ Varnish daemon, or a period if the counter can't be averaged.</dd>
 <dd>Navigate the counter list one page up.</dd>
 <dt>&lt;PAGEDOWN&gt; or &lt;SPACE&gt;</dt>
 <dd>Navigate the counter list one page down.</dd>
+<dt>&lt;HOME&gt;</dt>
+<dd>Navigate the counter list to the top.</dd>
+<dt>&lt;END&gt;</dt>
+<dd>Navigate the counter list to the bottom.</dd>
 <dt>&lt;d&gt;</dt>
 <dd>Toggle between showing and hiding unseen counters. Unseen
 counters are those that has been zero for the entire runtime
@@ -170,16 +164,18 @@ informational counters.</dd>
 <dd>Quit.</dd>
 <dt>&lt;CTRL+T&gt;</dt>
 <dd>Sample now.</dd>
+<dt>&lt;+&gt;</dt>
+<dd>Increase refresh interval.</dd>
+<dt>&lt;-&gt;</dt>
+<dd>Decrease refresh interval.</dd>
 </dl>
 </div>
 </div>
 <div class="section" id="outputs">
 <h3>OUTPUTS<a class="headerlink" href="#outputs" title="Permalink to this headline">¶</a></h3>
 <p>The XML output format is:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">varnishstat</span> <span class="n">timestamp</span><span class="o">=</span><span class="s2">&quot;YYYY-MM-DDTHH:mm:SS&quot;</span><span class="o">&gt;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">varnishstat</span> <span class="n">timestamp</span><span class="o">=</span><span class="s2">&quot;YYYY-MM-DDTHH:mm:SS&quot;</span><span class="o">&gt;</span>
   <span class="o">&lt;</span><span class="n">stat</span><span class="o">&gt;</span>
-    <span class="o">&lt;</span><span class="nb">type</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">TYPE</span><span class="o">&lt;/</span><span class="nb">type</span><span class="o">&gt;</span>
-    <span class="o">&lt;</span><span class="n">ident</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">IDENT</span><span class="o">&lt;/</span><span class="n">ident</span><span class="o">&gt;</span>
     <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">NAME</span><span class="o">&lt;/</span><span class="n">name</span><span class="o">&gt;</span>
     <span class="o">&lt;</span><span class="n">value</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">VALUE</span><span class="o">&lt;/</span><span class="n">value</span><span class="o">&gt;</span>
     <span class="o">&lt;</span><span class="n">flag</span><span class="o">&gt;</span><span class="n">FIELD</span> <span class="n">SEMANTICS</span><span class="o">&lt;/</span><span class="n">flag</span><span class="o">&gt;</span>
@@ -191,24 +187,23 @@ informational counters.</dd>
 </pre></div>
 </div>
 <p>The JSON output format is:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
   <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;YYYY-MM-DDTHH:mm:SS&quot;</span><span class="p">,</span>
   <span class="s2">&quot;FIELD NAME&quot;</span><span class="p">:</span> <span class="p">{</span>
     <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DESCRIPTION&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD TYPE&quot;</span><span class="p">,</span> <span class="s2">&quot;ident&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD IDENT&quot;</span><span class="p">,</span> <span class="s2">&quot;flag&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD SEMANTICS&quot;</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DISPLAY FORMAT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;flag&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD SEMANTICS&quot;</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DISPLAY FORMAT&quot;</span><span class="p">,</span>
     <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">FIELD</span> <span class="n">VALUE</span>
   <span class="p">},</span>
   <span class="s2">&quot;FIELD NAME&quot;</span><span class="p">:</span> <span class="p">{</span>
     <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DESCRIPTION&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD TYPE&quot;</span><span class="p">,</span> <span class="s2">&quot;ident&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD IDENT&quot;</span><span class="p">,</span> <span class="s2">&quot;flag&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD SEMANTICS&quot;</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DISPLAY FORMAT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;flag&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD SEMANTICS&quot;</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;FIELD DISPLAY FORMAT&quot;</span><span class="p">,</span>
     <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">FIELD</span> <span class="n">VALUE</span>
   <span class="p">},</span>
   <span class="p">[</span><span class="o">..</span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Type and ident are optional.  Timestamp is the time when the report was
-generated by varnishstat.</p>
+<p>Timestamp is the time when the report was generated by varnishstat.</p>
 </div>
 <div class="section" id="see-also">
 <h3>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h3>
@@ -236,7 +231,7 @@ Lasse Karstensen and Martin Blix Grydeland.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">varnishstat</a><ul>
 <li><a class="reference internal" href="#varnish-cache-statistics">Varnish Cache statistics</a><ul>
@@ -265,18 +260,20 @@ Lasse Karstensen and Martin Blix Grydeland.</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/reference/varnishstat.txt"
+      <li><a href="../_sources/reference/varnishstat.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -295,13 +292,13 @@ Lasse Karstensen and Martin Blix Grydeland.</p>
         <li class="right" >
           <a href="varnishncsa.html" title="varnishncsa"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

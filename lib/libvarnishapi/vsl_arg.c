@@ -30,18 +30,12 @@
 
 #include "config.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #include <ctype.h>
-#include <fcntl.h>
+#include <errno.h>
 #include <limits.h>
 #include <math.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "vdef.h"
 #include "vas.h"
@@ -53,10 +47,8 @@
 #include "vre.h"
 
 #include "vapi/vsl.h"
-#include "vapi/vsm.h"
 
 #include "vsl_api.h"
-#include "vsm_api.h"
 
 /*--------------------------------------------------------------------
  * Look up a tag
@@ -92,40 +84,25 @@ VSL_Name2Tag(const char *name, int l)
 int
 VSL_Glob2Tags(const char *glob, int l, VSL_tagfind_f *func, void *priv)
 {
-	int i, r, l2;
-	int pre = 0;
-	int post = 0;
-	char buf[64];
+	const char *p1 = NULL;
+	const char *p2 = NULL;
+	const char *e, *p;
+	int i, l1 = 0, l2 = 0, r = 0;
 
 	AN(glob);
-	if (l < 0)
-		l = strlen(glob);
-	if (l == 0 || l > sizeof buf - 1)
-		return (-1);
-	if (strchr(glob, '*') != NULL) {
-		if (glob[0] == '*') {
-			/* Prefix wildcard */
-			pre = 1;
-			glob++;
-			l--;
-		}
-		if (l > 0 && glob[l - 1] == '*') {
-			/* Postfix wildcard */
-			post = 1;
-			l--;
-		}
-	}
-	if (pre && post)
-		/* Support only post or prefix wildcards */
-		return (-3);
-	memcpy(buf, glob, l);
-	buf[l] = '\0';
-	if (strchr(buf, '*') != NULL)
-		/* No multiple wildcards */
-		return (-3);
-	if (pre == 0 && post == 0) {
-		/* No wildcards, use VSL_Name2Tag */
-		i = VSL_Name2Tag(buf, l);
+	if (l >= 0)
+		e = glob + l;
+	else
+		e = strchr(glob, '\0');
+	if (glob == e)
+		return (-1);		// Empty pattern cannot match
+
+	for (p = glob; p < e; p++)
+		if (*p == '*')
+			break;
+
+	if (p == e) {			// No wildcard
+		i = VSL_Name2Tag(glob, l);
 		if (i < 0)
 			return (i);
 		if (func != NULL)
@@ -133,22 +110,31 @@ VSL_Glob2Tags(const char *glob, int l, VSL_tagfind_f *func, void *priv)
 		return (1);
 	}
 
-	r = 0;
+	if (p != glob) {		// Prefix match
+		p1 = glob;
+		l1 = p - p1;
+	}
+
+	if (p != e - 1) {		// Postfix match
+		p2 = p + 1;
+		l2 = e - p2;
+	}
+
+	for (p++; p < e; p++)
+		if (*p == '*')
+			return (-3);	// More than one wildcard
+
 	for (i = 0; i < SLT__MAX; i++) {
-		if (VSL_tags[i] == NULL)
+		p = VSL_tags[i];
+		if (p == NULL)
 			continue;
-		l2 = strlen(VSL_tags[i]);
-		if (l2 < l)
+		e = strchr(p, '\0');
+		if (e - p < l1 + l2)
 			continue;
-		if (pre) {
-			/* Prefix wildcard match */
-			if (strcasecmp(buf, VSL_tags[i] + l2 - l))
-				continue;
-		} else {
-			/* Postfix wildcard match */
-			if (strncasecmp(buf, VSL_tags[i], l))
-				continue;
-		}
+		if (p1 != NULL && strncasecmp(p, p1, l1))
+			continue;
+		if (p2 != NULL && strncasecmp(e - l2, p2, l2))
+			continue;
 		if (func != NULL)
 			(func)(i, priv);
 		r++;
@@ -161,27 +147,26 @@ VSL_Glob2Tags(const char *glob, int l, VSL_tagfind_f *func, void *priv)
 int
 VSL_List2Tags(const char *list, int l, VSL_tagfind_f *func, void *priv)
 {
-	const char *p, *q, *e;
-	int r, t;
+	const char *p, *b, *e;
+	int r, t = 0;
 
-	if (l < 0)
-		l = strlen(list);
 	p = list;
-	e = p + l;
-	t = 0;
+	if (l >= 0)
+		e = p + l;
+	else
+		e = strchr(p, '\0');
 	while (p < e) {
 		while (p < e && *p == ',')
 			p++;
 		if (p == e)
 			break;
-		q = p;
-		while (q < e && *q != ',')
-			q++;
-		r = VSL_Glob2Tags(p, q - p, func, priv);
+		b = p;
+		while (p < e && *p != ',')
+			p++;
+		r = VSL_Glob2Tags(b, p - b, func, priv);
 		if (r < 0)
 			return (r);
 		t += r;
-		p = q;
 	}
 	if (t == 0)
 		return (-1);
@@ -200,6 +185,7 @@ VSLQ_Name2Grouping(const char *name, int l)
 {
 	int i, n;
 
+	AN(name);
 	if (l == -1)
 		l = strlen(name);
 	n = -1;
@@ -218,14 +204,14 @@ VSLQ_Name2Grouping(const char *name, int l)
 	return (n);
 }
 
-void __match_proto__(VSL_tagfind_f)
+void v_matchproto_(VSL_tagfind_f)
 vsl_vbm_bitset(int bit, void *priv)
 {
 
 	vbit_set((struct vbitmap *)priv, bit);
 }
 
-void __match_proto__(VSL_tagfind_f)
+void v_matchproto_(VSL_tagfind_f)
 vsl_vbm_bitclr(int bit, void *priv)
 {
 
@@ -265,6 +251,7 @@ vsl_IX_arg(struct VSL_data *vsl, int opt, const char *arg)
 	struct vbitmap *tags = NULL;
 
 	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
+	AN(arg);
 	vsl->flags |= F_SEEN_ixIX;
 
 	b = arg;
@@ -314,6 +301,44 @@ vsl_IX_arg(struct VSL_data *vsl, int opt, const char *arg)
 	return (1);
 }
 
+static int
+vsl_R_arg(struct VSL_data *vsl, const char *arg)
+{
+	char buf[32] = "";
+	char *p;
+	long l;
+
+	AN(arg);
+	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
+
+	errno = 0;
+	l = strtol(arg, &p, 0);
+	if ((l == LONG_MIN || l == LONG_MAX) && errno == ERANGE)
+		return (vsl_diag(vsl, "-R: Range error"));
+	if (l <= 0 || l > INT_MAX)
+		return (vsl_diag(vsl, "-R: Range error"));
+	vsl->R_opt_l = l;
+	assert(p != arg);
+	AN(p);
+	if (*p == '\0') {
+		vsl->R_opt_p = 1.0;
+		return (1);
+	}
+	if (*p != '/' || p[1] == '\0')
+		return (vsl_diag(vsl, "-R: Syntax error"));
+	p++;
+	if (strlen(p) > sizeof(buf) - 2)
+		return (vsl_diag(vsl, "-R: Syntax error"));
+	if (!isdigit(*p))
+		strcat(buf, "1");
+	strcat(buf, p);
+	vsl->R_opt_p = VNUM_duration(buf);
+	if (isnan(vsl->R_opt_p) || vsl->R_opt_p <= 0.0)
+		return (vsl_diag(vsl,
+			"-R: Syntax error: Invalid duration"));
+	return (1);
+}
+
 int
 VSL_Arg(struct VSL_data *vsl, int opt, const char *arg)
 {
@@ -338,6 +363,7 @@ VSL_Arg(struct VSL_data *vsl, int opt, const char *arg)
 	case 'i': case 'x': return (vsl_ix_arg(vsl, opt, arg));
 	case 'I': case 'X': return (vsl_IX_arg(vsl, opt, arg));
 	case 'L':
+		AN(arg);
 		l = strtol(arg, &p, 0);
 		while (isspace(*p))
 			p++;
@@ -347,7 +373,10 @@ VSL_Arg(struct VSL_data *vsl, int opt, const char *arg)
 			return (vsl_diag(vsl, "-L: Range error"));
 		vsl->L_opt = (int)l;
 		return (1);
+	case 'R':
+		return (vsl_R_arg(vsl, arg));
 	case 'T':
+		AN(arg);
 		d = VNUM(arg);
 		if (isnan(d))
 			return (vsl_diag(vsl, "-T: Syntax error"));

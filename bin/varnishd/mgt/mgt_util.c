@@ -34,12 +34,47 @@
 #include <sys/utsname.h>
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include "mgt/mgt.h"
 
+#include "common/heritage.h"
+
+#include "vav.h"
+#include "vct.h"
+
+/*--------------------------------------------------------------------*/
+
+char *
+mgt_HostName(void)
+{
+	char *p;
+	char buf[1024];
+
+	AZ(gethostname(buf, sizeof buf));
+	p = strdup(buf);
+	AN(p);
+	return (p);
+}
+
+/*--------------------------------------------------------------------*/
+
+void
+mgt_ProcTitle(const char *comp)
+{
+#ifdef HAVE_SETPROCTITLE
+	if (strcmp(heritage.identity, "varnishd"))
+		setproctitle("Varnish-%s -i %s", comp, heritage.identity);
+	else
+		setproctitle("Varnish-%s", comp);
+#else
+	(void)comp;
+#endif
+}
 
 /*--------------------------------------------------------------------*/
 
@@ -152,4 +187,45 @@ MGT_Pick(const struct choice *cp, const char *which, const char *kind)
 			return (cp->ptr);
 	}
 	ARGV_ERR("Unknown %s method \"%s\"\n", kind, which);
+}
+
+/*--------------------------------------------------------------------*/
+
+char **
+MGT_NamedArg(const char *spec, const char **name, const char *what)
+{
+	const char *p, *q;
+	char *r;
+	char **av;
+	int l;
+
+	ASSERT_MGT();
+	p = strchr(spec, '=');
+	q = strchr(spec, ',');
+	if (p == NULL || (q != NULL && q < p)) {
+		av = VAV_Parse(spec, NULL, ARGV_COMMA);
+		p = NULL;
+	} else if (VCT_invalid_name(spec, p) != NULL) {
+		ARGV_ERR("invalid %s name \"%.*s\"=[...]\n",
+		    what, (int)(p - spec), spec);
+	} else if (p[1] == '\0') {
+		ARGV_ERR("Empty named %s argument \"%s\"\n", what, spec);
+	} else {
+		av = VAV_Parse(p + 1, NULL, ARGV_COMMA);
+	}
+	AN(av);
+
+	if (av[0] != NULL)
+		ARGV_ERR("%s\n", av[0]);
+	if (p == NULL) {
+		*name = NULL;
+	} else {
+		l = p - spec;
+		r = malloc(1L + l);
+		AN(r);
+		memcpy(r, spec, l);
+		r[l] = '\0';
+		*name = r;
+	}
+	return (av);
 }

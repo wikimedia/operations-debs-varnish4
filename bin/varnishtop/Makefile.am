@@ -6,9 +6,9 @@ AM_CPPFLAGS = \
 
 bin_PROGRAMS = varnishtop
 
-varnishtop_SOURCES = varnishtop.c \
-	varnishtop_options.h \
-	varnishtop_options.c
+varnishtop_SOURCES = \
+	varnishtop.c \
+	varnishtop_options.h
 
 
 varnishtop_CFLAGS = \
@@ -17,4 +17,4 @@ varnishtop_CFLAGS = \
 varnishtop_LDADD = \
 	$(top_builddir)/lib/libvarnishapi/libvarnishapi.la \
 	@SAN_LDFLAGS@ \
-	@CURSES_LIB@ ${RT_LIBS} ${LIBM} ${PTHREAD_LIBS}
+	@CURSES_LIBS@ ${RT_LIBS} ${LIBM} ${PTHREAD_LIBS}

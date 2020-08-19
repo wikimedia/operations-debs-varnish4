@@ -29,6 +29,8 @@
 
 #include "config.h"
 
+#include <stdio.h>
+
 #include "mgt/mgt.h"
 
 #include "mgt/mgt_param.h"
@@ -144,6 +146,12 @@ struct parspec mgt_parspec[] = {
 		MEMPOOL_TEXT,
 		0,
 		"10,100,10", ""},
+	{ "shm_reclen", tweak_vsl_reclen, &mgt_param.vsl_reclen,
+		"16b", NULL,
+		"Old name for vsl_reclen, use that instead.",
+		0,
+		"255b",
+		"bytes" },
 
 	{ NULL, NULL, NULL }
 };

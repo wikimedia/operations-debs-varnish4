@@ -29,13 +29,14 @@
  *
  */
 
+#include "config.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -52,7 +53,6 @@
 #include "vapi/vsm.h"
 
 #include "vsl_api.h"
-#include "vsm_api.h"
 
 struct vslc_vsm {
 	unsigned			magic;
@@ -62,8 +62,8 @@ struct vslc_vsm {
 
 	unsigned			options;
 
-	struct VSM_data			*vsm;
-	struct VSM_fantom		vf;
+	struct vsm			*vsm;
+	struct vsm_fantom		vf;
 
 	const struct VSL_head		*head;
 	const uint32_t			*end;
@@ -76,6 +76,7 @@ vslc_vsm_delete(const struct VSL_cursor *cursor)
 	struct vslc_vsm *c;
 
 	CAST_OBJ_NOTNULL(c, cursor->priv_data, VSLC_VSM_MAGIC);
+	AZ(VSM_Unmap(c->vsm, &c->vf));
 	assert(&c->cursor == cursor);
 	FREE_OBJ(c);
 }
@@ -90,7 +91,7 @@ vslc_vsm_delete(const struct VSL_cursor *cursor)
  * written
  */
 
-static int
+static enum vsl_check v_matchproto_(vslc_check_f)
 vslc_vsm_check(const struct VSL_cursor *cursor, const struct VSLC_ptr *ptr)
 {
 	const struct vslc_vsm *c;
@@ -100,35 +101,38 @@ vslc_vsm_check(const struct VSL_cursor *cursor, const struct VSLC_ptr *ptr)
 	assert(&c->cursor == cursor);
 
 	if (ptr->ptr == NULL)
-		return (0);
+		return (vsl_check_e_inval);
 
 	dist = c->head->segment_n - ptr->priv;
 
 	if (dist >= VSL_SEGMENTS - 2)
 		/* Too close to continue */
-		return (0);
+		return (vsl_check_e_inval);
 	if (dist >= VSL_SEGMENTS - 4)
 		/* Warning level */
-		return (1);
+		return (vsl_check_warn);
 	/* Safe */
-	return (2);
+	return (vsl_check_valid);
 }
 
-static int
+static enum vsl_status v_matchproto_(vslc_next_f)
 vslc_vsm_next(const struct VSL_cursor *cursor)
 {
 	struct vslc_vsm *c;
-	int i;
+	enum vsl_check i;
 	uint32_t t;
 
 	CAST_OBJ_NOTNULL(c, cursor->priv_data, VSLC_VSM_MAGIC);
 	assert(&c->cursor == cursor);
-	CHECK_OBJ_NOTNULL(c->vsm, VSM_MAGIC);
 
 	while (1) {
 		i = vslc_vsm_check(&c->cursor, &c->next);
-		if (i <= 0)
-			return (-3); /* Overrun */
+		if (i < vsl_check_warn) {
+			if (VSM_StillValid(c->vsm, &c->vf) != VSM_valid)
+				return (vsl_e_abandon);
+			else
+				return (vsl_e_overrun);
+		}
 
 		t = *(volatile const uint32_t *)c->next.ptr;
 		AN(t);
@@ -143,12 +147,12 @@ vslc_vsm_next(const struct VSL_cursor *cursor)
 		}
 
 		if (t == VSL_ENDMARKER) {
-			if (VSM_invalid == VSM_StillValid(c->vsm, &c->vf) ||
-			    VSM_Abandoned(c->vsm))
-				return (-2); /* VSL abandoned */
+			if (VSM_StillValid(c->vsm, &c->vf) != VSM_valid)
+				return (vsl_e_abandon);
 			if (c->options & VSL_COPT_TAILSTOP)
-				return (-1); /* EOF */
-			return (0);	/* No new records available */
+				return (vsl_e_eof);
+			/* No new records available */
+			return (vsl_end);
 		}
 
 		c->cursor.rec = c->next;
@@ -171,24 +175,24 @@ vslc_vsm_next(const struct VSL_cursor *cursor)
 		assert(c->next.ptr >= c->head->log);
 		assert(c->next.ptr < c->end);
 
-		return (1);
+		return (vsl_more);
 	}
 }
 
-static int
+static enum vsl_status v_matchproto_(vslc_reset_f)
 vslc_vsm_reset(const struct VSL_cursor *cursor)
 {
 	struct vslc_vsm *c;
 	unsigned u, segment_n;
-	int i;
+	enum vsl_status r;
 
 	CAST_OBJ_NOTNULL(c, cursor->priv_data, VSLC_VSM_MAGIC);
 	assert(&c->cursor == cursor);
 	c->cursor.rec.ptr = NULL;
 
 	segment_n = c->head->segment_n;
-	VRMB();			/* Make sure offset table is not stale
-				   compared to segment_n */
+	/* Make sure offset table is not stale compared to segment_n */
+	VRMB();
 
 	if (c->options & VSL_COPT_TAIL) {
 		/* Start in the same segment varnishd currently is in and
@@ -201,12 +205,12 @@ vslc_vsm_reset(const struct VSL_cursor *cursor)
 			if (c->head->segment_n - u > 1) {
 				/* Give up if varnishd is moving faster
 				   than us */
-				return (-3); /* overrun */
+				return (vsl_e_overrun);
 			}
-			i = vslc_vsm_next(&c->cursor);
-		} while (i == 1);
-		if (i)
-			return (i);
+			r = vslc_vsm_next(&c->cursor);
+		} while (r == vsl_more);
+		if (r != vsl_end)
+			return (r);
 	} else {
 		/* Starting (VSL_SEGMENTS - 3) behind varnishd. This way
 		 * even if varnishd advances segment_n immediately, we'll
@@ -226,7 +230,7 @@ vslc_vsm_reset(const struct VSL_cursor *cursor)
 	}
 	assert(c->next.ptr >= c->head->log);
 	assert(c->next.ptr < c->end);
-	return (0);
+	return (vsl_end);
 }
 
 static const struct vslc_tbl vslc_vsm_tbl = {
@@ -238,29 +242,36 @@ static const struct vslc_tbl vslc_vsm_tbl = {
 };
 
 struct VSL_cursor *
-VSL_CursorVSM(struct VSL_data *vsl, struct VSM_data *vsm, unsigned options)
+VSL_CursorVSM(struct VSL_data *vsl, struct vsm *vsm, unsigned options)
 {
 	struct vslc_vsm *c;
-	struct VSM_fantom vf;
+	struct vsm_fantom vf;
 	struct VSL_head *head;
-	int i;
+	enum vsl_status r;
 
 	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
-	CHECK_OBJ_NOTNULL(vsm, VSM_MAGIC);
 
-	if (!VSM_Get(vsm, &vf, VSL_CLASS, "", "")) {
+	if (!VSM_Get(vsm, &vf, VSL_CLASS, NULL)) {
 		(void)vsl_diag(vsl,
 		    "No VSL chunk found (child not started ?)");
 		return (NULL);
 	}
+	if (VSM_Map(vsm, &vf)) {
+		(void)vsl_diag(vsl,
+		    "VSM_Map(): %s", VSM_Error(vsm));
+		return (NULL);
+	}
+	AN(vf.b);
 
 	head = vf.b;
 	if (memcmp(head->marker, VSL_HEAD_MARKER, sizeof head->marker)) {
+		AZ(VSM_Unmap(vsm, &vf));
 		(void)vsl_diag(vsl, "Not a VSL chunk");
 		return (NULL);
 	}
 	ALLOC_OBJ(c, VSLC_VSM_MAGIC);
 	if (c == NULL) {
+		AZ(VSM_Unmap(vsm, &vf));
 		(void)vsl_diag(vsl, "Out of memory");
 		return (NULL);
 	}
@@ -274,9 +285,9 @@ VSL_CursorVSM(struct VSL_data *vsl, struct VSM_data *vsm, unsigned options)
 	c->end = c->head->log + c->head->segsize * VSL_SEGMENTS;
 	assert(c->end <= (const uint32_t *)vf.e);
 
-	i = vslc_vsm_reset(&c->cursor);
-	if (i) {
-		(void)vsl_diag(vsl, "Cursor initialization failure (%d)", i);
+	r = vslc_vsm_reset(&c->cursor);
+	if (r != vsl_end) {
+		(void)vsl_diag(vsl, "Cursor initialization failure (%d)", r);
 		FREE_OBJ(c);
 		return (NULL);
 	}
@@ -288,7 +299,6 @@ struct vslc_file {
 	unsigned			magic;
 #define VSLC_FILE_MAGIC			0x1D65FFEF
 
-	int				error;
 	int				fd;
 	int				close_fd;
 	ssize_t				buflen;
@@ -316,7 +326,7 @@ vslc_file_delete(const struct VSL_cursor *cursor)
 static ssize_t
 vslc_file_readn(int fd, void *buf, size_t n)
 {
-	size_t t = 0;
+	ssize_t t = 0;
 	ssize_t l;
 
 	while (t < n) {
@@ -328,27 +338,24 @@ vslc_file_readn(int fd, void *buf, size_t n)
 	return (t);
 }
 
-static int
+static enum vsl_status v_matchproto_(vslc_next_f)
 vslc_file_next(const struct VSL_cursor *cursor)
 {
 	struct vslc_file *c;
 	ssize_t i;
-	size_t l;
+	ssize_t l;
 
 	CAST_OBJ_NOTNULL(c, cursor->priv_data, VSLC_FILE_MAGIC);
 	assert(&c->cursor == cursor);
-
-	if (c->error)
-		return (c->error);
 
 	do {
 		c->cursor.rec.ptr = NULL;
 		assert(c->buflen >= 2);
 		i = vslc_file_readn(c->fd, c->buf, VSL_BYTES(2));
 		if (i < 0)
-			return (-4);	/* I/O error */
+			return (vsl_e_io);
 		if (i == 0)
-			return (-1);	/* EOF */
+			return (vsl_e_eof);
 		assert(i == VSL_BYTES(2));
 		l = 2 + VSL_WORDS(VSL_LEN(c->buf));
 		if (c->buflen < l) {
@@ -361,22 +368,22 @@ vslc_file_next(const struct VSL_cursor *cursor)
 			i = vslc_file_readn(c->fd, c->buf + 2,
 			    VSL_BYTES(l - 2));
 			if (i < 0)
-				return (-4);	/* I/O error */
+				return (vsl_e_io);
 			if (i == 0)
-				return (-1);	/* EOF */
+				return (vsl_e_eof);
 			assert(i == VSL_BYTES(l - 2));
 		}
 		c->cursor.rec.ptr = c->buf;
 	} while (VSL_TAG(c->cursor.rec.ptr) == SLT__Batch);
-	return (1);
+	return (vsl_more);
 }
 
-static int
+static enum vsl_status v_matchproto_(vslc_reset_f)
 vslc_file_reset(const struct VSL_cursor *cursor)
 {
 	(void)cursor;
 	/* XXX: Implement me */
-	return (-1);
+	return (vsl_e_eof);
 }
 
 static const struct vslc_tbl vslc_file_tbl = {
@@ -458,18 +465,18 @@ VSL_DeleteCursor(const struct VSL_cursor *cursor)
 	(tbl->delete)(cursor);
 }
 
-int
+enum vsl_status
 VSL_ResetCursor(const struct VSL_cursor *cursor)
 {
 	const struct vslc_tbl *tbl;
 
 	CAST_OBJ_NOTNULL(tbl, cursor->priv_tbl, VSLC_TBL_MAGIC);
 	if (tbl->reset == NULL)
-		return (-1);
+		return (vsl_e_eof);
 	return ((tbl->reset)(cursor));
 }
 
-int
+enum vsl_status
 VSL_Next(const struct VSL_cursor *cursor)
 {
 	const struct vslc_tbl *tbl;
@@ -479,13 +486,13 @@ VSL_Next(const struct VSL_cursor *cursor)
 	return ((tbl->next)(cursor));
 }
 
-int
+enum vsl_check
 VSL_Check(const struct VSL_cursor *cursor, const struct VSLC_ptr *ptr)
 {
 	const struct vslc_tbl *tbl;
 
 	CAST_OBJ_NOTNULL(tbl, cursor->priv_tbl, VSLC_TBL_MAGIC);
 	if (tbl->check == NULL)
-		return (-1);
+		return (vsl_check_e_notsupp);
 	return ((tbl->check)(cursor, ptr));
 }

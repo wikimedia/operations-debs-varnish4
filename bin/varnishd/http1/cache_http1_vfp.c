@@ -38,7 +38,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 #include "cache/cache_filter.h"
 #include "cache_http1.h"
 
@@ -91,7 +91,7 @@ v1f_read(const struct vfp_ctx *vc, struct http_conn *htc, void *d, ssize_t len)
  * XXX: Reading one byte at a time is pretty pessimal.
  */
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 v1f_pull_chunked(struct vfp_ctx *vc, struct vfp_entry *vfe, void *ptr,
     ssize_t *lp)
 {
@@ -187,7 +187,7 @@ static const struct vfp v1f_chunked = {
 
 /*--------------------------------------------------------------------*/
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 v1f_pull_straight(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
     ssize_t *lp)
 {
@@ -224,7 +224,7 @@ static const struct vfp v1f_straight = {
 
 /*--------------------------------------------------------------------*/
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 v1f_pull_eof(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p, ssize_t *lp)
 {
 	ssize_t l, lr;
@@ -267,21 +267,21 @@ V1F_Setup_Fetch(struct vfp_ctx *vfc, struct http_conn *htc)
 	switch (htc->body_status) {
 	case BS_EOF:
 		assert(htc->content_length == -1);
-		vfe = VFP_Push(vfc, &v1f_eof, 0);
+		vfe = VFP_Push(vfc, &v1f_eof);
 		if (vfe == NULL)
 			return (ENOSPC);
 		vfe->priv2 = 0;
 		break;
 	case BS_LENGTH:
 		assert(htc->content_length > 0);
-		vfe = VFP_Push(vfc, &v1f_straight, 0);
+		vfe = VFP_Push(vfc, &v1f_straight);
 		if (vfe == NULL)
 			return (ENOSPC);
 		vfe->priv2 = htc->content_length;
 		break;
 	case BS_CHUNKED:
 		assert(htc->content_length == -1);
-		vfe = VFP_Push(vfc, &v1f_chunked, 0);
+		vfe = VFP_Push(vfc, &v1f_chunked);
 		if (vfe == NULL)
 			return (ENOSPC);
 		vfe->priv2 = -1;

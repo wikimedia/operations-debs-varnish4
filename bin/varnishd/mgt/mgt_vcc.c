@@ -31,15 +31,16 @@
 
 #include "config.h"
 
-#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
 #include "mgt/mgt.h"
+#include "common/heritage.h"
 #include "storage/storage.h"
 
 #include "libvcc.h"
@@ -72,10 +73,6 @@ unsigned mgt_vcc_unsafe_path;
 
 /*--------------------------------------------------------------------*/
 
-static const char * const builtin_vcl =
-#include "builtin_vcl.h"
-    ""	;
-
 void
 mgt_DumpBuiltin(void)
 {
@@ -86,7 +83,7 @@ mgt_DumpBuiltin(void)
  * Invoke system VCC compiler in a sub-process
  */
 
-static void __match_proto__(vsub_func_f)
+static void v_matchproto_(vsub_func_f)
 run_vcc(void *priv)
 {
 	struct vsb *csrc;
@@ -140,7 +137,7 @@ run_vcc(void *priv)
  * Invoke system C compiler in a sub-process
  */
 
-static void __match_proto__(vsub_func_f)
+static void v_matchproto_(vsub_func_f)
 run_cc(void *priv)
 {
 	struct vcc_priv *vp;
@@ -192,7 +189,7 @@ run_cc(void *priv)
  * Attempt to open compiled VCL in a sub-process
  */
 
-static void __match_proto__(vsub_func_f)
+static void v_matchproto_(vsub_func_f)
 run_dlopen(void *priv)
 {
 	struct vcc_priv *vp;
@@ -315,12 +312,12 @@ mgt_VccCompile(struct cli *cli, struct vclprog *vcl, const char *vclname,
 	 *
 	 * The Best way to reproduce this is to have regexps in the VCL.
 	 */
-	VSB_printf(sb, "vcl_%s.%.9f", vclname, VTIM_real());
+	VSB_printf(sb, "vcl_%s.%.6f", vclname, VTIM_real());
 	AZ(VSB_finish(sb));
 	vp.dir = strdup(VSB_data(sb));
 	AN(vp.dir);
 
-	if (VJ_make_vcldir(vp.dir)) {
+	if (VJ_make_subdir(vp.dir, "VCL", cli->sb)) {
 		free(vp.dir);
 		VSB_destroy(&sb);
 		VCLI_Out(cli, "VCL compilation failed");
@@ -349,11 +346,13 @@ mgt_VccCompile(struct cli *cli, struct vclprog *vcl, const char *vclname,
 	VSB_destroy(&sb);
 
 	if (status || C_flag) {
-		(void)unlink(vp.csrcfile);
+		if (!MGT_DO_DEBUG(DBG_VCL_KEEP)) {
+			(void)unlink(vp.csrcfile);
+			(void)unlink(vp.libfile);
+			(void)rmdir(vp.dir);
+		}
 		free(vp.csrcfile);
-		(void)unlink(vp.libfile);
 		free(vp.libfile);
-		(void)rmdir(vp.dir);
 		free(vp.dir);
 		if (status) {
 			VCLI_Out(cli, "VCL compilation failed");
@@ -383,7 +382,8 @@ mgt_VccCompile(struct cli *cli, struct vclprog *vcl, const char *vclname,
 	}
 	AZ(fclose(fcs));
 
-	(void)unlink(vp.csrcfile);
+	if (!MGT_DO_DEBUG(DBG_VCL_KEEP))
+		(void)unlink(vp.csrcfile);
 	free(vp.csrcfile);
 
 	free(vp.dir);

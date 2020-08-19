@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>varnishd &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>varnishd &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="The Varnish Reference Manual" href="index.html" />
     <link rel="next" title="varnishhist" href="varnishhist.html" />
     <link rel="prev" title="varnishadm" href="varnishadm.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -67,7 +57,9 @@
 </table>
 <div class="section" id="synopsis">
 <h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h3>
-<p>varnishd [-a address[:port][,PROTO]] [-b host[:port]] [-C] [-d] [-F] [-f config] [-h type[,options]] [-I clifile] [-i identity] [-j jail[,jailoptions]] [-l vsl[,vsm]] [-M address:port] [-n name] [-P file] [-p param=value] [-r param[,param...]] [-S secret-file] [-s [name=]kind[,options]] [-T address[:port]] [-t TTL] [-V] [-W waiter] [-x parameter|vsl|cli|builtin] [-?]</p>
+<p>varnishd [-a [name=][address][:port][,PROTO][,user=&lt;user&gt;][,group=&lt;group&gt;][,mode=&lt;mode&gt;]] [-b [host[:port]|path]] [-C] [-d] [-F] [-f config] [-h type[,options]] [-I clifile] [-i identity] [-j jail[,jailoptions]] [-l vsl] [-M address:port] [-n name] [-P file] [-p param=value] [-r param[,param…]] [-S secret-file] [-s [name=]kind[,options]] [-T address[:port]] [-t TTL] [-V] [-W waiter]</p>
+<p>varnishd [-x parameter|vsl|cli|builtin|optstring]</p>
+<p>varnishd [-?]</p>
 </div>
 <div class="section" id="description">
 <h3>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
@@ -79,38 +71,57 @@ satisfy future requests for the same document.</p>
 <span id="ref-varnishd-options"></span><h3>OPTIONS<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
 <div class="section" id="basic-options">
 <h4>Basic options<a class="headerlink" href="#basic-options" title="Permalink to this headline">¶</a></h4>
+<p>-a &lt;[name=][address][:port][,PROTO][,user=&lt;user&gt;][,group=&lt;group&gt;][,mode=&lt;mode&gt;]&gt;</p>
+<blockquote>
+<div><p>Listen for client requests on the specified address and port. The
+address can be a host name (“localhost”), an IPv4 dotted-quad
+(“127.0.0.1”), an IPv6 address enclosed in square brackets
+(“[::1]”), or a path beginning with a ‘/’ for a Unix domain socket
+(“/path/to/listen.sock”). If address is not specified, <cite>varnishd</cite>
+will listen on all available IPv4 and IPv6 interfaces. If port is
+not specified, port 80 (http) is used. At least one of address or
+port is required.</p>
+<p>If a Unix domain socket is specified as the listen address, then the
+user, group and mode sub-arguments may be used to specify the
+permissions of the socket file – use names for user and group, and
+a 3-digit octal value for mode. These sub-arguments are not
+permitted if an IP address is specified. When Unix domain socket
+listeners are in use, all VCL configurations must have version &gt;=
+4.1.</p>
+<p>Name is referenced in logs. If name is not specified, “a0”, “a1”,
+etc. is used. An additional protocol type can be set for the
+listening socket with PROTO. Valid protocol types are: HTTP
+(default), and PROXY.</p>
+<p>Multiple listening addresses can be specified by using different
+-a arguments.</p>
+</div></blockquote>
 <table class="docutils option-list" frame="void" rules="none">
 <col class="option" />
 <col class="description" />
 <tbody valign="top">
 <tr><td class="option-group" colspan="2">
-<kbd><span class="option">-a <var>&lt;address[:port][,PROTO]&gt;</var></span></kbd></td>
+<kbd><span class="option">-b <var>&lt;[host[:port]|path]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Listen for client requests on the specified address and port. The
-address can be a host name (&quot;localhost&quot;), an IPv4 dotted-quad
-(&quot;127.0.0.1&quot;), or an IPv6 address enclosed in square brackets
-(&quot;[::1]&quot;). If address is not specified, <cite>varnishd</cite> will listen on all
-available IPv4 and IPv6 interfaces. If port is not specified, port
-80 (http) is used.
-An additional protocol type can be set for the listening socket with PROTO.
-Valid protocol types are: HTTP/1 (default), and PROXY.
-Multiple listening addresses can be specified by using multiple -a arguments.</td></tr>
-<tr><td class="option-group" colspan="2">
-<kbd><span class="option">-b <var>&lt;host[:port]&gt;</var></span></kbd></td>
-</tr>
-<tr><td>&nbsp;</td><td>Use the specified host as backend server. If port is not specified,
-the default is 8080. -b can be used only once, and not together with
--f.</td></tr>
+<tr><td>&#160;</td><td><p class="first">Use the specified host as backend server. If port is not specified,
+the default is 8080.</p>
+<p>If the value of <code class="docutils literal notranslate"><span class="pre">-b</span></code> begins with <code class="docutils literal notranslate"><span class="pre">/</span></code>, it is interpreted as the
+absolute path of a Unix domain socket to which Varnish connects. In
+that case, the value of <code class="docutils literal notranslate"><span class="pre">-b</span></code> must satisfy the conditions required
+for the <code class="docutils literal notranslate"><span class="pre">.path</span></code> field of a backend declaration, see <a class="reference internal" href="vcl.html#vcl-7"><span class="std std-ref">VCL</span></a>.
+Backends with Unix socket addresses may only be used with VCL
+versions &gt;= 4.1.</p>
+<p class="last">-b can be used only once, and not together with f.</p>
+</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-f <var>config</var></span></kbd></td>
 <td><p class="first">Use the specified VCL configuration file instead of the builtin
 default.  See <a class="reference internal" href="vcl.html#vcl-7"><span class="std std-ref">VCL</span></a> for details on VCL syntax.</p>
 <p>If a single -f option is used, then the VCL instance loaded from the
-file is named &quot;boot&quot; and immediately becomes active. If more than
-one -f option is used, the VCL instances are named &quot;boot0&quot;, &quot;boot1&quot;
+file is named “boot” and immediately becomes active. If more than
+one -f option is used, the VCL instances are named “boot0”, “boot1”
 and so forth, in the order corresponding to the -f arguments, and
-the last one is named &quot;boot&quot;, which becomes active.</p>
-<p class="last">Either -b or one or more -f options must be specified, but not both,
+the last one is named “boot”, which becomes active.</p>
+<p>Either -b or one or more -f options must be specified, but not both,
 and they cannot both be left out, unless -d is used to start
 <cite>varnishd</cite> in debugging mode. If the empty string is specified as
 the sole -f option, then <cite>varnishd</cite> starts without starting the
@@ -118,14 +129,25 @@ worker process, and the management process will accept CLI commands.
 You can also combine an empty -f option with an initialization
 script (-I option) and the child process will be started if there
 is an active VCL at the end of the initialization.</p>
+<p class="last">When used with a relative file name, config is searched in the
+<code class="docutils literal notranslate"><span class="pre">vcl_path</span></code>. It is possible to set this path prior to using <code class="docutils literal notranslate"><span class="pre">-f</span></code>
+options with a <code class="docutils literal notranslate"><span class="pre">-p</span></code> option. During startup, <cite>varnishd</cite> doesn’t
+complain about unsafe VCL paths: unlike the <cite>varnish-cli(7)</cite> that
+could later be accessed remotely, starting <cite>varnishd</cite> requires
+local privileges.</p>
 </td></tr>
+</tbody>
+</table>
+<table class="docutils option-list" frame="void" id="opt-n" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
 <tr><td class="option-group">
 <kbd><span class="option">-n <var>name</var></span></kbd></td>
-<td>Specify the name for this instance.  Amongst other things, this name
-is used to construct the name of the directory in which <cite>varnishd</cite>
-keeps temporary files and persistent state. If the specified name
-begins with a forward slash, it is interpreted as the absolute path
-to the directory which should be used for this purpose.</td></tr>
+<td>Specify the name for this instance.  This name is used to construct
+the name of the directory in which <cite>varnishd</cite> keeps temporary files
+and persistent state. If the specified name begins with a forward slash,
+it is interpreted as the absolute path to the directory.</td></tr>
 </tbody>
 </table>
 </div>
@@ -155,7 +177,11 @@ log, see <a class="reference internal" href="vsl.html#vsl-7"><span class="std st
 <a class="reference internal" href="varnish-cli.html#varnish-cli-7"><span class="std std-ref">varnish-cli</span></a>.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-x <var>builtin</var></span></kbd></td>
-<td>Print the contents of the default VCL program <code class="docutils literal"><span class="pre">builtin.vcl</span></code>.</td></tr>
+<td>Print the contents of the default VCL program <code class="docutils literal notranslate"><span class="pre">builtin.vcl</span></code>.</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">-x <var>optstring</var></span></kbd></td>
+<td>Print the optstring parameter to <code class="docutils literal notranslate"><span class="pre">getopt(3)</span></code> to help writing
+wrapper scripts.</td></tr>
 </tbody>
 </table>
 </div>
@@ -172,13 +198,13 @@ specified, and -F cannot be used together with -C.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-T <var>&lt;address[:port]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Offer a management interface on the specified address and port. See
+<tr><td>&#160;</td><td>Offer a management interface on the specified address and port. See
 <a class="reference internal" href="varnish-cli.html#varnish-cli-7"><span class="std std-ref">varnish-cli</span></a> for documentation of the management commands.
-To disable the management interface use <code class="docutils literal"><span class="pre">none</span></code>.</td></tr>
+To disable the management interface use <code class="docutils literal notranslate"><span class="pre">none</span></code>.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-M <var>&lt;address:port&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Connect to this port and offer the command line interface.  Think of
+<tr><td>&#160;</td><td>Connect to this port and offer the command line interface.  Think of
 it as a reverse shell. When running with -M and there is no backend
 defined the child process (the cache) will not start initially.</td></tr>
 <tr><td class="option-group">
@@ -187,10 +213,11 @@ defined the child process (the cache) will not start initially.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-i <var>identity</var></span></kbd></td>
 <td>Specify the identity of the Varnish server. This can be accessed
-using <code class="docutils literal"><span class="pre">server.identity</span></code> from VCL.</td></tr>
+using <code class="docutils literal notranslate"><span class="pre">server.identity</span></code> from VCL and with VSM_Name() from
+utilities.  If not specified the output of gethostname(3) is used.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-I <var>clifile</var></span></kbd></td>
-<td>Execute the management commands in the file given as <code class="docutils literal"><span class="pre">clifile</span></code>
+<td>Execute the management commands in the file given as <code class="docutils literal notranslate"><span class="pre">clifile</span></code>
 before the the worker process starts, see <a class="reference internal" href="#cli-command-file">CLI Command File</a>.</td></tr>
 </tbody>
 </table>
@@ -208,22 +235,22 @@ a shortcut for specifying the <em>default_ttl</em> run-time parameter.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-p <var>&lt;param=value&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Set the parameter specified by param to the specified value, see
+<tr><td>&#160;</td><td>Set the parameter specified by param to the specified value, see
 <a class="reference internal" href="#list-of-parameters">List of Parameters</a> for details. This option can be used multiple
 times to specify multiple parameters.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-s <var>&lt;[name=]type[,options]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td><p class="first">Use the specified storage backend. See <a class="reference internal" href="#storage-backend">Storage Backend</a> section.</p>
+<tr><td>&#160;</td><td><p class="first">Use the specified storage backend. See <a class="reference internal" href="#storage-backend">Storage Backend</a> section.</p>
 <p class="last">This option can be used multiple times to specify multiple storage
-files. Names are referenced in logs, VCL, statistics, etc.</p>
+files. Name is referenced in logs, VCL, statistics, etc. If name
+is not specified, “s0”, “s1” and so forth is used.</p>
 </td></tr>
 <tr><td class="option-group">
-<kbd><span class="option">-l <var>&lt;vsl[,vsm]&gt;</var></span></kbd></td>
-<td>Specifies size of shmlog file. vsl is the space for the VSL records
-[80M] and vsm is the space for stats counters [1M]. Scaling suffixes
-like 'K' and 'M' can be used up to (G)igabytes.
-Default is 81 Megabytes.</td></tr>
+<kbd><span class="option">-l <var>&lt;vsl&gt;</var></span></kbd></td>
+<td>Specifies size of the space for the VSL records, shorthand for
+<code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">vsl_space=&lt;vsl&gt;</span></code>. Scaling suffixes like ‘K’ and ‘M’ can be
+used up to (G)igabytes. See <a class="reference internal" href="#vsl-space">vsl_space</a> for more information.</td></tr>
 </tbody>
 </table>
 </div>
@@ -234,22 +261,29 @@ Default is 81 Megabytes.</td></tr>
 <col class="description" />
 <tbody valign="top">
 <tr><td class="option-group" colspan="2">
-<kbd><span class="option">-r <var>&lt;param[,param...]&gt;</var></span></kbd></td>
+<kbd><span class="option">-r <var>&lt;param[,param…]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Make the listed parameters read only. This gives the system
+<tr><td>&#160;</td><td>Make the listed parameters read only. This gives the system
 administrator a way to limit what the Varnish CLI can do.  Consider
 making parameters such as <em>cc_command</em>, <em>vcc_allow_inline_c</em> and
 <em>vmod_path</em> read only as these can potentially be used to escalate
 privileges from the CLI.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-S <var>secret-file</var></span></kbd></td>
-<td>Path to a file containing a secret used for authorizing access to
-the management port. If not provided a new secret will be drawn
-from the system PRNG.  To disable authentication use <code class="docutils literal"><span class="pre">none</span></code>.</td></tr>
+<td><p class="first">Path to a file containing a secret used for authorizing access to
+the management port. To disable authentication use <code class="docutils literal notranslate"><span class="pre">none</span></code>.</p>
+<p>If this argument is not provided, a secret drawn from the system
+PRNG will be written to a file called <code class="docutils literal notranslate"><span class="pre">_.secret</span></code> in the working
+directory (see <a class="reference internal" href="#opt-n">opt_n</a>) with default ownership and permissions of
+the user having started varnish.</p>
+<p class="last">Thus, users wishing to delegate control over varnish will probably
+want to create a custom secret file with appropriate permissions
+(ie. readable by a unix group to delegate control to).</p>
+</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-j <var>&lt;jail[,jailoptions]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Specify the jailing mechanism to use. See <a class="reference internal" href="#jail">Jail</a> section.</td></tr>
+<tr><td>&#160;</td><td>Specify the jailing mechanism to use. See <a class="reference internal" href="#jail">Jail</a> section.</td></tr>
 </tbody>
 </table>
 </div>
@@ -279,7 +313,7 @@ and -C cannot be used with -F or -d.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-h <var>&lt;type[,options]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Specifies the hash algorithm. See <a class="reference internal" href="#hash-algorithm">Hash Algorithm</a> section for a list
+<tr><td>&#160;</td><td>Specifies the hash algorithm. See <a class="reference internal" href="#hash-algorithm">Hash Algorithm</a> section for a list
 of supported algorithms.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-W <var>waiter</var></span></kbd></td>
@@ -299,14 +333,14 @@ of supported algorithms.</td></tr>
 <td>self-scaling tree structure. The default hash algorithm in Varnish
 Cache 2.1 and onwards. In comparison to a more traditional B tree
 the critbit tree is almost completely lockless. Do not change this
-unless you are certain what you're doing.</td></tr>
+unless you are certain what you’re doing.</td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-h <var>simple_list</var></span></kbd></td>
 <td>A simple doubly-linked list.  Not recommended for production use.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-h <var>&lt;classic[,buckets]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>A standard hash table. The hash key is the CRC32 of the object's URL
+<tr><td>&#160;</td><td>A standard hash table. The hash key is the CRC32 of the object’s URL
 modulo the size of the hash table.  Each table entry points to a
 list of elements which share the same hash key. The buckets
 parameter specifies the number of entries in the hash table.  The
@@ -322,14 +356,27 @@ default is 16383.</td></tr>
 <col class="description" />
 <tbody valign="top">
 <tr><td class="option-group" colspan="2">
+<kbd><span class="option">-s <var>&lt;default[,size]&gt;</var></span></kbd></td>
+</tr>
+<tr><td>&#160;</td><td>The default storage type resolves to umem where available and malloc
+otherwise.</td></tr>
+<tr><td class="option-group" colspan="2">
 <kbd><span class="option">-s <var>&lt;malloc[,size]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>malloc is a memory based backend.</td></tr>
+<tr><td>&#160;</td><td>malloc is a memory based backend.</td></tr>
+<tr><td class="option-group" colspan="2">
+<kbd><span class="option">-s <var>&lt;umem[,size]&gt;</var></span></kbd></td>
+</tr>
+<tr><td>&#160;</td><td><p class="first">umem is a storage backend which is more efficient than malloc on
+platforms where it is available.</p>
+<p class="last">See the section on umem in chapter <cite>Storage backends</cite> of <cite>The
+Varnish Users Guide</cite> for details.</p>
+</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-s <var>&lt;file,path[,size[,granularity[,advice]]]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td><p class="first">The file backend stores data in a file on disk. The file will be
-accessed using mmap.</p>
+<tr><td>&#160;</td><td><p class="first">The file backend stores data in a file on disk. The file will be
+accessed using mmap. Note that this storage provide no cache persistence.</p>
 <p>The path is mandatory. If path points to a directory, a temporary
 file will be created in that directory and immediately unlinked. If
 path points to a non-existing file, the file will be created.</p>
@@ -340,21 +387,31 @@ error is reported.</p>
 page size or the filesystem block size, whichever is larger.</p>
 <p class="last">Advice tells the kernel how <cite>varnishd</cite> expects to use this mapped
 region so that the kernel can choose the appropriate read-ahead
-and caching techniques. Possible values are <code class="docutils literal"><span class="pre">normal</span></code>, <code class="docutils literal"><span class="pre">random</span></code>
-and <code class="docutils literal"><span class="pre">sequencial</span></code>, corresponding to MADV_NORMAL, MADV_RANDOM and
+and caching techniques. Possible values are <code class="docutils literal notranslate"><span class="pre">normal</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code>
+and <code class="docutils literal notranslate"><span class="pre">sequential</span></code>, corresponding to MADV_NORMAL, MADV_RANDOM and
 MADV_SEQUENTIAL madvise() advice argument, respectively. Defaults to
-<code class="docutils literal"><span class="pre">random</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">random</span></code>.</p>
 </td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-s <var>&lt;persistent,path,size&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td>Persistent storage. Varnish will store objects in a file in a manner
+<tr><td>&#160;</td><td>Persistent storage. Varnish will store objects in a file in a manner
 that will secure the survival of <em>most</em> of the objects in the event
 of a planned or unplanned shutdown of Varnish. The persistent
 storage backend has multiple issues with it and will likely be
 removed from a future version of Varnish.</td></tr>
 </tbody>
 </table>
+<p>You can also prefix the type with <code class="docutils literal notranslate"><span class="pre">NAME=</span></code> to explicitly name a storage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">s</span> <span class="n">myStorage</span><span class="o">=</span><span class="n">malloc</span><span class="p">,</span><span class="mi">5</span><span class="n">G</span>
+</pre></div>
+</div>
+<p>This allows to address it more easily in VCL:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">set</span> <span class="n">beresp</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">myStorage</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>If the name is omitted, Varnish will name storages <code class="docutils literal notranslate"><span class="pre">sN</span></code>, starting with <code class="docutils literal notranslate"><span class="pre">s0</span></code>
+and incrementing N for every new storage.</p>
 </div>
 <div class="section" id="jail">
 <span id="ref-varnishd-opt-j"></span><h4>Jail<a class="headerlink" href="#jail" title="Permalink to this headline">¶</a></h4>
@@ -373,21 +430,21 @@ call.</td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">-j <var>&lt;unix[,user=`user`][,ccgroup=`group`][,workuser=`user`]&gt;</var></span></kbd></td>
 </tr>
-<tr><td>&nbsp;</td><td><p class="first">Default on all other platforms when <cite>varnishd</cite> is either started with
-an effective uid of 0 (&quot;as root&quot;) or as user <code class="docutils literal"><span class="pre">varnish</span></code>.</p>
-<p>With the <code class="docutils literal"><span class="pre">unix</span></code> jail mechanism activated, varnish will switch to
+<tr><td>&#160;</td><td><p class="first">Default on all other platforms when <cite>varnishd</cite> is started with an
+effective uid of 0 (“as root”).</p>
+<p>With the <code class="docutils literal notranslate"><span class="pre">unix</span></code> jail mechanism activated, varnish will switch to
 an alternative user for subprocesses and change the effective uid of
 the master process whenever possible.</p>
 <p>The optional <cite>user</cite> argument specifies which alternative user to
-use. It defaults to <code class="docutils literal"><span class="pre">varnish</span></code>.</p>
+use. It defaults to <code class="docutils literal notranslate"><span class="pre">varnish</span></code>.</p>
 <p>The optional <cite>ccgroup</cite> argument specifies a group to add to varnish
 subprocesses requiring access to a c-compiler. There is no default.</p>
 <p class="last">The optional <cite>workuser</cite> argument specifies an alternative user to use
-for the worker process. It defaults to <code class="docutils literal"><span class="pre">vcache</span></code>.</p>
+for the worker process. It defaults to <code class="docutils literal notranslate"><span class="pre">vcache</span></code>.</p>
 </td></tr>
 <tr><td class="option-group">
 <kbd><span class="option">-j <var>none</var></span></kbd></td>
-<td>last resort jail choice: With jail mechanism <code class="docutils literal"><span class="pre">none</span></code>, varnish will
+<td>last resort jail choice: With jail mechanism <code class="docutils literal notranslate"><span class="pre">none</span></code>, varnish will
 run all processes with the privileges it was started with.</td></tr>
 </tbody>
 </table>
@@ -407,7 +464,7 @@ when <cite>varnishd</cite> is launched, before the worker process is started. In
 particular, this is the way to load configurations, apply labels to
 them, and make a VCL instance active that uses those labels on
 startup:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">vcl</span><span class="o">.</span><span class="n">load</span> <span class="n">panic</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_panic</span><span class="o">.</span><span class="n">vcl</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vcl</span><span class="o">.</span><span class="n">load</span> <span class="n">panic</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_panic</span><span class="o">.</span><span class="n">vcl</span>
 <span class="n">vcl</span><span class="o">.</span><span class="n">load</span> <span class="n">siteA0</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_siteA</span><span class="o">.</span><span class="n">vcl</span>
 <span class="n">vcl</span><span class="o">.</span><span class="n">load</span> <span class="n">siteB0</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_siteB</span><span class="o">.</span><span class="n">vcl</span>
 <span class="n">vcl</span><span class="o">.</span><span class="n">load</span> <span class="n">siteC0</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">varnish_siteC</span><span class="o">.</span><span class="n">vcl</span>
@@ -418,7 +475,9 @@ startup:</p>
 <span class="n">vcl</span><span class="o">.</span><span class="n">use</span> <span class="n">main</span>
 </pre></div>
 </div>
-<p>If a command in the file is prefixed with '-', failure will not abort
+<p>Every line in the file, including the last line, must be terminated by
+a newline or carriage return.</p>
+<p>If a command in the file is prefixed with ‘-‘, failure will not abort
 the startup.</p>
 </div>
 </div>
@@ -447,10 +506,10 @@ parameter takes effect.</p>
 <p>The VCL programs must be reloaded for this parameter to take effect.</p>
 </li>
 <li><p class="first"><cite>experimental</cite></p>
-<p>We're not really sure about this parameter, tell us what you find.</p>
+<p>We’re not really sure about this parameter, tell us what you find.</p>
 </li>
 <li><p class="first"><cite>wizard</cite></p>
-<p>Do not touch unless you <em>really</em> know what you're doing.</p>
+<p>Do not touch unless you <em>really</em> know what you’re doing.</p>
 </li>
 <li><p class="first"><cite>only_root</cite></p>
 <p>Only works if <cite>varnishd</cite> is running as root.</p>
@@ -470,7 +529,7 @@ relative to the values listed below, in order to conserve VM space:</p>
 </ul>
 </div>
 <div class="section" id="list-of-parameters">
-<h4>List of Parameters<a class="headerlink" href="#list-of-parameters" title="Permalink to this headline">¶</a></h4>
+<span id="id1"></span><h4>List of Parameters<a class="headerlink" href="#list-of-parameters" title="Permalink to this headline">¶</a></h4>
 <p>This text is produced from the same text you will find in the CLI if
 you use the param.show command:</p>
 <div class="section" id="accept-filter">
@@ -547,6 +606,32 @@ This parameter limits how long it can sleep between attempts to accept new conne
 </div></blockquote>
 <p>Timeout before we close unused backend connections.</p>
 </div>
+<div class="section" id="backend-local-error-holddown">
+<span id="ref-param-backend-local-error-holddown"></span><h5>backend_local_error_holddown<a class="headerlink" href="#backend-local-error-holddown" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 10.000</li>
+<li>Minimum: 0.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>When connecting to backends, certain error codes (EADDRNOTAVAIL, EACCESS, EPERM) signal a local resource shortage or configuration issue for which retrying connection attempts may worsen the situation due to the complexity of the operations involved in the kernel.
+This parameter prevents repeated connection attempts for the configured duration.</p>
+</div>
+<div class="section" id="backend-remote-error-holddown">
+<span id="ref-param-backend-remote-error-holddown"></span><h5>backend_remote_error_holddown<a class="headerlink" href="#backend-remote-error-holddown" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 0.250</li>
+<li>Minimum: 0.000</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>When connecting to backends, certain error codes (ECONNREFUSED, ENETUNREACH) signal fundamental connection issues such as the backend not accepting connections or routing problems for which repeated connection attempts are considered useless
+This parameter prevents repeated connection attempts for the configured duration.</p>
+</div>
 <div class="section" id="ban-cutoff">
 <span id="ref-param-ban-cutoff"></span><h5>ban_cutoff<a class="headerlink" href="#ban-cutoff" title="Permalink to this headline">¶</a></h5>
 <blockquote>
@@ -557,8 +642,9 @@ This parameter limits how long it can sleep between attempts to accept new conne
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>Expurge long tail content from the cache to keep the number of bans below this value. 0 disables.
-This is a safety net to avoid bad response times due to bans being tested at lookup time. Setting a cutoff trades response time for cache efficiency. The recommended value is proportional to rate(bans_lurker_tests_tested) / n_objects while the ban lurker is working, which is the number of bans the system can sustain. The additional latency due to request ban testing is in the order of ban_cutoff / rate(bans_lurker_tests_tested). For example, for rate(bans_lurker_tests_tested) = 2M/s and a tolerable latency of 100ms, a good value for ban_cutoff may be 200K.</p>
+<p>Expurge long tail content from the cache to keep the number of bans below this value. 0 disables.</p>
+<p>When this parameter is set to a non-zero value, the ban lurker continues to work the ban list as usual top to bottom, but when it reaches the ban_cutoff-th ban, it treats all objects as if they matched a ban and expurges them from cache. As actively used objects get tested against the ban list at request time and thus are likely to be associated with bans near the top of the ban list, with ban_cutoff, least recently accessed objects (the “long tail”) are removed.</p>
+<p>This parameter is a safety net to avoid bad response times due to bans being tested at lookup time. Setting a cutoff trades response time for cache efficiency. The recommended value is proportional to rate(bans_lurker_tests_tested) / n_objects while the ban lurker is working, which is the number of bans the system can sustain. The additional latency due to request ban testing is in the order of ban_cutoff / rate(bans_lurker_tests_tested). For example, for rate(bans_lurker_tests_tested) = 2M/s and a tolerable latency of 100ms, a good value for ban_cutoff may be 200K.</p>
 </div>
 <div class="section" id="ban-dups">
 <span id="ref-param-ban-dups"></span><h5>ban_dups<a class="headerlink" href="#ban-dups" title="Permalink to this headline">¶</a></h5>
@@ -629,30 +715,17 @@ A value of zero will disable the ban lurker entirely.</p>
 <p>We only wait for this many seconds between bytes received from the backend before giving up the fetch.
 A value of zero means never give up.
 VCL values, per backend or per backend request take precedence.
-This parameter does not apply to pipe'ed requests.</p>
+This parameter does not apply to pipe’ed requests.</p>
 </div>
 <div class="section" id="cc-command">
 <span id="ref-param-cc-command"></span><h5>cc_command<a class="headerlink" href="#cc-command" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: exec clang -g -O2 -Wall -Werror -Wno-error=unused-result  t-Werror t-Wall t-Wno-format-y2k t-W t-Wstrict-prototypes t-Wmissing-prototypes t-Wpointer-arith t-Wreturn-type t-Wcast-qual t-Wwrite-strings t-Wswitch t-Wshadow t-Wunused-parameter t-Wcast-align t-Wchar-subscripts t-Wnested-externs t-Wextra t-Wno-sign-compare  -fstack-protector -Wno-pointer-sign -Wno-address -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s</li>
+<li>Default: exec clang -g -O2 -Wall -Werror -Wno-error=unused-result  t-Werror t-Wall t-Wno-format-y2k t-W t-Wstrict-prototypes t-Wmissing-prototypes t-Wpointer-arith t-Wreturn-type t-Wcast-qual t-Wwrite-strings t-Wswitch t-Wshadow t-Wunused-parameter t-Wcast-align t-Wchar-subscripts t-Wnested-externs t-Wextra t-Wno-sign-compare  -fstack-protector -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s</li>
 <li>Flags: must_reload</li>
 </ul>
 </div></blockquote>
 <p>Command used for compiling the C source code to a dlopen(3) loadable object.  Any occurrence of %s in the string will be replaced with the source file name, and %o will be replaced with the output file name.</p>
-</div>
-<div class="section" id="cli-buffer">
-<span id="ref-param-cli-buffer"></span><h5>cli_buffer<a class="headerlink" href="#cli-buffer" title="Permalink to this headline">¶</a></h5>
-<blockquote>
-<div><ul class="simple">
-<li>Units: bytes</li>
-<li>Default: 8k</li>
-<li>Minimum: 4k</li>
-</ul>
-</div></blockquote>
-<p>Size of buffer for CLI command input.
-You may need to increase this if you have big VCL files and use the vcl.inline CLI command.
-NB: Must be specified with -p to have effect.</p>
 </div>
 <div class="section" id="cli-limit">
 <span id="ref-param-cli-limit"></span><h5>cli_limit<a class="headerlink" href="#cli-limit" title="Permalink to this headline">¶</a></h5>
@@ -772,6 +845,14 @@ NB: Must be specified with -p to have effect.</p>
 <dd>Slow down Acceptor</dd>
 <dt><em>h2_nocheck</em></dt>
 <dd>Disable various H2 checks</dd>
+<dt><em>vmod_so_keep</em></dt>
+<dd>Keep copied VMOD libraries</dd>
+<dt><em>processors</em></dt>
+<dd>Fetch/Deliver processors</dd>
+<dt><em>protocol</em></dt>
+<dd>Protocol debugging</dd>
+<dt><em>vcl_keep</em></dt>
+<dd>Keep VCL C and so files</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -811,6 +892,19 @@ NB: Must be specified with -p to have effect.</p>
 </div></blockquote>
 <p>The TTL assigned to objects if neither the backend nor the VCL code assigns one.</p>
 </div>
+<div class="section" id="esi-iovs">
+<span id="ref-param-esi-iovs"></span><h5>esi_iovs<a class="headerlink" href="#esi-iovs" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: struct iovec</li>
+<li>Default: 10</li>
+<li>Minimum: 3</li>
+<li>Maximum: 1024</li>
+<li>Flags: wizard</li>
+</ul>
+</div></blockquote>
+<p>Number of io vectors to allocate on the thread workspace for ESI requests.</p>
+</div>
 <div class="section" id="feature">
 <span id="ref-param-feature"></span><h5>feature<a class="headerlink" href="#feature" title="Permalink to this headline">¶</a></h5>
 <blockquote>
@@ -837,7 +931,7 @@ NB: Must be specified with -p to have effect.</p>
 <dt><em>esi_ignore_https</em></dt>
 <dd>Treat HTTPS as HTTP in ESI:includes</dd>
 <dt><em>esi_disable_xml_check</em></dt>
-<dd>Don't check of body looks like XML</dd>
+<dd>Don’t check of body looks like XML</dd>
 <dt><em>esi_ignore_other_elements</em></dt>
 <dd>Ignore non-esi XML-elements</dd>
 <dt><em>esi_remove_bom</em></dt>
@@ -846,6 +940,8 @@ NB: Must be specified with -p to have effect.</p>
 <dd>Also split https URIs</dd>
 <dt><em>http2</em></dt>
 <dd>Support HTTP/2 protocol</dd>
+<dt><em>http_date_postel</em></dt>
+<dd>Relax parsing of timestamps in HTTP headers</dd>
 </dl>
 </div></blockquote>
 </div>
@@ -896,7 +992,7 @@ Internal limits in the storage_file module makes increases above 128kb a dubious
 </ul>
 </div></blockquote>
 <p>Size of malloc buffer used for gzip processing.
-These buffers are used for in-transit data, for instance gunzip'ed data being sent to a client.Making this space to small results in more overhead, writes to sockets etc, making it too big is probably just a waste of memory.</p>
+These buffers are used for in-transit data, for instance gunzip’ed data being sent to a client.Making this space to small results in more overhead, writes to sockets etc, making it too big is probably just a waste of memory.</p>
 </div>
 <div class="section" id="gzip-level">
 <span id="ref-param-gzip-level"></span><h5>gzip_level<a class="headerlink" href="#gzip-level" title="Permalink to this headline">¶</a></h5>
@@ -919,7 +1015,68 @@ These buffers are used for in-transit data, for instance gunzip'ed data being se
 </ul>
 </div></blockquote>
 <p>Gzip memory level 1=slow/least, 9=fast/most compression.
-Memory impact is 1=1k, 2=2k, ... 9=256k.</p>
+Memory impact is 1=1k, 2=2k, … 9=256k.</p>
+</div>
+<div class="section" id="h2-header-table-size">
+<span id="ref-param-h2-header-table-size"></span><h5>h2_header_table_size<a class="headerlink" href="#h2-header-table-size" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 4k</li>
+<li>Minimum: 0b</li>
+</ul>
+</div></blockquote>
+<p>HTTP2 header table size.
+This is the size that will be used for the HPACK dynamic
+decoding table.</p>
+</div>
+<div class="section" id="h2-initial-window-size">
+<span id="ref-param-h2-initial-window-size"></span><h5>h2_initial_window_size<a class="headerlink" href="#h2-initial-window-size" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 65535b</li>
+<li>Minimum: 0b</li>
+<li>Maximum: 2147483647b</li>
+</ul>
+</div></blockquote>
+<p>HTTP2 initial flow control window size.</p>
+</div>
+<div class="section" id="h2-max-concurrent-streams">
+<span id="ref-param-h2-max-concurrent-streams"></span><h5>h2_max_concurrent_streams<a class="headerlink" href="#h2-max-concurrent-streams" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: streams</li>
+<li>Default: 100</li>
+<li>Minimum: 0</li>
+</ul>
+</div></blockquote>
+<p>HTTP2 Maximum number of concurrent streams.
+This is the number of requests that can be active
+at the same time for a single HTTP2 connection.</p>
+</div>
+<div class="section" id="h2-max-frame-size">
+<span id="ref-param-h2-max-frame-size"></span><h5>h2_max_frame_size<a class="headerlink" href="#h2-max-frame-size" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 16k</li>
+<li>Minimum: 16k</li>
+<li>Maximum: 16777215b</li>
+</ul>
+</div></blockquote>
+<p>HTTP2 maximum per frame payload size we are willing to accept.</p>
+</div>
+<div class="section" id="h2-max-header-list-size">
+<span id="ref-param-h2-max-header-list-size"></span><h5>h2_max_header_list_size<a class="headerlink" href="#h2-max-header-list-size" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: bytes</li>
+<li>Default: 2147483647b</li>
+<li>Minimum: 0b</li>
+</ul>
+</div></blockquote>
+<p>HTTP2 maximum size of an uncompressed header list.</p>
 </div>
 <div class="section" id="h2-rx-window-increment">
 <span id="ref-param-h2-rx-window-increment"></span><h5>h2_rx_window_increment<a class="headerlink" href="#h2-rx-window-increment" title="Permalink to this headline">¶</a></h5>
@@ -964,6 +1121,7 @@ Only affects incoming request bodies (ie: POST, PUT etc.)</p>
 <dd>Accept-Encoding: gzip</dd>
 </dl>
 <p>Clients that do not support gzip will have their Accept-Encoding header removed. For more information on how gzip is implemented please see the chapter on gzip in the Varnish reference.</p>
+<p>When gzip support is disabled the variables beresp.do_gzip and beresp.do_gunzip have no effect in VCL.</p>
 </div>
 <div class="section" id="http-max-hdr">
 <span id="ref-param-http-max-hdr"></span><h5>http_max_hdr<a class="headerlink" href="#http-max-hdr" title="Permalink to this headline">¶</a></h5>
@@ -1032,8 +1190,8 @@ The memory for the request is allocated from the client workspace (param: worksp
 <li>Minimum: 0.25k</li>
 </ul>
 </div></blockquote>
-<p>Maximum number of bytes of HTTP backend response we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
-The memory for the request is allocated from the backend workspace (param: workspace_backend) and this parameter limits how much of that the request is allowed to take up.</p>
+<p>Maximum number of bytes of HTTP backend response we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP response.
+The memory for the response is allocated from the backend workspace (param: workspace_backend) and this parameter limits how much of that the response is allowed to take up.</p>
 </div>
 <div class="section" id="ref-param-idle-send-timeout">
 <span id="idle-send-timeout"></span><h5>idle_send_timeout<a class="headerlink" href="#ref-param-idle-send-timeout" title="Permalink to this headline">¶</a></h5>
@@ -1045,9 +1203,9 @@ The memory for the request is allocated from the backend workspace (param: works
 <li>Flags: delayed</li>
 </ul>
 </div></blockquote>
-<p>Time to wait with no data sent. If no data has been transmitted in this many
-seconds the session is closed.
-See setsockopt(2) under SO_SNDTIMEO for more information.</p>
+<p>Send timeout for individual pieces of data on client connections. May get extended if ‘send_timeout’ applies.</p>
+<p>When this timeout is hit, the session is closed.</p>
+<p>See the man page for <cite>setsockopt(2)</cite> under <code class="docutils literal notranslate"><span class="pre">SO_SNDTIMEO</span></code> for more information.</p>
 </div>
 <div class="section" id="listen-depth">
 <span id="ref-param-listen-depth"></span><h5>listen_depth<a class="headerlink" href="#listen-depth" title="Permalink to this headline">¶</a></h5>
@@ -1094,8 +1252,7 @@ Objects are only moved to the front of the LRU list if they have not been moved 
 <li>Minimum: 0</li>
 </ul>
 </div></blockquote>
-<p>Upper limit on how many times a request can restart.
-Be aware that restarts are likely to cause a hit against the backend, so don't increase thoughtlessly.</p>
+<p>Upper limit on how many times a request can restart.</p>
 </div>
 <div class="section" id="max-retries">
 <span id="ref-param-max-retries"></span><h5>max_retries<a class="headerlink" href="#max-retries" title="Permalink to this headline">¶</a></h5>
@@ -1264,9 +1421,9 @@ NB: Even with the implict delay of delivery, this parameter controls an exponent
 <li>Flags: delayed</li>
 </ul>
 </div></blockquote>
-<p>Send timeout for client connections. If the HTTP response hasn't been transmitted in this many
-seconds the session is closed.
-See setsockopt(2) under SO_SNDTIMEO for more information.</p>
+<p>Total timeout for ordinary HTTP1 responses. Does not apply to some internally generated errors and pipe mode.</p>
+<p>When ‘idle_send_timeout’ is hit while sending an HTTP1 response, the timeout is extended unless the total time already taken for sending the response in its entirety exceeds this many seconds.</p>
+<p>When this timeout is hit, the session is closed</p>
 </div>
 <div class="section" id="shm-reclen">
 <span id="ref-param-shm-reclen"></span><h5>shm_reclen<a class="headerlink" href="#shm-reclen" title="Permalink to this headline">¶</a></h5>
@@ -1334,7 +1491,7 @@ See setsockopt(2) under SO_SNDTIMEO for more information.</p>
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>The number of seconds between TCP keep-alive probes.</p>
+<p>The number of seconds between TCP keep-alive probes. Ignored for Unix domain sockets.</p>
 </div>
 <div class="section" id="tcp-keepalive-probes">
 <span id="ref-param-tcp-keepalive-probes"></span><h5>tcp_keepalive_probes<a class="headerlink" href="#tcp-keepalive-probes" title="Permalink to this headline">¶</a></h5>
@@ -1347,7 +1504,7 @@ See setsockopt(2) under SO_SNDTIMEO for more information.</p>
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>The maximum number of TCP keep-alive probes to send before giving up and killing the connection if no response is obtained from the other end.</p>
+<p>The maximum number of TCP keep-alive probes to send before giving up and killing the connection if no response is obtained from the other end. Ignored for Unix domain sockets.</p>
 </div>
 <div class="section" id="tcp-keepalive-time">
 <span id="ref-param-tcp-keepalive-time"></span><h5>tcp_keepalive_time<a class="headerlink" href="#tcp-keepalive-time" title="Permalink to this headline">¶</a></h5>
@@ -1360,7 +1517,7 @@ See setsockopt(2) under SO_SNDTIMEO for more information.</p>
 <li>Flags: experimental</li>
 </ul>
 </div></blockquote>
-<p>The number of seconds a connection needs to be idle before TCP begins sending out keep-alive probes.</p>
+<p>The number of seconds a connection needs to be idle before TCP begins sending out keep-alive probes. Ignored for Unix domain sockets.</p>
 </div>
 <div class="section" id="thread-pool-add-delay">
 <span id="ref-param-thread-pool-add-delay"></span><h5>thread_pool_add_delay<a class="headerlink" href="#thread-pool-add-delay" title="Permalink to this headline">¶</a></h5>
@@ -1374,7 +1531,7 @@ See setsockopt(2) under SO_SNDTIMEO for more information.</p>
 </div></blockquote>
 <p>Wait at least this long after creating a thread.</p>
 <p>Some (buggy) systems may need a short (sub-second) delay between creating threads.
-Set this to a few milliseconds if you see the 'threads_failed' counter grow too much.</p>
+Set this to a few milliseconds if you see the ‘threads_failed’ counter grow too much.</p>
 <p>Setting this too high results in insufficient worker threads.</p>
 </div>
 <div class="section" id="thread-pool-destroy-delay">
@@ -1415,7 +1572,7 @@ Set this to a few milliseconds if you see the 'threads_failed' counter grow too 
 <li>Flags: delayed</li>
 </ul>
 </div></blockquote>
-<p>The maximum number of worker threads in each pool.</p>
+<p>The maximum number of worker threads in each pool. The minimum value depends on thread_pool_min.</p>
 <p>Do not set this higher than you have to, since excess worker threads soak up RAM and CPU and generally just get in the way of getting work done.</p>
 </div>
 <div class="section" id="thread-pool-min">
@@ -1428,7 +1585,7 @@ Set this to a few milliseconds if you see the 'threads_failed' counter grow too 
 <li>Flags: delayed</li>
 </ul>
 </div></blockquote>
-<p>The minimum number of worker threads in each pool.</p>
+<p>The minimum number of worker threads in each pool. The maximum value depends on thread_pool_max.</p>
 <p>Increasing this may help ramp up faster from low load situations or when threads have expired.</p>
 <p>Minimum is 10 threads.</p>
 </div>
@@ -1478,6 +1635,19 @@ This will likely be rounded up to a multiple of 4k (or whatever the page_size mi
 </div></blockquote>
 <p>Thread idle threshold.</p>
 <p>Threads in excess of thread_pool_min, which have been idle for at least this long, will be destroyed.</p>
+</div>
+<div class="section" id="thread-pool-watchdog">
+<span id="ref-param-thread-pool-watchdog"></span><h5>thread_pool_watchdog<a class="headerlink" href="#thread-pool-watchdog" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Units: seconds</li>
+<li>Default: 60.000</li>
+<li>Minimum: 0.100</li>
+<li>Flags: experimental</li>
+</ul>
+</div></blockquote>
+<p>Thread queue stuck watchdog.</p>
+<p>If no queued work have been released for this long, the worker process panics itself.</p>
 </div>
 <div class="section" id="thread-pools">
 <span id="ref-param-thread-pools"></span><h5>thread_pools<a class="headerlink" href="#thread-pools" title="Permalink to this headline">¶</a></h5>
@@ -1529,8 +1699,9 @@ This parameters defines the maximum number of jobs a worker thread may handle, b
 <li>Minimum: 0.000</li>
 </ul>
 </div></blockquote>
-<p>Idle timeout for client connections.
-A connection is considered idle, until we have received the full request headers.</p>
+<p>Idle timeout for client connections.</p>
+<p>A connection is considered idle until we have received the full request headers.</p>
+<p>This parameter is particularly relevant for HTTP1 keepalive  connections which are closed unless the next request is received before this timeout is reached.</p>
 </div>
 <div class="section" id="timeout-linger">
 <span id="ref-param-timeout-linger"></span><h5>timeout_linger<a class="headerlink" href="#timeout-linger" title="Permalink to this headline">¶</a></h5>
@@ -1574,8 +1745,8 @@ Setting this too high results in worker threads not doing anything for their kee
 <li>Default: on</li>
 </ul>
 </div></blockquote>
-<p>Allow '/' in vmod &amp; include paths.
-Allow 'import ... from ...'.</p>
+<p>Allow ‘/’ in vmod &amp; include paths.
+Allow ‘import … from …’.</p>
 </div>
 <div class="section" id="vcl-cooldown">
 <span id="ref-param-vcl-cooldown"></span><h5>vcl_cooldown<a class="headerlink" href="#vcl-cooldown" title="Permalink to this headline">¶</a></h5>
@@ -1642,7 +1813,7 @@ When this parameter is adjusted, most likely workspace_client and workspace_back
 <span id="ref-param-vsl-mask"></span><h5>vsl_mask<a class="headerlink" href="#vsl-mask" title="Permalink to this headline">¶</a></h5>
 <blockquote>
 <div><ul class="simple">
-<li>Default: -VCL_trace,-WorkThread,-Hash,-VfpAcct</li>
+<li>Default: -ObjProtocol,-ObjStatus,-ObjReason,-ObjHeader,-VCL_trace,-WorkThread,-Hash,-VfpAcct,-H2RxHdr,-H2RxBody,-H2TxHdr,-H2TxBody</li>
 </ul>
 </div></blockquote>
 <p>Mask individual VSL messages from being logged.</p>
@@ -1699,11 +1870,11 @@ When this parameter is adjusted, most likely workspace_client and workspace_back
 <li>Units: bytes</li>
 <li>Default: 1M</li>
 <li>Minimum: 1M</li>
-<li>Maximum: 4G</li>
-<li>Flags: must_restart</li>
+<li>Maximum: 1G</li>
 </ul>
 </div></blockquote>
-<p>The amount of space to allocate for stats counters in the VSM memory segment.  If you make this too small, some counters will be invisible.  Making it too large just costs memory resources.</p>
+<p>DEPRECATED: This parameter is ignored.
+There is no global limit on amount of shared memory now.</p>
 </div>
 <div class="section" id="workspace-backend">
 <span id="ref-param-workspace-backend"></span><h5>workspace_backend<a class="headerlink" href="#workspace-backend" title="Permalink to this headline">¶</a></h5>
@@ -1755,7 +1926,7 @@ For HTTP/2 compliance this must be at least 20k, in order to receive fullsize (=
 </div></blockquote>
 <p>Bytes of auxiliary workspace per thread.
 This workspace is used for certain temporary data structures during the operation of a worker thread.
-One use is for the io-vectors for writing requests and responses to sockets, having too little space will result in more writev(2) system calls, having too much just wastes the space.</p>
+One use is for the IO-vectors used during delivery. Setting this parameter too low may increase the number of writev() syscalls, setting it too high just wastes space.  ~0.1k + UIO_MAXIOV * sizeof(struct iovec) (typically = ~16k for 64bit) is considered the maximum sensible value under any known circumstances (excluding exotic vmod use).</p>
 </div>
 </div>
 </div>
@@ -1813,7 +1984,7 @@ itself. See LICENCE for details.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">varnishd</a><ul>
 <li><a class="reference internal" href="#http-accelerator-daemon">HTTP accelerator daemon</a><ul>
@@ -1843,6 +2014,8 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#acceptor-sleep-max">acceptor_sleep_max</a></li>
 <li><a class="reference internal" href="#auto-restart">auto_restart</a></li>
 <li><a class="reference internal" href="#backend-idle-timeout">backend_idle_timeout</a></li>
+<li><a class="reference internal" href="#backend-local-error-holddown">backend_local_error_holddown</a></li>
+<li><a class="reference internal" href="#backend-remote-error-holddown">backend_remote_error_holddown</a></li>
 <li><a class="reference internal" href="#ban-cutoff">ban_cutoff</a></li>
 <li><a class="reference internal" href="#ban-dups">ban_dups</a></li>
 <li><a class="reference internal" href="#ban-lurker-age">ban_lurker_age</a></li>
@@ -1851,7 +2024,6 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#ban-lurker-sleep">ban_lurker_sleep</a></li>
 <li><a class="reference internal" href="#between-bytes-timeout">between_bytes_timeout</a></li>
 <li><a class="reference internal" href="#cc-command">cc_command</a></li>
-<li><a class="reference internal" href="#cli-buffer">cli_buffer</a></li>
 <li><a class="reference internal" href="#cli-limit">cli_limit</a></li>
 <li><a class="reference internal" href="#cli-timeout">cli_timeout</a></li>
 <li><a class="reference internal" href="#clock-skew">clock_skew</a></li>
@@ -1862,6 +2034,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#default-grace">default_grace</a></li>
 <li><a class="reference internal" href="#default-keep">default_keep</a></li>
 <li><a class="reference internal" href="#default-ttl">default_ttl</a></li>
+<li><a class="reference internal" href="#esi-iovs">esi_iovs</a></li>
 <li><a class="reference internal" href="#feature">feature</a></li>
 <li><a class="reference internal" href="#fetch-chunksize">fetch_chunksize</a></li>
 <li><a class="reference internal" href="#fetch-maxchunksize">fetch_maxchunksize</a></li>
@@ -1869,6 +2042,11 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#gzip-buffer">gzip_buffer</a></li>
 <li><a class="reference internal" href="#gzip-level">gzip_level</a></li>
 <li><a class="reference internal" href="#gzip-memlevel">gzip_memlevel</a></li>
+<li><a class="reference internal" href="#h2-header-table-size">h2_header_table_size</a></li>
+<li><a class="reference internal" href="#h2-initial-window-size">h2_initial_window_size</a></li>
+<li><a class="reference internal" href="#h2-max-concurrent-streams">h2_max_concurrent_streams</a></li>
+<li><a class="reference internal" href="#h2-max-frame-size">h2_max_frame_size</a></li>
+<li><a class="reference internal" href="#h2-max-header-list-size">h2_max_header_list_size</a></li>
 <li><a class="reference internal" href="#h2-rx-window-increment">h2_rx_window_increment</a></li>
 <li><a class="reference internal" href="#h2-rx-window-low-water">h2_rx_window_low_water</a></li>
 <li><a class="reference internal" href="#http-gzip-support">http_gzip_support</a></li>
@@ -1911,6 +2089,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#thread-pool-reserve">thread_pool_reserve</a></li>
 <li><a class="reference internal" href="#thread-pool-stack">thread_pool_stack</a></li>
 <li><a class="reference internal" href="#thread-pool-timeout">thread_pool_timeout</a></li>
+<li><a class="reference internal" href="#thread-pool-watchdog">thread_pool_watchdog</a></li>
 <li><a class="reference internal" href="#thread-pools">thread_pools</a></li>
 <li><a class="reference internal" href="#thread-queue-limit">thread_queue_limit</a></li>
 <li><a class="reference internal" href="#thread-stats-rate">thread_stats_rate</a></li>
@@ -1957,18 +2136,20 @@ itself. See LICENCE for details.</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/reference/varnishd.txt"
+      <li><a href="../_sources/reference/varnishd.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -1987,13 +2168,13 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

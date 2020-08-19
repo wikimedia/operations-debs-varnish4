@@ -27,9 +27,11 @@
  *
  */
 
+struct VSC_vbe;
+
 /* cache_http1_fetch.c [V1F] */
-int V1F_SendReq(struct worker *, struct busyobj *, uint64_t *ctr,
-    int onlycached);
+int V1F_SendReq(struct worker *, struct busyobj *, uint64_t *ctr_hdrbytes,
+    uint64_t *ctr_bodybytes, int onlycached, char *addr, char *port);
 int V1F_FetchRespHdr(struct busyobj *);
 int V1F_Setup_Fetch(struct vfp_ctx *vfc, struct http_conn *htc);
 
@@ -48,14 +50,14 @@ struct v1p_acct {
 	uint64_t        out;
 };
 
-void V1P_Process(struct req *, int fd, struct v1p_acct *);
-void V1P_Charge(struct req *, const struct v1p_acct *, struct VSC_C_vbe *);
+void V1P_Process(const struct req *, int fd, struct v1p_acct *);
+void V1P_Charge(struct req *, const struct v1p_acct *, struct VSC_vbe *);
 
 /* cache_http1_line.c */
 void V1L_Chunked(const struct worker *w);
 void V1L_EndChunk(const struct worker *w);
-void V1L_Reserve(struct worker *, struct ws *, int *fd, struct vsl_log *,
-    double t0);
+void V1L_Open(struct worker *, struct ws *, int *fd, struct vsl_log *,
+    double t0, unsigned niov);
 unsigned V1L_Flush(const struct worker *w);
-unsigned V1L_FlushRelease(struct worker *w);
+unsigned V1L_Close(struct worker *w, uint64_t *cnt);
 size_t V1L_Write(const struct worker *w, const void *ptr, ssize_t len);

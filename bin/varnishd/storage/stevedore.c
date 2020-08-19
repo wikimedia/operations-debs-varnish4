@@ -33,17 +33,16 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "hash/hash_slinger.h"
-
 #include "storage/storage.h"
-#include "vrt.h"
 #include "vrt_obj.h"
 
+
+static pthread_mutex_t stv_mtx;
 
 /*--------------------------------------------------------------------
  * XXX: trust pointer writes to be atomic
@@ -54,9 +53,8 @@ STV_next()
 {
 	static struct stevedore *stv;
 	struct stevedore *r;
-	static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
-	AZ(pthread_mutex_lock(&mtx));
+	AZ(pthread_mutex_lock(&stv_mtx));
 	if (!STV__iter(&stv))
 		AN(STV__iter(&stv));
 	if (stv == stv_transient) {
@@ -64,7 +62,7 @@ STV_next()
 		AN(STV__iter(&stv));
 	}
 	r = stv;
-	AZ(pthread_mutex_unlock(&mtx));
+	AZ(pthread_mutex_unlock(&stv_mtx));
 	AN(r);
 	return (r);
 }
@@ -88,7 +86,7 @@ STV_NewObject(struct worker *wrk, struct objcore *oc,
 	AN(stv->allocobj);
 	if (stv->allocobj(wrk, stv, oc, wsl) == 0)
 		return (0);
-
+	oc->oa_present = 0;
 	wrk->stats->n_object++;
 	VSLb(wrk->vsl, SLT_Storage, "%s %s",
 	    oc->stobj->stevedore->name, oc->stobj->stevedore->ident);
@@ -104,6 +102,7 @@ STV_open(void)
 	char buf[1024];
 
 	ASSERT_CLI();
+	AZ(pthread_mutex_init(&stv_mtx, NULL));
 	STV_Foreach(stv) {
 		bprintf(buf, "storage.%s", stv->ident);
 		stv->vclname = strdup(buf);
@@ -180,8 +179,8 @@ STV_BanExport(const uint8_t *bans, unsigned len)
  * VRT functions for stevedores
  */
 
-const struct stevedore *
-STV_find(const char *nm)
+static const struct stevedore *
+stv_find(const char *nm)
 {
 	struct stevedore *stv;
 
@@ -195,12 +194,12 @@ int
 VRT_Stv(const char *nm)
 {
 
-	if (STV_find(nm) != NULL)
+	if (stv_find(nm) != NULL)
 		return (1);
 	return (0);
 }
 
-const char * __match_proto__()
+const char * v_matchproto_()
 VRT_STEVEDORE_string(VCL_STEVEDORE s)
 {
 	if (s == NULL)
@@ -212,7 +211,7 @@ VRT_STEVEDORE_string(VCL_STEVEDORE s)
 VCL_STEVEDORE
 VRT_stevedore(const char *nm)
 {
-	return (STV_find(nm));
+	return (stv_find(nm));
 }
 
 #define VRTSTVVAR(nm, vtype, ctype, dval)	\
@@ -221,7 +220,7 @@ VRT_Stv_##nm(const char *nm)			\
 {						\
 	const struct stevedore *stv;		\
 						\
-	stv = STV_find(nm);			\
+	stv = stv_find(nm);			\
 	if (stv == NULL)			\
 		return (dval);			\
 	if (stv->var_##nm == NULL)		\

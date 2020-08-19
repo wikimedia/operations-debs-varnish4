@@ -1,5 +1,7 @@
 varnishtest "test reload of object spanning incomplete segment"
 
+feature persistent_storage
+
 barrier b1 cond 2
 barrier b2 cond 2
 
@@ -28,6 +30,7 @@ server s1 {
 } -start
 
 varnish v1 -arg "-sdeprecated_persistent,${tmpdir}/_.per,5m" \
+	   -arg "-p feature=+no_coredump" \
 	-vcl+backend {} -start
 
 varnish v1 -cliok "debug.fragfetch 32"
@@ -58,6 +61,10 @@ varnish v1 -clierr 400 "debug.panic.worker"
 
 delay 0.5
 
+varnish v1 -cliok "panic.clear"
+
+delay 0.5
+
 # start again
 varnish v1 -start
 
@@ -72,3 +79,5 @@ client c1 {
 	rxresp
 	expect resp.bodylen == 48
 } -run
+
+varnish v1 -expectexit 0x20

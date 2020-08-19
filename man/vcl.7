@@ -109,8 +109,13 @@ Booleans can be either \fBtrue\fP or \fBfalse\fP\&.  In addition, in a boolean
 context some data types will evaluate to \fBtrue\fP or \fBfalse\fP depending on
 their value.
 .sp
-String types will evaluate to \fBfalse\fP if they are empty; backend types
-will evalute to \fBfalse\fP if they don\(aqt have a backend assigned; integer
+String types will evaluate to \fBfalse\fP if they are unset.  This allows
+checks of the type \fBif (req.http.opthdr) {}\fP to test if a header
+exists, even if it is empty, whereas \fBif (req.http.opthdr == "") {}\fP
+does not distinguish if the header does not exist or if it is empty.
+.sp
+Backend types
+will evaluate to \fBfalse\fP if they don\(aqt have a backend assigned; integer
 types will evaluate to \fBfalse\fP if their value is zero; duration types
 will evaluate to \fBfalse\fP if their value is equal or less than zero.
 .SS Time
@@ -152,14 +157,17 @@ years
 .UNINDENT
 .UNINDENT
 .UNINDENT
+.sp
+In string context they return a string with their value rounded to
+3 decimal places and excluding the unit, e.g.  \fB1.500\fP\&.
 .SS Integers
 .sp
 Certain fields are integers, used as expected. In string context they
-return a string.
+return a string, e.g. \fB1234\fP\&.
 .SS Real numbers
 .sp
-VCL understands real numbers. As with integers, when used in a string
-context they will return a string.
+VCL understands real numbers. In string context they return a string
+with their value rounded to 3 decimal places, e.g. \fB3.142\fP\&.
 .SS Regular Expressions
 .sp
 Varnish uses Perl\-compatible regular expressions (PCRE). For a
@@ -173,7 +181,7 @@ the flag within parens following a question mark, like this:
 .nf
 .ft C
 # If host is NOT example dot com..
-if (req.http.host !~ "(?i)example.com$") {
+if (req.http.host !~ "(?i)example\e.com$") {
     ...
 }
 .ft P
@@ -252,19 +260,28 @@ backend name {
 .UNINDENT
 .UNINDENT
 .sp
-The only mandatory attribute is \fB\&.host\fP\&. The attributes will inherit
-their defaults from the global parameters. The following attributes
-are available:
+One of the attributes \fB\&.host\fP or \fB\&.path\fP is mandatory (but not
+both). The attributes will inherit their defaults from the global
+parameters. The following attributes are available:
 .INDENT 0.0
 .INDENT 3.5
 .INDENT 0.0
 .TP
-.B \fB\&.host\fP \fI(mandatory)\fP
+.B \fB\&.host\fP
 The host to be used. IP address or a hostname that resolves to a
-single IP address.
+single IP address. This attribute is mandatory, unless \fB\&.path\fP
+is declared.
+.TP
+.B \fB\&.path\fP     (\fBVCL >= 4.1\fP)
+The absolute path of a Unix domain socket at which a backend is
+listening. The file at that path must exist and must be accessible
+to Varnish at VCL load time, and it must be a socket. One of
+\fB\&.path\fP or \fB\&.host\fP must be declared (but not both). \fB\&.path\fP
+may only be used in VCL since version 4.1.
 .TP
 .B \fB\&.port\fP
-The port on the backend that Varnish should connect to.
+The port on the backend that Varnish should connect to. Ignored if
+a Unix domain socket is declared in \fB\&.path\fP\&.
 .TP
 .B \fB\&.host_header\fP
 A host header to add to probes and regular backend requests if they have no
@@ -272,12 +289,18 @@ such header.
 .TP
 .B \fB\&.connect_timeout\fP
 Timeout for connections.
+.sp
+Default: \fBconnect_timeout\fP parameter, see \fIvarnishd(1)\fP
 .TP
 .B \fB\&.first_byte_timeout\fP
 Timeout for first byte.
+.sp
+Default: \fBfirst_byte_timeout\fP parameter, see \fIvarnishd(1)\fP
 .TP
 .B \fB\&.between_bytes_timeout\fP
 Timeout between bytes.
+.sp
+Default: \fBbetween_bytes_timeout\fP parameter, see \fIvarnishd(1)\fP
 .TP
 .B \fB\&.probe\fP
 Attach a probe to the backend. See \fI\%Probes\fP
@@ -285,6 +308,23 @@ Attach a probe to the backend. See \fI\%Probes\fP
 .B \fB\&.proxy_header\fP
 The PROXY protocol version Varnish should use when connecting to
 this backend. Allowed values are \fB1\fP and \fB2\fP\&.
+.sp
+\fINotice\fP this setting will lead to backend connections being used
+for a single request only (subject to future improvements). Thus,
+extra care should be taken to avoid running into failing backend
+connections with EADDRNOTAVAIL due to no local ports being
+available. Possible options are:
+.INDENT 7.0
+.IP \(bu 2
+Use additional backend connections to extra IP addresses or TCP
+ports
+.IP \(bu 2
+Increase the number of available ports (Linux sysctl
+\fBnet.ipv4.ip_local_port_range\fP)
+.IP \(bu 2
+Reuse backend connection ports early (Linux sysctl
+\fBnet.ipv4.tcp_tw_reuse\fP)
+.UNINDENT
 .TP
 .B \fB\&.max_connections\fP
 Maximum number of open connections towards this backend. If
@@ -293,6 +333,20 @@ connections.
 .UNINDENT
 .UNINDENT
 .UNINDENT
+.sp
+Empty backends can also be defined using the following syntax.:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+backend name none;
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+An empty backend will always return status code 503 as if it is sick.
 .sp
 Backends can be used with \fIdirectors\fP\&. Please see the
 \fIvmod_directors(3)\fP man page for more information.
@@ -323,11 +377,17 @@ There are no mandatory options. These are the options you can set:
 .TP
 .B \fB\&.url\fP
 The URL to query. Defaults to \fB/\fP\&.
+Mutually exclusive with \fB\&.request\fP
 .TP
 .B \fB\&.request\fP
 Specify a full HTTP request using multiple strings. \fB\&.request\fP will
-have \fB\er\en\fP automatically inserted after every string. If
-specified, \fB\&.request\fP will take precedence over \fB\&.url\fP\&.
+have \fB\er\en\fP automatically inserted after every string.
+Mutually exclusive with \fB\&.url\fP\&.
+.sp
+\fINote\fP that probes require the backend to complete sending the
+response and close the connection within the specified timeout, so
+\fB\&.request\fP will, for \fBHTTP/1.1\fP, most likely need to contain a
+\fB"Connection: close"\fP string.
 .TP
 .B \fB\&.expected_response\fP
 The expected HTTP response code. Defaults to \fB200\fP\&.
@@ -349,8 +409,9 @@ How many of the latest polls we examine to determine backend health.
 Defaults to \fB8\fP\&.
 .TP
 .B \fB\&.threshold\fP
-How many of the polls in .window must have succeeded for us to
-consider the backend healthy. Defaults to \fB3\fP\&.
+How many of the polls in \fB\&.window\fP must have succeeded to
+consider the backend to be healthy.
+Defaults to \fB3\fP\&.
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -460,12 +521,562 @@ they are concatenated in the order in which they appear in the source.
 .sp
 The built\-in VCL distributed with Varnish will be implicitly concatenated
 when the VCL is compiled.
-.SS Variables
+.SS VCL Variables
 .sp
-In VCL you have access to certain variable objects. These contain
-requests and responses currently being worked on. What variables are
-available depends on context.
+Variables provide read, write and delete access to almost all aspects
+of the work at hand.
+.sp
+Reading a variable is done simply by using its name in VCL:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+if (client.ip ~ bad_guys) {
+    return (synth(400));
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Writing a variable, where this is possible, is done with a \fIset\fP
+statement:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+set resp.http.never = "Let You Down";
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Similarly, deleting a variable, for the few variables where this is
+possible, is done with a \fIunset\fP statement:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+unset req.http.cookie;
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Which operations are possible on each variable is described below,
+often with the shorthand "backend" which covers the \fIvcl_backend_*\fP
+methods and "client" which covers the rest, except \fIvcl_init\fP and
+\fIvcl_fini\fP\&.
+.sp
+When setting a variable, the right hand side of the equal sign
+must have the variables type, you cannot assign a STRING to
+a variable of type NUMBER, even if the string is \fI"42"\fP\&.
+(Explicit conversion functions can be found in
+\fIvmod_std(3)\fP).
+.SS local, server, remote and client
+.sp
+These variables describe the network connection between the
+client and varnishd.
+.sp
+Without PROXY protocol:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+     client    server
+     remote    local
+       v          v
+CLIENT \-\-\-\-\-\-\-\-\-\-\-\- VARNISHD
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+With PROXY protocol:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+     client    server   remote     local
+       v          v       v          v
+CLIENT \-\-\-\-\-\-\-\-\-\-\-\- PROXY \-\-\-\-\-\-\-\-\-\-\-\- VARNISHD
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+local.ip
+.INDENT 0.0
+.INDENT 3.5
+Type: IP
+.sp
+Readable from: client, backend
+.sp
+The IP address (and port number) of the local end of the
+TCP connection, for instance \fI192.168.1.1:81\fP
+.sp
+If the connection is a UNIX domain socket, the value
+will be \fI0.0.0.0:0\fP
+.UNINDENT
+.UNINDENT
+.sp
+local.endpoint  \fBVCL >= 4.1\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client, backend
+.sp
+The address of the \(aq\-a\(aq socket the session was accepted on.
+.sp
+If the argument was \fI\-a foo=:81\fP this would be ":81"
+.UNINDENT
+.UNINDENT
+.sp
+local.socket    \fBVCL >= 4.1\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client, backend
+.sp
+The name of the \(aq\-a\(aq socket the session was accepted on.
+.sp
+If the argument was \fI\-a foo=:81\fP this would be "foo".
+.sp
+Note that all \(aq\-a\(aq gets a default name on the form \fIa%d\fP
+if no name is provided.
+.UNINDENT
+.UNINDENT
+.sp
+remote.ip
+.INDENT 0.0
+.INDENT 3.5
+Type: IP
+.sp
+Readable from: client, backend
+.sp
+The IP address of the other end of the TCP connection.
+This can either be the clients IP, or the outgoing IP
+of a proxy server.
+.sp
+If the connection is a UNIX domain socket, the value
+will be \fI0.0.0.0:0\fP
+.UNINDENT
+.UNINDENT
+.sp
+client.ip
+.INDENT 0.0
+.INDENT 3.5
+Type: IP
+.sp
+Readable from: client, backend
+.sp
+The client\(aqs IP address, either the same as \fIlocal.ip\fP
+or what the PROXY protocol told us.
+.UNINDENT
+.UNINDENT
+.sp
+client.identity
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Identification of the client, used to load balance
+in the client director.  Defaults to \fIclient.ip\fP
+.sp
+This variable can be overwritten with more precise
+information, for instance extracted from a \fICookie:\fP
+header.
+.UNINDENT
+.UNINDENT
+.sp
+server.ip
+.INDENT 0.0
+.INDENT 3.5
+Type: IP
+.sp
+Readable from: client, backend
+.sp
+The IP address of the socket on which the client
+connection was received, either the same as \fIserver.ip\fP
+or what the PROXY protocol told us.
+.UNINDENT
+.UNINDENT
+.sp
+server.hostname
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: all
+.sp
+The host name of the server, as returned by the
+\fIgethostname(3)\fP system function.
+.UNINDENT
+.UNINDENT
+.sp
+server.identity
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: all
+.sp
+The identity of the server, as set by the \fI\-i\fP parameter.
+.sp
+If an \fI\-i\fP parameter is not passed to varnishd, the return
+value from \fIgethostname(3)\fP system function will be used.
+.UNINDENT
+.UNINDENT
+.SS req and req_top
+.sp
+These variables describe the present request, and when ESI:include
+requests are being processed, req_top points to the request received
+from the client.
+.sp
+req
+.INDENT 0.0
+.INDENT 3.5
+Type: HTTP
+.sp
+Readable from: client
+.sp
+The entire request HTTP data structure.
+Mostly useful for passing to VMODs.
+.UNINDENT
+.UNINDENT
+.sp
+req.method
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+The request method (e.g. "GET", "HEAD", ...)
+.UNINDENT
+.UNINDENT
+.sp
+req.hash
+.INDENT 0.0
+.INDENT 3.5
+Type: BLOB
+.sp
+Readable from: vcl_hit, vcl_miss, vcl_pass, vcl_purge, vcl_deliver
+.sp
+The hash key of this request.
+Mostly useful for passing to VMODs, but can also be useful
+for debugging hit/miss status.
+.UNINDENT
+.UNINDENT
+.sp
+req.url
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+The requested URL, for instance "/robots.txt".
+.UNINDENT
+.UNINDENT
+.sp
+req.proto       \fBVCL <= 4.0\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+The HTTP protocol version used by the client, usually "HTTP/1.1"
+or "HTTP/2.0".
+.UNINDENT
+.UNINDENT
+.sp
+req.proto       \fBVCL >= 4.1\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+The HTTP protocol version used by the client, usually "HTTP/1.1"
+or "HTTP/2.0".
+.UNINDENT
+.UNINDENT
+.sp
+req.http.*
+.INDENT 0.0
+.INDENT 3.5
+Type: HEADER
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Unsetable from: client
+.sp
+The headers of request, things like \fIreq.http.date\fP\&.
+.sp
+The RFCs allow multiple headers with the same name, and both
+\fIset\fP and \fIunset\fP will remove \fIall\fP headers with the name given.
+.UNINDENT
+.UNINDENT
+.sp
+req.restarts
+.INDENT 0.0
+.INDENT 3.5
+Type: INT
+.sp
+Readable from: client
+.sp
+A count of how many times this request has been restarted.
+.UNINDENT
+.UNINDENT
+.sp
+req.storage
+.INDENT 0.0
+.INDENT 3.5
+Type: STEVEDORE
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+The storage backend to use to save this request body.
+.UNINDENT
+.UNINDENT
+.sp
+req.esi_level
+.INDENT 0.0
+.INDENT 3.5
+Type: INT
+.sp
+Readable from: client
+.sp
+A count of how many levels of ESI requests we\(aqre currently at.
+.UNINDENT
+.UNINDENT
+.sp
+req.ttl
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Upper limit on the object age for cache lookups to return hit.
+.UNINDENT
+.UNINDENT
+.sp
+req.grace
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Upper limit on the object grace.
+.sp
+During lookup the minimum of req.grace and the object\(aqs stored
+grace value will be used as the object\(aqs grace.
+.UNINDENT
+.UNINDENT
+.sp
+req.xid
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+Unique ID of this request.
+.UNINDENT
+.UNINDENT
+.sp
+req.esi \fBVCL <= 4.0\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Set to \fIfalse\fP to disable ESI processing
+regardless of any value in beresp.do_esi. Defaults
+to \fItrue\fP\&. This variable is replaced by \fIresp.do_esi\fP
+in VCL 4.1.
+.UNINDENT
+.UNINDENT
+.sp
+req.can_gzip
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: client
+.sp
+True if the client provided \fIgzip\fP or \fIx\-gzip\fP in the
+\fIAccept\-Encoding\fP header.
+.UNINDENT
+.UNINDENT
+.sp
+req.backend_hint
+.INDENT 0.0
+.INDENT 3.5
+Type: BACKEND
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Set bereq.backend to this if we attempt to fetch.
+When set to a director, reading this variable returns
+an actual backend if the director has resolved immediately,
+or the director otherwise.
+When used in string context, returns the name of the director
+or backend, respectively.
+.UNINDENT
+.UNINDENT
+.sp
+req.hash_ignore_busy
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Default: \fIfalse\fP
+.sp
+Ignore any busy object during cache lookup.
+.sp
+You only want to do this when you have two server looking
+up content sideways from each other to avoid deadlocks.
+.UNINDENT
+.UNINDENT
+.sp
+req.hash_always_miss
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Default: \fIfalse\fP
+.sp
+Force a cache miss for this request, even if perfectly
+good matching objects are in the cache.
+.sp
+This is useful to force\-update the cache without invalidating
+existing entries in case the fetch fails.
+.UNINDENT
+.UNINDENT
+.sp
+req.is_hitmiss
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: client
+.sp
+If this request resulted in a hitmiss
+.UNINDENT
+.UNINDENT
+.sp
+req.is_hitpass
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: client
+.sp
+If this request resulted in a hitpass
+.UNINDENT
+.UNINDENT
+.sp
+req_top.method
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+The request method of the top\-level request in a tree
+of ESI requests. (e.g. "GET", "HEAD").
+Identical to req.method in non\-ESI requests.
+.UNINDENT
+.UNINDENT
+.sp
+req_top.url
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+The requested URL of the top\-level request in a tree
+of ESI requests.
+Identical to req.url in non\-ESI requests.
+.UNINDENT
+.UNINDENT
+.sp
+req_top.http.*
+.INDENT 0.0
+.INDENT 3.5
+Type: HEADER
+.sp
+Readable from: client
+.sp
+HTTP headers of the top\-level request in a tree of ESI requests.
+Identical to req.http. in non\-ESI requests.
+.UNINDENT
+.UNINDENT
+.sp
+req_top.proto
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: client
+.sp
+HTTP protocol version of the top\-level request in a tree of
+ESI requests.
+Identical to req.proto in non\-ESI requests.
+.UNINDENT
+.UNINDENT
 .SS bereq
+.sp
+This is the request we send to the backend, it is built from the
+clients \fIreq.*\fP fields by filtering out "per\-hop" fields which
+should not be passed along (\fIConnection:\fP, \fIRange:\fP and similar).
+.sp
+Slightly more fields are allowed through for \fIpass\fP fetches
+than for \fImiss\fP fetches, for instance \fIRange\fP\&.
 .sp
 bereq
 .INDENT 0.0
@@ -474,7 +1085,30 @@ Type: HTTP
 .sp
 Readable from: backend
 .sp
-The entire backend request HTTP data structure
+The entire backend request HTTP data structure.
+Mostly useful as argument to VMODs.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.xid
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: backend
+.sp
+Unique ID of this request.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.retries
+.INDENT 0.0
+.INDENT 3.5
+Type: INT
+.sp
+Readable from: backend
+.sp
+A count of how many times this request has been retried.
 .UNINDENT
 .UNINDENT
 .sp
@@ -496,68 +1130,27 @@ or backend, respectively.
 .UNINDENT
 .UNINDENT
 .sp
-bereq.between_bytes_timeout
-.INDENT 0.0
-.INDENT 3.5
-Type: DURATION
-.sp
-Readable from: backend
-.sp
-Writable from: backend
-.sp
-The time in seconds to wait between each received byte from the
-backend.  Not available in pipe mode.
-.UNINDENT
-.UNINDENT
-.sp
 bereq.body
 .INDENT 0.0
 .INDENT 3.5
 Type: BODY
 .sp
-Writable from: vcl_backend_fetch
+Unsetable from: vcl_backend_fetch
 .sp
-The request body.
+The request body, only present on \fIpass\fP requests.
+.sp
+Unset will also remove \fIbereq.http.Content\-Length\fP\&.
 .UNINDENT
 .UNINDENT
 .sp
-bereq.connect_timeout
+bereq.hash
 .INDENT 0.0
 .INDENT 3.5
-Type: DURATION
+Type: BLOB
 .sp
 Readable from: vcl_pipe, backend
 .sp
-Writable from: vcl_pipe, backend
-.sp
-The time in seconds to wait for a backend connection.
-.UNINDENT
-.UNINDENT
-.sp
-bereq.first_byte_timeout
-.INDENT 0.0
-.INDENT 3.5
-Type: DURATION
-.sp
-Readable from: backend
-.sp
-Writable from: backend
-.sp
-The time in seconds to wait for the first byte from
-the backend.  Not available in pipe mode.
-.UNINDENT
-.UNINDENT
-.sp
-bereq.http.
-.INDENT 0.0
-.INDENT 3.5
-Type: HEADER
-.sp
-Readable from: vcl_pipe, backend
-.sp
-Writable from: vcl_pipe, backend
-.sp
-The corresponding HTTP header.
+The hash key of this request, a copy of \fIreq.hash\fP\&.
 .UNINDENT
 .UNINDENT
 .sp
@@ -571,43 +1164,8 @@ Readable from: vcl_pipe, backend
 Writable from: vcl_pipe, backend
 .sp
 The request type (e.g. "GET", "HEAD").
-.UNINDENT
-.UNINDENT
 .sp
-bereq.proto
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: vcl_pipe, backend
-.sp
-Writable from: vcl_pipe, backend
-.sp
-The HTTP protocol version used to talk to the server.
-.UNINDENT
-.UNINDENT
-.sp
-bereq.retries
-.INDENT 0.0
-.INDENT 3.5
-Type: INT
-.sp
-Readable from: backend
-.sp
-A count of how many times this request has been retried.
-.UNINDENT
-.UNINDENT
-.sp
-bereq.uncacheable
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: backend
-.sp
-Indicates whether this request is uncacheable due
-to a pass in the client side or a hit on an hit\-for\-pass
-object.
+Regular (non\-pipe, non\-pass) fetches are always "GET"
 .UNINDENT
 .UNINDENT
 .sp
@@ -620,21 +1178,133 @@ Readable from: vcl_pipe, backend
 .sp
 Writable from: vcl_pipe, backend
 .sp
-The requested URL.
+The requested URL, copied from \fIreq.url\fP
 .UNINDENT
 .UNINDENT
 .sp
-bereq.xid
+bereq.proto     \fBVCL <= 4.0\fP
 .INDENT 0.0
 .INDENT 3.5
 Type: STRING
 .sp
+Readable from: vcl_pipe, backend
+.sp
+Writable from: vcl_pipe, backend
+.sp
+The HTTP protocol version, "HTTP/1.1" unless a pass or pipe
+request has "HTTP/1.0" in \fIreq.proto\fP
+.UNINDENT
+.UNINDENT
+.sp
+bereq.proto     \fBVCL >= 4.1\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: vcl_pipe, backend
+.sp
+The HTTP protocol version, "HTTP/1.1" unless a pass or pipe
+request has "HTTP/1.0" in \fIreq.proto\fP
+.UNINDENT
+.UNINDENT
+.sp
+bereq.http.*
+.INDENT 0.0
+.INDENT 3.5
+Type: HEADER
+.sp
+Readable from: vcl_pipe, backend
+.sp
+Writable from: vcl_pipe, backend
+.sp
+Unsetable from: vcl_pipe, backend
+.sp
+The headers to be sent to the backend.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.uncacheable
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
 Readable from: backend
 .sp
-Unique ID of this request.
+Indicates whether this request is uncacheable due to a
+\fIpass\fP in the client side or a hit on an hit\-for\-pass object.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.connect_timeout
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: vcl_pipe, backend
+.sp
+Writable from: vcl_pipe, backend
+.sp
+Default: \fB\&.connect_timeout\fP attribute from the
+\fIbackend_definition\fP, which defaults to the
+\fBconnect_timeout\fP parameter, see \fIvarnishd(1)\fP
+.sp
+The time in seconds to wait for a backend connection to be
+established.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.first_byte_timeout
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: backend
+.sp
+Writable from: backend
+.sp
+Default: \fB\&.first_byte_timeout\fP attribute from the
+\fIbackend_definition\fP, which defaults to the
+\fBfirst_byte_timeout\fP parameter, see \fIvarnishd(1)\fP
+.sp
+The time in seconds to wait getting the first byte back
+from the backend.  Not available in pipe mode.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.between_bytes_timeout
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: backend
+.sp
+Writable from: backend
+.sp
+Default: \fB\&.between_bytes_timeout\fP attribute from the
+\fIbackend_definition\fP, which defaults to the
+\fBbetween_bytes_timeout\fP parameter, see \fIvarnishd(1)\fP
+.sp
+The time in seconds to wait between each received byte from the
+backend.  Not available in pipe mode.
+.UNINDENT
+.UNINDENT
+.sp
+bereq.is_bgfetch
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: backend
+.sp
+True for fetches where the client got a hit on an object in
+grace, and this fetch was kicked of in the background to get
+a fresh copy.
 .UNINDENT
 .UNINDENT
 .SS beresp
+.sp
+The response received from the backend, one cache misses, the
+store object is built from \fIberesp\fP\&.
 .sp
 beresp
 .INDENT 0.0
@@ -643,7 +1313,214 @@ Type: HTTP
 .sp
 Readable from: vcl_backend_response, vcl_backend_error
 .sp
-The entire backend response HTTP data structure
+The entire backend response HTTP data structure, useful as
+argument to VMOD functions.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.body
+.INDENT 0.0
+.INDENT 3.5
+Type: BODY
+.sp
+Writable from: vcl_backend_error
+.sp
+For producing a synthetic body.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.proto    \fBVCL <= 4.0\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+The HTTP protocol version the backend replied with.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.proto    \fBVCL >= 4.1\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+The HTTP protocol version the backend replied with.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.status
+.INDENT 0.0
+.INDENT 3.5
+Type: INT
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+The HTTP status code returned by the server.
+.sp
+Status codes on the form XXYZZ can be set where
+XXYZZ is less than 65536 and Y is [1...9].
+Only YZZ will be sent back to clients.
+.sp
+XX can be therefore be used to pass information
+around inside VCL, for instance \fIreturn(synth(22404))\fP
+from \fIvcl_recv{}\fP to \fIvcl_synth{}\fP
+.UNINDENT
+.UNINDENT
+.sp
+beresp.reason
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+The HTTP status message returned by the server.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.http.*
+.INDENT 0.0
+.INDENT 3.5
+Type: HEADER
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Unsetable from: vcl_backend_response, vcl_backend_error
+.sp
+The HTTP headers returned from the server.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.do_esi
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Default: false
+.sp
+Set it to true to parse the object for ESI directives.
+Will only be honored if req.esi is true.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.do_stream
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Default: true
+.sp
+Deliver the object to the client while fetching the whole
+object into varnish.
+.sp
+For uncacheable objects, storage for parts of the body which
+have been sent to the client may get freed early, depending
+on the storage engine used.
+.sp
+This variable has no effect if do_esi is true or when the
+response body is empty.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.do_gzip
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Default: false
+.sp
+Set to \fItrue\fP to gzip the object while storing it.
+.sp
+If \fIhttp_gzip_support\fP is disabled, setting this variable
+has no effect.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.do_gunzip
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Default: false
+.sp
+Set to \fItrue\fP to gunzip the object while storing it in the
+cache.
+.sp
+If \fIhttp_gzip_support\fP is disabled, setting this variable
+has no effect.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.was_304
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+When \fItrue\fP this indicates that we got a 304 response
+to our conditional fetch from the backend and turned
+that into \fIberesp.status = 200\fP
+.UNINDENT
+.UNINDENT
+.sp
+beresp.uncacheable
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+Inherited from bereq.uncacheable, see there.
+.sp
+Setting this variable makes the object uncacheable.
+.sp
+This may may produce a hit\-for\-miss object in the cache.
+.sp
+Clearing the variable has no effect and will log the warning
+"Ignoring attempt to reset beresp.uncacheable".
+.UNINDENT
+.UNINDENT
+.sp
+beresp.ttl
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+Writable from: vcl_backend_response, vcl_backend_error
+.sp
+The object\(aqs remaining time to live, in seconds.
 .UNINDENT
 .UNINDENT
 .sp
@@ -658,116 +1535,6 @@ The age of the object.
 .UNINDENT
 .UNINDENT
 .sp
-beresp.backend
-.INDENT 0.0
-.INDENT 3.5
-Type: BACKEND
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-This is the backend we fetched from.  If bereq.backend
-was set to a director, this will be the backend selected
-by the director.
-When used in string context, returns its name.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.backend.ip
-.INDENT 0.0
-.INDENT 3.5
-Type: IP
-.sp
-Readable from: vcl_backend_response
-.sp
-IP of the backend this response was fetched from.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.backend.name
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Name of the backend this response was fetched from.
-Same as beresp.backend.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.body
-.INDENT 0.0
-.INDENT 3.5
-Type: BODY
-.sp
-Writable from: vcl_backend_error
-.sp
-The response body.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.do_esi
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-Boolean. ESI\-process the object after fetching it.
-Defaults to false. Set it to true to parse the
-object for ESI directives. Will only be honored if
-req.esi is true.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.do_gunzip
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-Boolean. Unzip the object before storing it in the
-cache.  Defaults to false.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.do_gzip
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-Boolean. Gzip the object before storing it. Defaults
-to false. When http_gzip_support is on Varnish will
-request already compressed content from the backend
-and as such compression in Varnish is not needed.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.do_stream
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-Deliver the object to the client while fetching the whole
-object into varnish. For uncacheable objects, storage for
-parts of the body which have been sent to the client may
-get freed early, depending on the storage engine used.
-.UNINDENT
-.UNINDENT
-.sp
 beresp.grace
 .INDENT 0.0
 .INDENT 3.5
@@ -778,19 +1545,6 @@ Readable from: vcl_backend_response, vcl_backend_error
 Writable from: vcl_backend_response, vcl_backend_error
 .sp
 Set to a period to enable grace.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.http.
-.INDENT 0.0
-.INDENT 3.5
-Type: HEADER
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-The corresponding HTTP header.
 .UNINDENT
 .UNINDENT
 .sp
@@ -813,45 +1567,40 @@ requests to the backend to refresh them.
 .UNINDENT
 .UNINDENT
 .sp
-beresp.proto
+beresp.backend
+.INDENT 0.0
+.INDENT 3.5
+Type: BACKEND
+.sp
+Readable from: vcl_backend_response, vcl_backend_error
+.sp
+This is the backend we fetched from.  If bereq.backend
+was set to a director, this will be the backend selected
+by the director.
+When used in string context, returns its name.
+.UNINDENT
+.UNINDENT
+.sp
+beresp.backend.name
 .INDENT 0.0
 .INDENT 3.5
 Type: STRING
 .sp
 Readable from: vcl_backend_response, vcl_backend_error
 .sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-The HTTP protocol version used the backend replied with.
+Name of the backend this response was fetched from.
+Same as beresp.backend.
 .UNINDENT
 .UNINDENT
 .sp
-beresp.reason
+beresp.backend.ip       \fBVCL <= 4.0\fP
 .INDENT 0.0
 .INDENT 3.5
-Type: STRING
+Type: IP
 .sp
-Readable from: vcl_backend_response, vcl_backend_error
+Readable from: vcl_backend_response
 .sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-The HTTP status message returned by the server.
-.UNINDENT
-.UNINDENT
-.sp
-beresp.status
-.INDENT 0.0
-.INDENT 3.5
-Type: INT
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-The HTTP status code returned by the server.
-.sp
-Status codes >1000 can be set for vcl\-internal
-purposes and will be taken modulo 1000 on delivery.
+IP of the backend this response was fetched from.
 .UNINDENT
 .UNINDENT
 .sp
@@ -868,7 +1617,7 @@ The storage backend to use to save this object.
 .UNINDENT
 .UNINDENT
 .sp
-beresp.storage_hint
+beresp.storage_hint     \fBVCL <= 4.0\fP
 .INDENT 0.0
 .INDENT 3.5
 Type: STRING
@@ -877,109 +1626,84 @@ Readable from: vcl_backend_response, vcl_backend_error
 .sp
 Writable from: vcl_backend_response, vcl_backend_error
 .sp
-Deprecated. Hint to Varnish that you want to
-save this object to a particular storage backend.
-Use beresp.storage instead.
+Deprecated since varnish 5.1 and discontinued since VCL
+4.1 (varnish 6.0). Use beresp.storage instead.
+.sp
+Hint to Varnish that you want to save this object to a
+particular storage backend.
+.UNINDENT
+.UNINDENT
+.SS obj
+.sp
+This is the object we found in cache.  It cannot be modified.
+.sp
+obj.proto
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: vcl_hit
+.sp
+The HTTP protocol version stored in the object.
 .UNINDENT
 .UNINDENT
 .sp
-beresp.ttl
+obj.status
+.INDENT 0.0
+.INDENT 3.5
+Type: INT
+.sp
+Readable from: vcl_hit
+.sp
+The HTTP status code stored in the object.
+.UNINDENT
+.UNINDENT
+.sp
+obj.reason
+.INDENT 0.0
+.INDENT 3.5
+Type: STRING
+.sp
+Readable from: vcl_hit
+.sp
+The HTTP reason phrase stored in the object.
+.UNINDENT
+.UNINDENT
+.sp
+obj.hits
+.INDENT 0.0
+.INDENT 3.5
+Type: INT
+.sp
+Readable from: vcl_hit, vcl_deliver
+.sp
+The count of cache\-hits on this object.
+.sp
+In \fIvcl_deliver\fP a value of 0 indicates a cache miss.
+.UNINDENT
+.UNINDENT
+.sp
+obj.http.*
+.INDENT 0.0
+.INDENT 3.5
+Type: HEADER
+.sp
+Readable from: vcl_hit
+.sp
+The HTTP headers stored in the object.
+.UNINDENT
+.UNINDENT
+.sp
+obj.ttl
 .INDENT 0.0
 .INDENT 3.5
 Type: DURATION
 .sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
+Readable from: vcl_hit, vcl_deliver
 .sp
 The object\(aqs remaining time to live, in seconds.
 .UNINDENT
 .UNINDENT
-.sp
-beresp.uncacheable
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Writable from: vcl_backend_response, vcl_backend_error
-.sp
-Inherited from bereq.uncacheable, see there.
-.sp
-Setting this variable makes the object uncacheable, which may
-get stored as a hit\-for\-miss object in the cache.
-.sp
-Clearing the variable has no effect and will log the warning
-"Ignoring attempt to reset beresp.uncacheable".
-.UNINDENT
-.UNINDENT
-.sp
-beresp.was_304
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_backend_response, vcl_backend_error
-.sp
-Boolean. If this is a successful 304 response to a
-backend conditional request refreshing an existing
-cache object.
-.UNINDENT
-.UNINDENT
-.SS client
-.sp
-client.identity
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-Identification of the client, used to load balance
-in the client director. Defaults to the client\(aqs IP
-address.
-.UNINDENT
-.UNINDENT
-.sp
-client.ip
-.INDENT 0.0
-.INDENT 3.5
-Type: IP
-.sp
-Readable from: client, backend
-.sp
-The client\(aqs IP address.
-.UNINDENT
-.UNINDENT
-.SS local
-.sp
-local.ip
-.INDENT 0.0
-.INDENT 3.5
-Type: IP
-.sp
-Readable from: client, backend
-.sp
-The IP address of the local end of the TCP connection.
-.UNINDENT
-.UNINDENT
-.SS now
-.sp
-now
-.INDENT 0.0
-.INDENT 3.5
-Type: TIME
-.sp
-Readable from: all
-.sp
-The current time, in seconds since the epoch. When
-used in string context it returns a formatted string.
-.UNINDENT
-.UNINDENT
-.SS obj
 .sp
 obj.age
 .INDENT 0.0
@@ -999,30 +1723,7 @@ Type: DURATION
 .sp
 Readable from: vcl_hit, vcl_deliver
 .sp
-The object\(aqs remaining grace period in seconds.
-.UNINDENT
-.UNINDENT
-.sp
-obj.hits
-.INDENT 0.0
-.INDENT 3.5
-Type: INT
-.sp
-Readable from: vcl_hit, vcl_deliver
-.sp
-The count of cache\-hits on this object. A value of 0 indicates a
-cache miss.
-.UNINDENT
-.UNINDENT
-.sp
-obj.http.
-.INDENT 0.0
-.INDENT 3.5
-Type: HEADER
-.sp
-Readable from: vcl_hit
-.sp
-The corresponding HTTP header.
+The object\(aqs grace period in seconds.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1033,51 +1734,7 @@ Type: DURATION
 .sp
 Readable from: vcl_hit, vcl_deliver
 .sp
-The object\(aqs remaining keep period in seconds.
-.UNINDENT
-.UNINDENT
-.sp
-obj.proto
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: vcl_hit
-.sp
-The HTTP protocol version stored with the object.
-.UNINDENT
-.UNINDENT
-.sp
-obj.reason
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: vcl_hit
-.sp
-The HTTP reason phrase stored with the object.
-.UNINDENT
-.UNINDENT
-.sp
-obj.status
-.INDENT 0.0
-.INDENT 3.5
-Type: INT
-.sp
-Readable from: vcl_hit
-.sp
-The HTTP status code stored with the object.
-.UNINDENT
-.UNINDENT
-.sp
-obj.ttl
-.INDENT 0.0
-.INDENT 3.5
-Type: DURATION
-.sp
-Readable from: vcl_hit, vcl_deliver
-.sp
-The object\(aqs remaining time to live, in seconds.
+The object\(aqs keep period in seconds.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1092,278 +1749,24 @@ Whether the object is uncacheable (pass, hit\-for\-pass or
 hit\-for\-miss).
 .UNINDENT
 .UNINDENT
-.SS remote
 .sp
-remote.ip
-.INDENT 0.0
-.INDENT 3.5
-Type: IP
-.sp
-Readable from: client, backend
-.sp
-The IP address of the other end of the TCP connection.
-This can either be the clients IP, or the outgoing IP
-of a proxy server.
-.UNINDENT
-.UNINDENT
-.SS req
-.sp
-req
-.INDENT 0.0
-.INDENT 3.5
-Type: HTTP
-.sp
-Readable from: client
-.sp
-The entire request HTTP data structure
-.UNINDENT
-.UNINDENT
-.sp
-req.backend_hint
-.INDENT 0.0
-.INDENT 3.5
-Type: BACKEND
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-Set bereq.backend to this if we attempt to fetch.
-When set to a director, reading this variable returns
-an actual backend if the director has resolved immediately,
-or the director otherwise.
-When used in string context, returns the name of the director
-or backend, respectively.
-.UNINDENT
-.UNINDENT
-.sp
-req.can_gzip
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: client
-.sp
-Does the client accept the gzip transfer encoding.
-.UNINDENT
-.UNINDENT
-.sp
-req.esi
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-Boolean. Set to false to disable ESI processing
-regardless of any value in beresp.do_esi. Defaults
-to true. This variable is subject to change in
-future versions, you should avoid using it.
-.UNINDENT
-.UNINDENT
-.sp
-req.esi_level
-.INDENT 0.0
-.INDENT 3.5
-Type: INT
-.sp
-Readable from: client
-.sp
-A count of how many levels of ESI requests we\(aqre currently at.
-.UNINDENT
-.UNINDENT
-.sp
-req.hash_always_miss
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_recv
-.sp
-Writable from: vcl_recv
-.sp
-Force a cache miss for this request. If set to true
-Varnish will disregard any existing objects and
-always (re)fetch from the backend.
-.UNINDENT
-.UNINDENT
-.sp
-req.hash_ignore_busy
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_recv
-.sp
-Writable from: vcl_recv
-.sp
-Ignore any busy object during cache lookup. You
-would want to do this if you have two server looking
-up content from each other to avoid potential deadlocks.
-.UNINDENT
-.UNINDENT
-.sp
-req.http.
-.INDENT 0.0
-.INDENT 3.5
-Type: HEADER
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-The corresponding HTTP header.
-.UNINDENT
-.UNINDENT
-.sp
-req.method
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-The request type (e.g. "GET", "HEAD").
-.UNINDENT
-.UNINDENT
-.sp
-req.proto
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-The HTTP protocol version used by the client.
-.UNINDENT
-.UNINDENT
-.sp
-req.restarts
-.INDENT 0.0
-.INDENT 3.5
-Type: INT
-.sp
-Readable from: client
-.sp
-A count of how many times this request has been restarted.
-.UNINDENT
-.UNINDENT
-.sp
-req.storage
+obj.storage
 .INDENT 0.0
 .INDENT 3.5
 Type: STEVEDORE
 .sp
-Readable from: vcl_recv
+Readable from: vcl_hit, vcl_deliver
 .sp
-Writable from: vcl_recv
-.sp
-The storage backend to use to save this request body.
-.UNINDENT
-.UNINDENT
-.sp
-req.ttl
-.INDENT 0.0
-.INDENT 3.5
-Type: DURATION
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-Upper limit on the object age for cache lookups to return hit.
-.sp
-Usage of req.ttl should be replaced with a check on
-obj.ttl in vcl_hit, returning miss when needed, but
-this currently hits bug #1799, so an additional
-workaround is required.
-.sp
-Deprecated and scheduled for removal with varnish release 7.
-.UNINDENT
-.UNINDENT
-.sp
-req.url
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-Writable from: client
-.sp
-The requested URL.
-.UNINDENT
-.UNINDENT
-.sp
-req.xid
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-Unique ID of this request.
-.UNINDENT
-.UNINDENT
-.SS req_top
-.sp
-req_top.http.
-.INDENT 0.0
-.INDENT 3.5
-Type: HEADER
-.sp
-Readable from: client
-.sp
-HTTP headers of the top\-level request in a tree of ESI requests.
-Identical to req.http. in non\-ESI requests.
-.UNINDENT
-.UNINDENT
-.sp
-req_top.method
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-The request method of the top\-level request in a tree
-of ESI requests. (e.g. "GET", "HEAD").
-Identical to req.method in non\-ESI requests.
-.UNINDENT
-.UNINDENT
-.sp
-req_top.proto
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-HTTP protocol version of the top\-level request in a tree of
-ESI requests.
-Identical to req.proto in non\-ESI requests.
-.UNINDENT
-.UNINDENT
-.sp
-req_top.url
-.INDENT 0.0
-.INDENT 3.5
-Type: STRING
-.sp
-Readable from: client
-.sp
-The requested URL of the top\-level request in a tree
-of ESI requests.
-Identical to req.url in non\-ESI requests.
+The storage backend where this object is stored.
 .UNINDENT
 .UNINDENT
 .SS resp
+.sp
+This is the response we send to the client, it is built from either
+\fIberesp\fP (pass/miss), \fIobj\fP (hits) or created from whole cloth (synth).
+.sp
+With the exception of \fIresp.body\fP all \fIresp.*\fP variables available
+in both \fIvcl_deliver{}\fP and \fIvcl_synth{}\fP as a matter of symmetry.
 .sp
 resp
 .INDENT 0.0
@@ -1372,7 +1775,8 @@ Type: HTTP
 .sp
 Readable from: vcl_deliver, vcl_synth
 .sp
-The entire response HTTP data structure.
+The entire response HTTP data structure, useful as argument
+to VMODs.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1383,36 +1787,11 @@ Type: BODY
 .sp
 Writable from: vcl_synth
 .sp
-The response body.
+To produce a synthetic response body, for instance for errors.
 .UNINDENT
 .UNINDENT
 .sp
-resp.http.
-.INDENT 0.0
-.INDENT 3.5
-Type: HEADER
-.sp
-Readable from: vcl_deliver, vcl_synth
-.sp
-Writable from: vcl_deliver, vcl_synth
-.sp
-The corresponding HTTP header.
-.UNINDENT
-.UNINDENT
-.sp
-resp.is_streaming
-.INDENT 0.0
-.INDENT 3.5
-Type: BOOL
-.sp
-Readable from: vcl_deliver, vcl_synth
-.sp
-Returns true when the response will be streamed
-from the backend.
-.UNINDENT
-.UNINDENT
-.sp
-resp.proto
+resp.proto      \fBVCL <= 4.0\fP
 .INDENT 0.0
 .INDENT 3.5
 Type: STRING
@@ -1425,7 +1804,7 @@ The HTTP protocol version to use for the response.
 .UNINDENT
 .UNINDENT
 .sp
-resp.reason
+resp.proto      \fBVCL >= 4.1\fP
 .INDENT 0.0
 .INDENT 3.5
 Type: STRING
@@ -1434,7 +1813,7 @@ Readable from: vcl_deliver, vcl_synth
 .sp
 Writable from: vcl_deliver, vcl_synth
 .sp
-The HTTP status message that will be returned.
+The HTTP protocol version to use for the response.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1457,42 +1836,108 @@ a return(deliver) from vcl_deliver for conditional requests
 to cached content if validation succeeds.
 .UNINDENT
 .UNINDENT
-.SS server
 .sp
-server.hostname
+resp.reason
 .INDENT 0.0
 .INDENT 3.5
 Type: STRING
 .sp
+Readable from: vcl_deliver, vcl_synth
+.sp
+Writable from: vcl_deliver, vcl_synth
+.sp
+The HTTP status message that will be returned.
+.UNINDENT
+.UNINDENT
+.sp
+resp.http.*
+.INDENT 0.0
+.INDENT 3.5
+Type: HEADER
+.sp
+Readable from: vcl_deliver, vcl_synth
+.sp
+Writable from: vcl_deliver, vcl_synth
+.sp
+Unsetable from: vcl_deliver, vcl_synth
+.sp
+The HTTP headers that will be returned.
+.UNINDENT
+.UNINDENT
+.sp
+resp.do_esi     \fBVCL >= 4.1\fP
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_deliver, vcl_synth
+.sp
+Writable from: vcl_deliver, vcl_synth
+.sp
+Default: Set if ESI parsing has happened.
+.sp
+This can be used to selectively disable ESI processing,
+even though ESI parsing happened during fetch.
+This is useful when Varnish caches peer with each other.
+.UNINDENT
+.UNINDENT
+.sp
+resp.is_streaming
+.INDENT 0.0
+.INDENT 3.5
+Type: BOOL
+.sp
+Readable from: vcl_deliver, vcl_synth
+.sp
+Returns true when the response will be streamed
+while being fetched from the backend.
+.UNINDENT
+.UNINDENT
+.SS Special variables
+.sp
+now
+.INDENT 0.0
+.INDENT 3.5
+Type: TIME
+.sp
 Readable from: all
 .sp
-The host name of the server.
-.UNINDENT
-.UNINDENT
+The current time, in seconds since the UNIX epoch.
 .sp
-server.identity
+When converted to STRING in expressions it returns
+a formatted timestamp like \fITue, 20 Feb 2018 09:30:31 GMT\fP
+.UNINDENT
+.UNINDENT
+.SS sess
+.sp
+A session corresponds to the "conversation" that Varnish has with a
+single client connection, over which one or more request/response
+transactions may take place. It may comprise the traffic over an
+HTTP/1 keep\-alive connection, or the multiplexed traffic over an
+HTTP/2 connection.
+.sp
+sess.xid        \fBVCL >= 4.1\fP
 .INDENT 0.0
 .INDENT 3.5
 Type: STRING
-.sp
-Readable from: all
-.sp
-The identity of the server, as set by the \-i
-parameter.  If the \-i parameter is not passed to varnishd,
-server.identity will be set to the name of the instance, as
-specified by the \-n parameter.
-.UNINDENT
-.UNINDENT
-.sp
-server.ip
-.INDENT 0.0
-.INDENT 3.5
-Type: IP
 .sp
 Readable from: client, backend
 .sp
-The IP address of the socket on which the client
-connection was received.
+Unique ID of this session.
+.UNINDENT
+.UNINDENT
+.sp
+sess.timeout_idle
+.INDENT 0.0
+.INDENT 3.5
+Type: DURATION
+.sp
+Readable from: client
+.sp
+Writable from: client
+.sp
+Idle timeout for this session, defaults to the
+\fBtimeout_idle\fP parameter, see \fIvarnishd(1)\fP
 .UNINDENT
 .UNINDENT
 .SS storage
@@ -1587,6 +2032,11 @@ containing \fB\es\fP can be used.
 .sp
 Expressions can be chained using the \fIand\fP operator \fB&&\fP\&. For \fIor\fP
 semantics, use several bans.
+.sp
+The unset \fI<field>\fP is not equal to any string, such that, for a
+non\-existing header, the operators \fB==\fP and \fB~\fP always evaluate
+as false, while the operators \fB!=\fP and \fB!~\fP always evaluate as
+true, respectively, for any value of \fI<arg>\fP\&.
 .UNINDENT
 .UNINDENT
 .SS hash_data(input)
@@ -1599,8 +2049,10 @@ is called on the host and URL of the request. Available in \fBvcl_hash\fP\&.
 .SS synthetic(STRING)
 .INDENT 0.0
 .INDENT 3.5
-Prepare a synthetic response body containing the \fISTRING\fP\&. Available in
-\fBvcl_synth\fP and \fBvcl_backend_error\fP\&.
+Prepare a synthetic response body containing the \fISTRING\fP\&. Available
+in \fBvcl_synth\fP and \fBvcl_backend_error\fP\&.
+.sp
+Identical to \fBset resp.body\fP /  \fBset beresp.body\fP\&.
 .UNINDENT
 .UNINDENT
 .\" list above comes from struct action_table[] in vcc_action.c.

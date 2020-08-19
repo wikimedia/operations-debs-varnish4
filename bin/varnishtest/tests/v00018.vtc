@@ -7,7 +7,7 @@ varnish v1 -vcl {
 	sub vcl_deliver { return(synth(resp.status, resp.reason)); }
 }
 
-varnish v1 -errvcl {Variable 'now' is read only.} {
+varnish v1 -errvcl {Variable is read only.} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_miss { set now = 1000; }
 }
@@ -38,9 +38,9 @@ varnish v1 -errvcl {Expected ';' got 'if'} {
 	sub vcl_recv { set req.url = "foo" if "bar"; }
 }
 
-varnish v1 -errvcl {Symbol not found: 'req.hash' (expected type STRING_LIST):} {
+varnish v1 -errvcl {Symbol not found: 'req.foo'} {
 	backend b { .host = "127.0.0.1"; }
-	sub vcl_hash { hash_data(req.hash); }
+	sub vcl_hash { hash_data(req.foo); }
 }
 
 varnish v1 -vcl {
@@ -63,17 +63,17 @@ varnish v1 -vcl {
 	sub vcl_backend_response { set beresp.do_gzip = false; }
 }
 
-varnish v1 -errvcl {Symbol not found: 'mu' (expected type BOOL):} {
+varnish v1 -errvcl {Symbol not found: 'mu'} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_backend_response { set beresp.do_gzip = mu; }
 }
 
-varnish v1 -errvcl {Only bereq.body and HTTP header variables can be unset.} {
+varnish v1 -errvcl {Variable cannot be unset} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_backend_response { unset beresp.do_gzip; }
 }
 
-varnish v1 -errvcl {bereq.body cannot be set.} {
+varnish v1 -errvcl {Variable cannot be set.} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_backend_fetch { set bereq.body = "foo"; }
 }
@@ -83,7 +83,7 @@ varnish v1 -errvcl {Unknown token '<<' when looking for STRING} {
 	sub vcl_recv { ban (<<); }
 }
 
-varnish v1 -errvcl {Expected an action, 'if', '{' or '}'} {
+varnish v1 -errvcl {Symbol not found} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_recv { ban_hash (if); }
 }
@@ -93,12 +93,12 @@ varnish v1 -vcl {
 	sub vcl_recv { ban ("req.url ~ foo"); }
 }
 
-varnish v1 -errvcl {Expected an action, 'if', '{' or '}'} {
+varnish v1 -errvcl "Symbol not found" {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_recv { kluf ; }
 }
 
-varnish v1 -errvcl {Unknown token '<<' when looking for STRING_LIST} {
+varnish v1 -errvcl {Unknown token '<<' when looking for STRING} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_synth { synthetic( << "foo"; }
 }
@@ -119,10 +119,22 @@ varnish v1 -errvcl {Expected return action name.} {
 }
 
 # issue #936
-varnish v1 -errvcl {'synthetic': not a valid action in method 'vcl_recv'} {
+varnish v1 -errvcl {Not a valid action in method 'vcl_recv'} {
 	backend foo { .host = "127.0.0.1"; }
 	sub vcl_recv {
 		synthetic("XXX");
 		return (synth(503));
+	}
+}
+
+varnish v1 -errvcl {Symbol 'vcl_recv' has wrong type (sub):} {
+	sub vcl_recv {
+		return (vcl(vcl_recv));
+	}
+}
+
+varnish v1 -syntax 4.0 -errvcl {Not a VCL label:} {
+	sub vcl_recv {
+		return (vcl(vcl_recv));
 	}
 }

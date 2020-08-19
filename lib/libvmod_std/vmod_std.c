@@ -28,16 +28,20 @@
 
 #include "config.h"
 
+#include <sys/stat.h>
+
 #include <netinet/in.h>
 
 #include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
+#include <sys/socket.h>
+#include <fnmatch.h>
 
 #include "cache/cache.h"
 
 #include "vrnd.h"
-#include "vrt.h"
 #include "vtcp.h"
 #include "vsa.h"
 #include "vtim.h"
@@ -47,12 +51,17 @@
 
 #include "vcc_if.h"
 
-VCL_VOID __match_proto__(td_std_set_ip_tos)
+VCL_VOID v_matchproto_(td_std_set_ip_tos)
 vmod_set_ip_tos(VRT_CTX, VCL_INT tos)
 {
+	struct suckaddr *sa;
 	int itos = tos;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AZ(SES_Get_local_addr(ctx->req->sp, &sa));
+	/* Silently ignore for non-IP addresses. */
+	if (VSA_Compare(sa, bogo_ip) == 0)
+		return;
 	VTCP_Assert(setsockopt(ctx->req->sp->fd,
 	    IPPROTO_IP, IP_TOS, &itos, sizeof(itos)));
 }
@@ -65,7 +74,7 @@ vmod_updown(VRT_CTX, int up, const char *s, va_list ap)
 	const char *p;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	u = WS_Reserve(ctx->ws, 0);
+	u = WS_ReserveAll(ctx->ws);
 	e = b = ctx->ws->f;
 	e += u;
 	p = s;
@@ -83,6 +92,7 @@ vmod_updown(VRT_CTX, int up, const char *s, va_list ap)
 		*b = '\0';
 	b++;
 	if (b > e) {
+		WS_MarkOverflow(ctx->ws);
 		WS_Release(ctx->ws, 0);
 		return (NULL);
 	} else {
@@ -93,7 +103,7 @@ vmod_updown(VRT_CTX, int up, const char *s, va_list ap)
 	}
 }
 
-VCL_STRING __match_proto__(td_std_toupper)
+VCL_STRING v_matchproto_(td_std_toupper)
 vmod_toupper(VRT_CTX, const char *s, ...)
 {
 	const char *p;
@@ -106,7 +116,7 @@ vmod_toupper(VRT_CTX, const char *s, ...)
 	return (p);
 }
 
-VCL_STRING __match_proto__(td_std_tolower)
+VCL_STRING v_matchproto_(td_std_tolower)
 vmod_tolower(VRT_CTX, const char *s, ...)
 {
 	const char *p;
@@ -119,7 +129,7 @@ vmod_tolower(VRT_CTX, const char *s, ...)
 	return (p);
 }
 
-VCL_REAL __match_proto__(td_std_random)
+VCL_REAL v_matchproto_(td_std_random)
 vmod_random(VRT_CTX, VCL_REAL lo, VCL_REAL hi)
 {
 	double a;
@@ -131,49 +141,61 @@ vmod_random(VRT_CTX, VCL_REAL lo, VCL_REAL hi)
 	return (a);
 }
 
-VCL_VOID __match_proto__(td_std_log)
-vmod_log(VRT_CTX, const char *s, ...)
+VCL_VOID v_matchproto_(td_std_log)
+vmod_log(VRT_CTX, const char *fmt, ...)
 {
-	txt t;
-	unsigned u;
+	const char *p;
 	va_list ap;
+	uintptr_t sn;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	u = WS_Reserve(ctx->ws, 0);
-	t.b = ctx->ws->f;
-	va_start(ap, s);
-	t.e = VRT_StringList(ctx->ws->f, u, s, ap);
+	sn = WS_Snapshot(ctx->ws);
+	va_start(ap, fmt);
+	p = VRT_String(ctx->ws, NULL, fmt, ap);
 	va_end(ap);
-	if (t.e != NULL) {
-		assert(t.e > t.b);
-		t.e--;
-		if (ctx->vsl != NULL)
-			VSLbt(ctx->vsl, SLT_VCL_Log, t);
-		else
-			VSL(SLT_VCL_Log, 0, "%s", t.b);
+
+	if (p == NULL) {
+		WS_Reset(ctx->ws, sn);
+		WS_MarkOverflow(ctx->ws);
+		return;
 	}
-	WS_Release(ctx->ws, 0);
+
+	AN(p);
+	if (ctx->vsl != NULL)
+		VSLb(ctx->vsl, SLT_VCL_Log, "%s", p);
+	else
+		VSL(SLT_VCL_Log, 0, "%s", p);
+	WS_Reset(ctx->ws, sn);
 }
 
-VCL_VOID __match_proto__(td_std_syslog)
+/* XXX use vsyslog() ? */
+VCL_VOID v_matchproto_(td_std_syslog)
 vmod_syslog(VRT_CTX, VCL_INT fac, const char *fmt, ...)
 {
-	unsigned u;
+	const char *p;
 	va_list ap;
-	txt t;
+	uintptr_t sn;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	u = WS_Reserve(ctx->ws, 0);
-	t.b = ctx->ws->f;
+	sn = WS_Snapshot(ctx->ws);
 	va_start(ap, fmt);
-	t.e = VRT_StringList(ctx->ws->f, u, fmt, ap);
+	p = VRT_String(ctx->ws, NULL, fmt, ap);
 	va_end(ap);
-	if (t.e != NULL)
-		syslog((int)fac, "%s", t.b);
-	WS_Release(ctx->ws, 0);
+	if (p != NULL)
+		syslog((int)fac, "%s", p);
+	WS_Reset(ctx->ws, sn);
 }
 
-VCL_VOID __match_proto__(td_std_collect)
+VCL_BOOL v_matchproto_(td_std_file_exists)
+vmod_file_exists(VRT_CTX, VCL_STRING file_name)
+{
+	struct stat st;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	return (stat(file_name, &st) == 0);
+}
+
+VCL_VOID v_matchproto_(td_std_collect)
 vmod_collect(VRT_CTX, VCL_HEADER hdr, VCL_STRING sep)
 {
 	struct http *hp;
@@ -183,17 +205,15 @@ vmod_collect(VRT_CTX, VCL_HEADER hdr, VCL_STRING sep)
 	http_CollectHdrSep(hp, hdr->what, sep);
 }
 
-VCL_BOOL __match_proto__(td_std_healthy)
+VCL_BOOL v_matchproto_(td_std_healthy)
 vmod_healthy(VRT_CTX, VCL_BACKEND be)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (be == NULL)
-		return (0);
-	CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
-	return (VDI_Healthy(be, ctx->bo));
+	CHECK_OBJ_ORNULL(be, DIRECTOR_MAGIC);
+	return (VRT_Healthy(ctx, be));
 }
 
-VCL_INT __match_proto__(td_std_port)
+VCL_INT v_matchproto_(td_std_port)
 vmod_port(VRT_CTX, VCL_IP ip)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -202,13 +222,13 @@ vmod_port(VRT_CTX, VCL_IP ip)
 	return (VSA_Port(ip));
 }
 
-VCL_VOID __match_proto__(td_std_rollback)
+VCL_VOID v_matchproto_(td_std_rollback)
 vmod_rollback(VRT_CTX, VCL_HTTP hp)
 {
 	VRT_Rollback(ctx, hp);
 }
 
-VCL_VOID __match_proto__(td_std_timestamp)
+VCL_VOID v_matchproto_(td_std_timestamp)
 vmod_timestamp(VRT_CTX, VCL_STRING label)
 {
 
@@ -228,7 +248,7 @@ vmod_timestamp(VRT_CTX, VCL_STRING label)
 	}
 }
 
-VCL_BOOL __match_proto__(td_std_cache_req_body)
+VCL_BOOL v_matchproto_(td_std_cache_req_body)
 vmod_cache_req_body(VRT_CTX, VCL_BYTES size)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -239,7 +259,7 @@ vmod_cache_req_body(VRT_CTX, VCL_BYTES size)
 	return (1);
 }
 
-VCL_STRING __match_proto__(td_std_strstr)
+VCL_STRING v_matchproto_(td_std_strstr)
 vmod_strstr(VRT_CTX, VCL_STRING s1, VCL_STRING s2)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -248,7 +268,7 @@ vmod_strstr(VRT_CTX, VCL_STRING s1, VCL_STRING s2)
 	return (strstr(s1, s2));
 }
 
-VCL_STRING __match_proto__(td_std_getenv)
+VCL_STRING v_matchproto_(td_std_getenv)
 vmod_getenv(VRT_CTX, VCL_STRING name)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -257,7 +277,7 @@ vmod_getenv(VRT_CTX, VCL_STRING name)
 	return (getenv(name));
 }
 
-VCL_VOID __match_proto__(td_std_late_100_continue)
+VCL_VOID v_matchproto_(td_std_late_100_continue)
 vmod_late_100_continue(VRT_CTX, VCL_BOOL late)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -270,4 +290,43 @@ vmod_late_100_continue(VRT_CTX, VCL_BOOL late)
 	CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 	if (ctx->req->want100cont)
 		ctx->req->late100cont = late;
+}
+
+VCL_BOOL v_matchproto_(td_std_syntax)
+vmod_syntax(VRT_CTX, VCL_REAL r)
+{
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	assert(ctx->syntax == 40 || ctx->syntax == 41);
+	/*
+	 * We need to be careful because non-integer numbers have imprecise
+	 * IEE754 representation (4.1 is 0x1.0666666666666p+2 = 4.09999...)
+	 * By scaling up and rounding, this is taken care of.
+	 */
+	return (round(r * 10) <= ctx->syntax);
+}
+
+VCL_BOOL v_matchproto_(td_std_fnmatch)
+vmod_fnmatch(VRT_CTX, VCL_STRING pattern, VCL_STRING subject,
+	     VCL_BOOL pathname, VCL_BOOL noescape, VCL_BOOL period)
+{
+	int flags = 0;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (pattern == NULL) {
+		VRT_fail(ctx, "std.fnmatch(): pattern is NULL");
+		return (0);
+	}
+	if (subject == NULL) {
+		VRT_fail(ctx, "std.fnmatch(): subject is NULL");
+		return (0);
+	}
+
+	if (pathname)
+		flags |= FNM_PATHNAME;
+	if (noescape)
+		flags |= FNM_NOESCAPE;
+	if (period)
+		flags |= FNM_PERIOD;
+	return (fnmatch(pattern, subject, flags) != FNM_NOMATCH);
 }

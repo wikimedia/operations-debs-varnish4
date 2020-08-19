@@ -35,24 +35,26 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <limits.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#define VOPT_DEFINITION
+#define VOPT_INC "varnishtop_options.h"
+
+#include "vdef.h"
+
+#include "miniobj.h"
 #include "vcurses.h"
-#include "vapi/vsm.h"
 #include "vapi/vsl.h"
+#include "vapi/vsm.h"
 #include "vapi/voptget.h"
 #include "vas.h"
-#include "vdef.h"
-#include "vcs.h"
 #include "vtree.h"
-#include "vsb.h"
 #include "vut.h"
 
 #if 0
@@ -60,6 +62,8 @@
 #else
 #define AC(x) x
 #endif
+
+static struct VUT *vut;
 
 struct top {
 	uint8_t			tag;
@@ -72,15 +76,15 @@ struct top {
 	double			count;
 };
 
-static const char progname[] = "varnishtop";
-static float period = 60; /* seconds */
+static int period = 60; /* seconds */
 static int end_of_file = 0;
 static unsigned ntop;
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 static int f_flag = 0;
 static unsigned maxfieldlen = 0;
+static const char *ident;
 
-volatile sig_atomic_t quit = 0;
+static volatile sig_atomic_t quit = 0;
 
 static VRB_HEAD(t_order, top) h_order = VRB_INITIALIZER(&h_order);
 static VRB_HEAD(t_key, top) h_key = VRB_INITIALIZER(&h_key);
@@ -112,7 +116,7 @@ VRB_GENERATE_STATIC(t_order, top, e_order, cmp_order)
 VRB_PROTOTYPE_STATIC(t_key, top, e_key, cmp_key)
 VRB_GENERATE_STATIC(t_key, top, e_key, cmp_key)
 
-static int __match_proto__(VSLQ_dispatch_f)
+static int v_matchproto_(VSLQ_dispatch_f)
 accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	void *priv)
 {
@@ -127,9 +131,11 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 
 	for (tr = pt[0]; tr != NULL; tr = *++pt) {
 		while ((1 == VSL_Next(tr->c))) {
+			tag = VSL_TAG(tr->c->rec.ptr);
+			if (VSL_tagflags[tag])
+				continue;
 			if (!VSL_Match(vsl, tr->c))
 				continue;
-			tag = VSL_TAG(tr->c->rec.ptr);
 			b = VSL_CDATA(tr->c->rec.ptr);
 			e = b + VSL_LEN(tr->c->rec.ptr);
 			u = 0;
@@ -158,7 +164,7 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 				VRB_INSERT(t_order, &h_order, tp);
 			} else {
 				ntop++;
-				tp = calloc(sizeof *tp, 1);
+				tp = calloc(1, sizeof *tp);
 				assert(tp != NULL);
 				tp->hash = u;
 				tp->count = 1.0;
@@ -178,11 +184,20 @@ accumulate(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 	return (0);
 }
 
-static int __match_proto__(VUT_cb_f)
-sighup(void)
+static int v_matchproto_(VUT_cb_f)
+sighup(struct VUT *v)
 {
+	assert(v == vut);
 	quit = 1;
 	return (1);
+}
+
+static void
+vut_sighandler(int sig)
+{
+
+	if (vut != NULL)
+		VUT_Signaled(vut, sig);
 }
 
 static void
@@ -192,7 +207,8 @@ update(int p)
 	int l, len;
 	double t = 0;
 	static time_t last = 0;
-	static unsigned n;
+	static unsigned n = 0;
+	const char *q;
 	time_t now;
 
 	now = time(NULL);
@@ -204,11 +220,12 @@ update(int p)
 	if (n < p)
 		n++;
 	AC(erase());
+	q = ident;
+	len = COLS - strlen(q);
 	if (end_of_file)
-		AC(mvprintw(0, COLS - 1 - strlen(VUT.name) - 5, "%s (EOF)",
-			VUT.name));
+		AC(mvprintw(0, len - (1 + 6), "%s (EOF)", q));
 	else
-		AC(mvprintw(0, COLS - 1 - strlen(VUT.name), "%s", VUT.name));
+		AC(mvprintw(0, len - 1, "%s", q));
 	AC(mvprintw(0, 0, "list length %u", ntop));
 	for (tp = VRB_MIN(t_order, &h_order); tp != NULL; tp = tp2) {
 		tp2 = VRB_NEXT(t_order, &h_order, tp);
@@ -257,12 +274,12 @@ do_curses(void *arg)
 	AC(intrflush(stdscr, FALSE));
 	(void)curs_set(0);
 	AC(erase());
+	timeout(1000);
 	while (!quit) {
 		AZ(pthread_mutex_lock(&mtx));
 		update(period);
 		AZ(pthread_mutex_unlock(&mtx));
 
-		timeout(1000);
 		switch (getch()) {
 		case ERR:
 			break;
@@ -285,8 +302,8 @@ do_curses(void *arg)
 		case 'Q':
 		case 'q':
 			AZ(raise(SIGINT));
-			AC(endwin());
-			return (NULL);
+			quit = 1;
+			break;
 		default:
 			AC(beep());
 			break;
@@ -302,20 +319,19 @@ dump(void)
 	struct top *tp, *tp2;
 	for (tp = VRB_MIN(t_order, &h_order); tp != NULL; tp = tp2) {
 		tp2 = VRB_NEXT(t_order, &h_order, tp);
-		if (tp->count <= 1.0)
-			break;
 		printf("%9.2f %s %*.*s\n",
 			tp->count, VSL_tags[tp->tag],
 			tp->clen, tp->clen, tp->rec_data);
 	}
 }
 
-static void __attribute__((__noreturn__))
+//lint -sem(usage, r_no)
+static void v_noreturn_
 usage(int status)
 {
 	const char **opt;
 
-	fprintf(stderr, "Usage: %s <options>\n\n", progname);
+	fprintf(stderr, "Usage: %s <options>\n\n", vut->progname);
 	fprintf(stderr, "Options:\n");
 	for (opt = vopt_spec.vopt_usage; *opt != NULL; opt +=2)
 		fprintf(stderr, " %-25s %s\n", *opt, *(opt + 1));
@@ -327,13 +343,15 @@ main(int argc, char **argv)
 {
 	int o, once = 0;
 	pthread_t thr;
+	char *e = NULL;
 
-	VUT_Init(progname, argc, argv, &vopt_spec);
+	vut = VUT_InitProg(argc, argv, &vopt_spec);
+	AN(vut);
 
 	while ((o = getopt(argc, argv, vopt_spec.vopt_optstring)) != -1) {
 		switch (o) {
 		case '1':
-			AN(VUT_Arg('d', NULL));
+			AN(VUT_Arg(vut, 'd', NULL));
 			once = 1;
 			break;
 		case 'f':
@@ -344,15 +362,16 @@ main(int argc, char **argv)
 			usage(0);
 		case 'p':
 			errno = 0;
-			period = strtol(optarg, NULL, 0);
-			if (errno != 0)  {
+			e = NULL;
+			period = strtoul(optarg, &e, 0);
+			if (errno != 0 || e == NULL || *e != '\0') {
 				fprintf(stderr,
 				    "Syntax error, %s is not a number", optarg);
 				exit(1);
 			}
 			break;
 		default:
-			if (!VUT_Arg(o, optarg))
+			if (!VUT_Arg(vut, o, optarg))
 				usage(1);
 		}
 	}
@@ -360,23 +379,25 @@ main(int argc, char **argv)
 	if (optind != argc)
 		usage(1);
 
-	VUT_Setup();
-	if (!once) {
-		if (pthread_create(&thr, NULL, do_curses, NULL) != 0) {
-			fprintf(stderr, "pthread_create(): %s\n",
-			    strerror(errno));
-			exit(1);
-		}
-	}
-	VUT.dispatch_f = &accumulate;
-	VUT.dispatch_priv = NULL;
-	VUT.sighup_f = sighup;
-	VUT_Main();
-	end_of_file = 1;
-	if (once)
-		dump();
+	VUT_Signal(vut_sighandler);
+	VUT_Setup(vut);
+	if (vut->vsm)
+		ident = VSM_Dup(vut->vsm, "Arg", "-i");
 	else
-		pthread_join(thr, NULL);
-	VUT_Fini();
-	exit(0);
+		ident = strdup("");
+	AN(ident);
+	vut->dispatch_f = accumulate;
+	vut->dispatch_priv = NULL;
+	vut->sighup_f = sighup;
+	if (once) {
+		(void)VUT_Main(vut);
+		dump();
+	} else {
+		AZ(pthread_create(&thr, NULL, do_curses, NULL));
+		(void)VUT_Main(vut);
+		end_of_file = 1;
+		AZ(pthread_join(thr, NULL));
+	}
+	VUT_Fini(&vut);
+	return (0);
 }

@@ -71,6 +71,30 @@ backend_idle_timeout
 
 Timeout before we close unused backend connections.
 
+.. _ref_param_backend_local_error_holddown:
+
+backend_local_error_holddown
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	* Units: seconds
+	* Default: 10.000
+	* Minimum: 0.000
+	* Flags: experimental
+
+When connecting to backends, certain error codes (EADDRNOTAVAIL, EACCESS, EPERM) signal a local resource shortage or configuration issue for which retrying connection attempts may worsen the situation due to the complexity of the operations involved in the kernel.
+This parameter prevents repeated connection attempts for the configured duration.
+
+.. _ref_param_backend_remote_error_holddown:
+
+backend_remote_error_holddown
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	* Units: seconds
+	* Default: 0.250
+	* Minimum: 0.000
+	* Flags: experimental
+
+When connecting to backends, certain error codes (ECONNREFUSED, ENETUNREACH) signal fundamental connection issues such as the backend not accepting connections or routing problems for which repeated connection attempts are considered useless
+This parameter prevents repeated connection attempts for the configured duration.
+
 .. _ref_param_ban_cutoff:
 
 ban_cutoff
@@ -81,7 +105,10 @@ ban_cutoff
 	* Flags: experimental
 
 Expurge long tail content from the cache to keep the number of bans below this value. 0 disables.
-This is a safety net to avoid bad response times due to bans being tested at lookup time. Setting a cutoff trades response time for cache efficiency. The recommended value is proportional to rate(bans_lurker_tests_tested) / n_objects while the ban lurker is working, which is the number of bans the system can sustain. The additional latency due to request ban testing is in the order of ban_cutoff / rate(bans_lurker_tests_tested). For example, for rate(bans_lurker_tests_tested) = 2M/s and a tolerable latency of 100ms, a good value for ban_cutoff may be 200K.
+
+When this parameter is set to a non-zero value, the ban lurker continues to work the ban list as usual top to bottom, but when it reaches the ban_cutoff-th ban, it treats all objects as if they matched a ban and expurges them from cache. As actively used objects get tested against the ban list at request time and thus are likely to be associated with bans near the top of the ban list, with ban_cutoff, least recently accessed objects (the "long tail") are removed.
+
+This parameter is a safety net to avoid bad response times due to bans being tested at lookup time. Setting a cutoff trades response time for cache efficiency. The recommended value is proportional to rate(bans_lurker_tests_tested) / n_objects while the ban lurker is working, which is the number of bans the system can sustain. The additional latency due to request ban testing is in the order of ban_cutoff / rate(bans_lurker_tests_tested). For example, for rate(bans_lurker_tests_tested) = 2M/s and a tolerable latency of 100ms, a good value for ban_cutoff may be 200K.
 
 .. _ref_param_ban_dups:
 
@@ -152,22 +179,10 @@ This parameter does not apply to pipe'ed requests.
 
 cc_command
 ~~~~~~~~~~
-	* Default: exec clang -g -O2 -Wall -Werror -Wno-error=unused-result  \t-Werror \t-Wall \t-Wno-format-y2k \t-W \t-Wstrict-prototypes \t-Wmissing-prototypes \t-Wpointer-arith \t-Wreturn-type \t-Wcast-qual \t-Wwrite-strings \t-Wswitch \t-Wshadow \t-Wunused-parameter \t-Wcast-align \t-Wchar-subscripts \t-Wnested-externs \t-Wextra \t-Wno-sign-compare  -fstack-protector -Wno-pointer-sign -Wno-address -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s
+	* Default: exec clang -g -O2 -Wall -Werror -Wno-error=unused-result  \t-Werror \t-Wall \t-Wno-format-y2k \t-W \t-Wstrict-prototypes \t-Wmissing-prototypes \t-Wpointer-arith \t-Wreturn-type \t-Wcast-qual \t-Wwrite-strings \t-Wswitch \t-Wshadow \t-Wunused-parameter \t-Wcast-align \t-Wchar-subscripts \t-Wnested-externs \t-Wextra \t-Wno-sign-compare  -fstack-protector -Wno-missing-field-initializers -pthread -fpic -shared -Wl,-x -o %o %s
 	* Flags: must_reload
 
 Command used for compiling the C source code to a dlopen(3) loadable object.  Any occurrence of %s in the string will be replaced with the source file name, and %o will be replaced with the output file name.
-
-.. _ref_param_cli_buffer:
-
-cli_buffer
-~~~~~~~~~~
-	* Units: bytes
-	* Default: 8k
-	* Minimum: 4k
-
-Size of buffer for CLI command input.
-You may need to increase this if you have big VCL files and use the vcl.inline CLI command.
-NB: Must be specified with -p to have effect.
 
 .. _ref_param_cli_limit:
 
@@ -293,6 +308,18 @@ Use +/- prefix to set/reset individual bits:
 	*h2_nocheck*
 		Disable various H2 checks
 
+	*vmod_so_keep*
+		Keep copied VMOD libraries
+
+	*processors*
+		Fetch/Deliver processors
+
+	*protocol*
+		Protocol debugging
+
+	*vcl_keep*
+		Keep VCL C and so files
+
 .. _ref_param_default_grace:
 
 default_grace
@@ -325,6 +352,18 @@ default_ttl
 	* Flags: obj_sticky
 
 The TTL assigned to objects if neither the backend nor the VCL code assigns one.
+
+.. _ref_param_esi_iovs:
+
+esi_iovs
+~~~~~~~~
+	* Units: struct iovec
+	* Default: 10
+	* Minimum: 3
+	* Maximum: 1024
+	* Flags: wizard
+
+Number of io vectors to allocate on the thread workspace for ESI requests.
 
 .. _ref_param_feature:
 
@@ -365,6 +404,9 @@ Use +/- prefix to enable/disable individual feature:
 
 	*http2*
 		Support HTTP/2 protocol
+
+	*http_date_postel*
+		Relax parsing of timestamps in HTTP headers
 
 .. _ref_param_fetch_chunksize:
 
@@ -432,6 +474,62 @@ gzip_memlevel
 Gzip memory level 1=slow/least, 9=fast/most compression.
 Memory impact is 1=1k, 2=2k, ... 9=256k.
 
+.. _ref_param_h2_header_table_size:
+
+h2_header_table_size
+~~~~~~~~~~~~~~~~~~~~
+	* Units: bytes
+	* Default: 4k
+	* Minimum: 0b
+
+HTTP2 header table size.
+This is the size that will be used for the HPACK dynamic
+decoding table.
+
+.. _ref_param_h2_initial_window_size:
+
+h2_initial_window_size
+~~~~~~~~~~~~~~~~~~~~~~
+	* Units: bytes
+	* Default: 65535b
+	* Minimum: 0b
+	* Maximum: 2147483647b
+
+HTTP2 initial flow control window size.
+
+.. _ref_param_h2_max_concurrent_streams:
+
+h2_max_concurrent_streams
+~~~~~~~~~~~~~~~~~~~~~~~~~
+	* Units: streams
+	* Default: 100
+	* Minimum: 0
+
+HTTP2 Maximum number of concurrent streams.
+This is the number of requests that can be active
+at the same time for a single HTTP2 connection.
+
+.. _ref_param_h2_max_frame_size:
+
+h2_max_frame_size
+~~~~~~~~~~~~~~~~~
+	* Units: bytes
+	* Default: 16k
+	* Minimum: 16k
+	* Maximum: 16777215b
+
+HTTP2 maximum per frame payload size we are willing to accept.
+
+.. _ref_param_h2_max_header_list_size:
+
+h2_max_header_list_size
+~~~~~~~~~~~~~~~~~~~~~~~
+	* Units: bytes
+	* Default: 2147483647b
+	* Minimum: 0b
+
+HTTP2 maximum size of an uncompressed header list.
+
 .. _ref_param_h2_rx_window_increment:
 
 h2_rx_window_increment
@@ -471,6 +569,8 @@ Enable gzip support. When enabled Varnish request compressed objects from the ba
   Accept-Encoding: gzip
 
 Clients that do not support gzip will have their Accept-Encoding header removed. For more information on how gzip is implemented please see the chapter on gzip in the Varnish reference.
+
+When gzip support is disabled the variables beresp.do_gzip and beresp.do_gunzip have no effect in VCL.
 
 .. _ref_param_http_max_hdr:
 
@@ -533,8 +633,8 @@ http_resp_size
 	* Default: 32k
 	* Minimum: 0.25k
 
-Maximum number of bytes of HTTP backend response we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP request.
-The memory for the request is allocated from the backend workspace (param: workspace_backend) and this parameter limits how much of that the request is allowed to take up.
+Maximum number of bytes of HTTP backend response we will deal with.  This is a limit on all bytes up to the double blank line which ends the HTTP response.
+The memory for the response is allocated from the backend workspace (param: workspace_backend) and this parameter limits how much of that the response is allowed to take up.
 
 .. _ref_param_idle_send_timeout:
 
@@ -545,9 +645,11 @@ idle_send_timeout
 	* Minimum: 0.000
 	* Flags: delayed
 
-Time to wait with no data sent. If no data has been transmitted in this many
-seconds the session is closed.
-See setsockopt(2) under SO_SNDTIMEO for more information.
+Send timeout for individual pieces of data on client connections. May get extended if 'send_timeout' applies.
+
+When this timeout is hit, the session is closed.
+
+See the man page for `setsockopt(2)` under ``SO_SNDTIMEO`` for more information.
 
 .. _ref_param_listen_depth:
 
@@ -591,7 +693,6 @@ max_restarts
 	* Minimum: 0
 
 Upper limit on how many times a request can restart.
-Be aware that restarts are likely to cause a hit against the backend, so don't increase thoughtlessly.
 
 .. _ref_param_max_retries:
 
@@ -752,9 +853,11 @@ send_timeout
 	* Minimum: 0.000
 	* Flags: delayed
 
-Send timeout for client connections. If the HTTP response hasn't been transmitted in this many
-seconds the session is closed.
-See setsockopt(2) under SO_SNDTIMEO for more information.
+Total timeout for ordinary HTTP1 responses. Does not apply to some internally generated errors and pipe mode.
+
+When 'idle_send_timeout' is hit while sending an HTTP1 response, the timeout is extended unless the total time already taken for sending the response in its entirety exceeds this many seconds.
+
+When this timeout is hit, the session is closed
 
 .. _ref_param_shm_reclen:
 
@@ -816,7 +919,7 @@ tcp_keepalive_intvl
 	* Maximum: 100.000
 	* Flags: experimental
 
-The number of seconds between TCP keep-alive probes.
+The number of seconds between TCP keep-alive probes. Ignored for Unix domain sockets.
 
 .. _ref_param_tcp_keepalive_probes:
 
@@ -828,7 +931,7 @@ tcp_keepalive_probes
 	* Maximum: 100
 	* Flags: experimental
 
-The maximum number of TCP keep-alive probes to send before giving up and killing the connection if no response is obtained from the other end.
+The maximum number of TCP keep-alive probes to send before giving up and killing the connection if no response is obtained from the other end. Ignored for Unix domain sockets.
 
 .. _ref_param_tcp_keepalive_time:
 
@@ -840,7 +943,7 @@ tcp_keepalive_time
 	* Maximum: 7200.000
 	* Flags: experimental
 
-The number of seconds a connection needs to be idle before TCP begins sending out keep-alive probes.
+The number of seconds a connection needs to be idle before TCP begins sending out keep-alive probes. Ignored for Unix domain sockets.
 
 .. _ref_param_thread_pool_add_delay:
 
@@ -897,7 +1000,7 @@ thread_pool_max
 	* Minimum: 100
 	* Flags: delayed
 
-The maximum number of worker threads in each pool.
+The maximum number of worker threads in each pool. The minimum value depends on thread_pool_min.
 
 Do not set this higher than you have to, since excess worker threads soak up RAM and CPU and generally just get in the way of getting work done.
 
@@ -910,7 +1013,7 @@ thread_pool_min
 	* Maximum: 5000
 	* Flags: delayed
 
-The minimum number of worker threads in each pool.
+The minimum number of worker threads in each pool. The maximum value depends on thread_pool_max.
 
 Increasing this may help ramp up faster from low load situations or when threads have expired.
 
@@ -969,6 +1072,19 @@ Thread idle threshold.
 
 Threads in excess of thread_pool_min, which have been idle for at least this long, will be destroyed.
 
+.. _ref_param_thread_pool_watchdog:
+
+thread_pool_watchdog
+~~~~~~~~~~~~~~~~~~~~
+	* Units: seconds
+	* Default: 60.000
+	* Minimum: 0.100
+	* Flags: experimental
+
+Thread queue stuck watchdog.
+
+If no queued work have been released for this long, the worker process panics itself.
+
 .. _ref_param_thread_pools:
 
 thread_pools
@@ -1020,7 +1136,10 @@ timeout_idle
 	* Minimum: 0.000
 
 Idle timeout for client connections.
-A connection is considered idle, until we have received the full request headers.
+
+A connection is considered idle until we have received the full request headers.
+
+This parameter is particularly relevant for HTTP1 keepalive  connections which are closed unless the next request is received before this timeout is reached.
 
 .. _ref_param_timeout_linger:
 
@@ -1124,7 +1243,7 @@ The minimum tracks the vsl_reclen parameter + 12 bytes.
 
 vsl_mask
 ~~~~~~~~
-	* Default: -VCL_trace,-WorkThread,-Hash,-VfpAcct
+	* Default: -ObjProtocol,-ObjStatus,-ObjReason,-ObjHeader,-VCL_trace,-WorkThread,-Hash,-VfpAcct,-H2RxHdr,-H2RxBody,-H2TxHdr,-H2TxBody
 
 Mask individual VSL messages from being logged.
 
@@ -1176,10 +1295,10 @@ vsm_space
 	* Units: bytes
 	* Default: 1M
 	* Minimum: 1M
-	* Maximum: 4G
-	* Flags: must_restart
+	* Maximum: 1G
 
-The amount of space to allocate for stats counters in the VSM memory segment.  If you make this too small, some counters will be invisible.  Making it too large just costs memory resources.
+DEPRECATED: This parameter is ignored.
+There is no global limit on amount of shared memory now.
 
 .. _ref_param_workspace_backend:
 
@@ -1227,5 +1346,5 @@ workspace_thread
 
 Bytes of auxiliary workspace per thread.
 This workspace is used for certain temporary data structures during the operation of a worker thread.
-One use is for the io-vectors for writing requests and responses to sockets, having too little space will result in more writev(2) system calls, having too much just wastes the space.
+One use is for the IO-vectors used during delivery. Setting this parameter too low may increase the number of writev() syscalls, setting it too high just wastes space.  ~0.1k + UIO_MAXIOV * sizeof(struct iovec) (typically = ~16k for 64bit) is considered the maximum sensible value under any known circumstances (excluding exotic vmod use).
 

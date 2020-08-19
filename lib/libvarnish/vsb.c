@@ -51,8 +51,8 @@ __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
  */
 #define	VSB_ISDYNAMIC(s)	((s)->s_flags & VSB_DYNAMIC)
 #define	VSB_ISDYNSTRUCT(s)	((s)->s_flags & VSB_DYNSTRUCT)
-#define	VSB_HASROOM(s)		((s)->s_len < (s)->s_size - 1)
-#define	VSB_FREESPACE(s)	((s)->s_size - ((s)->s_len + 1))
+#define	VSB_HASROOM(s)		((s)->s_len < (s)->s_size - 1L)
+#define	VSB_FREESPACE(s)	((s)->s_size - ((s)->s_len + 1L))
 #define	VSB_CANEXTEND(s)	((s)->s_flags & VSB_AUTOEXTEND)
 
 /*
@@ -114,10 +114,10 @@ CTASSERT(powerof2(VSB_MAXEXTENDSIZE));
 CTASSERT(powerof2(VSB_MAXEXTENDINCR));
 #endif
 
-static int
-VSB_extendsize(int size)
+static ssize_t
+VSB_extendsize(ssize_t size)
 {
-	int newsize;
+	ssize_t newsize;
 
 	if (size < (int)VSB_MAXEXTENDSIZE) {
 		newsize = VSB_MINEXTENDSIZE;
@@ -133,11 +133,11 @@ VSB_extendsize(int size)
 /*
  * Extend an vsb.
  */
-static int
-VSB_extend(struct vsb *s, int addlen)
+static ssize_t
+VSB_extend(struct vsb *s, ssize_t addlen)
 {
 	char *newbuf;
-	int newsize;
+	ssize_t newsize;
 
 	if (!VSB_CANEXTEND(s))
 		return (-1);
@@ -544,8 +544,8 @@ VSB_quote_pfx(struct vsb *s, const char *pfx, const void *v, int len, int how)
 	}
 	if (!quote && !(how & (VSB_QUOTE_JSON|VSB_QUOTE_CSTR))) {
 		(void)VSB_bcat(s, p, len);
-		if ((how & (VSB_QUOTE_UNSAFE|VSB_QUOTE_NONL))
-		    && p[len-1] != '\n')
+		if ((how & (VSB_QUOTE_UNSAFE|VSB_QUOTE_NONL)) &&
+		    p[len-1] != '\n')
 			(void)VSB_putc(s, '\n');
 		return;
 	}
@@ -574,7 +574,7 @@ VSB_quote_pfx(struct vsb *s, const char *pfx, const void *v, int len, int how)
 			break;
 		case '\n':
 			if (how & VSB_QUOTE_CSTR) {
-				(void)VSB_printf(s, "\\n\"\n%s\t\"", pfx);
+				(void)VSB_printf(s, "\\n\"\n%s\"", pfx);
 			} else if (how & (VSB_QUOTE_NONL|VSB_QUOTE_UNSAFE)) {
 				(void)VSB_printf(s, "\n");
 				nl = 1;

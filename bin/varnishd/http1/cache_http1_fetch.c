@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
- * Copyright (c) 2006-2015 Varnish Software AS
+ * Copyright (c) 2006-2019 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -29,17 +29,15 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
+#include "cache/cache_filter.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "vrt.h"
 #include "vtcp.h"
 #include "vtim.h"
-
-#include "hash/hash_slinger.h"
 
 #include "cache_http1.h"
 
@@ -47,7 +45,7 @@
  * Pass the request body to the backend
  */
 
-static int __match_proto__(objiterate_f)
+static int v_matchproto_(objiterate_f)
 vbf_iter_req_body(void *priv, int flush, const void *ptr, ssize_t l)
 {
 	struct busyobj *bo;
@@ -55,7 +53,7 @@ vbf_iter_req_body(void *priv, int flush, const void *ptr, ssize_t l)
 	CAST_OBJ_NOTNULL(bo, priv, BUSYOBJ_MAGIC);
 
 	if (l > 0) {
-		bo->acct.bereq_bodybytes += V1L_Write(bo->wrk, ptr, l);
+		(void)V1L_Write(bo->wrk, ptr, l);
 		if (flush && V1L_Flush(bo->wrk))
 			return (-1);
 	}
@@ -71,21 +69,22 @@ vbf_iter_req_body(void *priv, int flush, const void *ptr, ssize_t l)
  */
 
 int
-V1F_SendReq(struct worker *wrk, struct busyobj *bo, uint64_t *ctr,
-    int onlycached)
+V1F_SendReq(struct worker *wrk, struct busyobj *bo, uint64_t *ctr_hdrbytes,
+    uint64_t *ctr_bodybytes, int onlycached, char *abuf, char *pbuf)
 {
 	struct http *hp;
 	int j;
 	ssize_t i;
+	uint64_t bytes, hdrbytes;
 	struct http_conn *htc;
 	int do_chunked = 0;
-	char abuf[VTCP_ADDRBUFSIZE];
-	char pbuf[VTCP_PORTBUFSIZE];
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 	CHECK_OBJ_NOTNULL(bo->htc, HTTP_CONN_MAGIC);
 	CHECK_OBJ_ORNULL(bo->req, REQ_MAGIC);
+	AN(ctr_hdrbytes);
+	AN(ctr_bodybytes);
 
 	htc = bo->htc;
 	assert(*htc->rfd > 0);
@@ -97,12 +96,11 @@ V1F_SendReq(struct worker *wrk, struct busyobj *bo, uint64_t *ctr,
 		do_chunked = 1;
 	}
 
-	VTCP_hisname(*htc->rfd, abuf, sizeof abuf, pbuf, sizeof pbuf);
 	VSLb(bo->vsl, SLT_BackendStart, "%s %s", abuf, pbuf);
 
-	(void)VTCP_blocking(*htc->rfd);	/* XXX: we should timeout instead */
-	V1L_Reserve(wrk, wrk->aws, htc->rfd, bo->vsl, bo->t_prev);
-	*ctr += HTTP1_Write(wrk, hp, HTTP1_Req);
+	VTCP_blocking(*htc->rfd);	/* XXX: we should timeout instead */
+	V1L_Open(wrk, wrk->aws, htc->rfd, bo->vsl, bo->t_prev, 0);
+	hdrbytes = HTTP1_Write(wrk, hp, HTTP1_Req);
 
 	/* Deal with any message-body the request might (still) have */
 	i = 0;
@@ -124,7 +122,16 @@ V1F_SendReq(struct worker *wrk, struct busyobj *bo, uint64_t *ctr,
 			V1L_EndChunk(wrk);
 	}
 
-	j = V1L_FlushRelease(wrk);
+	j = V1L_Close(wrk, &bytes);
+
+	/* Bytes accounting */
+	if (bytes < hdrbytes)
+		*ctr_hdrbytes += bytes;
+	else {
+		*ctr_hdrbytes += hdrbytes;
+		*ctr_bodybytes += bytes - hdrbytes;
+	}
+
 	if (j != 0 || i < 0) {
 		VSLb(bo->vsl, SLT_FetchError, "backend write error: %d (%s)",
 		    errno, strerror(errno));
@@ -163,7 +170,7 @@ V1F_FetchRespHdr(struct busyobj *bo)
 
 	t = VTIM_real() + htc->first_byte_timeout;
 	hs = HTC_RxStuff(htc, HTTP1_Complete, NULL, NULL,
-	    t, t + htc->between_bytes_timeout, cache_param->http_resp_size);
+	     t, NAN, htc->between_bytes_timeout, cache_param->http_resp_size);
 	if (hs != HTC_S_COMPLETE) {
 		bo->acct.beresp_hdrbytes +=
 		    htc->rxbuf_e - htc->rxbuf_b;
@@ -185,7 +192,8 @@ V1F_FetchRespHdr(struct busyobj *bo)
 			htc->doclose = SC_RX_OVERFLOW;
 			break;
 		default:
-			VSLb(bo->vsl, SLT_FetchError, "HTC status %d", hs);
+			VSLb(bo->vsl, SLT_FetchError, "HTC %s (%d)",
+			     HTC_Status(hs), hs);
 			htc->doclose = SC_RX_BAD;
 			break;
 		}
@@ -204,6 +212,16 @@ V1F_FetchRespHdr(struct busyobj *bo)
 	}
 
 	htc->doclose = http_DoConnection(hp);
+	RFC2616_Response_Body(bo->wrk, bo);
+
+	assert(bo->vfc->resp == bo->beresp);
+	if (bo->htc->body_status != BS_NONE &&
+	    bo->htc->body_status != BS_ERROR)
+		if (V1F_Setup_Fetch(bo->vfc, bo->htc)) {
+			VSLb(bo->vsl, SLT_FetchError, "overflow");
+			htc->doclose = SC_RX_OVERFLOW;
+			return (-1);
+		}
 
 	return (0);
 }

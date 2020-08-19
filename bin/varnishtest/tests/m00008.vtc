@@ -6,6 +6,10 @@ varnish v1 -errvcl {Module debug conflicts with other symbol.} {
 	backend b { .host = "127.0.0.1"; }
 	sub debug {}
 	import debug;
+
+	sub vcl_recv {
+		call debug;
+	}
 }
 
 server s1 {
@@ -43,4 +47,3 @@ varnish v1 -errvcl {Malformed VMOD std} {
 	backend default { .host = "${s1_sock}"; }
 	import std from "${topbuild}/lib/libvmod_debug/.libs/libvmod_debug.so";
 }
-

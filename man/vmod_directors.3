@@ -41,8 +41,90 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" 
 .
 .SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
 .sp
+.nf
+.ft C
 import directors [from "path"] ;
+
+new xround_robin = directors.round_robin()
+
+   VOID xround_robin.add_backend(BACKEND)
+
+   VOID xround_robin.remove_backend(BACKEND)
+
+   BACKEND xround_robin.backend()
+
+new xfallback = directors.fallback(BOOL sticky)
+
+   VOID xfallback.add_backend(BACKEND)
+
+   VOID xfallback.remove_backend(BACKEND)
+
+   BACKEND xfallback.backend()
+
+new xrandom = directors.random()
+
+   VOID xrandom.add_backend(BACKEND, REAL)
+
+   VOID xrandom.remove_backend(BACKEND)
+
+   BACKEND xrandom.backend()
+
+new xhash = directors.hash()
+
+   VOID xhash.add_backend(BACKEND, REAL)
+
+   VOID xhash.remove_backend(BACKEND)
+
+   BACKEND xhash.backend(STRING)
+
+new xshard = directors.shard()
+
+   VOID xshard.set_warmup(REAL probability)
+
+   VOID xshard.set_rampup(DURATION duration)
+
+   VOID xshard.associate(BLOB param)
+
+   BOOL xshard.add_backend(BACKEND backend, [STRING ident], [DURATION rampup])
+
+   BOOL xshard.remove_backend([BACKEND backend], [STRING ident])
+
+   BOOL xshard.clear()
+
+   BOOL xshard.reconfigure(INT replicas)
+
+   INT xshard.key(STRING)
+
+   BACKEND xshard.backend([ENUM by], [INT key], [BLOB key_blob], [INT alt], [REAL warmup], [BOOL rampup], [ENUM healthy], [BLOB param], [ENUM resolve])
+
+   VOID xshard.debug(INT)
+
+new xshard_param = directors.shard_param()
+
+   VOID xshard_param.clear()
+
+   VOID xshard_param.set([ENUM by], [INT key], [BLOB key_blob], [INT alt], [REAL warmup], [BOOL rampup], [ENUM healthy])
+
+   STRING xshard_param.get_by()
+
+   INT xshard_param.get_key()
+
+   INT xshard_param.get_alt()
+
+   REAL xshard_param.get_warmup()
+
+   BOOL xshard_param.get_rampup()
+
+   STRING xshard_param.get_healthy()
+
+   BLOB xshard_param.use()
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH DESCRIPTION
 .sp
 \fIvmod_directors\fP enables backend load balancing in Varnish.
@@ -77,30 +159,7 @@ directors elsewhere in VCL. So, you could have VCL code that would
 add more backends to a director when a certain URL is called.
 .sp
 Note that directors can use other directors as backends.
-.SH CONTENTS
-.INDENT 0.0
-.IP \(bu 2
-round_robin()
-.IP \(bu 2
-fallback(BOOL)
-.IP \(bu 2
-random()
-.IP \(bu 2
-hash()
-.IP \(bu 2
-shard()
-.UNINDENT
-.SS round_robin
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-new OBJ = round_robin()
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS new xround_robin = directors.round_robin()
 .INDENT 0.0
 .TP
 .B Description
@@ -111,17 +170,7 @@ This director will pick backends in a round robin fashion.
 .B Example
 new vdir = directors.round_robin();
 .UNINDENT
-.SS round_robin.add_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID round_robin.add_backend(BACKEND)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xround_robin.add_backend(BACKEND)
 .INDENT 0.0
 .TP
 .B Description
@@ -129,19 +178,8 @@ Add a backend to the round\-robin director.
 .TP
 .B Example
 vdir.add_backend(backend1);
-vdir.add_backend(backend2);
 .UNINDENT
-.SS round_robin.remove_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID round_robin.remove_backend(BACKEND)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xround_robin.remove_backend(BACKEND)
 .INDENT 0.0
 .TP
 .B Description
@@ -149,19 +187,8 @@ Remove a backend from the round\-robin director.
 .TP
 .B Example
 vdir.remove_backend(backend1);
-vdir.remove_backend(backend2);
 .UNINDENT
-.SS round_robin.backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-BACKEND round_robin.backend()
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS BACKEND xround_robin.backend()
 .INDENT 0.0
 .TP
 .B Description
@@ -170,17 +197,7 @@ Pick a backend from the director.
 .B Example
 set req.backend_hint = vdir.backend();
 .UNINDENT
-.SS fallback
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-new OBJ = fallback(BOOL sticky=0)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS new xfallback = directors.fallback(BOOL sticky=0)
 .INDENT 0.0
 .TP
 .B Description
@@ -196,17 +213,7 @@ whole backend list is exhausted, it\(aqll start over at the beginning.
 .B Example
 new vdir = directors.fallback();
 .UNINDENT
-.SS fallback.add_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID fallback.add_backend(BACKEND)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xfallback.add_backend(BACKEND)
 .INDENT 0.0
 .TP
 .B Description
@@ -217,19 +224,8 @@ director.
 .TP
 .B Example
 vdir.add_backend(backend1);
-vdir.add_backend(backend2);
 .UNINDENT
-.SS fallback.remove_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID fallback.remove_backend(BACKEND)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xfallback.remove_backend(BACKEND)
 .INDENT 0.0
 .TP
 .B Description
@@ -237,19 +233,8 @@ Remove a backend from the director.
 .TP
 .B Example
 vdir.remove_backend(backend1);
-vdir.remove_backend(backend2);
 .UNINDENT
-.SS fallback.backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-BACKEND fallback.backend()
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS BACKEND xfallback.backend()
 .INDENT 0.0
 .TP
 .B Description
@@ -258,17 +243,7 @@ Pick a backend from the director.
 .B Example
 set req.backend_hint = vdir.backend();
 .UNINDENT
-.SS random
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-new OBJ = random()
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS new xrandom = directors.random()
 .INDENT 0.0
 .TP
 .B Description
@@ -282,42 +257,25 @@ enables deterministic tests to be run (See: d00004.vtc).
 .B Example
 new vdir = directors.random();
 .UNINDENT
-.SS random.add_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID random.add_backend(BACKEND, REAL)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xrandom.add_backend(BACKEND, REAL)
 .INDENT 0.0
 .TP
 .B Description
 Add a backend to the director with a given weight.
 .sp
-Each backend backend will receive approximately
-100 * (weight / (sum(all_added_weights))) per cent of the traffic sent
-to this director.
+Each backend will receive approximately 100 * (weight /
+(sum(all_added_weights))) per cent of the traffic sent to this
+director.
 .TP
 .B Example
+.nf
 # 2/3 to backend1, 1/3 to backend2.
 vdir.add_backend(backend1, 10.0);
 vdir.add_backend(backend2, 5.0);
-.UNINDENT
-.SS random.remove_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID random.remove_backend(BACKEND)
-.ft P
 .fi
+.sp
 .UNINDENT
-.UNINDENT
+.SS VOID xrandom.remove_backend(BACKEND)
 .INDENT 0.0
 .TP
 .B Description
@@ -325,19 +283,8 @@ Remove a backend from the director.
 .TP
 .B Example
 vdir.remove_backend(backend1);
-vdir.remove_backend(backend2);
 .UNINDENT
-.SS random.backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-BACKEND random.backend()
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS BACKEND xrandom.backend()
 .INDENT 0.0
 .TP
 .B Description
@@ -346,17 +293,7 @@ Pick a backend from the director.
 .B Example
 set req.backend_hint = vdir.backend();
 .UNINDENT
-.SS hash
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-new OBJ = hash()
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS new xhash = directors.hash()
 .INDENT 0.0
 .TP
 .B Description
@@ -371,17 +308,7 @@ sticky sessions.
 .B Example
 new vdir = directors.hash();
 .UNINDENT
-.SS hash.add_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID hash.add_backend(BACKEND, REAL)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xhash.add_backend(BACKEND, REAL)
 .INDENT 0.0
 .TP
 .B Description
@@ -392,19 +319,8 @@ Weight is used as in the random director. Recommended value is
 .TP
 .B Example
 vdir.add_backend(backend1, 1.0);
-vdir.add_backend(backend2, 1.0);
 .UNINDENT
-.SS hash.remove_backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID hash.remove_backend(BACKEND)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xhash.remove_backend(BACKEND)
 .INDENT 0.0
 .TP
 .B Description
@@ -412,19 +328,8 @@ Remove a backend from the director.
 .TP
 .B Example
 vdir.remove_backend(backend1);
-vdir.remove_backend(backend2);
 .UNINDENT
-.SS hash.backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-BACKEND hash.backend(STRING)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS BACKEND xhash.backend(STRING)
 .INDENT 0.0
 .TP
 .B Description
@@ -433,26 +338,22 @@ Pick a backend from the backend director.
 Use the string or list of strings provided to pick the backend.
 .TP
 .B Example
+.nf
 # pick a backend based on the cookie header from the client
 set req.backend_hint = vdir.backend(req.http.cookie);
-.UNINDENT
-.SS shard
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-new OBJ = shard()
-.ft P
 .fi
+.sp
 .UNINDENT
-.UNINDENT
+.SS new xshard = directors.shard()
 .sp
 Create a shard director.
 .sp
 Note that the shard director needs to be configured using at least one
 \fBshard.add_backend()\fP call(s) \fBfollowed by a\fP
 \fBshard.reconfigure()\fP \fBcall\fP before it can hand out backends.
+.sp
+_Note_ that due to various restrictions (documented below), it is
+recommended to use the shard director on the backend side.
 .SS Introduction
 .sp
 The shard director selects backends by a key, which can be provided
@@ -526,10 +427,11 @@ a selected server for as long as possible (or dictated by a TTL)).
 .SS Method
 .sp
 When \fB\&.reconfigure()\fP is called, a consistent hashing circular data
-structure gets built from hash values of "ident%d" (default ident
-being the backend name) for each backend and for a running number from
-1 to n (n is the number of \fIreplicas\fP). Hashing creates the seemingly
-random order for placement of backends on the consistent hashing ring.
+structure gets built from the last 32 bits of SHA256 hash values of
+\fI<ident>\fP\fI<n>\fP (default \fIident\fP being the backend name) for each
+backend and for a running number \fIn\fP from 1 to \fIreplicas\fP\&. Hashing
+creates the seemingly random order for placement of backends on the
+consistent hashing ring.
 .sp
 When \fB\&.backend()\fP is called, a load balancing key gets generated
 unless provided. The smallest hash value in the circle is looked up
@@ -568,45 +470,35 @@ varnishlog \-I Error:^shard
 .fi
 .UNINDENT
 .UNINDENT
-.SS shard.set_warmup
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID shard.set_warmup(REAL probability=0.0)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS VOID xshard.set_warmup(REAL probability=0.0)
 .sp
 Set the default warmup probability. See the \fIwarmup\fP parameter of
-\fBshard.backend()\fP\&.
-.sp
-Default: 0.0 (no warmup)
-.SS shard.set_rampup
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-VOID shard.set_rampup(DURATION duration=0)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+\fBshard.backend()\fP\&. If probability is 0.0 (default), warmup is
+disabled.
+.SS VOID xshard.set_rampup(DURATION duration=0)
 .sp
 Set the default rampup duration. See \fIrampup\fP parameter of
-\fIshard.backend()\fP\&.
+\fIshard.backend()\fP\&. If duration is 0 (default), rampup is disabled.
+.SS VOID xshard.associate(BLOB param=0)
 .sp
-Default: 0s (no rampup)
-.SS shard.add_backend
+Associate a default \fI\%obj_shard_param\fP object or clear an association.
+.sp
+The value of the \fIparam\fP argument must be a call to the
+\fI\%func_shard_param.use\fP method. No argument clears the association.
+.sp
+The association can be changed per backend request using the \fIparam\fP
+argument of \fI\%func_shard.backend\fP\&.
+.SS shard.add_backend(...)
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-BOOL shard.add_backend(PRIV_TASK, BACKEND backend, STRING ident=0, DURATION rampup=973279260)
+BOOL xshard.add_backend(
+      BACKEND backend,
+      [STRING ident],
+      [DURATION rampup]
+)
 .ft P
 .fi
 .UNINDENT
@@ -622,18 +514,21 @@ backend name.
 \fIident\fP allows to add multiple instances of the same backend.
 .sp
 \fIrampup\fP: Optionally specify a specific rampup time for this
-backend. The magic default value of \fI973279260s\fP instructs the shard
-director to use the default rampup time (see \fIfunc_shard.set_rampup\fP).
+backend. Otherwise, the per\-director rampup time is used (see
+\fIfunc_shard.set_rampup\fP).
 .sp
 NOTE: Backend changes need to be finalized with \fIshard.reconfigure()\fP
 and are only supported on one shard director at a time.
-.SS shard.remove_backend
+.SS shard.remove_backend(...)
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-BOOL shard.remove_backend(PRIV_TASK, BACKEND backend=0, STRING ident=0)
+BOOL xshard.remove_backend(
+      [BACKEND backend=0],
+      [STRING ident=0]
+)
 .ft P
 .fi
 .UNINDENT
@@ -645,60 +540,44 @@ given without \fIident\fP, all instances of this backend are removed.
 .sp
 NOTE: Backend changes need to be finalized with \fIshard.reconfigure()\fP
 and are only supported on one shard director at a time.
-.SS shard.clear
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-BOOL shard.clear(PRIV_TASK)
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS BOOL xshard.clear()
 .sp
 Remove all backends from the director.
 .sp
 NOTE: Backend changes need to be finalized with \fIshard.reconfigure()\fP
 and are only supported on one shard director at a time.
-.SS shard.reconfigure
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-BOOL shard.reconfigure(PRIV_TASK, INT replicas=67, ENUM {CRC32,SHA256,RS} alg="SHA256")
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
+.SS BOOL xshard.reconfigure(INT replicas=67)
 .sp
 Reconfigure the consistent hashing ring to reflect backend changes.
 .sp
 This method must be called at least once before the director can be
 used.
-.SS shard.key
+.SS INT xshard.key(STRING)
+.sp
+Convenience method to generate a sharding key for use with the \fIkey\fP
+argument to the \fBshard.backend()\fP method by hashing the given string
+with SHA256.
+.sp
+To generate sharding keys using other hashes, use a custom vmod like
+\fI\%vmod blobdigest\fP with the \fIkey_blob\fP argument of the
+\fBshard.backend()\fP method.
+.SS shard.backend(...)
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-INT shard.key(STRING string, ENUM {CRC32,SHA256,RS} alg="SHA256")
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
-.sp
-Utility method to generate a sharding key for use with the
-\fBshard.backend()\fP method by hashing \fIstring\fP with hash algorithm
-\fIalg\fP\&.
-.SS shard.backend
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-BACKEND shard.backend(ENUM {HASH,URL,KEY,BLOB} by="HASH", INT key=0, BLOB key_blob=0, INT alt=0, REAL warmup=\-1, BOOL rampup=1, ENUM {CHOSEN,IGNORE,ALL} healthy="CHOSEN")
+BACKEND xshard.backend(
+      [ENUM {HASH, URL, KEY, BLOB} by=HASH],
+      [INT key],
+      [BLOB key_blob],
+      [INT alt=0],
+      [REAL warmup=\-1],
+      [BOOL rampup=1],
+      [ENUM {CHOSEN, IGNORE, ALL} healthy=CHOSEN],
+      [BLOB param],
+      [ENUM {NOW, LAZY} resolve]
+)
 .ft P
 .fi
 .UNINDENT
@@ -715,8 +594,6 @@ is _not_ the order given when backends are added.
 .INDENT 0.0
 .IP \(bu 2
 \fIby\fP how to determine the sharding key
-.sp
-default: \fIHASH\fP
 .INDENT 2.0
 .IP \(bu 2
 \fIHASH\fP:
@@ -725,7 +602,7 @@ default: \fIHASH\fP
 when called in backend context: Use the varnish hash value as
 set by \fIvcl_hash\fP
 .IP \(bu 2
-when called in client content: hash \fIreq.url\fP
+when called in client context: hash \fIreq.url\fP
 .UNINDENT
 .IP \(bu 2
 \fIURL\fP: hash req.url / bereq.url
@@ -733,6 +610,7 @@ when called in client content: hash \fIreq.url\fP
 \fIKEY\fP: use the \fIkey\fP argument
 .IP \(bu 2
 \fIBLOB\fP: use the \fIkey_blob\fP argument
+.UNINDENT
 .IP \(bu 2
 \fIkey\fP lookup key with \fIby=KEY\fP
 .sp
@@ -744,11 +622,8 @@ key from custom strings.
 Currently, this uses the first 4 bytes from the given blob in
 network byte order (big endian), left\-padded with zeros for blobs
 smaller than 4 bytes.
-.UNINDENT
 .IP \(bu 2
 \fIalt\fP alternative backend selection
-.sp
-default: \fI0\fP
 .sp
 Select the \fIalt\fP\-th alternative backend for the given \fIkey\fP\&.
 .sp
@@ -759,8 +634,6 @@ healthy=ALL, another server gets selected.
 The rampup and warmup features are only active for \fIalt==0\fP
 .IP \(bu 2
 \fIrampup\fP slow start for servers which just went healthy
-.sp
-default: \fItrue\fP
 .sp
 If \fIalt==0\fP and the chosen backend is in its rampup period, with a
 probability proportional to the fraction of time since the backup
@@ -775,8 +648,6 @@ The default rampup interval can be set per shard director using the
 .sp
 possible values: \-1, 0..1
 .sp
-default: \fI\-1\fP
-.sp
 \fI\-1\fP: use the warmup probability from the director definition
 .sp
 Only used for \fIalt==0\fP: Sets the ratio of requests (0.0 to 1.0) that
@@ -788,8 +659,6 @@ alternative backend are in rampup.
 over two backends under normal operating conditions.
 .IP \(bu 2
 \fIhealthy\fP
-.sp
-default: \fICHOSEN\fP
 .INDENT 2.0
 .IP \(bu 2
 CHOSEN: Return a healthy backend if possible.
@@ -811,27 +680,168 @@ ALL: Check health state also for alternative backend selection
 For \fIalt > 0\fP, return the \fIalt\fP\-th alternative backend of all
 those healthy, the last healthy backend found or none.
 .UNINDENT
+.IP \(bu 2
+\fIresolve\fP
+.sp
+default: \fILAZY\fP in \fBvcl_init{}\fP, \fINOW\fP otherwise
+.INDENT 2.0
+.IP \(bu 2
+\fBNOW\fP: look up a backend and return it.
+.sp
+Can not be used in \fBvcl_init{}\fP\&.
+.IP \(bu 2
+\fBLAZY\fP: return an instance of this director for later backend resolution.
+.sp
+\fBLAZY\fP mode is required for referencing shard director instances,
+for example as backends for other directors (director layering).
+.sp
+In \fBvcl_init{}\fP and on the client side, \fBLAZY\fP mode can not be
+used with any other argument.
+.sp
+On the backend side, parameters from arguments or an associated
+parameter set affect the shard director instance for the backend
+request irrespective of where it is referenced.
 .UNINDENT
-.SS shard.debug
+.IP \(bu 2
+\fIparam\fP
+.sp
+Use or associate a parameter set. The value of the \fIparam\fP argument
+must be a call to the \fI\%func_shard_param.use\fP method.
+.sp
+default: as set by \fI\%func_shard.associate\fP or unset.
+.INDENT 2.0
+.IP \(bu 2
+for \fBresolve=NOW\fP take parameter defaults from the
+\fI\%obj_shard_param\fP parameter set
+.IP \(bu 2
+for \fBresolve=LAZY\fP associate the \fI\%obj_shard_param\fP parameter
+set for this backend request
+.sp
+Implementation notes for use of parameter sets with
+\fBresolve=LAZY\fP:
+.INDENT 2.0
+.IP \(bu 2
+A \fIparam\fP argument remains associated and any changes to the
+associated parameter set affect the sharding decision once the
+director resolves to an actual backend.
+.IP \(bu 2
+If other parameter arguments are also given, they have preference
+and are kept even if the parameter set given by the \fIparam\fP
+argument is subsequently changed within the same backend request.
+.IP \(bu 2
+Each call to \fI\%func_shard.backend\fP overrides any previous call.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.SS VOID xshard.debug(INT)
+.sp
+\fIintentionally undocumented\fP
+.SS new xshard_param = directors.shard_param()
+.sp
+Create a shard parameter set.
+.sp
+A parameter set allows for re\-use of \fI\%func_shard.backend\fP arguments
+across many shard director instances and simplifies advanced use cases
+(e.g. shard director with custom parameters layered below other
+directors).
+.sp
+Parameter sets have two scopes:
+.INDENT 0.0
+.IP \(bu 2
+per\-VCL scope defined in \fBvcl_init{}\fP
+.IP \(bu 2
+per backend request scope
+.UNINDENT
+.sp
+The per\-VCL scope defines defaults for the per backend scope. Any
+changes to a parameter set in backend context only affect the
+respective backend request.
+.sp
+Parameter sets can not be used in client context.
+.SS VOID xshard_param.clear()
+.sp
+Reset the parameter set to default values as documented for
+\fI\%func_shard.backend\fP\&.
+.INDENT 0.0
+.IP \(bu 2
+in \fBvcl_init{}\fP, resets the parameter set default for this VCL
+.IP \(bu 2
+in backend context, resets the parameter set for this backend
+request to the VCL defaults
+.UNINDENT
+.sp
+This method may not be used in client context
+.SS shard_param.set(...)
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-VOID shard.debug(INT)
+VOID xshard_param.set(
+      [ENUM {HASH, URL, KEY, BLOB} by],
+      [INT key],
+      [BLOB key_blob],
+      [INT alt],
+      [REAL warmup],
+      [BOOL rampup],
+      [ENUM {CHOSEN, IGNORE, ALL} healthy]
+)
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-\fIintentionally undocumented\fP
+Change the given parameters of a parameter set as documented for
+\fI\%func_shard.backend\fP\&.
+.INDENT 0.0
+.IP \(bu 2
+in \fBvcl_init{}\fP, changes the parameter set default for this VCL
+.IP \(bu 2
+in backend context, changes the parameter set for this backend
+request, keeping the defaults set for this VCL for unspecified
+arguments.
+.UNINDENT
+.sp
+This method may not be used in client context
+.SS STRING xshard_param.get_by()
+.sp
+Get a string representation of the \fIby\fP enum argument which denotes
+how a shard director using this parameter object would derive the
+shard key. See \fI\%func_shard.backend\fP\&.
+.SS INT xshard_param.get_key()
+.sp
+Get the key which a shard director using this parameter object would
+use. See \fI\%func_shard.backend\fP\&.
+.SS INT xshard_param.get_alt()
+.sp
+Get the \fIalt\fP parameter which a shard director using this parameter
+object would use. See \fI\%func_shard.backend\fP\&.
+.SS REAL xshard_param.get_warmup()
+.sp
+Get the \fIwarmup\fP parameter which a shard director using this parameter
+object would use. See \fI\%func_shard.backend\fP\&.
+.SS BOOL xshard_param.get_rampup()
+.sp
+Get the \fIrampup\fP parameter which a shard director using this parameter
+object would use. See \fI\%func_shard.backend\fP\&.
+.SS STRING xshard_param.get_healthy()
+.sp
+Get a string representation of the \fIhealthy\fP enum argument which a
+shard director using this parameter object would use. See
+\fI\%func_shard.backend\fP\&.
+.SS BLOB xshard_param.use()
+.sp
+This method may only be used in backend context.
+.sp
+For use with the \fIparam\fP argument of \fI\%func_shard.backend\fP to associate
+this shard parameter set with a shard director.
 .SH ACKNOWLEDGEMENTS
 .sp
-Development of a previous version of the shard director was partly sponsored
-by Deutsche Telekom AG \- Products & Innovation.
+Development of a previous version of the shard director was partly
+sponsored by Deutsche Telekom AG \- Products & Innovation.
 .sp
-Development of this version of the shard director was partly sponsored
-by BILD GmbH & Co KG.
+Development of a previous version of the shard director was partly
+sponsored by BILD GmbH & Co KG.
 .SH COPYRIGHT
 .INDENT 0.0
 .INDENT 3.5
@@ -842,7 +852,7 @@ This document is licensed under the same licence as Varnish
 itself. See LICENCE for details.
 
 Copyright (c) 2013\-2015 Varnish Software AS
-Copyright 2009\-2016 UPLEX \- Nils Goroll Systemoptimierung
+Copyright 2009\-2018 UPLEX \- Nils Goroll Systemoptimierung
 All rights reserved.
 
 Authors: Poul\-Henning Kamp <phk@FreeBSD.org>

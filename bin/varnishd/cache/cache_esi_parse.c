@@ -30,8 +30,10 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
+#include "cache_filter.h"
 
+#include "cache_vgz.h"
 #include "cache_esi.h"
 #include "vct.h"
 #include "vend.h"
@@ -194,12 +196,9 @@ static struct vep_match vep_match_bom[] = {
 static void
 vep_error(const struct vep_state *vep, const char *p)
 {
-	intmax_t l;
-
 	VSC_C_main->esi_errors++;
-	l = (intmax_t)(vep->ver_p - vep->hack_p);
-	VSLb(vep->vc->wrk->vsl, SLT_ESI_xmlerror, "ERR at %jd %s", l, p);
-
+	VSLb(vep->vc->wrk->vsl, SLT_ESI_xmlerror, "ERR after %zd %s",
+	     vep->o_last, p);
 }
 
 /*--------------------------------------------------------------------
@@ -209,12 +208,9 @@ vep_error(const struct vep_state *vep, const char *p)
 static void
 vep_warn(const struct vep_state *vep, const char *p)
 {
-	intmax_t l;
-
 	VSC_C_main->esi_warnings++;
-	l = (intmax_t)(vep->ver_p - vep->hack_p);
-	VSLb(vep->vc->wrk->vsl, SLT_ESI_xmlerror, "WARN at %jd %s", l, p);
-
+	VSLb(vep->vc->wrk->vsl, SLT_ESI_xmlerror, "WARN after %zd %s",
+	     vep->o_last, p);
 }
 
 /*---------------------------------------------------------------------
@@ -399,7 +395,7 @@ vep_mark_pending(struct vep_state *vep, const char *p)
 /*---------------------------------------------------------------------
  */
 
-static void __match_proto__()
+static void v_matchproto_()
 vep_do_comment(struct vep_state *vep, enum dowhat what)
 {
 	Debug("DO_COMMENT(%d)\n", what);
@@ -411,7 +407,7 @@ vep_do_comment(struct vep_state *vep, enum dowhat what)
 /*---------------------------------------------------------------------
  */
 
-static void __match_proto__()
+static void v_matchproto_()
 vep_do_remove(struct vep_state *vep, enum dowhat what)
 {
 	Debug("DO_REMOVE(%d, end %d empty %d remove %d)\n",
@@ -430,7 +426,7 @@ vep_do_remove(struct vep_state *vep, enum dowhat what)
 /*---------------------------------------------------------------------
  */
 
-static void __match_proto__()
+static void v_matchproto_()
 vep_do_include(struct vep_state *vep, enum dowhat what)
 {
 	const char *p, *q, *h;
@@ -447,6 +443,19 @@ vep_do_include(struct vep_state *vep, enum dowhat what)
 			vep->state = VEP_TAGERROR;
 			VSB_destroy(&vep->attr_vsb);
 			VSB_destroy(&vep->include_src);
+			return;
+		}
+		for (p = VSB_data(vep->attr_vsb); *p != '\0'; p++)
+			if (vct_islws(*p))
+				break;
+		if (*p != '\0') {
+			vep_error(vep,
+			    "ESI 1.0 <esi:include> "
+			    "has whitespace in src= attribute");
+			vep->state = VEP_TAGERROR;
+			VSB_destroy(&vep->attr_vsb);
+			if (vep->include_src != NULL)
+				VSB_destroy(&vep->include_src);
 			return;
 		}
 		vep->include_src = vep->attr_vsb;
@@ -607,7 +616,8 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 		 */
 
 		if (vep->state == VEP_START) {
-			if (FEATURE(FEATURE_ESI_REMOVE_BOM) && *p == '\xeb') {
+			if (FEATURE(FEATURE_ESI_REMOVE_BOM) &&
+			    *p == (char)0xeb) {
 				vep->match = vep_match_bom;
 				vep->state = VEP_MATCH;
 			} else
@@ -629,7 +639,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 			if (p < e && *p == '<') {
 				p++;
 				vep->state = VEP_STARTTAG;
-			} else if (p < e && *p == '\xeb') {
+			} else if (p < e && *p == (char)0xeb) {
 				VSLb(vep->vc->wrk->vsl, SLT_ESI_xmlerror,
 				    "No ESI processing, "
 				    "first char not '<' but BOM."
@@ -1005,7 +1015,7 @@ VEP_Parse(struct vep_state *vep, const char *p, size_t l)
 /*---------------------------------------------------------------------
  */
 
-static ssize_t __match_proto__(vep_callback_t)
+static ssize_t v_matchproto_(vep_callback_t)
 vep_default_cb(struct vfp_ctx *vc, void *priv, ssize_t l, enum vgz_flag flg)
 {
 	ssize_t *s;
@@ -1029,7 +1039,7 @@ VEP_Init(struct vfp_ctx *vc, const struct http *req, vep_callback_t *cb,
 
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(req, HTTP_MAGIC);
-	vep = WS_Alloc(vc->http->ws, sizeof *vep);
+	vep = WS_Alloc(vc->resp->ws, sizeof *vep);
 	AN(vep);
 
 	INIT_OBJ(vep, VEP_MAGIC);

@@ -30,32 +30,23 @@
 
 #include "config.h"
 
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "vdef.h"
 #include "vas.h"
 #include "miniobj.h"
 
 #include "vbm.h"
-#include "vmb.h"
 #include "vqueue.h"
 #include "vre.h"
 #include "vsb.h"
 
-#include "vapi/vsm.h"
 #include "vapi/vsl.h"
 
 #include "vsl_api.h"
-#include "vsm_api.h"
 
 /*--------------------------------------------------------------------*/
 
@@ -122,6 +113,7 @@ vsl_IX_free(vslf_list *filters)
 		AN(vslf->vre);
 		VRE_free(&vslf->vre);
 		AZ(vslf->vre);
+		FREE_OBJ(vslf);
 	}
 }
 
@@ -231,8 +223,39 @@ static const char * const VSL_transactions[VSL_t__MAX] = {
 			return (-5);			\
 	} while (0)
 
-int
-VSL_Print(const struct VSL_data *vsl, const struct VSL_cursor *c, void *fo)
+static int
+vsl_print_unsafe(FILE *fo, unsigned len, const char *data)
+{
+
+	VSL_PRINT(fo, "\"");
+	while (len-- > 0) {
+		if (*data >= ' ' && *data <= '~')
+			VSL_PRINT(fo, "%c", *data);
+		else
+			VSL_PRINT(fo, "%%%02x", (unsigned char)*data);
+		data++;
+	}
+	VSL_PRINT(fo, "\"\n");
+	return (0);
+}
+
+
+static int
+vsl_print_binary(FILE *fo, unsigned len, const char *data)
+{
+
+	VSL_PRINT(fo, "[");
+	while (len-- > 0) {
+		VSL_PRINT(fo, "%02x", (unsigned char)*data);
+		data++;
+	}
+	VSL_PRINT(fo, "]\n");
+	return (0);
+}
+
+static int
+vsl_print(const struct VSL_data *vsl, const struct VSL_cursor *c, void *fo,
+    int terse)
 {
 	enum VSL_tag_e tag;
 	uint32_t vxid;
@@ -252,57 +275,34 @@ VSL_Print(const struct VSL_data *vsl, const struct VSL_cursor *c, void *fo)
 	    'b' : '-';
 	data = VSL_CDATA(c->rec.ptr);
 
-	if (VSL_tagflags[tag] & SLT_F_BINARY) {
-		VSL_PRINT(fo, "%10u %-14s %c \"", vxid, VSL_tags[tag], type);
-		while (len-- > 0) {
-			if (len == 0 && tag == SLT_Debug && *data == '\0')
-				break;
-			if (*data >= ' ' && *data <= '~')
-				VSL_PRINT(fo, "%c", *data);
-			else
-				VSL_PRINT(fo, "%%%02x", (unsigned char)*data);
-			data++;
-		}
-		VSL_PRINT(fo, "\"\n");
-	} else
-		VSL_PRINT(fo, "%10u %-14s %c %.*s\n", vxid, VSL_tags[tag],
-		    type, (int)len, data);
+	if (!terse)
+		VSL_PRINT(fo, "%10u ", vxid);
+	VSL_PRINT(fo, "%-14s ", VSL_tags[tag]);
+	if (!terse)
+		VSL_PRINT(fo, "%c ", type);
+
+	if (VSL_tagflags[tag] & SLT_F_UNSAFE)
+		(void)vsl_print_unsafe(fo, len, data);
+	else if (VSL_tagflags[tag] & SLT_F_BINARY)
+		(void)vsl_print_binary(fo, len, data);
+	else
+		VSL_PRINT(fo, "%.*s\n", (int)len, data);
 
 	return (0);
 }
 
 int
+VSL_Print(const struct VSL_data *vsl, const struct VSL_cursor *c, void *fo)
+{
+
+	return (vsl_print(vsl, c, fo, 0));
+}
+
+int
 VSL_PrintTerse(const struct VSL_data *vsl, const struct VSL_cursor *c, void *fo)
 {
-	enum VSL_tag_e tag;
-	unsigned len;
-	const char *data;
 
-	CHECK_OBJ_NOTNULL(vsl, VSL_MAGIC);
-	if (c == NULL || c->rec.ptr == NULL)
-		return (0);
-	if (fo == NULL)
-		fo = stdout;
-	tag = VSL_TAG(c->rec.ptr);
-	len = VSL_LEN(c->rec.ptr);
-	data = VSL_CDATA(c->rec.ptr);
-
-	if (VSL_tagflags[tag] & SLT_F_BINARY) {
-		VSL_PRINT(fo, "%-14s \"", VSL_tags[tag]);
-		while (len-- > 0) {
-			if (len == 0 && tag == SLT_Debug && *data == '\0')
-				break;
-			if (*data >= ' ' && *data <= '~')
-				VSL_PRINT(fo, "%c", *data);
-			else
-				VSL_PRINT(fo, "%%%02x", (unsigned char)*data);
-			data++;
-		}
-		VSL_PRINT(fo, "\"\n");
-	} else
-		VSL_PRINT(fo, "%-14s %.*s\n", VSL_tags[tag], (int)len, data);
-
-	return (0);
+	return (vsl_print(vsl, c, fo, 1));
 }
 
 int
@@ -324,7 +324,7 @@ VSL_PrintAll(struct VSL_data *vsl, const struct VSL_cursor *c, void *fo)
 	}
 }
 
-int __match_proto__(VSLQ_dispatch_f)
+int v_matchproto_(VSLQ_dispatch_f)
 VSL_PrintTransactions(struct VSL_data *vsl, struct VSL_transaction * const pt[],
     void *fo)
 {
@@ -366,7 +366,8 @@ VSL_PrintTransactions(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 			if (t->level > 3)
 				VSL_PRINT(fo, "*%1.1u* ", t->level);
 			else
-				VSL_PRINT(fo, "%-3.*s ", t->level, "***");
+				VSL_PRINT(fo, "%-3.*s ",
+				    (int)(t->level), "***");
 			VSL_PRINT(fo, "%*.s%-14s %*.s%-10u\n",
 			    verbose ? 10 + 1 : 0, " ",
 			    VSL_transactions[t->type],
@@ -387,7 +388,8 @@ VSL_PrintTransactions(struct VSL_data *vsl, struct VSL_transaction * const pt[],
 			if (t->level > 3)
 				VSL_PRINT(fo, "-%1.1u- ", t->level);
 			else if (t->level)
-				VSL_PRINT(fo, "%-3.*s ", t->level, "---");
+				VSL_PRINT(fo, "%-3.*s ",
+				    (int)(t->level), "---");
 			if (verbose)
 				i = VSL_Print(vsl, t->c, fo);
 			else
@@ -418,7 +420,7 @@ VSL_WriteOpen(struct VSL_data *vsl, const char *name, int append, int unbuf)
 	if (0 == ftell(f)) {
 		if (fwrite(head, 1, sizeof head, f) != sizeof head) {
 			vsl_diag(vsl, "%s", strerror(errno));
-			fclose(f);
+			(void)fclose(f);
 			return (NULL);
 		}
 	}
@@ -461,7 +463,7 @@ VSL_WriteAll(struct VSL_data *vsl, const struct VSL_cursor *c, void *fo)
 	}
 }
 
-int __match_proto__(VSLQ_dispatch_f)
+int v_matchproto_(VSLQ_dispatch_f)
 VSL_WriteTransactions(struct VSL_data *vsl, struct VSL_transaction * const pt[],
     void *fo)
 {

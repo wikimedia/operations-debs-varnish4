@@ -119,8 +119,8 @@ struct stevedore {
 	void			*priv;
 
 	VTAILQ_ENTRY(stevedore)	list;
-	char			ident[16];	/* XXX: match VSM_chunk.ident */
-	char			*vclname;
+	const char		*ident;
+	const char		*vclname;
 };
 
 extern struct stevedore *stv_transient;
@@ -145,6 +145,7 @@ int LRU_NukeOne(struct worker *, struct lru *);
 void LRU_Touch(struct worker *, struct objcore *, double now);
 
 /*--------------------------------------------------------------------*/
+extern const struct stevedore smu_stevedore;
 extern const struct stevedore sma_stevedore;
 extern const struct stevedore smf_stevedore;
 extern const struct stevedore smp_stevedore;

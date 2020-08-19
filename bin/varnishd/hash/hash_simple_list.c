@@ -31,11 +31,12 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
+#include "cache/cache_objhead.h"
 
 #include "hash/hash_slinger.h"
 
-static struct VSC_C_lck *lck_hsl;
+static struct VSC_lck *lck_hsl;
 
 /*--------------------------------------------------------------------*/
 
@@ -47,11 +48,11 @@ static struct lock hsl_mtx;
  * initialization to happen before the first lookup.
  */
 
-static void __match_proto__(hash_start_f)
+static void v_matchproto_(hash_start_f)
 hsl_start(void)
 {
 
-	lck_hsl = Lck_CreateClass("hsl");
+	lck_hsl = Lck_CreateClass(NULL, "hsl");
 	Lck_New(&hsl_mtx, lck_hsl);
 }
 
@@ -62,7 +63,7 @@ hsl_start(void)
  * A reference to the returned object is held.
  */
 
-static struct objhead * __match_proto__(hash_lookup_f)
+static struct objhead * v_matchproto_(hash_lookup_f)
 hsl_lookup(struct worker *wrk, const void *digest, struct objhead **noh)
 {
 	struct objhead *oh;
@@ -106,10 +107,14 @@ hsl_lookup(struct worker *wrk, const void *digest, struct objhead **noh)
  * Dereference and if no references are left, free.
  */
 
-static int __match_proto__(hash_deref_f)
-hsl_deref(struct objhead *oh)
+static int v_matchproto_(hash_deref_f)
+hsl_deref(struct worker *wrk, struct objhead *oh)
 {
 	int ret;
+
+	CHECK_OBJ_NOTNULL(oh, OBJHEAD_MAGIC);
+	Lck_AssertHeld(&oh->mtx);
+	Lck_Unlock(&oh->mtx);
 
 	Lck_Lock(&hsl_mtx);
 	if (--oh->refcnt == 0) {
@@ -118,6 +123,8 @@ hsl_deref(struct objhead *oh)
 	} else
 		ret = 1;
 	Lck_Unlock(&hsl_mtx);
+	if (!ret)
+		HSH_DeleteObjHead(wrk, oh);
 	return (ret);
 }
 

@@ -16,11 +16,11 @@
 
 -d
 
-	Process log records at the head of the log and exit.
+	Process log records at the head of the log.
 
 -f
 
-	Sort and group only on the first field of each log entry. This is useful when displaying e.g. stataddr entries, where the first field is the client IP address.
+	Sort and group only on the first field of each log entry. For log entries in the form ``prefix: value`` it is the prefix without the colon that is sorted and grouped. This is useful when displaying e.g. ReqStart entries, where the first field is the client IP address.
 
 -g <session|request|vxid|raw>
 
@@ -38,7 +38,7 @@
 
 -I <[taglist:]regex>
 
-	Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent.
+	Include by regex matching. Output only records matching taglist and regular expression. Applies to any tag if taglist is absent. Multiple -I options may be given.
 	
 	If a tag include option is the first of any tag selection options, all tags are first marked excluded.
 
@@ -49,10 +49,6 @@
 -n <dir>
 
 	Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.
-
--N <filename>
-
-	Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
 
 -p <period>
 
@@ -81,9 +77,13 @@
 
 -X <[taglist:]regex>
 
-	Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent.
+	Exclude by regex matching. Do not output records matching taglist and regular expression. Applies to any tag if taglist is absent. Multiple -X options may be given.
+
 
 -V
 
 	Print version information and exit.
+
+--optstring
+	Print the optstring parameter to ``getopt(3)`` to help writing wrapper scripts.
 

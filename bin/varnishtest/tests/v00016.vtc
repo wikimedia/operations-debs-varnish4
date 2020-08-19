@@ -41,9 +41,9 @@ varnish v1 -errvcl {Operator > not possible on BACKEND} {
 	sub vcl_recv { if (a > b) { } }
 }
 
-varnish v1 -errvcl {Symbol not found: 'req.hash' (expected type BOOL):} {
+varnish v1 -errvcl {Symbol not found: 'req.foo'} {
 	backend b { .host = "127.0.0.1"; }
-	sub vcl_hash { if (req.hash != "foo") { } }
+	sub vcl_hash { if (req.foo != "bar") { } }
 }
 
 varnish v1 -errvcl {Symbol not found: 'foo.bar'} {
@@ -52,21 +52,21 @@ varnish v1 -errvcl {Symbol not found: 'foo.bar'} {
 	}
 }
 
-varnish v1 -errvcl {'bereq.first_byte_timeout': cannot be set} {
+varnish v1 -errvcl {Cannot be set in method 'vcl_pipe'} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_pipe {
 		set bereq.first_byte_timeout = 10s;
 	}
 }
 
-varnish v1 -errvcl {'bereq.between_bytes_timeout': cannot be set} {
+varnish v1 -errvcl {Cannot be set in method 'vcl_pipe'.} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_pipe {
 		set bereq.between_bytes_timeout = 10s;
 	}
 }
 
-varnish v1 -errvcl {Symbol not found: 'c' (expected type BACKEND):} {
+varnish v1 -errvcl {Symbol not found: 'c'} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_backend_response {
 		if (beresp.backend == c) {
@@ -86,5 +86,45 @@ varnish v1 -errvcl {resolves to too many addresses} {
 	backend b { .host = "127.0.0.1"; }
 	sub vcl_recv {
 		if (remote.ip == "varnish-cache.org") {}
+	}
+}
+
+varnish v1 -errvcl {Symbol 'foo' has wrong type (instance):} {
+	import directors;
+	backend b { .host = "127.0.0.1"; }
+
+	sub vcl_init {
+		new foo = directors.shard();
+	}
+	sub vcl_recv {
+		if (client.ip ~ foo) {
+			return (synth(200));
+		}
+	}
+}
+
+varnish v1 -syntax 4.0 -errvcl {Undefined acl foo} {
+	import directors;
+	backend b { .host = "127.0.0.1"; }
+
+	sub vcl_init {
+		new foo = directors.shard();
+	}
+	sub vcl_recv {
+		if (client.ip ~ foo) {
+			return (synth(200));
+		}
+	}
+}
+
+# 'foo' overloaded
+varnish v1 -syntax 4.0 -errvcl {Symbol not found: 'foo'} {
+	backend b { .host = "127.0.0.1"; }
+
+	acl foo {
+	    "127.0.0.1"/32;
+	}
+	sub vcl_init {
+		new bar = foo;
 	}
 }

@@ -33,10 +33,13 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_filter.h"
+#include "cache_vgz.h"
 
 #include "cache_esi.h"
+
+#include "vrnd.h"
 
 /*---------------------------------------------------------------------
  */
@@ -83,7 +86,6 @@ vfp_vep_callback(struct vfp_ctx *vc, void *priv, ssize_t l, enum vgz_flag flg)
 	if (l == 0 && flg == VGZ_NORMAL)
 		return (vef->tot);
 
-	CHECK_OBJ_NOTNULL(vc->bo, BUSYOBJ_MAGIC);
 	VGZ_Ibuf(vef->vgz, vef->ibuf_o, l);
 	do {
 		dl = 0;
@@ -145,19 +147,25 @@ vfp_esi_end(struct vfp_ctx *vc, struct vef_priv *vef,
 	return (retval);
 }
 
-static enum vfp_status __match_proto__(vfp_init_f)
+static enum vfp_status v_matchproto_(vfp_init_f)
 vfp_esi_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
 {
 	struct vef_priv *vef;
 
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(vc->esi_req, HTTP_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->req, HTTP_MAGIC);
 	CHECK_OBJ_NOTNULL(vfe, VFP_ENTRY_MAGIC);
+	if (http_GetStatus(vc->resp) == 206) {
+		VSLb(vc->wrk->vsl, SLT_VCL_Error,
+		    "Attempted ESI on partial (206) response");
+		return (VFP_ERROR);
+	}
 	ALLOC_OBJ(vef, VEF_MAGIC);
 	if (vef == NULL)
 		return (VFP_ERROR);
+	vc->obj_flags |= OF_GZIPED | OF_CHGGZIP | OF_ESIPROC;
 	vef->vgz = VGZ_NewGzip(vc->wrk->vsl, "G F E");
-	vef->vep = VEP_Init(vc, vc->esi_req, vfp_vep_callback, vef);
+	vef->vep = VEP_Init(vc, vc->req, vfp_vep_callback, vef);
 	vef->ibuf_sz = cache_param->gzip_buffer;
 	vef->ibuf = calloc(1L, vef->ibuf_sz);
 	if (vef->ibuf == NULL)
@@ -166,17 +174,17 @@ vfp_esi_gzip_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
 	vef->ibuf_o = vef->ibuf;
 	vfe->priv1 = vef;
 
-	RFC2616_Weaken_Etag(vc->http);
-	http_Unset(vc->http, H_Content_Length);
-	http_Unset(vc->http, H_Content_Encoding);
-	http_SetHeader(vc->http, "Content-Encoding: gzip");
+	RFC2616_Weaken_Etag(vc->resp);
+	http_Unset(vc->resp, H_Content_Length);
+	http_Unset(vc->resp, H_Content_Encoding);
+	http_SetHeader(vc->resp, "Content-Encoding: gzip");
 
-	RFC2616_Vary_AE(vc->http);
+	RFC2616_Vary_AE(vc->resp);
 
 	return (VFP_OK);
 }
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 vfp_esi_gzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
    ssize_t *lp)
 {
@@ -192,7 +200,7 @@ vfp_esi_gzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
 	*lp = 0;
 	l = vef->ibuf_sz - (vef->ibuf_i - vef->ibuf);
 	if (DO_DEBUG(DBG_ESI_CHOP)) {
-		d = (random() & 3) + 1;
+		d = (VRND_RandomTestable() & 3) + 1;
 		if (d < l)
 			l = d;
 	}
@@ -219,22 +227,28 @@ vfp_esi_gzip_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p,
 	return (vp);
 }
 
-static enum vfp_status __match_proto__(vfp_init_f)
+static enum vfp_status v_matchproto_(vfp_init_f)
 vfp_esi_init(struct vfp_ctx *vc, struct vfp_entry *vfe)
 {
 	struct vef_priv *vef;
 
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(vc->esi_req, HTTP_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->req, HTTP_MAGIC);
+	if (http_GetStatus(vc->resp) == 206) {
+		VSLb(vc->wrk->vsl, SLT_VCL_Error,
+		    "Attempted ESI on partial (206) response");
+		return (VFP_ERROR);
+	}
 	ALLOC_OBJ(vef, VEF_MAGIC);
 	if (vef == NULL)
 		return (VFP_ERROR);
-	vef->vep = VEP_Init(vc, vc->esi_req, NULL, NULL);
+	vc->obj_flags |= OF_ESIPROC;
+	vef->vep = VEP_Init(vc, vc->req, NULL, NULL);
 	vfe->priv1 = vef;
 	return (VFP_OK);
 }
 
-static enum vfp_status __match_proto__(vfp_pull_f)
+static enum vfp_status v_matchproto_(vfp_pull_f)
 vfp_esi_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p, ssize_t *lp)
 {
 	enum vfp_status vp;
@@ -247,7 +261,7 @@ vfp_esi_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p, ssize_t *lp)
 	AN(p);
 	AN(lp);
 	if (DO_DEBUG(DBG_ESI_CHOP)) {
-		d = (random() & 3) + 1;
+		d = (VRND_RandomTestable() & 3) + 1;
 		if (d < *lp)
 			*lp = d;
 	}
@@ -261,7 +275,7 @@ vfp_esi_pull(struct vfp_ctx *vc, struct vfp_entry *vfe, void *p, ssize_t *lp)
 	return (vp);
 }
 
-static void __match_proto__(vfp_fini_f)
+static void v_matchproto_(vfp_fini_f)
 vfp_esi_fini(struct vfp_ctx *vc, struct vfp_entry *vfe)
 {
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
@@ -272,15 +286,15 @@ vfp_esi_fini(struct vfp_ctx *vc, struct vfp_entry *vfe)
 	vfe->priv1 = NULL;
 }
 
-const struct vfp vfp_esi = {
-	.name = "ESI",
+const struct vfp VFP_esi = {
+	.name = "esi",
 	.init = vfp_esi_init,
 	.pull = vfp_esi_pull,
 	.fini = vfp_esi_fini,
 };
 
-const struct vfp vfp_esi_gzip = {
-	.name = "ESI_GZIP",
+const struct vfp VFP_esi_gzip = {
+	.name = "esi_gzip",
 	.init = vfp_esi_gzip_init,
 	.pull = vfp_esi_gzip_pull,
 	.fini = vfp_esi_fini,

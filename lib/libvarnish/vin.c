@@ -34,16 +34,17 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "vsm_priv.h"
-#include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
 #include "vdef.h"
+
+#include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
 #include "vin.h"
 
 int
-VIN_N_Arg(const char *n_arg, char **name, char **dir, char **vsl)
+VIN_n_Arg(const char *n_arg, char **dir)
 {
 	char nm[PATH_MAX];
 	char dn[PATH_MAX];
@@ -74,28 +75,11 @@ VIN_N_Arg(const char *n_arg, char **name, char **dir, char **vsl)
 		bprintf(dn, "%s/%s", VARNISH_STATE_DIR, nm);
 	}
 
-	/* Definitive length check */
-	if (strlen(dn) + 1 + strlen(VSM_FILENAME) >= sizeof dn) {
-		errno = ENAMETOOLONG;
-		return (-1);
-	}
-
 	strcat(dn, "/");
 
-	if (name != NULL) {
-		*name = strdup(nm);
-		if (*name == NULL)
-			return (-1);
-	}
 	if (dir != NULL) {
 		*dir = strdup(dn);
 		if (*dir == NULL)
-			return (-1);
-	}
-	if (vsl != NULL) {
-		bprintf(nm, "%s%s", dn, VSM_FILENAME);
-		*vsl = strdup(nm);
-		if (*vsl == NULL)
 			return (-1);
 	}
 	return (0);

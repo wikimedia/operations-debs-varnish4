@@ -26,12 +26,17 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __FLEXELINT__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "miniobj.h"
+#include "vdef.h"
+#include "vqueue.h"
+#include "vre.h"
 #include "vas.h"
 
 #include "vsb.h"
@@ -67,7 +72,7 @@ main(int argc, char * const *argv)
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	vex = vex_New(q_arg, vsb);
+	vex = vex_New(q_arg, vsb, 0);
 
 	if (vex == NULL) {
 		VSB_finish(vsb);
@@ -84,3 +89,5 @@ main(int argc, char * const *argv)
 
 	return (0);
 }
+
+#endif // __FLEXELINT__

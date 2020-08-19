@@ -6,8 +6,8 @@
 
 /*lint -save -e525 -e539 */
 
-VRTSTVVAR(free_space,	BYTES,	long long,	0.)
-VRTSTVVAR(used_space,	BYTES,	long long,	0.)
+VRTSTVVAR(free_space,	BYTES,	int64_t,	0.)
+VRTSTVVAR(used_space,	BYTES,	int64_t,	0.)
 VRTSTVVAR(happy,	BOOL,	unsigned,	0)
 #undef VRTSTVVAR
 

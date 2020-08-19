@@ -30,7 +30,6 @@
 
 #include "config.h"
 
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #include <fnmatch.h>
@@ -38,425 +37,510 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "vdef.h"
 #include "vas.h"
 #include "miniobj.h"
 #include "vqueue.h"
+#include "vjsn.h"
 #include "vsb.h"
+#include "vsc_priv.h"
+#include "vmb.h"
 
 #include "vapi/vsc.h"
 #include "vapi/vsm.h"
-
-#include "vsm_api.h"
-
-enum {
-#define VSC_TYPE_F(n,t,l,e,d) \
-	VSC_type_order_##n,
-#include "tbl/vsc_types.h"
-};
-
-struct vsc_vf {
-	unsigned		magic;
-#define VSC_VF_MAGIC		0x516519f8
-	VTAILQ_ENTRY(vsc_vf)	list;
-	struct VSM_fantom	fantom;
-	struct VSC_section	section;
-	int			order;
-};
-
-struct vsc_pt {
-	unsigned		magic;
-#define VSC_PT_MAGIC		0xa4ff159a
-	VTAILQ_ENTRY(vsc_pt)	list;
-	struct VSC_point	point;
-};
 
 struct vsc_sf {
 	unsigned		magic;
 #define VSC_SF_MAGIC		0x558478dd
 	VTAILQ_ENTRY(vsc_sf)	list;
 	char			*pattern;
-	unsigned		exclude;
+};
+VTAILQ_HEAD(vsc_sf_head, vsc_sf);
+
+struct vsc_pt {
+	struct VSC_point	point;
+	char			*name;
+};
+
+struct vsc_seg {
+	unsigned		magic;
+#define VSC_SEG_MAGIC		0x801177d4
+	VTAILQ_ENTRY(vsc_seg)	list;
+	struct vsm_fantom	fantom[1];
+	struct vsc_head		*head;
+	char			*body;
+
+	struct vjsn		*vj;
+
+	unsigned		npoints;
+	struct vsc_pt		*points;
+	int			exposed;
 };
 
 struct vsc {
 	unsigned		magic;
 #define VSC_MAGIC		0x3373554a
 
-	VTAILQ_HEAD(, vsc_vf)	vf_list;
-	VTAILQ_HEAD(, vsc_pt)	pt_list;
-	VTAILQ_HEAD(, vsc_sf)	sf_list;
-	struct VSM_fantom	iter_fantom;
+	struct vsc_sf_head	sf_list_include;
+	struct vsc_sf_head	sf_list_exclude;
+	VTAILQ_HEAD(,vsc_seg)	segs;
+
+	VSC_new_f		*fnew;
+	VSC_destroy_f		*fdestroy;
+	void			*priv;
 };
 
+/*--------------------------------------------------------------------
+ * Build the static level, type and point descriptions
+ */
+
+enum vsc_levels {
+#define VSC_LEVEL_F(v,l,e,d) v,
+#include "tbl/vsc_levels.h"
+};
+
+static const struct VSC_level_desc levels[] = {
+#define VSC_LEVEL_F(v,l,e,d) [v] = {#v, l, e, d},
+#include "tbl/vsc_levels.h"
+};
+
+static const ssize_t nlevels = sizeof(levels)/sizeof(*levels);
 
 /*--------------------------------------------------------------------*/
 
-static struct vsc *
-vsc_setup(struct VSM_data *vd)
-{
-
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	if (vd->vsc == NULL) {
-		ALLOC_OBJ(vd->vsc, VSC_MAGIC);
-		AN(vd->vsc);
-		VTAILQ_INIT(&vd->vsc->vf_list);
-		VTAILQ_INIT(&vd->vsc->pt_list);
-		VTAILQ_INIT(&vd->vsc->sf_list);
-	}
-	CHECK_OBJ_NOTNULL(vd->vsc, VSC_MAGIC);
-	return (vd->vsc);
-}
-
-/*--------------------------------------------------------------------*/
-
-static void
-vsc_delete_vf_list(struct vsc *vsc)
-{
-	struct vsc_vf *vf;
-
-	while (!VTAILQ_EMPTY(&vsc->vf_list)) {
-		vf = VTAILQ_FIRST(&vsc->vf_list);
-		CHECK_OBJ_NOTNULL(vf, VSC_VF_MAGIC);
-		VTAILQ_REMOVE(&vsc->vf_list, vf, list);
-		FREE_OBJ(vf);
-	}
-}
-
-static void
-vsc_delete_pt_list(struct vsc *vsc)
-{
-	struct vsc_pt *pt;
-
-	while (!VTAILQ_EMPTY(&vsc->pt_list)) {
-		pt = VTAILQ_FIRST(&vsc->pt_list);
-		CHECK_OBJ_NOTNULL(pt, VSC_PT_MAGIC);
-		VTAILQ_REMOVE(&vsc->pt_list, pt, list);
-		FREE_OBJ(pt);
-	}
-}
-
-static void
-vsc_delete_sf_list(struct vsc *vsc)
-{
-	struct vsc_sf *sf;
-
-	while (!VTAILQ_EMPTY(&vsc->sf_list)) {
-		sf = VTAILQ_FIRST(&vsc->sf_list);
-		CHECK_OBJ_NOTNULL(sf, VSC_SF_MAGIC);
-		VTAILQ_REMOVE(&vsc->sf_list, sf, list);
-		free(sf->pattern);
-		FREE_OBJ(sf);
-	}
-}
-
-void
-VSC_Delete(struct VSM_data *vd)
+struct vsc *
+VSC_New(void)
 {
 	struct vsc *vsc;
 
-	CHECK_OBJ_NOTNULL(vd, VSM_MAGIC);
-	vsc = vd->vsc;
-	vd->vsc = NULL;
-	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
-	vsc_delete_sf_list(vsc);
-	vsc_delete_pt_list(vsc);
-	vsc_delete_vf_list(vsc);
-	FREE_OBJ(vsc);
+	ALLOC_OBJ(vsc, VSC_MAGIC);
+	if (vsc == NULL)
+		return (vsc);
+	VTAILQ_INIT(&vsc->sf_list_include);
+	VTAILQ_INIT(&vsc->sf_list_exclude);
+	VTAILQ_INIT(&vsc->segs);
+	return (vsc);
 }
 
 /*--------------------------------------------------------------------*/
 
 static int
-vsc_f_arg(struct VSM_data *vd, const char *opt)
+vsc_f_arg(struct vsc *vsc, const char *opt)
 {
-	struct vsc *vsc = vsc_setup(vd);
 	struct vsc_sf *sf;
+	unsigned exclude = 0;
 
-	AN(vd);
 	AN(opt);
 
 	ALLOC_OBJ(sf, VSC_SF_MAGIC);
 	AN(sf);
 
 	if (opt[0] == '^') {
-		sf->exclude = 1;
+		exclude = 1;
 		opt++;
 	}
 
 	sf->pattern = strdup(opt);
 	AN(sf->pattern);
 
-	VTAILQ_INSERT_TAIL(&vsc->sf_list, sf, list);
+	if (exclude)
+		VTAILQ_INSERT_TAIL(&vsc->sf_list_exclude, sf, list);
+	else
+		VTAILQ_INSERT_TAIL(&vsc->sf_list_include, sf, list);
+
 	return (1);
 }
 
 /*--------------------------------------------------------------------*/
 
 int
-VSC_Arg(struct VSM_data *vd, int arg, const char *opt)
+VSC_Arg(struct vsc *vsc, char arg, const char *opt)
 {
+
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
 
 	switch (arg) {
-	case 'f': return (vsc_f_arg(vd, opt));
-	case 'n': return (VSM_n_Arg(vd, opt));
-	case 'N': return (VSM_N_Arg(vd, opt));
-	default:
-		return (0);
+	case 'f': return (vsc_f_arg(vsc, opt));
+	default: return (0);
 	}
 }
 
-/*--------------------------------------------------------------------*/
-
-struct VSC_C_mgt *
-VSC_Mgt(const struct VSM_data *vd, struct VSM_fantom *fantom)
-{
-
-	return (VSC_Get(vd, fantom, VSC_type_mgt, ""));
-}
-
-/*--------------------------------------------------------------------*/
-
-struct VSC_C_main *
-VSC_Main(const struct VSM_data *vd, struct VSM_fantom *fantom)
-{
-
-	return (VSC_Get(vd, fantom, VSC_type_main, ""));
-}
 
 /*--------------------------------------------------------------------
  */
 
-void *
-VSC_Get(const struct VSM_data *vd, struct VSM_fantom *fantom, const char *type,
-    const char *ident)
+static int
+vsc_filter(const struct vsc *vsc, const char *nm)
 {
-	struct VSM_fantom f2 = VSM_FANTOM_NULL;
-
-	if (fantom == NULL)
-		fantom = &f2;
-	if (VSM_invalid == VSM_StillValid(vd, fantom) &&
-	    !VSM_Get(vd, fantom, VSC_CLASS, type, ident))
-		return (NULL);
-	return ((void*)fantom->b);
-}
-
-/*--------------------------------------------------------------------*/
-
-static void
-vsc_add_vf(struct vsc *vsc, const struct VSM_fantom *fantom,
-    const struct VSC_type_desc *desc, int order)
-{
-	struct vsc_vf *vf, *vf2;
-
-	ALLOC_OBJ(vf, VSC_VF_MAGIC);
-	AN(vf);
-	vf->fantom = *fantom;
-	vf->section.type = vf->fantom.type;
-	vf->section.ident = vf->fantom.ident;
-	vf->section.desc = desc;
-	vf->section.fantom = &vf->fantom;
-	vf->order = order;
-
-	VTAILQ_FOREACH(vf2, &vsc->vf_list, list) {
-		if (vf->order < vf2->order)
-			break;
-	}
-	if (vf2 != NULL)
-		VTAILQ_INSERT_BEFORE(vf2, vf, list);
-	else
-		VTAILQ_INSERT_TAIL(&vsc->vf_list, vf, list);
-}
-
-/*lint -esym(528, vsc_add_pt) */
-static void
-vsc_add_pt(struct vsc *vsc, const volatile void *ptr,
-    const struct VSC_desc *desc, const struct vsc_vf *vf)
-{
-	struct vsc_pt *pt;
-
-	ALLOC_OBJ(pt, VSC_PT_MAGIC);
-	AN(pt);
-
-	pt->point.desc = desc;
-	pt->point.ptr = ptr;
-	pt->point.section = &vf->section;
-
-	VTAILQ_INSERT_TAIL(&vsc->pt_list, pt, list);
-}
-
-#define VSC_DO(U,l,t,h)							\
-	static void							\
-	iter_##l(struct vsc *vsc, const struct VSC_desc *descs,		\
-	    struct vsc_vf *vf)						\
-	{								\
-		struct VSC_C_##l *st;					\
-									\
-		CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);			\
-		st = vf->fantom.b;
-
-#define VSC_F(nn,tt,ll,ss,ff,vv,dd,ee)					\
-		vsc_add_pt(vsc, &st->nn, descs++, vf);
-
-#define VSC_DONE(U,l,t)							\
-	}
-
-#include "tbl/vsc_all.h"
-
-/*--------------------------------------------------------------------
- */
-
-#include <stdio.h>
-
-static void
-vsc_build_vf_list(struct VSM_data *vd)
-{
-	struct vsc *vsc = vsc_setup(vd);
-
-	vsc_delete_pt_list(vsc);
-	vsc_delete_vf_list(vsc);
-
-	VSM_FOREACH(&vsc->iter_fantom, vd) {
-		if (strcmp(vsc->iter_fantom.class, VSC_CLASS))
-			continue;
-#define VSC_TYPE_F(n,t,l,e,d)						\
-		if (!strcmp(vsc->iter_fantom.type, t))			\
-			vsc_add_vf(vsc, &vsc->iter_fantom,		\
-			    &VSC_type_desc_##n, VSC_type_order_##n);
-#include "tbl/vsc_types.h"
-	}
-}
-
-static void
-vsc_build_pt_list(struct VSM_data *vd)
-{
-	struct vsc *vsc = vsc_setup(vd);
-	struct vsc_vf *vf;
-
-	vsc_delete_pt_list(vsc);
-
-	VTAILQ_FOREACH(vf, &vsc->vf_list, list) {
-#define VSC_DO(U,l,t,h)						\
-		CHECK_OBJ_NOTNULL(vf, VSC_VF_MAGIC);		\
-		if (!strcmp(vf->fantom.type, t))		\
-			iter_##l(vsc, VSC_desc_##l, vf);
-#define VSC_F(n,t,l,s,f,v,d,e)
-#define VSC_DONE(a,b,c)
-#include "tbl/vsc_all.h"
-	}
-}
-
-/*--------------------------------------------------------------------
- */
-
-static void
-vsc_filter_pt_list(struct VSM_data *vd)
-{
-	struct vsc *vsc = vsc_setup(vd);
 	struct vsc_sf *sf;
-	struct vsc_pt *pt, *pt2;
-	VTAILQ_HEAD(, vsc_pt) pt_list;
-	struct vsb *vsb;
 
-	if (VTAILQ_EMPTY(&vsc->sf_list))
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
+	VTAILQ_FOREACH(sf, &vsc->sf_list_exclude, list)
+		if (!fnmatch(sf->pattern, nm, 0))
+			return (1);
+	if (VTAILQ_EMPTY(&vsc->sf_list_include))
+		return (0);
+	VTAILQ_FOREACH(sf, &vsc->sf_list_include, list)
+		if (!fnmatch(sf->pattern, nm, 0))
+			return (0);
+	return (1);
+}
+
+/*--------------------------------------------------------------------
+ */
+
+static void
+vsc_clean_point(struct vsc_pt *point)
+{
+	REPLACE(point->name, NULL);
+}
+
+static void
+vsc_fill_point(const struct vsc *vsc, const struct vsc_seg *seg,
+    const struct vjsn_val *vv, struct vsb *vsb, struct vsc_pt *point)
+{
+	struct vjsn_val *vt;
+
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
+	memset(point, 0, sizeof *point);
+
+	vt = vjsn_child(vv, "name");
+	AN(vt);
+	assert(vt->type == VJSN_STRING);
+
+	VSB_clear(vsb);
+	VSB_printf(vsb, "%s.%s", seg->fantom->ident, vt->value);
+	AZ(VSB_finish(vsb));
+
+	if (vsc_filter(vsc, VSB_data(vsb)))
 		return;
 
-	vsb = VSB_new_auto();
-	AN(vsb);
+	point->name = strdup(VSB_data(vsb));
+	AN(point->name);
+	point->point.name = point->name;
 
-	VTAILQ_INIT(&pt_list);
-	VTAILQ_FOREACH(sf, &vsc->sf_list, list) {
-		CHECK_OBJ_NOTNULL(sf, VSC_SF_MAGIC);
-		VTAILQ_FOREACH_SAFE(pt, &vsc->pt_list, list, pt2) {
-			CHECK_OBJ_NOTNULL(pt, VSC_PT_MAGIC);
-			VSB_clear(vsb);
-			if (strcmp(pt->point.section->type, ""))
-				VSB_printf(vsb, "%s.",
-				    pt->point.section->type);
-			if (strcmp(pt->point.section->ident, ""))
-				VSB_printf(vsb, "%s.",
-				    pt->point.section->ident);
-			VSB_printf(vsb, "%s", pt->point.desc->name);
-			VSB_finish(vsb);
-			if (fnmatch(sf->pattern, VSB_data(vsb), 0))
-				continue;
-			VTAILQ_REMOVE(&vsc->pt_list, pt, list);
-			if (sf->exclude)
-				FREE_OBJ(pt);
-			else
-				VTAILQ_INSERT_TAIL(&pt_list, pt, list);
-		}
+#define DOF(n, k)				\
+	vt = vjsn_child(vv, k);			\
+	AN(vt);					\
+	assert(vt->type == VJSN_STRING);	\
+	point->point.n = vt->value;
+
+	DOF(ctype, "ctype");
+	DOF(sdesc, "oneliner");
+	DOF(ldesc, "docs");
+#undef DOF
+	vt = vjsn_child(vv, "type");
+	AN(vt);
+	assert(vt->type == VJSN_STRING);
+
+	if (!strcmp(vt->value, "counter")) {
+		point->point.semantics = 'c';
+	} else if (!strcmp(vt->value, "gauge")) {
+		point->point.semantics = 'g';
+	} else if (!strcmp(vt->value, "bitmap")) {
+		point->point.semantics = 'b';
+	} else {
+		point->point.semantics = '?';
 	}
 
-	VSB_destroy(&vsb);
-	vsc_delete_pt_list(vsc);
-	VTAILQ_CONCAT(&vsc->pt_list, &pt_list, list);
+	vt = vjsn_child(vv, "format");
+	AN(vt);
+	assert(vt->type == VJSN_STRING);
+
+	if (!strcmp(vt->value, "integer")) {
+		point->point.format = 'i';
+	} else if (!strcmp(vt->value, "bytes")) {
+		point->point.format = 'B';
+	} else if (!strcmp(vt->value, "bitmap")) {
+		point->point.format = 'b';
+	} else if (!strcmp(vt->value, "duration")) {
+		point->point.format = 'd';
+	} else {
+		point->point.format = '?';
+	}
+
+	vt = vjsn_child(vv, "level");
+	AN(vt);
+	assert(vt->type == VJSN_STRING);
+
+	if (!strcmp(vt->value, "info"))  {
+		point->point.level = &levels[info];
+	} else if (!strcmp(vt->value, "diag")) {
+		point->point.level = &levels[diag];
+	} else if (!strcmp(vt->value, "debug")) {
+		point->point.level = &levels[debug];
+	} else {
+		WRONG("Illegal level");
+	}
+
+	vt = vjsn_child(vv, "index");
+	AN(vt);
+
+	point->point.ptr = (volatile void*)(seg->body + atoi(vt->value));
+}
+
+static void
+vsc_del_seg(const struct vsc *vsc, struct vsm *vsm, struct vsc_seg *sp)
+{
+	unsigned u;
+	struct vsc_pt *pp;
+
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
+	AN(vsm);
+	CHECK_OBJ_NOTNULL(sp, VSC_SEG_MAGIC);
+	AZ(VSM_Unmap(vsm, sp->fantom));
+	if (sp->vj != NULL) {
+		vjsn_delete(&sp->vj);
+	} else {
+		pp = sp->points;
+		for (u = 0; u < sp->npoints; u++, pp++)
+			vsc_clean_point(pp);
+		free(sp->points);
+	}
+	FREE_OBJ(sp);
+}
+
+static struct vsc_seg *
+vsc_add_seg(const struct vsc *vsc, struct vsm *vsm, const struct vsm_fantom *fp)
+{
+	struct vsc_seg *sp, *spd;
+	const char *e;
+	struct vjsn_val *vv, *vve;
+	struct vsb *vsb;
+	struct vsc_pt *pp;
+
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
+	AN(vsm);
+
+	ALLOC_OBJ(sp, VSC_SEG_MAGIC);
+	AN(sp);
+	*sp->fantom = *fp;
+	if (VSM_Map(vsm, sp->fantom)) {
+		/*
+		 * If the seg was removed between our call to VSM_Status()
+		 * and now, we won't be able to map it.
+		 */
+		FREE_OBJ(sp);
+		return (NULL);
+	}
+	sp->head = sp->fantom->b;
+	if (sp->head->ready == 0) {
+		VRMB();
+		usleep(100000);
+	}
+	assert(sp->head->ready > 0);
+	sp->body = (char*)sp->fantom->b + sp->head->body_offset;
+
+	if (!strcmp(fp->class, VSC_CLASS)) {
+		VTAILQ_FOREACH(spd, &vsc->segs, list)
+			if (spd->head->doc_id == sp->head->doc_id)
+				break;
+		AN(spd);
+		// XXX: Refcount ?
+		vve = vjsn_child(spd->vj->value, "elements");
+		AN(vve);
+		sp->npoints = strtoul(vve->value, NULL, 0);
+		sp->points = calloc(sp->npoints, sizeof *sp->points);
+		AN(sp->points);
+		vsb = VSB_new_auto();
+		AN(vsb);
+		vve = vjsn_child(spd->vj->value, "elem");
+		AN(vve);
+		pp = sp->points;
+		VTAILQ_FOREACH(vv, &vve->children, list) {
+			vsc_fill_point(vsc, sp, vv, vsb, pp);
+			pp++;
+		}
+		VSB_destroy(&vsb);
+		return (sp);
+	}
+	assert(!strcmp(fp->class, VSC_DOC_CLASS));
+	sp->vj = vjsn_parse(sp->body, &e);
+	XXXAZ(e);
+	AN(sp->vj);
+	return (sp);
 }
 
 /*--------------------------------------------------------------------
  */
 
-int
-VSC_Iter(struct VSM_data *vd, struct VSM_fantom *fantom, VSC_iter_f *func,
-    void *priv)
+static void
+vsc_expose(const struct vsc *vsc, struct vsc_seg *sp, int del)
 {
-	struct vsc *vsc = vsc_setup(vd);
-	struct vsc_pt *pt;
-	int i;
+	struct vsc_pt *pp;
+	unsigned u;
+	int expose;
 
-	if (VSM_valid != VSM_StillValid(vd, &vsc->iter_fantom)) {
-		/* Tell app that list will be nuked */
-		(void)func(priv, NULL);
-		vsc_build_vf_list(vd);
-		vsc_build_pt_list(vd);
-		vsc_filter_pt_list(vd);
+	if (vsc->fnew != NULL && !sp->exposed &&
+	    !del && sp->head->ready == 1)
+		expose = 1;
+	else if (vsc->fdestroy != NULL && sp->exposed &&
+	    (del || sp->head->ready == 2))
+		expose = 0;
+	else
+		return;
+
+	pp = sp->points;
+	for (u = 0; u < sp->npoints; u++, pp++) {
+		if (pp->name == NULL)
+			continue;
+		if (expose)
+			pp->point.priv = vsc->fnew(vsc->priv, &pp->point);
+		else
+			vsc->fdestroy(vsc->priv, &pp->point);
 	}
-	if (fantom != NULL)
-		*fantom = vsc->iter_fantom;
-	VTAILQ_FOREACH(pt, &vsc->pt_list, list) {
-		i = func(priv, &pt->point);
+	sp->exposed = expose;
+}
+
+/*--------------------------------------------------------------------
+ */
+
+static int
+vsc_iter_seg(const struct vsc *vsc, const struct vsc_seg *sp,
+    VSC_iter_f *fiter, void *priv)
+{
+	unsigned u;
+	int i = 0;
+	struct vsc_pt *pp;
+
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
+	CHECK_OBJ_NOTNULL(sp, VSC_SEG_MAGIC);
+	AN(fiter);
+	pp = sp->points;
+	for (u = 0; u < sp->npoints && i == 0; u++, pp++) {
+		if (pp->name != NULL)
+			i = fiter(priv, &pp->point);
+	}
+	return (i);
+}
+
+int
+VSC_Iter(struct vsc *vsc, struct vsm *vsm, VSC_iter_f *fiter, void *priv)
+{
+	struct vsm_fantom ifantom;
+	struct vsc_seg *sp, *sp2;
+	int i = 0;
+
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
+	AN(vsm);
+	sp = VTAILQ_FIRST(&vsc->segs);
+	VSM_FOREACH(&ifantom, vsm) {
+		AN(ifantom.class);
+		if (strcmp(ifantom.class, VSC_CLASS) &&
+		    strcmp(ifantom.class, VSC_DOC_CLASS))
+			continue;
+		sp2 = sp;
+		while (sp != NULL &&
+		    (strcmp(ifantom.ident, sp->fantom->ident) ||
+		    VSM_StillValid(vsm, sp->fantom) != VSM_valid)) {
+			sp2 = sp;
+			sp = VTAILQ_NEXT(sp, list);
+			VTAILQ_REMOVE(&vsc->segs, sp2, list);
+			vsc_expose(vsc, sp2, 1);
+			vsc_del_seg(vsc, vsm, sp2);
+		}
+		if (sp == NULL) {
+			sp = vsc_add_seg(vsc, vsm, &ifantom);
+			if (sp != NULL) {
+				VTAILQ_INSERT_TAIL(&vsc->segs, sp, list);
+				sp2 = NULL;
+				vsc_expose(vsc, sp, 0);
+			}
+		} else {
+			vsc_expose(vsc, sp, 0);
+			sp2 = VTAILQ_NEXT(sp, list);
+		}
+		if (sp != NULL && fiter != NULL && sp->head->ready < 2)
+			i = vsc_iter_seg(vsc, sp, fiter, priv);
+		sp = sp2;
 		if (i)
-			return (i);
+			break;
 	}
-	return (0);
+	while (sp != NULL) {
+		sp2 = sp;
+		sp = VTAILQ_NEXT(sp, list);
+		VTAILQ_REMOVE(&vsc->segs, sp2, list);
+		vsc_expose(vsc, sp2, 1);
+		vsc_del_seg(vsc, vsm, sp2);
+	}
+	return (i);
+}
+
+/*--------------------------------------------------------------------
+ */
+
+void
+VSC_State(struct vsc *vsc, VSC_new_f *fn, VSC_destroy_f *fd, void *priv)
+{
+	struct vsc_seg *sp;
+
+	CHECK_OBJ_NOTNULL(vsc, VSC_MAGIC);
+	assert((fn == NULL && fd == NULL) || (fn != NULL && fd != NULL));
+	if (fd == NULL) {
+		VTAILQ_FOREACH(sp, &vsc->segs, list)
+			vsc_expose(vsc, sp, 1);
+	}
+	vsc->fnew = fn;
+	vsc->fdestroy = fd;
+	vsc->priv = priv;
 }
 
 /*--------------------------------------------------------------------
  */
 
 const struct VSC_level_desc *
-VSC_LevelDesc(unsigned level)
+VSC_ChangeLevel(const struct VSC_level_desc *old, int chg)
 {
-	switch (level) {
-#define VSC_LEVEL_F(v,l,e,d)	\
-	case VSC_level_##v:	\
-		return (&VSC_level_desc_##v);
-#include "tbl/vsc_levels.h"
-#undef VSC_LEVEL_F
-	default:
-		return (NULL);
+	int i;
+
+	if (old == NULL)
+		old = &levels[0];
+	for (i = 0; i < nlevels; i++)
+		if (old == &levels[i])
+			break;
+	if (i == nlevels)
+		i = 0;
+
+	i += chg;
+	if (i >= nlevels)
+		i = nlevels - 1;
+	if (i < 0)
+		i = 0;
+	return (&levels[i]);
+}
+
+/*--------------------------------------------------------------------*/
+
+static void
+vsc_delete_sf_list(struct vsc_sf_head *head)
+{
+	struct vsc_sf *sf;
+
+	while (!VTAILQ_EMPTY(head)) {
+		sf = VTAILQ_FIRST(head);
+		CHECK_OBJ_NOTNULL(sf, VSC_SF_MAGIC);
+		VTAILQ_REMOVE(head, sf, list);
+		free(sf->pattern);
+		FREE_OBJ(sf);
 	}
 }
 
-/*--------------------------------------------------------------------
- * Build the static level, type and point descriptions
- */
+void
+VSC_Destroy(struct vsc **vscp, struct vsm *vsm)
+{
+	struct vsc *vsc;
+	struct vsc_seg *sp, *sp2;
 
-#define VSC_LEVEL_F(v,l,e,d)			\
-	const struct VSC_level_desc VSC_level_desc_##v = \
-		{VSC_level_##v, l, e, d};
-#include "tbl/vsc_levels.h"
-#undef VSC_LEVEL_F
+	TAKE_OBJ_NOTNULL(vsc, vscp, VSC_MAGIC);
+	vsc_delete_sf_list(&vsc->sf_list_include);
+	vsc_delete_sf_list(&vsc->sf_list_exclude);
+	VTAILQ_FOREACH_SAFE(sp, &vsc->segs, list, sp2) {
+		VTAILQ_REMOVE(&vsc->segs, sp, list);
+		vsc_expose(vsc, sp, 1);
+		vsc_del_seg(vsc, vsm, sp);
+	}
+	FREE_OBJ(vsc);
+}
 
-#define VSC_TYPE_F(n,t,l,e,d)	const char *VSC_type_##n = t;
-#include "tbl/vsc_types.h"
-
-#define VSC_TYPE_F(n,t,l,e,d)			\
-	const struct VSC_type_desc VSC_type_desc_##n = {l,e,d};
-#include "tbl/vsc_types.h"
-
-#define VSC_DO(U,l,t,h)		const struct VSC_desc VSC_desc_##l[] = {
-#define VSC_F(n,t,l,s,f,v,d,e)		{#n,#t,s,f,&VSC_level_desc_##v,d,e},
-#define VSC_DONE(U,l,t)		};
-#include "tbl/vsc_all.h"

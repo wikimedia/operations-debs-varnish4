@@ -36,12 +36,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
+#include <netdb.h>
 
 #include "vdef.h"
 #include "vas.h"
 #include "vsa.h"
-#include "vrt.h"
 #include "miniobj.h"
 
 /*
@@ -89,7 +90,7 @@
  * Along the way the BSD people figured out that it was a bother
  * to carry the length argument separately, and added that to the
  * format of sockaddr, but other groups found this unclean, as
- * the length was already an explicit paramter.
+ * the length was already an explicit parameter.
  *
  * The net result of this is that your "portable" code, must take
  * care to handle the "sa_len" member on kernels which have it,
@@ -175,12 +176,34 @@ struct suckaddr {
 const int vsa_suckaddr_len = sizeof(struct suckaddr);
 
 /*
+ * Bogus IPv4 address 0.0.0.0:0 to be used for VCL *.ip variables when the
+ * "real" address is not IP (such as UDS addresses).
+ */
+static struct suckaddr bogo_ip_vsa;
+const struct suckaddr *bogo_ip = &bogo_ip_vsa;
+
+void
+VSA_Init()
+{
+	struct addrinfo hints, *res = NULL;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
+	hints.ai_socktype = SOCK_STREAM;
+	AZ(getaddrinfo("0.0.0.0", "0", &hints, &res));
+	AN(VSA_Build(&bogo_ip_vsa, res->ai_addr, res->ai_addrlen));
+	assert(VSA_Sane(bogo_ip));
+	freeaddrinfo(res);
+}
+
+/*
  * This VRT interface is for the VCC generated ACL code, which needs
  * to know the address family and a pointer to the actual address.
  */
 
 int
-VRT_VSA_GetPtr(const struct suckaddr *sua, const unsigned char ** dst)
+VSA_GetPtr(const struct suckaddr *sua, const unsigned char ** dst)
 {
 
 	AN(dst);
@@ -229,6 +252,10 @@ VSA_Malloc(const void *s, unsigned  sal)
 	}
 	if (l != 0) {
 		ALLOC_OBJ(sua, SUCKADDR_MAGIC);
+		/* XXX: shouldn't we AN(sua) instead of mixing up failed
+		 * allocations with unsupported address family or bogus
+		 * sockaddr?
+		 */
 		if (sua != NULL)
 			memcpy(&sua->sa, s, l);
 	}
@@ -333,9 +360,9 @@ VSA_Compare_IP(const struct suckaddr *sua1, const struct suckaddr *sua2)
 	case PF_INET6:
 		return (memcmp(&sua1->sa6.sin6_addr,
 		    &sua2->sa6.sin6_addr, sizeof(struct in6_addr)));
+	default:
+		WRONG("Just plain insane");
 	}
-
-	WRONG("Just plain insane");
 	NEEDLESS(return(-1));
 }
 

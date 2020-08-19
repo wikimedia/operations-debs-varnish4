@@ -32,9 +32,9 @@
 
 #include "config.h"
 
-#include "cache.h"
+#include "cache_varnishd.h"
+#include "cache_filter.h"
 
-#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -43,8 +43,8 @@
 
 #include "vtim.h"
 
-void
-Req_AcctLogCharge(struct dstat *ds, struct req *req)
+static void
+req_AcctLogCharge(struct VSC_main_wrk *ds, struct req *req)
 {
 	struct acct_req *a;
 
@@ -63,8 +63,14 @@ Req_AcctLogCharge(struct dstat *ds, struct req *req)
 		    (uintmax_t)(a->resp_hdrbytes + a->resp_bodybytes));
 	}
 
+	/*
+	 * Charge to main byte counters, except for ESI subrequests
+	 * which are charged as they pass through the topreq.
+	 * XXX: make this test req->top instead
+	 */
 #define ACCT(foo)			\
-	ds->s_##foo += a->foo;		\
+	if (req->esi_level == 0)	\
+		ds->s_##foo += a->foo;	\
 	a->foo = 0;
 #include "tbl/acct_fields_req.h"
 }
@@ -92,8 +98,6 @@ Req_New(const struct worker *wrk, struct sess *sp)
 	req->magic = REQ_MAGIC;
 	req->sp = sp;
 	req->top = req;	// esi overrides
-
-	INIT_OBJ(req->htc, HTTP_CONN_MAGIC);
 
 	e = (char*)req + sz;
 	p = (char*)(req + 1);
@@ -123,6 +127,22 @@ Req_New(const struct worker *wrk, struct sess *sp)
 	p += sz;
 	p = (void*)PRNDUP(p);
 
+	req->vfc = (void*)p;
+	INIT_OBJ(req->vfc, VFP_CTX_MAGIC);
+	p = (void*)PRNDUP(p + sizeof(*req->vfc));
+
+	req->htc = (void*)p;
+	p = (void*)PRNDUP(p + sizeof(*req->htc));
+
+	req->vdc = (void*)p;
+	INIT_OBJ(req->vdc, VDP_CTX_MAGIC);
+	VTAILQ_INIT(&req->vdc->vdp);
+	p = (void*)PRNDUP(p + sizeof(*req->vdc));
+
+	req->htc = (void*)p;
+	INIT_OBJ(req->htc, HTTP_CONN_MAGIC);
+	p = (void*)PRNDUP(p + sizeof(*req->htc));
+
 	assert(p < e);
 
 	WS_Init(req->ws, "req", p, e - p);
@@ -132,9 +152,6 @@ Req_New(const struct worker *wrk, struct sess *sp)
 	req->t_first = NAN;
 	req->t_prev = NAN;
 	req->t_req = NAN;
-
-	req->vdp_nxt = 0;
-	VTAILQ_INIT(&req->vdp);
 
 	return (req);
 }
@@ -153,8 +170,7 @@ Req_Release(struct req *req)
 #include "tbl/acct_fields_req.h"
 
 	AZ(req->vcl);
-	if (req->vsl->wid)
-		VSL_End(req->vsl);
+	AZ(req->vsl->wid);
 	sp = req->sp;
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 	pp = sp->pool;
@@ -167,6 +183,24 @@ Req_Release(struct req *req)
 }
 
 /*----------------------------------------------------------------------
+ * TODO:
+ * - check for code duplication with cnt_recv_prep
+ * - re-check if complete
+ */
+
+void
+Req_Rollback(struct req *req)
+{
+	VCL_TaskLeave(req->vcl, req->privs);
+	VCL_TaskEnter(req->vcl, req->privs);
+	HTTP_Copy(req->http, req->http0);
+	if (WS_Overflowed(req->ws))
+		req->wrk->stats->ws_client_overflow++;
+	WS_Reset(req->ws, req->ws_req);
+}
+
+/*----------------------------------------------------------------------
+ * TODO: remove code duplication with cnt_recv_prep
  */
 
 void
@@ -181,8 +215,7 @@ Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req)
 	req->director_hint = NULL;
 	req->restarts = 0;
 
-	AZ(req->esi_level);
-	assert(req->top == req);
+	AZ(req->privs->magic);
 
 	if (req->vcl != NULL) {
 		if (wrk->vcl != NULL)
@@ -191,17 +224,13 @@ Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req)
 		req->vcl = NULL;
 	}
 
-	VRTPRIV_dynamic_kill(sp->privs, (uintptr_t)req);
-	VRTPRIV_dynamic_kill(sp->privs, (uintptr_t)&req->top);
-
 	/* Charge and log byte counters */
-	if (req->vsl->wid) {
-		Req_AcctLogCharge(wrk->stats, req);
+	req_AcctLogCharge(wrk->stats, req);
+	if (req->vsl->wid)
 		VSL_End(req->vsl);
-	}
 	req->req_bodybytes = 0;
 
-	if (!isnan(req->t_prev) && req->t_prev > 0.)
+	if (!isnan(req->t_prev) && req->t_prev > 0. && req->t_prev > sp->t_idle)
 		sp->t_idle = req->t_prev;
 	else
 		sp->t_idle = W_TIM_real(wrk);
@@ -214,15 +243,18 @@ Req_Cleanup(struct sess *sp, struct worker *wrk, struct req *req)
 	req->hash_always_miss = 0;
 	req->hash_ignore_busy = 0;
 	req->is_hit = 0;
+	req->esi_level = 0;
+
+	if (WS_Overflowed(req->ws))
+		wrk->stats->ws_client_overflow++;
 
 	WS_Reset(req->ws, 0);
-	WS_Reset(wrk->aws, 0);
 }
 
 /*----------------------------------------------------------------------
  */
 
-void __match_proto__(vtr_req_fail_f)
+void v_matchproto_(vtr_req_fail_f)
 Req_Fail(struct req *req, enum sess_close reason)
 {
 	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);

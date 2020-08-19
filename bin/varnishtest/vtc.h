@@ -35,9 +35,10 @@
 #include <pthread_np.h>
 #endif
 
+#include "vdef.h"
+
 #include "miniobj.h"
 #include "vas.h"
-#include "vdef.h"
 #include "vqueue.h"
 #include "vsb.h"
 
@@ -68,16 +69,9 @@ void parse_string(const char *spec, const struct cmds *cmd, void *priv,
     struct vtclog *vl);
 int fail_out(void);
 
-#define CMD(n) cmd_f cmd_##n
-CMD(delay);
-CMD(server);
-CMD(client);
-CMD(varnish);
-CMD(barrier);
-CMD(logexpect);
-CMD(process);
-CMD(shell);
-#undef CMD
+#define CMD_GLOBAL(n) cmd_f cmd_##n;
+#define CMD_TOP(n) cmd_f cmd_##n;
+#include "cmds.h"
 
 extern volatile sig_atomic_t vtc_error; /* Error, bail out */
 extern int vtc_stop;		/* Abandon current test, no error */
@@ -88,23 +82,26 @@ extern char *vmod_path;
 extern struct vsb *params_vsb;
 extern int leave_temp;
 extern int vtc_witness;
-extern int feature_dns;
+extern int ign_unknown_macro;
 
 void init_server(void);
+void init_syslog(void);
 
-int http_process(struct vtclog *vl, const char *spec, int sock, int *sfd);
+int http_process(struct vtclog *vl, const char *spec, int sock, int *sfd,
+		 const char *addr);
 
 char * synth_body(const char *len, int rnd);
 
-void cmd_server_genvcl(struct vsb *vsb);
+void cmd_server_gen_vcl(struct vsb *vsb);
+void cmd_server_gen_haproxy_conf(struct vsb *vsb);
 
 void vtc_loginit(char *buf, unsigned buflen);
 struct vtclog *vtc_logopen(const char *id);
-void vtc_logclose(struct vtclog *vl);
+void vtc_logclose(void *arg);
 void vtc_log(struct vtclog *vl, int lvl, const char *fmt, ...)
-    __v_printflike(3, 4);
+    v_printflike_(3, 4);
 void vtc_fatal(struct vtclog *vl, const char *, ...)
-    __attribute__((__noreturn__)) __v_printflike(2,3);
+    v_noreturn_ v_printflike_(2,3);
 void vtc_dump(struct vtclog *vl, int lvl, const char *pfx,
     const char *str, int len);
 void vtc_hexdump(struct vtclog *, int , const char *, const void *, int );
@@ -118,11 +115,14 @@ int exec_file(const char *fn, const char *script, const char *tmpdir,
 void macro_undef(struct vtclog *vl, const char *instance, const char *name);
 void macro_def(struct vtclog *vl, const char *instance, const char *name,
     const char *fmt, ...)
-    __v_printflike(4, 5);
+    v_printflike_(4, 5);
+char *macro_get(const char *, const char *);
 struct vsb *macro_expand(struct vtclog *vl, const char *text);
+struct vsb *macro_expandf(struct vtclog *vl, const char *, ...)
+    v_printflike_(2, 3);
 
 void extmacro_def(const char *name, const char *fmt, ...)
-    __v_printflike(2, 3);
+    v_printflike_(2, 3);
 
 struct http;
 void cmd_stream(CMD_ARGS);
@@ -132,3 +132,7 @@ void b64_settings(const struct http *hp, const char *s);
 
 /* vtc_subr.c */
 struct vsb *vtc_hex_to_bin(struct vtclog *vl, const char *arg);
+void vtc_expect(struct vtclog *, const char *, const char *, const char *,
+    const char *, const char *);
+void vtc_wait4(struct vtclog *, long, int, int, int);
+void *vtc_record(struct vtclog *, int, struct vsb *);

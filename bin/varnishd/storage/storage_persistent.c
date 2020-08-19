@@ -35,19 +35,18 @@
 
 #include "config.h"
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
-#include <sys/param.h>
 #include <sys/mman.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "cache/cache_obj.h"
+#include "cache/cache_objhead.h"
 #include "storage/storage.h"
 #include "storage/storage_simple.h"
 
-#include "hash/hash_slinger.h"
 #include "vcli_serve.h"
 #include "vsha256.h"
 #include "vtim.h"
@@ -56,7 +55,7 @@
 
 static struct obj_methods smp_oc_realmethods;
 
-static struct VSC_C_lck *lck_smp;
+static struct VSC_lck *lck_smp;
 
 static void smp_init(void);
 
@@ -73,7 +72,7 @@ static VTAILQ_HEAD(,smp_sc)	silos = VTAILQ_HEAD_INITIALIZER(silos);
  */
 
 static int
-smp_appendban(struct smp_sc *sc, struct smp_signspace *spc,
+smp_appendban(const struct smp_sc *sc, struct smp_signspace *spc,
     uint32_t len, const uint8_t *ban)
 {
 
@@ -136,7 +135,7 @@ smp_banexport(const struct stevedore *stv, const uint8_t *bans, unsigned len)
  */
 
 static int
-smp_open_bans(struct smp_sc *sc, struct smp_signspace *spc)
+smp_open_bans(const struct smp_sc *sc, struct smp_signspace *spc)
 {
 	uint8_t *ptr, *pe;
 	int i;
@@ -277,7 +276,7 @@ smp_open_segs(struct smp_sc *sc, struct smp_signspace *spc)
  * Silo worker thread
  */
 
-static void * __match_proto__(bgthread_t)
+static void * v_matchproto_(bgthread_t)
 smp_thread(struct worker *wrk, void *priv)
 {
 	struct smp_sc	*sc;
@@ -320,7 +319,7 @@ smp_thread(struct worker *wrk, void *priv)
  * Open a silo in the worker process
  */
 
-static void __match_proto__(storage_open_f)
+static void v_matchproto_(storage_open_f)
 smp_open(struct stevedore *st)
 {
 	struct smp_sc	*sc;
@@ -389,7 +388,7 @@ smp_open(struct stevedore *st)
  * Close a silo
  */
 
-static void __match_proto__(storage_close_f)
+static void v_matchproto_(storage_close_f)
 smp_close(const struct stevedore *st, int warn)
 {
 	struct smp_sc	*sc;
@@ -503,7 +502,7 @@ smp_allocx(const struct stevedore *st, size_t min_size, size_t max_size,
  * Allocate an object
  */
 
-static int __match_proto__(storage_allocobj_f)
+static int v_matchproto_(storage_allocobj_f)
 smp_allocobj(struct worker *wrk, const struct stevedore *stv,
     struct objcore *oc, unsigned wsl)
 {
@@ -579,7 +578,7 @@ smp_allocobj(struct worker *wrk, const struct stevedore *stv,
  * Allocate a bite
  */
 
-static struct storage * __match_proto__(sml_alloc_f)
+static struct storage * v_matchproto_(sml_alloc_f)
 smp_alloc(const struct stevedore *st, size_t size)
 {
 
@@ -631,7 +630,7 @@ debug_report_silo(struct cli *cli, const struct smp_sc *sc)
 	}
 }
 
-static void
+static void v_matchproto_(cli_func_t)
 debug_persistent(struct cli *cli, const char * const * av, void *priv)
 {
 	struct smp_sc *sc;
@@ -680,7 +679,7 @@ static struct cli_proto debug_cmds[] = {
 static void
 smp_init(void)
 {
-	lck_smp = Lck_CreateClass("smp");
+	lck_smp = Lck_CreateClass(NULL, "smp");
 	CLI_AddFuncs(debug_cmds);
 	smp_oc_realmethods = SML_methods;
 	smp_oc_realmethods.objtouch = NULL;

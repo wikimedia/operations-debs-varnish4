@@ -1,36 +1,26 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Peculiarities &#8212; Varnish version 5.1.3 documentation</title>
-    
+    <title>Peculiarities &#8212; Varnish version 6.0.6 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '5.1.3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="top" title="Varnish version 5.1.3 documentation" href="../index.html" />
-    <link rel="up" title="The Varnish Tutorial" href="index.html" />
     <link rel="next" title="Now what?" href="now_what.html" />
     <link rel="prev" title="Backend servers" href="backend_servers.html" /> 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -43,7 +33,7 @@
         <li class="right" >
           <a href="backend_servers.html" title="Backend servers"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Tutorial</a> &#187;</li> 
       </ul>
     </div>  
@@ -56,7 +46,7 @@
   <div class="section" id="peculiarities">
 <h1>Peculiarities<a class="headerlink" href="#peculiarities" title="Permalink to this headline">¶</a></h1>
 <p>There are a couple of things that are different with Varnish Cache, as
-opposed to other programs. One thing you've already seen - VCL. In this section we provide a very quick tour of other peculiarities you need to know about to get the most out of Varnish.</p>
+opposed to other programs. One thing you’ve already seen - VCL. In this section we provide a very quick tour of other peculiarities you need to know about to get the most out of Varnish.</p>
 <div class="section" id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
 <p>The Varnish Configuration is written in VCL. When Varnish is ran this
@@ -71,16 +61,16 @@ handled.</p>
 <p>Varnish Cache has an admin console. You can connect it it through the
 <a class="reference internal" href="../reference/varnishadm.html#varnishadm-1"><span class="std std-ref">varnishadm</span></a> command. In order to connect the user needs to be
 able to read <cite>/etc/varnish/secret</cite> in order to authenticate.</p>
-<p>Once you've started the console you can do quite a few operations on
+<p>Once you’ve started the console you can do quite a few operations on
 Varnish, like stopping and starting the cache process, load VCL,
 adjust the built in load balancer and invalidate cached content.</p>
-<p>It has a built in command &quot;help&quot; which will give you some hints on
+<p>It has a built in command “help” which will give you some hints on
 what it does.</p>
 </div>
 <div class="section" id="varnishlog">
 <h2>varnishlog<a class="headerlink" href="#varnishlog" title="Permalink to this headline">¶</a></h2>
 <p>Varnish does not log to disk. Instead it logs to a chunk of memory. It
-is actually streaming the logs. At any time you'll be able to connect
+is actually streaming the logs. At any time you’ll be able to connect
 to the stream and see what is going on. Varnish logs quite a bit of
 information. You can have a look at the logstream with the command
 <a class="reference internal" href="../reference/varnishlog.html#varnishlog-1"><span class="std std-ref">varnishlog</span></a>.</p>
@@ -93,7 +83,7 @@ information. You can have a look at the logstream with the command
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <h3><a href="../index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Peculiarities</a><ul>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
@@ -112,18 +102,20 @@ information. You can have a look at the logstream with the command
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/tutorial/peculiarities.txt"
+      <li><a href="../_sources/tutorial/peculiarities.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -142,13 +134,13 @@ information. You can have a look at the logstream with the command
         <li class="right" >
           <a href="backend_servers.html" title="Backend servers"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 5.1.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Tutorial</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2010-2014, Varnish Software AS.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
     </div>
   </body>
 </html>

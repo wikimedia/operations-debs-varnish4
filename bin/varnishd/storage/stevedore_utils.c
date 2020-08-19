@@ -31,7 +31,6 @@
 
 #include "config.h"
 
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #include <errno.h>
@@ -42,6 +41,7 @@
 #include <unistd.h>
 
 #include "mgt/mgt.h"
+#include "common/heritage.h"
 
 #include "storage/storage.h"
 #include "vnum.h"
@@ -85,7 +85,7 @@ STV_GetFile(const char *fn, int *fdp, const char **fnp, const char *ctx)
 	VJ_master(JAIL_MASTER_STORAGE);
 	fd = open(fn, O_RDWR | O_CREAT | O_EXCL | O_LARGEFILE, 0600);
 	if (fd >= 0) {
-		VJ_fix_storage_file(fd);
+		VJ_fix_fd(fd, JAIL_FIXFD_FILE);
 		*fdp = fd;
 		*fnp = fn;
 		VJ_master(JAIL_MASTER_LOW);
@@ -124,7 +124,7 @@ STV_GetFile(const char *fn, int *fdp, const char **fnp, const char *ctx)
 		    ctx, fn);
 
 	*fdp = fd;
-	VJ_fix_storage_file(fd);
+	VJ_fix_fd(fd, JAIL_FIXFD_FILE);
 	VJ_master(JAIL_MASTER_LOW);
 	return (retval);
 }

@@ -46,10 +46,6 @@
 
 	Specify the varnishd working directory (also known as instance name) to get logs from. If -n is not specified, the host name is used.
 
--N <filename>
-
-	Specify the filename of a stale VSM instance. When using this option the abandonment checking is disabled.
-
 -P <file>
 
 	Write the process' PID to the specified file.
@@ -62,6 +58,10 @@
 
 	Read log in binary file format from this file. The file can be created with ``varnishlog -w filename``.
 
+-R <limit[/duration]>
+
+	Restrict the output to the specified limit. Transactions exceeding the limit will be suppressed. The limit is specified as the maximum number of transactions (with respect to the chosen grouping method) and an optional time period. If no duration is specified, a default of ``s`` is used. The duration field can be formatted as in VCL (e.g. ``-R 10/2m``) or as a simple time period without the prefix (e.g. ``-R 5/m``). When in ``-g raw`` grouping mode, this setting can not be used alongside ``-i``, ``-I``, ``-x`` or ``-X``, and we advise using ``-q`` instead.
+
 -t <seconds|off>
 
 	Timeout before returning error on initial VSM connection. If set the VSM connection is retried every 0.5 seconds for this many seconds. If zero the connection is attempted only once and will fail immediately if unsuccessful. If set to "off", the connection will not fail, allowing the utility to start and wait indefinetely for the Varnish instance to appear.  Defaults to 5 seconds.
@@ -73,4 +73,7 @@
 -w <filename>
 
 	Redirect output to file. The file will be overwritten unless the -a option was specified. If the application receives a SIGHUP in daemon mode the file will be reopened allowing the old one to be rotated away. This option is required when running in daemon mode.
+
+--optstring
+	Print the optstring parameter to ``getopt(3)`` to help writing wrapper scripts.
 

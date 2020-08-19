@@ -32,7 +32,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
 #ifdef HAVE_SYS_FILIO_H
 #  include <sys/filio.h>
 #endif
@@ -45,7 +44,6 @@
 #include <netdb.h>
 #include <poll.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -54,6 +52,7 @@
 #include "vsa.h"
 #include "vss.h"
 #include "vtcp.h"
+#include "vtim.h"
 
 /*--------------------------------------------------------------------*/
 static void
@@ -215,9 +214,11 @@ VTCP_fastopen(int sock, int depth)
  * us to do two syscalls, one to get and one to set, the latter of
  * which mucks about a bit before it ends up calling ioctl(FIONBIO),
  * at least on FreeBSD.
+ * On Solaris ioctl(FIONBIO) can fail with connection related errnos,
+ * but as long as that is how they fail, we're fine.
  */
 
-int
+void
 VTCP_blocking(int sock)
 {
 	int i, j;
@@ -225,10 +226,9 @@ VTCP_blocking(int sock)
 	i = 0;
 	j = ioctl(sock, FIONBIO, &i);
 	VTCP_Assert(j);
-	return (j);
 }
 
-int
+void
 VTCP_nonblocking(int sock)
 {
 	int i, j;
@@ -236,7 +236,6 @@ VTCP_nonblocking(int sock)
 	i = 1;
 	j = ioctl(sock, FIONBIO, &i);
 	VTCP_Assert(j);
-	return (j);
 }
 
 /*--------------------------------------------------------------------
@@ -266,7 +265,7 @@ VTCP_connected(int s)
 		return (-1);
 	}
 
-	(void)VTCP_blocking(s);
+	VTCP_blocking(s);
 	return (s);
 }
 
@@ -293,7 +292,7 @@ VTCP_connect(const struct suckaddr *name, int msec)
 
 	/* Set the socket non-blocking */
 	if (msec != 0)
-		(void)VTCP_nonblocking(s);
+		VTCP_nonblocking(s);
 
 	val = 1;
 	AZ(setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &val, sizeof val));
@@ -348,12 +347,10 @@ VTCP_close(int *s)
 }
 
 void
-VTCP_set_read_timeout(int s, double seconds)
+VTCP_set_read_timeout(int s, vtim_dur seconds)
 {
 #ifdef SO_RCVTIMEO_WORKS
-	struct timeval timeout;
-	timeout.tv_sec = (int)floor(seconds);
-	timeout.tv_usec = (int)(1e6 * (seconds - timeout.tv_sec));
+	struct timeval timeout = VTIM_timeval(seconds);
 	/*
 	 * Solaris bug (present at least in snv_151 and older): If this fails
 	 * with EINVAL, the socket is half-closed (SS_CANTSENDMORE) and the
@@ -371,32 +368,25 @@ VTCP_set_read_timeout(int s, double seconds)
 /*--------------------------------------------------------------------
  */
 
-static int __match_proto__(vss_resolved_f)
+static int v_matchproto_(vss_resolved_f)
 vtcp_open_callback(void *priv, const struct suckaddr *sa)
 {
+	/* XXX: vtim_dur? */
 	double *p = priv;
 
 	return (VTCP_connect(sa, (int)floor(*p * 1e3)));
 }
 
 int
-VTCP_open(const char *addr, const char *def_port, double timeout,
+VTCP_open(const char *addr, const char *def_port, vtim_dur timeout,
     const char **errp)
 {
-	int error;
-	const char *err;
 
-	if (errp != NULL)
-		*errp = NULL;
+	AN(errp);
 	assert(timeout >= 0);
-	error = VSS_resolver(addr, def_port, vtcp_open_callback,
-	    &timeout, &err);
-	if (err != NULL) {
-		if (errp != NULL)
-			*errp = err;
-		return (-1);
-	}
-	return (error);
+
+	return (VSS_resolver(addr, def_port, vtcp_open_callback,
+	    &timeout, errp));
 }
 
 /*--------------------------------------------------------------------
@@ -493,7 +483,7 @@ struct helper {
 	const char	**errp;
 };
 
-static int __match_proto__(vss_resolved_f)
+static int v_matchproto_(vss_resolved_f)
 vtcp_lo_cb(void *priv, const struct suckaddr *sa)
 {
 	int sock;
@@ -515,6 +505,7 @@ VTCP_listen_on(const char *addr, const char *def_port, int depth,
 	struct helper h;
 	int sock;
 
+	AN(errp);
 	h.depth = depth;
 	h.errp = errp;
 
@@ -569,7 +560,7 @@ VTCP_Check(int a)
 {
 	if (a == 0)
 		return (1);
-	if (errno == ECONNRESET || errno == ENOTCONN)
+	if (errno == ECONNRESET || errno == ENOTCONN || errno == EPIPE)
 		return (1);
 #if (defined (__SVR4) && defined (__sun)) || defined (__NetBSD__)
 	/*
@@ -577,7 +568,14 @@ VTCP_Check(int a)
 	 * connection.
 	 * This is a bug in Solaris and documented behaviour on NetBSD.
 	 */
-	if (errno == EINVAL || errno == ETIMEDOUT || errno == EPIPE)
+	if (errno == EINVAL || errno == ETIMEDOUT)
+		return (1);
+#elif defined (__APPLE__)
+	/*
+	 * MacOS returns EINVAL if the other end unexpectedly reset
+	 * the connection.
+	 */
+	if (errno == EINVAL)
 		return (1);
 #endif
 	return (0);
@@ -588,7 +586,7 @@ VTCP_Check(int a)
  */
 
 int
-VTCP_read(int fd, void *ptr, size_t len, double tmo)
+VTCP_read(int fd, void *ptr, size_t len, vtim_dur tmo)
 {
 	struct pollfd pfd[1];
 	int i, j;

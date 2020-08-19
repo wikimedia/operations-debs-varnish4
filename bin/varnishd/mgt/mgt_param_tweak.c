@@ -36,13 +36,14 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "mgt/mgt.h"
 
 #include "mgt/mgt_param.h"
 #include "vav.h"
 #include "vnum.h"
+
+const char * const JSON_FMT = (const char *)&JSON_FMT;
 
 /*--------------------------------------------------------------------
  * Generic handling of double typed parameters
@@ -54,7 +55,7 @@ tweak_generic_double(struct vsb *vsb, volatile double *dest,
 {
 	volatile double u, minv = 0, maxv = 0;
 
-	if (arg != NULL) {
+	if (arg != NULL && arg != JSON_FMT) {
 		if (min != NULL) {
 			minv = VNUM(min);
 			if (isnan(minv)) {
@@ -124,7 +125,7 @@ tweak_bool(struct vsb *vsb, const struct parspec *par, const char *arg)
 	volatile unsigned *dest;
 
 	dest = par->priv;
-	if (arg != NULL) {
+	if (arg != NULL && arg != JSON_FMT) {
 		if (!strcasecmp(arg, "off"))
 			*dest = 0;
 		else if (!strcasecmp(arg, "disable"))
@@ -145,6 +146,8 @@ tweak_bool(struct vsb *vsb, const struct parspec *par, const char *arg)
 			VSB_printf(vsb, "use \"on\" or \"off\"\n");
 			return (-1);
 		}
+	} else if (arg == JSON_FMT) {
+		VSB_printf(vsb, "%s", *dest ? "true" : "false");
 	} else {
 		VSB_printf(vsb, "%s", *dest ? "on" : "off");
 	}
@@ -160,7 +163,7 @@ tweak_generic_uint(struct vsb *vsb, volatile unsigned *dest, const char *arg,
 	unsigned u, minv = 0, maxv = 0;
 	char *p;
 
-	if (arg != NULL) {
+	if (arg != NULL && arg != JSON_FMT) {
 		if (min != NULL) {
 			p = NULL;
 			minv = strtoul(min, &p, 0);
@@ -196,7 +199,7 @@ tweak_generic_uint(struct vsb *vsb, volatile unsigned *dest, const char *arg,
 			return (-1);
 		}
 		*dest = u;
-	} else if (*dest == UINT_MAX) {
+	} else if (*dest == UINT_MAX && arg != JSON_FMT) {
 		VSB_printf(vsb, "unlimited");
 	} else {
 		VSB_printf(vsb, "%u", *dest);
@@ -247,7 +250,7 @@ tweak_generic_bytes(struct vsb *vsb, volatile ssize_t *dest, const char *arg,
 	uintmax_t r, rmin = 0, rmax = 0;
 	const char *p;
 
-	if (arg != NULL) {
+	if (arg != NULL && arg != JSON_FMT) {
 		if (min != NULL) {
 			p = VNUM_2bytes(min, &rmin, 0);
 			if (p != NULL) {
@@ -286,6 +289,8 @@ tweak_generic_bytes(struct vsb *vsb, volatile ssize_t *dest, const char *arg,
 			return (-1);
 		}
 		*dest = r;
+	} else if (arg == JSON_FMT) {
+		VSB_printf(vsb, "%zd", *dest);
 	} else {
 		fmt_bytes(vsb, *dest);
 	}
@@ -365,6 +370,8 @@ tweak_string(struct vsb *vsb, const struct parspec *par, const char *arg)
 	/* XXX should have tweak_generic_string */
 	if (arg == NULL) {
 		VSB_quote(vsb, *p, -1, 0);
+	} else if (arg == JSON_FMT) {
+		VSB_quote(vsb, *p, -1, VSB_QUOTE_JSON|VSB_QUOTE_CSTR);
 	} else {
 		REPLACE(*p, arg);
 	}
@@ -381,7 +388,15 @@ tweak_poolparam(struct vsb *vsb, const struct parspec *par, const char *arg)
 	int retval = 0;
 
 	pp = par->priv;
-	if (arg == NULL) {
+	if (arg == JSON_FMT) {
+		VSB_printf(vsb, "{\n");
+		VSB_indent(vsb, 8);
+		VSB_printf(vsb, "\"min_pool\": %u,\n", pp->min_pool);
+		VSB_printf(vsb, "\"max_pool\": %u,\n", pp->max_pool);
+		VSB_printf(vsb, "\"max_age\": %g\n", pp->max_age);
+		VSB_indent(vsb, -4);
+		VSB_printf(vsb, "}");
+	} else if (arg == NULL) {
 		VSB_printf(vsb, "%u,%u,%g",
 		    pp->min_pool, pp->max_pool, pp->max_age);
 	} else {

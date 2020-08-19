@@ -106,8 +106,10 @@ extern int ban_shutdown;
 extern struct banhead_s ban_head;
 extern struct ban * volatile ban_start;
 extern pthread_cond_t	ban_lurker_cond;
+extern uint64_t bans_persisted_bytes;
+extern uint64_t bans_persisted_fragmentation;
 
-void ban_mark_completed(struct ban *b);
+void ban_mark_completed(struct ban *);
 unsigned ban_len(const uint8_t *banspec);
 void ban_info_new(const uint8_t *ban, unsigned len);
 void ban_info_drop(const uint8_t *ban, unsigned len);

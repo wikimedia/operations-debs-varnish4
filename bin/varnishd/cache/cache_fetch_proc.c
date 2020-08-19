@@ -31,7 +31,7 @@
 
 #include <stdlib.h>
 
-#include "cache.h"
+#include "cache_varnishd.h"
 #include "cache_filter.h"
 #include "vcli_serve.h"
 
@@ -43,7 +43,7 @@ static unsigned fetchfrag;
  *
  * Other code is allowed to look at busyobj->fetch_failed to bail out
  *
- * For convenience, always return -1
+ * For convenience, always return VFP_ERROR
  */
 
 enum vfp_status
@@ -104,11 +104,12 @@ VFP_Extend(const struct vfp_ctx *vc, ssize_t sz)
  */
 
 void
-VFP_Setup(struct vfp_ctx *vc)
+VFP_Setup(struct vfp_ctx *vc, struct worker *wrk)
 {
 
 	INIT_OBJ(vc, VFP_CTX_MAGIC);
 	VTAILQ_INIT(&vc->vfp);
+	vc->wrk = wrk;
 }
 
 /**********************************************************************
@@ -133,13 +134,16 @@ VFP_Open(struct vfp_ctx *vc)
 	struct vfp_entry *vfe;
 
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(vc->http, HTTP_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->resp, HTTP_MAGIC);
 	CHECK_OBJ_NOTNULL(vc->wrk, WORKER_MAGIC);
 	AN(vc->wrk->vsl);
 
 	VTAILQ_FOREACH_REVERSE(vfe, &vc->vfp, vfp_entry_s, list) {
 		if (vfe->vfp->init == NULL)
 			continue;
+		if (DO_DEBUG(DBG_PROCESSORS))
+			VSLb(vc->wrk->vsl, SLT_Debug, "VFP_Open(%s)",
+			     vfe->vfp->name);
 		vfe->closed = vfe->vfp->init(vc, vfe);
 		if (vfe->closed != VFP_OK && vfe->closed != VFP_NULL) {
 			(void)VFP_Error(vc, "Fetch filter %s failed to open",
@@ -176,14 +180,13 @@ VFP_Suck(struct vfp_ctx *vc, void *p, ssize_t *lp)
 		vp = VFP_Suck(vc, p, lp);
 	} else if (vfe->closed == VFP_OK) {
 		vp = vfe->vfp->pull(vc, vfe, p, lp);
-		if (vp != VFP_OK && vp != VFP_END && vp != VFP_ERROR) {
-			(void)VFP_Error(vc, "Fetch filter %s returned %d",
+		if (vp != VFP_OK && vp != VFP_END && vp != VFP_ERROR)
+			vp = VFP_Error(vc, "Fetch filter %s returned %d",
 			    vfe->vfp->name, vp);
-			vp = VFP_ERROR;
-		}
+		else
+			vfe->bytes_out += *lp;
 		vfe->closed = vp;
 		vfe->calls++;
-		vfe->bytes_out += *lp;
 	} else {
 		/* Already closed filter */
 		*lp = 0;
@@ -196,26 +199,24 @@ VFP_Suck(struct vfp_ctx *vc, void *p, ssize_t *lp)
 /*--------------------------------------------------------------------
  */
 struct vfp_entry *
-VFP_Push(struct vfp_ctx *vc, const struct vfp *vfp, int top)
+VFP_Push(struct vfp_ctx *vc, const struct vfp *vfp)
 {
 	struct vfp_entry *vfe;
 
 	CHECK_OBJ_NOTNULL(vc, VFP_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(vc->http, HTTP_MAGIC);
+	CHECK_OBJ_NOTNULL(vc->resp, HTTP_MAGIC);
 
-	vfe = WS_Alloc(vc->http->ws, sizeof *vfe);
-	if (vfe == NULL)
+	vfe = WS_Alloc(vc->resp->ws, sizeof *vfe);
+	if (vfe == NULL) {
+		(void)VFP_Error(vc, "Workspace overflow");
 		return (NULL);
+	}
 
 	INIT_OBJ(vfe, VFP_ENTRY_MAGIC);
 	vfe->vfp = vfp;
 	vfe->closed = VFP_OK;
-	if (top)
-		VTAILQ_INSERT_HEAD(&vc->vfp, vfe, list);
-	else
-		VTAILQ_INSERT_TAIL(&vc->vfp, vfe, list);
-	if (VTAILQ_FIRST(&vc->vfp) == vfe)
-		vc->vfp_nxt = vfe;
+	VTAILQ_INSERT_HEAD(&vc->vfp, vfe, list);
+	vc->vfp_nxt = vfe;
 	return (vfe);
 }
 
@@ -223,7 +224,7 @@ VFP_Push(struct vfp_ctx *vc, const struct vfp *vfp, int top)
  * Debugging aids
  */
 
-static void
+static void v_matchproto_(cli_func_t)
 debug_fragfetch(struct cli *cli, const char * const *av, void *priv)
 {
 	(void)priv;

@@ -29,12 +29,12 @@
 
 #include "config.h"
 
-#include <ctype.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "vcc_compile.h"
+
+#include "vct.h"
 
 /*--------------------------------------------------------------------*/
 
@@ -104,7 +104,10 @@ vcc_icoord(struct vsb *vsb, const struct token *t, int tail)
 		} else
 			pos++;
 	}
-	VSB_printf(vsb, "('%s' Line %u Pos %u)", t->src->name, lin, pos + 1);
+	VSB_printf(vsb, "(");
+	if (tail < 2)
+		VSB_printf(vsb, "'%s' Line %u ", t->src->name, lin);
+	VSB_printf(vsb, "Pos %u)", pos + 1);
 }
 
 /*--------------------------------------------------------------------*/
@@ -200,7 +203,7 @@ vcc_ErrWhere2(struct vcc *tl, const struct token *t, const struct token *t2)
 	if (l1 == l2) {
 		vcc_icoord(tl->sb, t, 0);
 		VSB_cat(tl->sb, " -- ");
-		vcc_icoord(tl->sb, t2, 1);
+		vcc_icoord(tl->sb, t2, 2);
 		VSB_putc(tl->sb, '\n');
 		/* Two tokens on same line */
 		vcc_quoteline(tl, l1, t->src->e);
@@ -290,25 +293,25 @@ vcc_IdIs(const struct token *t, const char *p)
 }
 
 /*--------------------------------------------------------------------
- * Check that we have a C-identifier
+ * Check that we have a Varnish identifier
  */
 
 void
-vcc_ExpectCid(struct vcc *tl, const char *what)
+vcc_ExpectVid(struct vcc *tl, const char *what)
 {
-	const char *q;
+	const char *bad;
 
 	ExpectErr(tl, ID);
 	ERRCHK(tl);
-	for (q = tl->t->b; q < tl->t->e; q++) {
-		if (!isalnum(*q) && *q != '_') {
-			VSB_printf(tl->sb, "Name of %s, ", what);
-			vcc_ErrToken(tl, tl->t);
-			VSB_printf(tl->sb,
-			    ", contains illegal character '%c'\n", *q);
-			vcc_ErrWhere(tl, tl->t);
-			return;
-		}
+
+	bad = VCT_invalid_name(tl->t->b, tl->t->e);
+	if (bad != NULL) {
+		VSB_printf(tl->sb, "Name of %s, ", what);
+		vcc_ErrToken(tl, tl->t);
+		VSB_printf(tl->sb,
+		    ", contains illegal character '%c'\n", *bad);
+		vcc_ErrWhere(tl, tl->t);
+		return;
 	}
 }
 
@@ -368,7 +371,7 @@ vcc_Lexer(struct vcc *tl, struct source *sp)
 	for (p = sp->b; p < sp->e; ) {
 
 		/* Skip any whitespace */
-		if (isspace(*p)) {
+		if (vct_isspace(*p)) {
 			p++;
 			continue;
 		}
@@ -488,9 +491,9 @@ vcc_Lexer(struct vcc *tl, struct source *sp)
 		}
 
 		/* Match Identifiers */
-		if (isident1(*p)) {
+		if (vct_isident1(*p)) {
 			for (q = p; q < sp->e; q++)
-				if (!isvar(*q))
+				if (!vct_isvar(*q))
 					break;
 			vcc_AddToken(tl, ID, p, q);
 			p = q;
@@ -498,11 +501,19 @@ vcc_Lexer(struct vcc *tl, struct source *sp)
 		}
 
 		/* Match numbers { [0-9]+ } */
-		if (isdigit(*p)) {
+		if (vct_isdigit(*p)) {
 			for (q = p; q < sp->e; q++)
-				if (!isdigit(*q))
+				if (!vct_isdigit(*q))
 					break;
-			vcc_AddToken(tl, CNUM, p, q);
+			if (*q != '.') {
+				vcc_AddToken(tl, CNUM, p, q);
+				p = q;
+				continue;
+			}
+			for (++q; q < sp->e; q++)
+				if (!vct_isdigit(*q))
+					break;
+			vcc_AddToken(tl, FNUM, p, q);
 			p = q;
 			continue;
 		}

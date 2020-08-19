@@ -39,64 +39,31 @@
 
 #include "config.h"
 
-#include <stdio.h>
-
+#include <string.h>
 #include "vcc_compile.h"
 
 /*--------------------------------------------------------------------*/
 
 struct proccall {
 	VTAILQ_ENTRY(proccall)	list;
-	struct proc		*p;
+	struct symbol		*sym;
 	struct token		*t;
+	struct proc		*fm;
 };
 
 struct procuse {
 	VTAILQ_ENTRY(procuse)	list;
-	const struct token	*t;
+	const struct token	*t1;
+	const struct token	*t2;
 	unsigned		mask;
 	const char		*use;
+	struct proc		*fm;
 };
 
-struct proc {
-	VTAILQ_HEAD(,proccall)	calls;
-	VTAILQ_HEAD(,procuse)	uses;
-	struct token		*name;
-	unsigned		ret_bitmap;
-	unsigned		exists;
-	unsigned		called;
-	unsigned		active;
-	struct token		*return_tok[VCL_RET_MAX];
+struct procpriv {
+	VTAILQ_ENTRY(procpriv)	list;
+	const char		*vmod;
 };
-
-/*--------------------------------------------------------------------
- * Keep track of definitions and references
- */
-
-void
-vcc_AddRef(struct vcc *tl, const struct token *t, enum symkind kind)
-{
-	struct symbol *sym;
-
-	sym = VCC_SymbolTok(tl, NULL, t, kind, 1);
-	if (sym->ref_b == NULL)
-		sym->ref_b = t;
-	AN(sym);
-	sym->nref++;
-}
-
-int
-vcc_AddDef(struct vcc *tl, const struct token *t, enum symkind kind)
-{
-	struct symbol *sym;
-
-	sym = VCC_SymbolTok(tl, NULL, t, kind, 1);
-	if (sym->def_b == NULL)
-		sym->def_b = t;
-	AN(sym);
-	sym->ndef++;
-	return (sym->ndef);
-}
 
 /*--------------------------------------------------------------------*/
 
@@ -104,15 +71,17 @@ static void
 vcc_checkref(struct vcc *tl, const struct symbol *sym)
 {
 
+	if (sym->noref)
+		return;
 	if (sym->ndef == 0 && sym->nref != 0) {
 		AN(sym->ref_b);
 		VSB_printf(tl->sb, "Undefined %s %.*s, first reference:\n",
-		    VCC_SymKind(tl, sym), PF(sym->ref_b));
+		    sym->kind->name, PF(sym->ref_b));
 		vcc_ErrWhere(tl, sym->ref_b);
 	} else if (sym->ndef != 0 && sym->nref == 0) {
 		AN(sym->def_b);
 		VSB_printf(tl->sb, "Unused %s %.*s, defined:\n",
-		    VCC_SymKind(tl, sym), PF(sym->def_b));
+		    sym->kind->name, PF(sym->def_b));
 		vcc_ErrWhere(tl, sym->def_b);
 		if (!tl->err_unref) {
 			VSB_printf(tl->sb, "(That was just a warning)\n");
@@ -133,41 +102,9 @@ vcc_CheckReferences(struct vcc *tl)
  * Returns checks
  */
 
-static struct proc *
-vcc_findproc(struct vcc *tl, struct token *t)
-{
-	struct symbol *sym;
-	struct proc *p;
-
-
-	sym = VCC_SymbolTok(tl, NULL, t, SYM_SUB, 1);
-	AN(sym);
-	if (sym->proc != NULL)
-		return (sym->proc);
-
-	p = TlAlloc(tl, sizeof *p);
-	assert(p != NULL);
-	VTAILQ_INIT(&p->calls);
-	VTAILQ_INIT(&p->uses);
-	p->name = t;
-	sym->proc = p;
-	return (p);
-}
-
-struct proc *
-vcc_AddProc(struct vcc *tl, struct token *t)
-{
-	struct proc *p;
-
-	p = vcc_findproc(tl, t);
-	p->name = t;	/* make sure the name matches the definition */
-	p->exists++;
-	return (p);
-}
-
 void
-vcc_AddUses(struct vcc *tl, const struct token *t, unsigned mask,
-    const char *use)
+vcc_AddUses(struct vcc *tl, const struct token *t1, const struct token *t2,
+    unsigned mask, const char *use)
 {
 	struct procuse *pu;
 
@@ -175,23 +112,27 @@ vcc_AddUses(struct vcc *tl, const struct token *t, unsigned mask,
 		return;
 	pu = TlAlloc(tl, sizeof *pu);
 	assert(pu != NULL);
-	pu->t = t;
+	pu->t1 = t1;
+	pu->t2 = t2;
+	if (pu->t2 == NULL)
+		pu->t2 = VTAILQ_NEXT(t1, list);
 	pu->mask = mask;
 	pu->use = use;
+	pu->fm = tl->curproc;
 	VTAILQ_INSERT_TAIL(&tl->curproc->uses, pu, list);
 }
 
 void
-vcc_AddCall(struct vcc *tl, struct token *t)
+vcc_AddCall(struct vcc *tl, struct symbol *sym)
 {
 	struct proccall *pc;
-	struct proc *p;
 
-	p = vcc_findproc(tl, t);
+	AN(sym);
 	pc = TlAlloc(tl, sizeof *pc);
 	assert(pc != NULL);
-	pc->p = p;
-	pc->t = t;
+	pc->sym = sym;
+	pc->t = tl->t;
+	pc->fm = tl->curproc;
 	VTAILQ_INSERT_TAIL(&tl->curproc->calls, pc, list);
 }
 
@@ -212,11 +153,7 @@ vcc_CheckActionRecurse(struct vcc *tl, struct proc *p, unsigned bitmap)
 	unsigned u;
 	struct proccall *pc;
 
-	if (!p->exists) {
-		VSB_printf(tl->sb, "Function %.*s does not exist\n",
-		    PF(p->name));
-		return (1);
-	}
+	AN(p);
 	if (p->active) {
 		VSB_printf(tl->sb, "Function recurses on\n");
 		vcc_ErrWhere(tl, p->name);
@@ -239,9 +176,15 @@ vcc_CheckActionRecurse(struct vcc *tl, struct proc *p, unsigned bitmap)
 	}
 	p->active = 1;
 	VTAILQ_FOREACH(pc, &p->calls, list) {
-		if (vcc_CheckActionRecurse(tl, pc->p, bitmap)) {
-			VSB_printf(tl->sb, "\n...called from \"%.*s\"\n",
-			    PF(p->name));
+		if (pc->sym->proc == NULL) {
+			VSB_printf(tl->sb, "Function %s does not exist\n",
+			    pc->sym->name);
+			vcc_ErrWhere(tl, pc->t);
+			return (1);
+		}
+		if (vcc_CheckActionRecurse(tl, pc->sym->proc, bitmap)) {
+			VSB_printf(tl->sb, "\n...called from \"%s\"\n",
+			    pc->sym->name);
 			vcc_ErrWhere(tl, pc->t);
 			return (1);
 		}
@@ -257,21 +200,18 @@ static void
 vcc_checkaction1(struct vcc *tl, const struct symbol *sym)
 {
 	struct proc *p;
-	struct method *m;
-	int i;
 
 	p = sym->proc;
 	AN(p);
-	i = IsMethod(p->name);
-	if (i < 0)
+	AN(p->name);
+	if (p->method == NULL)
 		return;
-	m = method_tab + i;
-	if (vcc_CheckActionRecurse(tl, p, m->ret_bitmap)) {
+	if (vcc_CheckActionRecurse(tl, p, p->method->ret_bitmap)) {
 		VSB_printf(tl->sb,
-		    "\n...which is the \"%s\" method\n", m->name);
+		    "\n...which is the \"%s\" method\n", p->method->name);
 		VSB_printf(tl->sb, "Legal returns are:");
 #define VCL_RET_MAC(l, U, B)						\
-		if (m->ret_bitmap & ((1 << VCL_RET_##U)))	\
+		if (p->method->ret_bitmap & ((1 << VCL_RET_##U)))	\
 			VSB_printf(tl->sb, " \"%s\"", #l);
 
 #include "tbl/vcl_returns.h"
@@ -325,26 +265,25 @@ vcc_FindIllegalUse(const struct proc *p, const struct method *m)
 
 static int
 vcc_CheckUseRecurse(struct vcc *tl, const struct proc *p,
-    struct method *m)
+    const struct method *m)
 {
 	struct proccall *pc;
 	struct procuse *pu;
 
 	pu = vcc_FindIllegalUse(p, m);
 	if (pu != NULL) {
-		VSB_printf(tl->sb,
-		    "'%.*s': %s from method '%.*s'.\n",
-		    PF(pu->t), pu->use, PF(p->name));
-		vcc_ErrWhere(tl, pu->t);
+		vcc_ErrWhere2(tl, pu->t1, pu->t2);
+		VSB_printf(tl->sb, "%s from method '%s'.\n",
+		    pu->use, m->name);
 		VSB_printf(tl->sb, "\n...in subroutine \"%.*s\"\n",
-		    PF(p->name));
+		    PF(pu->fm->name));
 		vcc_ErrWhere(tl, p->name);
 		return (1);
 	}
 	VTAILQ_FOREACH(pc, &p->calls, list) {
-		if (vcc_CheckUseRecurse(tl, pc->p, m)) {
+		if (vcc_CheckUseRecurse(tl, pc->sym->proc, m)) {
 			VSB_printf(tl->sb, "\n...called from \"%.*s\"\n",
-			    PF(p->name));
+			    PF(pc->fm->name));
 			vcc_ErrWhere(tl, pc->t);
 			return (1);
 		}
@@ -356,29 +295,23 @@ static void
 vcc_checkuses(struct vcc *tl, const struct symbol *sym)
 {
 	struct proc *p;
-	struct method *m;
 	struct procuse *pu;
-	int i;
 
 	p = sym->proc;
 	AN(p);
-
-	i = IsMethod(p->name);
-	if (i < 0)
+	if (p->method == NULL)
 		return;
-	m = method_tab + i;
-	pu = vcc_FindIllegalUse(p, m);
+	pu = vcc_FindIllegalUse(p, p->method);
 	if (pu != NULL) {
-		VSB_printf(tl->sb,
-		    "'%.*s': %s in method '%.*s'.",
-		    PF(pu->t), pu->use, PF(p->name));
+		vcc_ErrWhere2(tl, pu->t1, pu->t2);
+		VSB_printf(tl->sb, "%s in method '%.*s'.",
+		    pu->use, PF(p->name));
 		VSB_cat(tl->sb, "\nAt: ");
-		vcc_ErrWhere(tl, pu->t);
 		return;
 	}
-	if (vcc_CheckUseRecurse(tl, p, m)) {
+	if (vcc_CheckUseRecurse(tl, p, p->method)) {
 		VSB_printf(tl->sb,
-		    "\n...which is the \"%s\" method\n", m->name);
+		    "\n...which is the \"%s\" method\n", p->method->name);
 		return;
 	}
 }
@@ -404,12 +337,16 @@ vcc_pnam(struct vcc *tl, const struct symbol *sym)
 	Fc(tl, 0, "%s", sym->name);
 }
 
-static void __match_proto__(symwalk_f)
+static void v_matchproto_(symwalk_f)
 vcc_xreftable(struct vcc *tl, const struct symbol *sym)
 {
 
-	Fc(tl, 0, " * %-7s ", VCC_SymKind(tl, sym));
-	Fc(tl, 0, " %-9s ", sym->fmt != NULL ? sym->fmt->name : "");
+	CHECK_OBJ_NOTNULL(sym, SYMBOL_MAGIC);
+	CHECK_OBJ_NOTNULL(sym->kind, KIND_MAGIC);
+	CHECK_OBJ_NOTNULL(sym->type, TYPE_MAGIC);
+	Fc(tl, 0, " * %-8s ", sym->kind->name);
+	Fc(tl, 0, " %-9s ", sym->type->name);
+	Fc(tl, 0, " %2u %2u ", sym->lorev, sym->hirev);
 	vcc_pnam(tl, sym);
 	if (sym->wildcard != NULL)
 		Fc(tl, 0, "*");
@@ -423,4 +360,29 @@ VCC_XrefTable(struct vcc *tl)
 	Fc(tl, 0, "\n/*\n * Symbol Table\n *\n");
 	VCC_WalkSymbols(tl, vcc_xreftable, SYM_NONE);
 	Fc(tl, 0, "*/\n\n");
+}
+
+/*---------------------------------------------------------------------
+ * mark vmod as referenced, return NULL if not yet marked, vmod if marked
+ */
+
+const char *
+vcc_MarkPriv(struct vcc *tl, struct procprivhead *head,
+    const char *vmod)
+{
+	struct procpriv *pp;
+
+	AN(vmod);
+
+	VTAILQ_FOREACH(pp, head, list) {
+		if (pp->vmod == vmod)
+			return (vmod);
+		AN(strcmp(pp->vmod, vmod));
+	}
+
+	pp = TlAlloc(tl, sizeof *pp);
+	assert(pp != NULL);
+	pp->vmod = vmod;
+	VTAILQ_INSERT_TAIL(head, pp, list);
+	return (NULL);
 }

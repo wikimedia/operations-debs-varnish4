@@ -73,8 +73,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cache/cache.h"
+#include "cache/cache_varnishd.h"
 
+#include "waiter/waiter.h"
 #include "waiter/waiter_priv.h"
 #include "waiter/mgt_waiter.h"
 #include "vtim.h"
@@ -152,6 +153,7 @@ vws_thread(void *priv)
 	w = vws->waiter;
 	CHECK_OBJ_NOTNULL(w, WAITER_MAGIC);
 	THR_SetName("cache-ports");
+	THR_Init();
 
 	now = VTIM_real();
 
@@ -231,7 +233,7 @@ vws_enter(void *priv, struct waited *wp)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(waiter_init_f)
+static void v_matchproto_(waiter_init_f)
 vws_init(struct waiter *w)
 {
 	struct vws *vws;
@@ -248,7 +250,7 @@ vws_init(struct waiter *w)
 
 /*--------------------------------------------------------------------*/
 
-static void __match_proto__(waiter_fini_f)
+static void v_matchproto_(waiter_fini_f)
 vws_fini(struct waiter *w)
 {
 	struct vws *vws;

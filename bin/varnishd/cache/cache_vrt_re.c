@@ -33,9 +33,7 @@
 
 #include <ctype.h>
 
-#include "cache.h"
-
-#include "vrt.h"
+#include "cache_varnishd.h"
 
 static void
 Tadd(char **b, char *e, const char *p, int l)
@@ -129,7 +127,7 @@ VRT_regsub(VRT_CTX, int all, const char *str, void *re,
 		return(str);
 	}
 
-	u = WS_Reserve(ctx->ws, 0);
+	u = WS_ReserveAll(ctx->ws);
 	res_e = res_b = b0 = ctx->ws->f;
 	res_e += u;
 
