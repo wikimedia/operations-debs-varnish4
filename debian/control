@@ -22,7 +22,7 @@ Build-Depends: automake,
                libpcre3-dev,
                libtool,
                pkg-config,
-               python-docutils,
+               python3-sphinx,
                xsltproc
 Standards-Version: 3.9.8
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-varnish/pkg-varnish.git
@@ -84,7 +84,7 @@ Section: libdevel
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libvarnishapi1 (= ${binary:Version}),
-         python
+         python:any
 Conflicts: libvarnish-dev
 Provides: libvarnish-dev
 Description: development files for Varnish
