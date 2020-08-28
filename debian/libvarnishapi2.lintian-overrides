@@ -1,1 +1,1 @@
-libvarnishapi1: postinst-must-call-ldconfig *
+libvarnishapi2: postinst-must-call-ldconfig *
