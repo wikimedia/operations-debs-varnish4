@@ -87,6 +87,9 @@ override_dh_installinit:
 	dh_installinit --name=varnishlog --no-start
 	dh_installinit --name=varnishncsa --no-start
 
+override_dh_makeshlibs:
+	dh_makeshlibs -VUpstream-Version
+
 override_dh_compress:
 	dh_compress -X/usr/share/doc/varnish-doc/html
 

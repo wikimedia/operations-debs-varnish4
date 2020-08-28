@@ -67,14 +67,12 @@ Depends: ${misc:Depends},
 Description: documentation for Varnish Cache
  This package contains HTML documentation for Varnish Cache.
 
-Package: libvarnishapi1
+Package: libvarnishapi2
 Architecture: any
 Section: libs
 Depends: ${shlibs:Depends},
          ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
-Conflicts: libvarnish1
-Provides: libvarnish1
 Description: shared libraries for Varnish
  Shared libraries for the Varnish HTTP accelerator.
 
@@ -83,7 +81,7 @@ Architecture: any
 Section: libdevel
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         libvarnishapi1 (= ${binary:Version}),
+         libvarnishapi2 (= ${binary:Version}),
          python:any
 Conflicts: libvarnish-dev
 Provides: libvarnish-dev
