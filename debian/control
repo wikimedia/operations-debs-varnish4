@@ -12,9 +12,8 @@ Testsuite: autopkgtest
 Priority: optional
 Build-Depends: automake,
                autotools-dev,
-               debhelper (>= 9),
+               debhelper (>= 12),
                dh-autoreconf,
-               dh-systemd,
                graphviz,
                libedit-dev,
                libjemalloc-dev,

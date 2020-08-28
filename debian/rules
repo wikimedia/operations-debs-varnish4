@@ -38,7 +38,7 @@ endif
 
 # Main build rule, leave everything to debhelper
 %:
-	dh $@ --parallel --with=systemd,autoreconf
+	dh $@ --parallel --with=autoreconf
 
 override_dh_autoreconf:
 	dh_autoreconf ./autogen.sh
@@ -63,7 +63,8 @@ override_dh_auto_install:
 	find $(CURDIR)/debian -name \*.a -delete
 
 override_dh_install-arch:
-	dh_install -a --fail-missing
+	dh_install -a
+	dh_missing -a --fail-missing
 	@ # Override to add the "reload-vcl" script
 	install -o root -g root -m 755 \
 		$(CURDIR)/debian/reload-vcl \
@@ -71,18 +72,6 @@ override_dh_install-arch:
 
 override_dh_installchangelogs:
 	dh_installchangelogs -XChangeLog doc/changes.html
-
-override_dh_installdocs:
-	dh_installdocs
-	@ # Use the packaged javascript libraries
-	if [ -d $(CURDIR)/debian/varnish-doc ]; then \
-		rm -f $(CURDIR)/debian/varnish-doc/usr/share/doc/varnish-doc/html/_static/jquery.js; \
-		ln -s /usr/share/javascript/jquery/jquery.js \
-			$(CURDIR)/debian/varnish-doc/usr/share/doc/varnish-doc/html/_static/jquery.js; \
-		rm -f $(CURDIR)/debian/varnish-doc/usr/share/doc/varnish-doc/html/_static/underscore.js; \
-		ln -s /usr/share/javascript/underscore/underscore.js \
-			$(CURDIR)/debian/varnish-doc/usr/share/doc/varnish-doc/html/_static/underscore.js; \
-	fi
 
 # Override to add several init scripts
 override_dh_installinit:
