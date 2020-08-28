@@ -15,16 +15,19 @@ LOCAL_CONFIGURE_FLAGS = --localstatedir=/var/lib
 
 LOCAL_BUILD_OPTIONS = test
 
+# Workaround for a breaking change in GNU make 4.3.
+H := \#
+
 # Extract VMOD_ABI version, this is used for building vmods using the official
 # VMOD API
-VMOD_ABI = $(shell printf '\#include "vrt.h"\nvarnishabi- VRT_MAJOR_VERSION . VRT_MINOR_VERSION\n' \
+VMOD_ABI = $(shell printf '$(H)include "vdef.h"\n$(H)include "vrt.h"\nvarnishabi- VRT_MAJOR_VERSION . VRT_MINOR_VERSION\n' \
 	   | cpp - -Iinclude \
 	   | sed -e '/^varnishabi-/!d' -e 's/U//g' -e 's/ //g')
 
 # Extract VMOD_strictABI, which refers to the exact build of varnish. This is
 # used for old style vmods bypassing the VMOD API, accessing the internal data
 # structures directly.
-VMOD_strictABI = $(shell printf '\#include "vcs_version.h"\nVCS_Version\n' \
+VMOD_strictABI = $(shell printf '$(H)include "vcs_version.h"\nVCS_Version\n' \
 		 | cpp - -Iinclude \
 		 | sed -e '/^"/!d' -e 's/\"//g' -e 's/^/varnishabi-strict-/')
 
