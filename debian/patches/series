@@ -1,2 +1,3 @@
 0005-stats-shortlived.patch
 0006-bump-api-soname.patch
+0007-vut-reset-sighup.patch

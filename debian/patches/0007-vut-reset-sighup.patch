@@ -1,0 +1,30 @@
+Origin: https://github.com/varnishcache/varnish-cache/pull/3438
+Description: Clear vut->sighup even if sighup_f is not defined
+From: Emanuele Rocca <ema@wikimedia.org>
+Upstream-Bug: https://github.com/varnishcache/varnish-cache/issues/3436
+Bug: https://phabricator.wikimedia.org/T264074
+diff --git a/lib/libvarnishapi/vut.c b/lib/libvarnishapi/vut.c
+index b02644a81b..60c36d3490 100644
+--- a/lib/libvarnishapi/vut.c
++++ b/lib/libvarnishapi/vut.c
+@@ -364,12 +364,15 @@ VUT_Main(struct VUT *vut)
+ 	AN(vut->vslq);
+ 
+ 	while (!vut->sigint) {
+-		if (vut->sighup && vut->sighup_f) {
+-			/* sighup callback */
++		if (vut->sighup) {
+ 			vut->sighup = 0;
+-			i = vut->sighup_f(vut);
+-			if (i)
+-				break;
++
++			if (vut->sighup_f) {
++				/* sighup callback */
++				i = vut->sighup_f(vut);
++				if (i)
++					break;
++			}
+ 		}
+ 
+ 		if (vut->sigusr1) {
