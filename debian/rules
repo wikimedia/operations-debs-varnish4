@@ -85,9 +85,6 @@ override_dh_makeshlibs:
 override_dh_compress:
 	dh_compress -X/usr/share/doc/varnish-doc/html
 
-override_dh_strip:
-	dh_strip --dbg-package=varnish-dbg
-
 override_dh_gencontrol:
 	echo "Varnish:ABI=$(VMOD_ABI)"             >> debian/varnish.substvars
 	echo "Varnish:strictABI=$(VMOD_strictABI)" >> debian/varnish.substvars

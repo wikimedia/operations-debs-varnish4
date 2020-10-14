@@ -1,6 +1,8 @@
 varnish (6.0.6-1wm2) buster-wikimedia; urgency=medium
 
   * Clear vut->sighup even if sighup_f is not defined (Bug: T264074)
+  * Stop explicitly creating varnish-dbg, recent debhelper versions build
+    -dbgsym packages automatically
 
  -- Emanuele Rocca <ema@wikimedia.org>  Wed, 14 Oct 2020 15:38:21 +0200
 
