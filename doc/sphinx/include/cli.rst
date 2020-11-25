@@ -98,6 +98,14 @@ param.show [-l|-j] [<param>|changed]
 
 The long form with ``-l`` shows additional information, including documentation and minimum, maximum and default values, if defined for the parameter. JSON output is specified with ``-j``, in which the information for the long form is included; only one of ``-l`` or ``-j`` is permitted. If a parameter is specified with ``<param>``, show only that parameter. If ``changed`` is specified, show only those parameters whose values differ from their defaults.
 
+.. _ref_cli_pid [-j]:
+
+pid [-j]
+~~~~~~~~
+  Show the pid of the master process, and the worker if it's running.
+
+  ``-j`` specifies JSON output.
+
 .. _ref_cli_ping [-j] [<timestamp>]:
 
 ping [-j] [<timestamp>]

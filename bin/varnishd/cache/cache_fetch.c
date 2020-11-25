@@ -85,6 +85,37 @@ vbf_allocobj(struct busyobj *bo, unsigned l)
 	return (STV_NewObject(bo->wrk, bo->fetch_objcore, stv_transient, l));
 }
 
+static void
+vbf_cleanup(struct busyobj *bo)
+{
+	struct vfp_ctx *vfc;
+
+	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	vfc = bo->vfc;
+	CHECK_OBJ_NOTNULL(vfc, VFP_CTX_MAGIC);
+
+	VFP_Close(vfc);
+	if (bo->director_state != DIR_S_NULL)
+		VDI_Finish(bo->wrk, bo);
+}
+
+void Bereq_Rollback(struct busyobj *bo)
+{
+	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+
+	if (bo->htc != NULL &&
+	    bo->htc->body_status != BS_NONE)
+		bo->htc->doclose = SC_RESP_CLOSE;
+
+	vbf_cleanup(bo);
+	VCL_TaskLeave(bo->vcl, bo->privs);
+	VCL_TaskEnter(bo->vcl, bo->privs);
+	HTTP_Copy(bo->bereq, bo->bereq0);
+	bo->err_reason = NULL;
+	WS_Reset(bo->bereq->ws, bo->ws_bo);
+	WS_Reset(bo->ws, bo->ws_bo);
+}
+
 /*--------------------------------------------------------------------
  * Turn the beresp into a obj
  */
@@ -211,7 +242,14 @@ vbf_stp_mkbereq(struct worker *wrk, struct busyobj *bo)
 	bo->ws_bo = WS_Snapshot(bo->ws);
 	HTTP_Copy(bo->bereq, bo->bereq0);
 
+	bo->initial_req_body_status = bo->req->req_body_status;
 	if (bo->req->req_body_status == REQ_BODY_NONE) {
+		bo->req = NULL;
+		ObjSetState(bo->wrk, bo->fetch_objcore, BOS_REQ_DONE);
+	} else if (bo->req->req_body_status == REQ_BODY_CACHED) {
+		AN(bo->req->body_oc);
+		bo->bereq_body = bo->req->body_oc;
+		HSH_Ref(bo->bereq_body);
 		bo->req = NULL;
 		ObjSetState(bo->wrk, bo->fetch_objcore, BOS_REQ_DONE);
 	}
@@ -231,9 +269,18 @@ vbf_stp_retry(struct worker *wrk, struct busyobj *bo)
 
 	assert(bo->fetch_objcore->boc->state <= BOS_REQ_DONE);
 
+	if (bo->fetch_objcore->boc->state == BOS_REQ_DONE &&
+	    bo->initial_req_body_status != REQ_BODY_NONE &&
+	    bo->bereq_body == NULL) {
+		/* We have already released the req and there was a
+		 * request body that was not cached. Too late to retry. */
+		VSLb(bo->vsl, SLT_Error, "req.body already consumed");
+		return (F_STP_FAIL);
+	}
+
 	VSLb_ts_busyobj(bo, "Retry", W_TIM_real(wrk));
 
-	/* VDI_Finish must have been called before */
+	/* VDI_Finish (via vbf_cleanup) must have been called before */
 	assert(bo->director_state == DIR_S_NULL);
 
 	/* reset other bo attributes - See VBO_GetBusyObj */
@@ -248,6 +295,43 @@ vbf_stp_retry(struct worker *wrk, struct busyobj *bo)
 	http_VSL_log(bo->bereq);
 
 	return (F_STP_STARTFETCH);
+}
+
+/*--------------------------------------------------------------------
+ * 304 setup logic
+ */
+
+static int
+vbf_304_logic(struct busyobj *bo)
+{
+	if (bo->stale_oc != NULL &&
+	    ObjCheckFlag(bo->wrk, bo->stale_oc, OF_IMSCAND)) {
+		AZ(bo->stale_oc->flags & (OC_F_HFM|OC_F_PRIVATE));
+		if (ObjCheckFlag(bo->wrk, bo->stale_oc, OF_CHGGZIP)) {
+			/*
+			 * If a VFP changed C-E in the stored
+			 * object, then don't overwrite C-E from
+			 * the IMS fetch, and we must weaken any
+			 * new ETag we get.
+			 */
+			RFC2616_Weaken_Etag(bo->beresp);
+		}
+		http_Unset(bo->beresp, H_Content_Encoding);
+		http_Unset(bo->beresp, H_Content_Length);
+		HTTP_Merge(bo->wrk, bo->stale_oc, bo->beresp);
+		assert(http_IsStatus(bo->beresp, 200));
+		bo->was_304 = 1;
+	} else if (!bo->do_pass) {
+		/*
+		 * Backend sent unallowed 304
+		 */
+		VSLb(bo->vsl, SLT_Error,
+		    "304 response but not conditional fetch");
+		bo->htc->doclose = SC_RX_BAD;
+		vbf_cleanup(bo);
+		return (-1);
+	}
+	return (1);
 }
 
 /*--------------------------------------------------------------------
@@ -307,7 +391,7 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 
 	if (bo->htc->body_status == BS_ERROR) {
 		bo->htc->doclose = SC_RX_BODY;
-		VDI_Finish(bo->wrk, bo);
+		vbf_cleanup(bo);
 		VSLb(bo->vsl, SLT_Error, "Body cannot be fetched");
 		assert(bo->director_state == DIR_S_NULL);
 		return (F_STP_ERROR);
@@ -336,61 +420,26 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	http_CollectHdr(bo->beresp, H_Cache_Control);
 	http_CollectHdr(bo->beresp, H_Vary);
 
-	if (bo->fetch_objcore->flags & OC_F_PRIVATE) {
-		/* private objects have negative TTL */
-		bo->fetch_objcore->t_origin = now;
-		bo->fetch_objcore->ttl = -1.;
-		bo->fetch_objcore->grace = 0;
-		bo->fetch_objcore->keep = 0;
-	} else {
-		/* What does RFC2616 think about TTL ? */
-		RFC2616_Ttl(bo, now,
-		    &bo->fetch_objcore->t_origin,
-		    &bo->fetch_objcore->ttl,
-		    &bo->fetch_objcore->grace,
-		    &bo->fetch_objcore->keep
-		    );
-	}
+	/* What does RFC2616 think about TTL ? */
+	RFC2616_Ttl(bo, now,
+	    &bo->fetch_objcore->t_origin,
+	    &bo->fetch_objcore->ttl,
+	    &bo->fetch_objcore->grace,
+	    &bo->fetch_objcore->keep);
 
 	AZ(bo->do_esi);
 	AZ(bo->was_304);
 
-	if (http_IsStatus(bo->beresp, 304)) {
-		if (bo->stale_oc != NULL &&
-		    ObjCheckFlag(bo->wrk, bo->stale_oc, OF_IMSCAND)) {
-			AZ(bo->stale_oc->flags & (OC_F_HFM|OC_F_PRIVATE));
-			if (ObjCheckFlag(bo->wrk, bo->stale_oc, OF_CHGGZIP)) {
-				/*
-				 * If we changed the gzip status of the object
-				 * the stored Content_Encoding controls we
-				 * must weaken any new ETag we get.
-				 */
-				http_Unset(bo->beresp, H_Content_Encoding);
-				RFC2616_Weaken_Etag(bo->beresp);
-			}
-			http_Unset(bo->beresp, H_Content_Length);
-			HTTP_Merge(bo->wrk, bo->stale_oc, bo->beresp);
-			assert(http_IsStatus(bo->beresp, 200));
-			bo->was_304 = 1;
-		} else if (!bo->do_pass) {
-			/*
-			 * Backend sent unallowed 304
-			 */
-			VSLb(bo->vsl, SLT_Error,
-			    "304 response but not conditional fetch");
-			bo->htc->doclose = SC_RX_BAD;
-			VDI_Finish(bo->wrk, bo);
-			return (F_STP_ERROR);
-		}
-	}
+	if (http_IsStatus(bo->beresp, 304) && vbf_304_logic(bo) < 0)
+		return (F_STP_ERROR);
 
 	VCL_backend_response_method(bo->vcl, wrk, NULL, bo, NULL);
 
 	if (wrk->handling == VCL_RET_ABANDON || wrk->handling == VCL_RET_FAIL ||
 	    wrk->handling == VCL_RET_ERROR) {
-		bo->htc->doclose = SC_RESP_CLOSE;
-
-		VDI_Finish(bo->wrk, bo);
+		if (bo->htc)
+			bo->htc->doclose = SC_RESP_CLOSE;
+		vbf_cleanup(bo);
 		if (wrk->handling == VCL_RET_ERROR)
 			return (F_STP_ERROR);
 		else
@@ -398,10 +447,9 @@ vbf_stp_startfetch(struct worker *wrk, struct busyobj *bo)
 	}
 
 	if (wrk->handling == VCL_RET_RETRY) {
-		if (bo->htc->body_status != BS_NONE)
+		if (bo->htc && bo->htc->body_status != BS_NONE)
 			bo->htc->doclose = SC_RESP_CLOSE;
-		if (bo->director_state != DIR_S_NULL)
-			VDI_Finish(bo->wrk, bo);
+		vbf_cleanup(bo);
 
 		if (bo->retries++ < cache_param->max_retries)
 			return (F_STP_RETRY);
@@ -491,8 +539,7 @@ vbf_stp_fetchbody(struct worker *wrk, struct busyobj *bo)
 	if (vfc->failed) {
 		(void)VFP_Error(vfc, "Fetch pipeline failed to process");
 		bo->htc->doclose = SC_RX_BODY;
-		VFP_Close(vfc);
-		VDI_Finish(wrk, bo);
+		vbf_cleanup(bo);
 		if (!bo->do_stream) {
 			assert(bo->fetch_objcore->boc->state < BOS_STREAM);
 			// XXX: doclose = ?
@@ -583,9 +630,15 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 
 	assert(wrk->handling == VCL_RET_DELIVER);
 
+	if (bo->htc == NULL) {
+		(void)VFP_Error(bo->vfc, "No backend connection (rollback?)");
+		vbf_cleanup(bo);
+		return (F_STP_ERROR);
+	}
+
 	if (vbf_figure_out_vfp(bo)) {
 		(bo)->htc->doclose = SC_OVERLOAD;
-		VDI_Finish((bo)->wrk, bo);
+		vbf_cleanup(bo);
 		return (F_STP_ERROR);
 	}
 
@@ -597,15 +650,14 @@ vbf_stp_fetch(struct worker *wrk, struct busyobj *bo)
 	if (VFP_Open(bo->vfc)) {
 		(void)VFP_Error(bo->vfc, "Fetch pipeline failed to open");
 		bo->htc->doclose = SC_RX_BODY;
-		VDI_Finish(bo->wrk, bo);
+		vbf_cleanup(bo);
 		return (F_STP_ERROR);
 	}
 
 	if (vbf_beresp2obj(bo)) {
 		(void)VFP_Error(bo->vfc, "Could not get storage");
 		bo->htc->doclose = SC_RX_BODY;
-		VFP_Close(bo->vfc);
-		VDI_Finish(bo->wrk, bo);
+		vbf_cleanup(bo);
 		return (F_STP_ERROR);
 	}
 
@@ -657,7 +709,10 @@ vbf_stp_fetchend(struct worker *wrk, struct busyobj *bo)
 {
 
 	AZ(bo->vfc->failed);
-	VFP_Close(bo->vfc);
+
+	/* Recycle the backend connection before setting BOS_FINISHED to
+	   give predictable backend reuse behavior for varnishtest */
+	vbf_cleanup(bo);
 
 	AZ(ObjSetU64(wrk, bo->fetch_objcore, OA_LEN,
 	    bo->fetch_objcore->boc->len_so_far));
@@ -669,10 +724,6 @@ vbf_stp_fetchend(struct worker *wrk, struct busyobj *bo)
 		ObjSetState(wrk, bo->fetch_objcore, BOS_PREP_STREAM);
 		HSH_Unbusy(wrk, bo->fetch_objcore);
 	}
-
-	/* Recycle the backend connection before setting BOS_FINISHED to
-	   give predictable backend reuse behavior for varnishtest */
-	VDI_Finish(bo->wrk, bo);
 
 	ObjSetState(wrk, bo->fetch_objcore, BOS_FINISHED);
 	VSLb_ts_busyobj(bo, "BerespBody", W_TIM_real(wrk));
@@ -712,11 +763,47 @@ vbf_objiterator(void *priv, int flush, const void *ptr, ssize_t len)
 static enum fetch_step
 vbf_stp_condfetch(struct worker *wrk, struct busyobj *bo)
 {
+	struct boc *stale_boc;
+	enum boc_state_e stale_state;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(bo->fetch_objcore, OBJCORE_MAGIC);
+	CHECK_OBJ_NOTNULL(bo->stale_oc, OBJCORE_MAGIC);
 
-	AZ(vbf_beresp2obj(bo));
+	stale_boc = HSH_RefBoc(bo->stale_oc);
+	CHECK_OBJ_ORNULL(stale_boc, BOC_MAGIC);
+	if (stale_boc) {
+		/* Wait for the stale object to become fully fetched, so
+		 * that we can catch fetch errors, before we unbusy the
+		 * new object. This serves two purposes. First it helps
+		 * with request coalesching, and stops long chains of
+		 * IMS-updated short-TTL objects all streaming from a
+		 * single slow body fetch. Second it makes sure that all
+		 * the object attributes are complete when we copy them
+		 * (this would be an issue for ie OA_GZIPBITS). */
+		VSLb(bo->vsl, SLT_Notice,
+		    "[core] Conditional fetch wait for streaming object");
+		ObjWaitState(bo->stale_oc, BOS_FINISHED);
+		stale_state = stale_boc->state;
+		HSH_DerefBoc(bo->wrk, bo->stale_oc);
+		stale_boc = NULL;
+		if (stale_state != BOS_FINISHED) {
+			(void)VFP_Error(bo->vfc, "Template object failed");
+			VDI_Finish(bo->wrk, bo);
+			wrk->stats->fetch_failed++;
+			return (F_STP_FAIL);
+		}
+	}
+	AZ(bo->stale_oc->flags & OC_F_FAILED);
+
+	if (vbf_beresp2obj(bo)) {
+		(void)VFP_Error(bo->vfc, "Could not get storage");
+		bo->htc->doclose = SC_RX_BODY;
+		VFP_Close(bo->vfc);
+		VDI_Finish(bo->wrk, bo);
+		return (F_STP_ERROR);
+	}
 
 	if (ObjHasAttr(bo->wrk, bo->stale_oc, OA_ESIDATA))
 		AZ(ObjCopyAttr(bo->wrk, bo->fetch_objcore, bo->stale_oc,
@@ -736,10 +823,8 @@ vbf_stp_condfetch(struct worker *wrk, struct busyobj *bo)
 	if (ObjIterate(wrk, bo->stale_oc, bo, vbf_objiterator, 0))
 		(void)VFP_Error(bo->vfc, "Template object failed");
 
-	if (bo->stale_oc->flags & OC_F_FAILED)
-		(void)VFP_Error(bo->vfc, "Template object failed");
 	if (bo->vfc->failed) {
-		VDI_Finish(bo->wrk, bo);
+		vbf_cleanup(bo);
 		wrk->stats->fetch_failed++;
 		return (F_STP_FAIL);
 	}
@@ -940,6 +1025,8 @@ vbf_fetch_thread(struct worker *wrk, void *priv)
 	VCL_TaskLeave(bo->vcl, bo->privs);
 	http_Teardown(bo->bereq);
 	http_Teardown(bo->beresp);
+	if (bo->bereq_body != NULL)
+		HSH_DerefObjCore(bo->wrk, &bo->bereq_body, 0);
 
 	if (bo->fetch_objcore->boc->state == BOS_FINISHED) {
 		AZ(bo->fetch_objcore->flags & OC_F_FAILED);

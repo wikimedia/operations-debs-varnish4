@@ -88,7 +88,7 @@ new xshard = directors.shard()
 
    VOID xshard.associate(BLOB param)
 
-   BOOL xshard.add_backend(BACKEND backend, [STRING ident], [DURATION rampup])
+   BOOL xshard.add_backend(BACKEND backend, [STRING ident], [DURATION rampup], [REAL weight])
 
    BOOL xshard.remove_backend([BACKEND backend], [STRING ident])
 
@@ -431,7 +431,9 @@ structure gets built from the last 32 bits of SHA256 hash values of
 \fI<ident>\fP\fI<n>\fP (default \fIident\fP being the backend name) for each
 backend and for a running number \fIn\fP from 1 to \fIreplicas\fP\&. Hashing
 creates the seemingly random order for placement of backends on the
-consistent hashing ring.
+consistent hashing ring.  When \fB\&.add_backend()\fP is called with a
+weight argument, replicas is scaled by that weight to add
+proportionally more copies of the that backend on the ring.
 .sp
 When \fB\&.backend()\fP is called, a load balancing key gets generated
 unless provided. The smallest hash value in the circle is looked up
@@ -497,7 +499,8 @@ argument of \fI\%func_shard.backend\fP\&.
 BOOL xshard.add_backend(
       BACKEND backend,
       [STRING ident],
-      [DURATION rampup]
+      [DURATION rampup],
+      [REAL weight]
 )
 .ft P
 .fi
@@ -516,6 +519,12 @@ backend name.
 \fIrampup\fP: Optionally specify a specific rampup time for this
 backend. Otherwise, the per\-director rampup time is used (see
 \fIfunc_shard.set_rampup\fP).
+.sp
+\fIweight\fP: Optionally specify a weight to scale the
+\fIshard.reconfigure()\fP \fIreplicas\fP parameter. \fIweight\fP is limited to
+at least 1. Values above 10 probably do not make much sense. The
+effect of \fIweight\fP is also capped such that the total number of
+replicas does not exceed \fIUINT32_MAX\fP\&.
 .sp
 NOTE: Backend changes need to be finalized with \fIshard.reconfigure()\fP
 and are only supported on one shard director at a time.
@@ -599,10 +608,11 @@ is _not_ the order given when backends are added.
 \fIHASH\fP:
 .INDENT 2.0
 .IP \(bu 2
-when called in backend context: Use the varnish hash value as
-set by \fIvcl_hash\fP
+when called in backend context and in \fBvcl_pipe {}\fP: Use the
+varnish hash value as set by \fBvcl_hash{}\fP
 .IP \(bu 2
-when called in client context: hash \fIreq.url\fP
+when called in client context other than \fBvcl_pipe {}\fP: hash
+\fBreq.url\fP
 .UNINDENT
 .IP \(bu 2
 \fIURL\fP: hash req.url / bereq.url
@@ -698,9 +708,10 @@ for example as backends for other directors (director layering).
 In \fBvcl_init{}\fP and on the client side, \fBLAZY\fP mode can not be
 used with any other argument.
 .sp
-On the backend side, parameters from arguments or an associated
-parameter set affect the shard director instance for the backend
-request irrespective of where it is referenced.
+On the backend side and in \fBvcl_pipe {}\fP, parameters from
+arguments or an associated parameter set affect the shard director
+instance for the backend request irrespective of where it is
+referenced.
 .UNINDENT
 .IP \(bu 2
 \fIparam\fP
@@ -754,23 +765,24 @@ per backend request scope
 .UNINDENT
 .sp
 The per\-VCL scope defines defaults for the per backend scope. Any
-changes to a parameter set in backend context only affect the
-respective backend request.
+changes to a parameter set in backend context and in \fBvcl_pipe {}\fP
+only affect the respective backend request.
 .sp
-Parameter sets can not be used in client context.
+Parameter sets can not be used in client context except for
+\fBvcl_pipe {}\fP\&.
 .SS VOID xshard_param.clear()
 .sp
 Reset the parameter set to default values as documented for
 \fI\%func_shard.backend\fP\&.
 .INDENT 0.0
 .IP \(bu 2
-in \fBvcl_init{}\fP, resets the parameter set default for this VCL
+in \fBvcl_init{}\fP, resets the parameter set default for this VCL in
 .IP \(bu 2
-in backend context, resets the parameter set for this backend
-request to the VCL defaults
+backend context and in \fBvcl_pipe {}\fP, resets the parameter set for
+this backend request to the VCL defaults
 .UNINDENT
 .sp
-This method may not be used in client context
+This method may not be used in client context other than \fBvcl_pipe {}\fP\&.
 .SS shard_param.set(...)
 .INDENT 0.0
 .INDENT 3.5
@@ -797,12 +809,12 @@ Change the given parameters of a parameter set as documented for
 .IP \(bu 2
 in \fBvcl_init{}\fP, changes the parameter set default for this VCL
 .IP \(bu 2
-in backend context, changes the parameter set for this backend
-request, keeping the defaults set for this VCL for unspecified
-arguments.
+in backend context and in \fBvcl_pipe {}\fP, changes the parameter set
+for this backend request, keeping the defaults set for this VCL for
+unspecified arguments.
 .UNINDENT
 .sp
-This method may not be used in client context
+This method may not be used in client context other than \fBvcl_pipe {}\fP\&.
 .SS STRING xshard_param.get_by()
 .sp
 Get a string representation of the \fIby\fP enum argument which denotes
@@ -831,7 +843,7 @@ shard director using this parameter object would use. See
 \fI\%func_shard.backend\fP\&.
 .SS BLOB xshard_param.use()
 .sp
-This method may only be used in backend context.
+This method may only be used in backend context and in \fBvcl_pipe {}\fP\&.
 .sp
 For use with the \fIparam\fP argument of \fI\%func_shard.backend\fP to associate
 this shard parameter set with a shard director.

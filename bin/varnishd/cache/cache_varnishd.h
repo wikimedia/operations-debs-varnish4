@@ -202,6 +202,7 @@ enum vbf_fetch_mode_e {
 };
 void VBF_Fetch(struct worker *wrk, struct req *req,
     struct objcore *oc, struct objcore *oldoc, enum vbf_fetch_mode_e);
+void Bereq_Rollback(struct busyobj *);
 
 /* cache_fetch_proc.c */
 void VFP_Init(void);
@@ -326,6 +327,8 @@ ssize_t VRB_Iterate(struct req *, objiterate_f *func, void *priv);
 void VRB_Free(struct req *);
 
 /* cache_req_fsm.c [CNT] */
+
+int Resp_Setup(struct req *, unsigned);
 
 enum req_fsm_nxt {
 	REQ_FSM_MORE,

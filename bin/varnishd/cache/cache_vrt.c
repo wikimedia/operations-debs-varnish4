@@ -53,11 +53,28 @@ const void * const vrt_magic_string_unset = &vrt_magic_string_unset;
 VCL_VOID
 VRT_synth(VRT_CTX, VCL_INT code, VCL_STRING reason)
 {
+	const char *ret;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	assert(ctx->req != NULL || ctx->bo != NULL);
-	if (code < 100 || code > 65535)
-		code = 503;
+
+	ret = ctx->req == NULL ? "error" : "synth";
+	if (code < 0) {
+		VRT_fail(ctx, "return(%s()) status code (%jd) is negative",
+		    ret, (intmax_t)code);
+		return;
+	}
+	if (code > 65535) {
+		VRT_fail(ctx, "return(%s()) status code (%jd) > 65535",
+		    ret, (intmax_t)code);
+		return;
+	}
+	if ((code % 1000) < 100) {
+		VRT_fail(ctx,
+		    "illegal return(%s()) status code (%jd) (..0##)",
+		    ret, (intmax_t)code);
+		return;
+	}
 
 	if (ctx->req == NULL) {
 		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
@@ -609,11 +626,18 @@ VCL_STRING v_matchproto_()
 VRT_TIME_string(VRT_CTX, VCL_TIME t)
 {
 	char *p;
+	uintptr_t snapshot;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	snapshot = WS_Snapshot(ctx->ws);
 	p = WS_Alloc(ctx->ws, VTIM_FORMAT_SIZE);
-	if (p != NULL)
+	if (p != NULL) {
 		VTIM_format(t, p);
+		if (*p == '\0') {
+			p = NULL;
+			WS_Reset(ctx->ws, snapshot);
+		}
+	}
 	return (p);
 }
 
@@ -644,14 +668,11 @@ VRT_Rollback(VRT_CTX, VCL_HTTP hp)
 	if (hp == ctx->http_req) {
 		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
 		Req_Rollback(ctx->req);
+		if ((ctx->method & (VCL_MET_DELIVER | VCL_MET_SYNTH)) != 0)
+			Resp_Setup(ctx->req, ctx->method);
 	} else if (hp == ctx->http_bereq) {
 		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
-		// -> VBO_Rollback ?
-		VCL_TaskLeave(ctx->bo->vcl, ctx->bo->privs);
-		VCL_TaskEnter(ctx->bo->vcl, ctx->bo->privs);
-		HTTP_Copy(ctx->bo->bereq, ctx->bo->bereq0);
-		WS_Reset(ctx->bo->bereq->ws, ctx->bo->ws_bo);
-		WS_Reset(ctx->bo->ws, ctx->bo->ws_bo);
+		Bereq_Rollback(ctx->bo);
 	} else
 		WRONG("VRT_Rollback 'hp' invalid");
 }

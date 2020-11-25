@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>VCL &#8212; Varnish version 6.0.6 documentation</title>
+    <title>VCL &#8212; Varnish version 6.0.7 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
@@ -33,7 +33,7 @@
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -899,12 +899,7 @@ argument to VMOD functions.</p>
 <p>Readable from: vcl_backend_response, vcl_backend_error</p>
 <p>Writable from: vcl_backend_response, vcl_backend_error</p>
 <p>The HTTP status code returned by the server.</p>
-<p>Status codes on the form XXYZZ can be set where
-XXYZZ is less than 65536 and Y is [1…9].
-Only YZZ will be sent back to clients.</p>
-<p>XX can be therefore be used to pass information
-around inside VCL, for instance <cite>return(synth(22404))</cite>
-from <cite>vcl_recv{}</cite> to <cite>vcl_synth{}</cite></p>
+<p>More information in the <a class="reference internal" href="#http-response-status">HTTP response status</a> section.</p>
 </div></blockquote>
 <p>beresp.reason</p>
 <blockquote>
@@ -1069,6 +1064,7 @@ particular storage backend.</p>
 <div><p>Type: INT</p>
 <p>Readable from: vcl_hit</p>
 <p>The HTTP status code stored in the object.</p>
+<p>More information in the <a class="reference internal" href="#http-response-status">HTTP response status</a> section.</p>
 </div></blockquote>
 <p>obj.reason</p>
 <blockquote>
@@ -1166,8 +1162,7 @@ to VMODs.</p>
 <p>Readable from: vcl_deliver, vcl_synth</p>
 <p>Writable from: vcl_deliver, vcl_synth</p>
 <p>The HTTP status code that will be returned.</p>
-<p>Assigning a HTTP standardized code to resp.status will also
-set resp.reason to the corresponding status message.</p>
+<p>More information in the <a class="reference internal" href="#http-response-status">HTTP response status</a> section.</p>
 <p>resp.status 200 will get changed into 304 by core code after
 a return(deliver) from vcl_deliver for conditional requests
 to cached content if validation succeeds.</p>
@@ -1262,6 +1257,27 @@ stevedore.</p>
 current stevedores.</p>
 </div></blockquote>
 </div>
+</div>
+<div class="section" id="http-response-status">
+<h4>HTTP response status<a class="headerlink" href="#http-response-status" title="Permalink to this headline">¶</a></h4>
+<p>A status code normally has 3 digits XYZ where X must be between 1 and 5
+included. Since it is not uncommon to see HTTP clients or servers relying
+on non-standard or even invalid status codes Varnish tolerates any status
+between 100 and 999.</p>
+<p>With VCL code it is possible to use status codes in the form XXYZZ where the
+overall value is lower than 65536 and the Y digit is between 1 and 9 included.
+Only the YZZ part is sent to the client.</p>
+<p>The XXYZZ form of status codes can be set on <code class="docutils literal notranslate"><span class="pre">resp.status</span></code> and
+<code class="docutils literal notranslate"><span class="pre">beresp.status</span></code> or passed via <code class="docutils literal notranslate"><span class="pre">return(synth(...))</span></code> and
+<code class="docutils literal notranslate"><span class="pre">return(error(...))</span></code> transitions.</p>
+<p>XX can be therefore be used to pass information around inside VCL, for
+instance <code class="docutils literal notranslate"><span class="pre">return(synth(22404))</span></code> from <code class="docutils literal notranslate"><span class="pre">vcl_recv{}</span></code> to <code class="docutils literal notranslate"><span class="pre">vcl_synth{}</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">obj.status</span></code> variable will inherit the XXYZZ form, but in a ban
+expresion only the YZZ part will be available. The XXYZZ form is strictly
+limited to VCL execution.</p>
+<p>Assigning an HTTP standardized code to <code class="docutils literal notranslate"><span class="pre">resp.status</span></code> or <code class="docutils literal notranslate"><span class="pre">beresp.status</span></code>
+will also set <code class="docutils literal notranslate"><span class="pre">resp.reason</span></code> or <code class="docutils literal notranslate"><span class="pre">beresp.reason</span></code>  to the corresponding
+status message.</p>
 </div>
 <div class="section" id="functions">
 <h4>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h4>
@@ -1431,6 +1447,7 @@ itself. See LICENSE for details.</p>
 <li><a class="reference internal" href="#storage">storage</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#http-response-status">HTTP response status</a></li>
 <li><a class="reference internal" href="#functions">Functions</a><ul>
 <li><a class="reference internal" href="#ban-string">ban(STRING)</a></li>
 <li><a class="reference internal" href="#hash-data-input">hash_data(input)</a></li>
@@ -1493,7 +1510,7 @@ itself. See LICENSE for details.</p>
         <li class="right" >
           <a href="index.html" title="The Varnish Reference Manual"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

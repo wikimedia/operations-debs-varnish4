@@ -1364,13 +1364,7 @@ Writable from: vcl_backend_response, vcl_backend_error
 .sp
 The HTTP status code returned by the server.
 .sp
-Status codes on the form XXYZZ can be set where
-XXYZZ is less than 65536 and Y is [1...9].
-Only YZZ will be sent back to clients.
-.sp
-XX can be therefore be used to pass information
-around inside VCL, for instance \fIreturn(synth(22404))\fP
-from \fIvcl_recv{}\fP to \fIvcl_synth{}\fP
+More information in the \fI\%HTTP response status\fP section.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1656,6 +1650,8 @@ Type: INT
 Readable from: vcl_hit
 .sp
 The HTTP status code stored in the object.
+.sp
+More information in the \fI\%HTTP response status\fP section.
 .UNINDENT
 .UNINDENT
 .sp
@@ -1828,8 +1824,7 @@ Writable from: vcl_deliver, vcl_synth
 .sp
 The HTTP status code that will be returned.
 .sp
-Assigning a HTTP standardized code to resp.status will also
-set resp.reason to the corresponding status message.
+More information in the \fI\%HTTP response status\fP section.
 .sp
 resp.status 200 will get changed into 304 by core code after
 a return(deliver) from vcl_deliver for conditional requests
@@ -1977,6 +1972,31 @@ Health status for the named stevedore. Not available in any of the
 current stevedores.
 .UNINDENT
 .UNINDENT
+.SS HTTP response status
+.sp
+A status code normally has 3 digits XYZ where X must be between 1 and 5
+included. Since it is not uncommon to see HTTP clients or servers relying
+on non\-standard or even invalid status codes Varnish tolerates any status
+between 100 and 999.
+.sp
+With VCL code it is possible to use status codes in the form XXYZZ where the
+overall value is lower than 65536 and the Y digit is between 1 and 9 included.
+Only the YZZ part is sent to the client.
+.sp
+The XXYZZ form of status codes can be set on \fBresp.status\fP and
+\fBberesp.status\fP or passed via \fBreturn(synth(...))\fP and
+\fBreturn(error(...))\fP transitions.
+.sp
+XX can be therefore be used to pass information around inside VCL, for
+instance \fBreturn(synth(22404))\fP from \fBvcl_recv{}\fP to \fBvcl_synth{}\fP\&.
+.sp
+The \fBobj.status\fP variable will inherit the XXYZZ form, but in a ban
+expresion only the YZZ part will be available. The XXYZZ form is strictly
+limited to VCL execution.
+.sp
+Assigning an HTTP standardized code to \fBresp.status\fP or \fBberesp.status\fP
+will also set \fBresp.reason\fP or \fBberesp.reason\fP  to the corresponding
+status message.
 .SS Functions
 .sp
 The following built\-in functions are available:

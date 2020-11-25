@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>varnishd &#8212; Varnish version 6.0.6 documentation</title>
+    <title>varnishd &#8212; Varnish version 6.0.7 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
@@ -33,7 +33,7 @@
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -1265,6 +1265,32 @@ Objects are only moved to the front of the LRU list if they have not been moved 
 </div></blockquote>
 <p>Upper limit on how many times a backend fetch can retry.</p>
 </div>
+<div class="section" id="max-vcl">
+<span id="ref-param-max-vcl"></span><h5>max_vcl<a class="headerlink" href="#max-vcl" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 100</li>
+<li>Minimum: 0</li>
+</ul>
+</div></blockquote>
+<p>Threshold of loaded VCL programs.  (VCL labels are not counted.)  Parameter max_vcl_handling determines behaviour.</p>
+</div>
+<div class="section" id="max-vcl-handling">
+<span id="ref-param-max-vcl-handling"></span><h5>max_vcl_handling<a class="headerlink" href="#max-vcl-handling" title="Permalink to this headline">¶</a></h5>
+<blockquote>
+<div><ul class="simple">
+<li>Default: 1</li>
+<li>Minimum: 0</li>
+<li>Maximum: 2</li>
+</ul>
+</div></blockquote>
+<p>Behaviour when attempting to exceed max_vcl loaded VCL.</p>
+<ul class="simple">
+<li>0 - Ignore max_vcl parameter.</li>
+<li>1 - Issue warning.</li>
+<li>2 - Refuse loading VCLs.</li>
+</ul>
+</div>
 <div class="section" id="nuke-limit">
 <span id="ref-param-nuke-limit"></span><h5>nuke_limit<a class="headerlink" href="#nuke-limit" title="Permalink to this headline">¶</a></h5>
 <blockquote>
@@ -2062,6 +2088,8 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#max-esi-depth">max_esi_depth</a></li>
 <li><a class="reference internal" href="#max-restarts">max_restarts</a></li>
 <li><a class="reference internal" href="#max-retries">max_retries</a></li>
+<li><a class="reference internal" href="#max-vcl">max_vcl</a></li>
+<li><a class="reference internal" href="#max-vcl-handling">max_vcl_handling</a></li>
 <li><a class="reference internal" href="#nuke-limit">nuke_limit</a></li>
 <li><a class="reference internal" href="#pcre-match-limit">pcre_match_limit</a></li>
 <li><a class="reference internal" href="#pcre-match-limit-recursion">pcre_match_limit_recursion</a></li>
@@ -2168,7 +2196,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnishadm.html" title="varnishadm"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

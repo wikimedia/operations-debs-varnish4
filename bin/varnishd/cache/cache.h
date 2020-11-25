@@ -437,6 +437,9 @@ struct busyobj {
 
 	uint16_t		err_code;
 	const char		*err_reason;
+
+	enum req_body_state_e	initial_req_body_status;
+	struct objcore		*bereq_body;
 };
 
 
