@@ -1,3 +1,10 @@
+varnish (6.0.7-1wm1) buster-wikimedia; urgency=medium
+
+  * New upstream release (Bug: T268736)
+    https://github.com/varnishcache/varnish-cache/blob/6.0/doc/changes.rst#varnish-cache-607-2020-11-06
+
+ -- Emanuele Rocca <ema@wikimedia.org>  Wed, 25 Nov 2020 15:04:54 +0100
+
 varnish (6.0.6-1wm2) buster-wikimedia; urgency=medium
 
   * Clear vut->sighup even if sighup_f is not defined (Bug: T264074)
