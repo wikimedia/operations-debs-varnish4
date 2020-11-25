@@ -165,6 +165,9 @@ vmod_shard_param_read(VRT_CTX, const void *id,
     const struct vmod_directors_shard_param *p,
     struct vmod_directors_shard_param *pstk, const char *who);
 
+// XXX #3329 #3330 revisit - for now, treat pipe like backend
+#define SHARD_VCL_TASK_REQ (VCL_MET_TASK_C & ~VCL_MET_PIPE)
+#define SHARD_VCL_TASK_BEREQ (VCL_MET_TASK_B | VCL_MET_PIPE)
 /* -------------------------------------------------------------------------
  * shard vmod interface
  */
@@ -340,6 +343,8 @@ VCL_BOOL v_matchproto_(td_directors_shard_add_backend)
 vmod_shard_add_backend(VRT_CTX, struct vmod_directors_shard *vshard,
     struct vmod_shard_add_backend_arg *args)
 {
+	VCL_REAL weight = 1;
+
 	CHECK_OBJ_NOTNULL(vshard, VMOD_SHARD_SHARD_MAGIC);
 
 	if (args->backend == NULL) {
@@ -348,10 +353,14 @@ vmod_shard_add_backend(VRT_CTX, struct vmod_directors_shard *vshard,
 		return (0);
 	}
 
+	if (args->valid_weight && args->weight > 1)
+		weight = args->weight;
+
 	return shardcfg_add_backend(ctx, args->arg1,
 	    vshard->shardd, args->backend,
 	    args->valid_ident ? args->ident : NULL,
-	    args->valid_rampup ? args->rampup : nan(""));
+	    args->valid_rampup ? args->rampup : nan(""),
+	    weight);
 }
 
 VCL_BOOL v_matchproto_(td_directors_shard_remove_backend)
@@ -466,8 +475,8 @@ static uint32_t
 shard_blob_key(VCL_BLOB key_blob)
 {
 	uint8_t k[4] = { 0 };
-	uint8_t *b;
-	int i, ki;
+	const uint8_t *b;
+	size_t i, ki;
 
 	assert(key_blob);
 	assert(key_blob->len > 0);
@@ -661,14 +670,14 @@ vmod_shard_backend(VRT_CTX, struct vmod_directors_shard *vshard,
 			return (vshard->dir);
 		}
 
-		if ((ctx->method & VCL_MET_TASK_B) == 0) {
+		if ((ctx->method & SHARD_VCL_TASK_BEREQ) == 0) {
 			VRT_fail(ctx, "shard .backend resolve=LAZY with other "
-				 "parameters can only be used in backend "
+				 "parameters can only be used in backend/pipe "
 				 "context");
 			return (NULL);
 		}
 
-		assert(ctx->method & VCL_MET_TASK_B);
+		assert(ctx->method & SHARD_VCL_TASK_BEREQ);
 
 		pp = shard_param_task(ctx, vshard, vshard->param);
 		if (pp == NULL)
@@ -750,7 +759,13 @@ vmod_shard_resolve(const struct director *dir, struct worker *wrk,
 	ctx->sp = bo->sp;
 	ctx->now = bo->t_prev;
 	ctx->ws = bo->ws;
-	ctx->method	= VCL_MET_BACKEND_FETCH;
+	if (bo->req) {
+		CHECK_OBJ_NOTNULL(bo->req, REQ_MAGIC);
+		if (bo->req->res_mode & RES_PIPE) {
+			ctx->req = bo->req;
+			ctx->ws = ctx->req->ws;
+		}
+	}
 
 	pp = vmod_shard_param_read(ctx, vshard,
 				   vshard->param, pstk, "shard_resolve");
@@ -878,11 +893,11 @@ shard_param_prep(VRT_CTX, struct vmod_directors_shard_param *p,
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(p, VMOD_SHARD_SHARD_PARAM_MAGIC);
 
-	if (ctx->method & VCL_MET_TASK_C) {
+	if (ctx->method & SHARD_VCL_TASK_REQ) {
 		VRT_fail(ctx, "%s may only be used "
-			 "in vcl_init and in backend context", who);
+			 "in vcl_init and in backend/pipe context", who);
 		return (NULL);
-	} else if (ctx->method & VCL_MET_TASK_B)
+	} else if (ctx->method & SHARD_VCL_TASK_BEREQ)
 		p = shard_param_task(ctx, p, p);
 	else
 		assert(ctx->method & VCL_MET_TASK_H);
@@ -927,7 +942,7 @@ vmod_shard_param_read(VRT_CTX, const void *id,
 	CHECK_OBJ_NOTNULL(p, VMOD_SHARD_SHARD_PARAM_MAGIC);
 	(void) who; // XXX
 
-	if (ctx->method & VCL_MET_TASK_B)
+	if (ctx->method == 0 || (ctx->method & SHARD_VCL_TASK_BEREQ))
 		p = shard_param_task(ctx, id, p);
 
 	if (p == NULL)

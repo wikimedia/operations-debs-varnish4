@@ -61,6 +61,7 @@ struct shard_backend {
 	};
 	VCL_DURATION		rampup;
 	uint32_t		canon_point;
+	uint32_t		replicas;
 };
 
 #define	SHDBG_LOOKUP	 1
@@ -84,23 +85,15 @@ struct sharddir {
 
 	VCL_DURATION				rampup_duration;
 	VCL_REAL				warmup;
-	VCL_INT					replicas;
+
+	uint32_t				n_points;
 };
 
 static inline VCL_BACKEND
-sharddir_backend(const struct sharddir *shardd, int id)
+sharddir_backend(const struct sharddir *shardd, unsigned id)
 {
-	assert(id >= 0);
 	assert(id < shardd->n_backend);
 	return (shardd->backend[id].backend);
-}
-
-static inline const char *
-sharddir_backend_ident(const struct sharddir *shardd, int host)
-{
-	assert(host >= 0);
-	assert(host < shardd->n_backend);
-	return (shardd->backend[host].ident);
 }
 
 #define SHDBG(flag, shardd, ...)					\
@@ -136,4 +129,4 @@ VCL_BACKEND sharddir_pick_be(VRT_CTX, struct sharddir *, uint32_t, VCL_INT,
 
 /* in shard_cfg.c */
 void shardcfg_delete(const struct sharddir *shardd);
-VCL_DURATION shardcfg_get_rampup(const struct sharddir *shardd, int host);
+VCL_DURATION shardcfg_get_rampup(const struct sharddir *shardd, unsigned host);

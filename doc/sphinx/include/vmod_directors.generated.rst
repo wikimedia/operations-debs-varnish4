@@ -66,7 +66,7 @@ SYNOPSIS
   
       VOID xshard.associate(BLOB param)
   
-      BOOL xshard.add_backend(BACKEND backend, [STRING ident], [DURATION rampup])
+      BOOL xshard.add_backend(BACKEND backend, [STRING ident], [DURATION rampup], [REAL weight])
   
       BOOL xshard.remove_backend([BACKEND backend], [STRING ident])
   
@@ -493,7 +493,9 @@ structure gets built from the last 32 bits of SHA256 hash values of
 `<ident>`\ `<n>` (default `ident` being the backend name) for each
 backend and for a running number `n` from 1 to `replicas`. Hashing
 creates the seemingly random order for placement of backends on the
-consistent hashing ring.
+consistent hashing ring.  When ``.add_backend()`` is called with a
+weight argument, replicas is scaled by that weight to add
+proportionally more copies of the that backend on the ring.
 
 When ``.backend()`` is called, a load balancing key gets generated
 unless provided. The smallest hash value in the circle is looked up
@@ -565,7 +567,8 @@ shard.add_backend(...)
       BOOL xshard.add_backend(
             BACKEND backend,
             [STRING ident],
-            [DURATION rampup]
+            [DURATION rampup],
+            [REAL weight]
       )
 
 Add a backend `backend` to the director.
@@ -580,6 +583,12 @@ backend name.
 `rampup`: Optionally specify a specific rampup time for this
 backend. Otherwise, the per-director rampup time is used (see
 :ref:`func_shard.set_rampup`).
+
+*weight*: Optionally specify a weight to scale the
+`shard.reconfigure()` *replicas* parameter. *weight* is limited to
+at least 1. Values above 10 probably do not make much sense. The
+effect of *weight* is also capped such that the total number of
+replicas does not exceed `UINT32_MAX`.
 
 NOTE: Backend changes need to be finalized with `shard.reconfigure()`
 and are only supported on one shard director at a time.
@@ -675,10 +684,11 @@ is _not_ the order given when backends are added.
 
   * `HASH`:
 
-    * when called in backend context: Use the varnish hash value as
-      set by `vcl_hash`
+    * when called in backend context and in ``vcl_pipe {}``: Use the
+      varnish hash value as set by ``vcl_hash{}``
 
-    * when called in client context: hash `req.url`
+    * when called in client context other than ``vcl_pipe {}``: hash
+      ``req.url``
 
   * `URL`: hash req.url / bereq.url
 
@@ -769,9 +779,10 @@ is _not_ the order given when backends are added.
     In ``vcl_init{}`` and on the client side, ``LAZY`` mode can not be
     used with any other argument.
 
-    On the backend side, parameters from arguments or an associated
-    parameter set affect the shard director instance for the backend
-    request irrespective of where it is referenced.
+    On the backend side and in ``vcl_pipe {}``, parameters from
+    arguments or an associated parameter set affect the shard director
+    instance for the backend request irrespective of where it is
+    referenced.
 
 * `param`
 
@@ -829,10 +840,11 @@ Parameter sets have two scopes:
 * per backend request scope
 
 The per-VCL scope defines defaults for the per backend scope. Any
-changes to a parameter set in backend context only affect the
-respective backend request.
+changes to a parameter set in backend context and in ``vcl_pipe {}``
+only affect the respective backend request.
 
-Parameter sets can not be used in client context.
+Parameter sets can not be used in client context except for
+``vcl_pipe {}``.
 
 .. _func_shard_param.clear:
 
@@ -842,11 +854,11 @@ VOID xshard_param.clear()
 Reset the parameter set to default values as documented for
 `func_shard.backend`_.
 
-* in ``vcl_init{}``, resets the parameter set default for this VCL
-* in backend context, resets the parameter set for this backend
-  request to the VCL defaults
+* in ``vcl_init{}``, resets the parameter set default for this VCL in
+* backend context and in ``vcl_pipe {}``, resets the parameter set for
+  this backend request to the VCL defaults
 
-This method may not be used in client context
+This method may not be used in client context other than ``vcl_pipe {}``.
 
 
 .. _func_shard_param.set:
@@ -871,11 +883,11 @@ Change the given parameters of a parameter set as documented for
 
 * in ``vcl_init{}``, changes the parameter set default for this VCL
 
-* in backend context, changes the parameter set for this backend
-  request, keeping the defaults set for this VCL for unspecified
-  arguments.
+* in backend context and in ``vcl_pipe {}``, changes the parameter set
+  for this backend request, keeping the defaults set for this VCL for
+  unspecified arguments.
 
-This method may not be used in client context
+This method may not be used in client context other than ``vcl_pipe {}``.
 
 
 .. _func_shard_param.get_by:
@@ -939,7 +951,7 @@ shard director using this parameter object would use. See
 BLOB xshard_param.use()
 -----------------------
 
-This method may only be used in backend context.
+This method may only be used in backend context and in ``vcl_pipe {}``.
 
 For use with the `param` argument of `func_shard.backend`_ to associate
 this shard parameter set with a shard director.

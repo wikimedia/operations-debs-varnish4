@@ -4,4 +4,4 @@
  * Edit and run include/generate.py instead.
  */
 
-#define VMOD_ABI_Version "Varnish 6.0.6 29a1a8243dbef3d973aec28dc90403188c1dc8e7"
+#define VMOD_ABI_Version "Varnish 6.0.7 525d371e3ea0e0c38edd7baf0f80dc226560f26e"

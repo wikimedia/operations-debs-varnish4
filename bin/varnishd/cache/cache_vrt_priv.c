@@ -126,8 +126,15 @@ VRT_priv_task(VRT_CTX, const void *vmod_id)
 	struct vmod_priv *vp;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	/*
+	 * XXX when coming from VRT_DirectorResolve() in pipe mode
+	 * (ctx->method == 0), both req and bo are set.
+	 * see #3329 #3330: we should make up our mind where
+	 * pipe objects live
+	 */
+
 	assert(ctx->req == NULL || ctx->bo == NULL ||
-	    ctx->method == VCL_MET_PIPE);
+	    ctx->method == VCL_MET_PIPE || ctx->method == 0);
 
 	if (ctx->req) {
 		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
@@ -196,8 +203,10 @@ VCL_TaskLeave(const struct vcl *vcl, struct vrt_privs *privs)
 	AN(vcl);
 	CHECK_OBJ_NOTNULL(privs, VRT_PRIVS_MAGIC);
 	VTAILQ_FOREACH_SAFE(vp, &privs->privs, list, vp1) {
+		CHECK_OBJ_NOTNULL(vp, VRT_PRIV_MAGIC);
 		VTAILQ_REMOVE(&privs->privs, vp, list);
 		VRT_priv_fini(vp->priv);
+		ZERO_OBJ(vp, sizeof *vp);
 	}
 	ZERO_OBJ(privs, sizeof *privs);
 }

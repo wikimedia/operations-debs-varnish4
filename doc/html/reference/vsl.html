@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>VSL &#8212; Varnish version 6.0.6 documentation</title>
+    <title>VSL &#8212; Varnish version 6.0.7 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
@@ -33,7 +33,7 @@
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -384,6 +384,8 @@ or reserved for possible use in future versions.</div></blockquote>
 </dd>
 <dt>LostHeader - Failed attempt to set HTTP header</dt>
 <dd>Logs the header name of a failed HTTP header operation due to resource exhaustion or configured limits.</dd>
+<dt>Notice - Informational messages about request handling</dt>
+<dd>Informational log messages on events occured during request handling. Lines are prefixed with either [core] or [&lt;VMOD name&gt;]. See the NOTICE MESSAGES section below or the individual VMOD manual pages for detailed information of notice messages.</dd>
 <dt>ObjHeader - Object  header</dt>
 <dd><p class="first">HTTP header contents.</p>
 <p>The format is:</p>
@@ -708,6 +710,25 @@ streaming).</dd>
 </dl>
 </div>
 </div>
+<div class="section" id="notice-messages">
+<h3>NOTICE MESSAGES<a class="headerlink" href="#notice-messages" title="Permalink to this headline">¶</a></h3>
+<p>Notice messages contain informational messages about the handling of a
+request. These can be exceptional circumstances encountered that causes
+deviation from the normal handling. The messages are prefixed with [core]
+for core Varnish generated messages, or with [&lt;VMOD name&gt;] for VMOD
+generated messages. The [core] messages are described in detail below, see
+the individual VMOD documentation for messages from VMODs.</p>
+<dl class="docutils">
+<dt>[core] Conditional fetch wait for streaming object</dt>
+<dd>The backend answered 304 Not Modified on a conditional fetch using
+an object that has not yet been fully fetched as the stale
+template object. This can only happen when the TTL of the object
+is less than the time it takes to fetch it. The fetch is halted
+until the stale object is fully fetched, upon which the new object
+is created as normal. While waiting, any grace time on the stale
+object will be in effect.</dd>
+</dl>
+</div>
 <div class="section" id="history">
 <h3>HISTORY<a class="headerlink" href="#history" title="Permalink to this headline">¶</a></h3>
 <p>This document was initially written by Poul-Henning Kamp, and later updated by
@@ -754,6 +775,7 @@ itself. See LICENCE for details.</p>
 <li><a class="reference internal" href="#backend-fetch-timestamps">Backend fetch timestamps</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#notice-messages">NOTICE MESSAGES</a></li>
 <li><a class="reference internal" href="#history">HISTORY</a></li>
 <li><a class="reference internal" href="#see-also">SEE ALSO</a></li>
 <li><a class="reference internal" href="#copyright">COPYRIGHT</a></li>
@@ -804,7 +826,7 @@ itself. See LICENCE for details.</p>
         <li class="right" >
           <a href="varnish-counters.html" title="varnish-counters"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

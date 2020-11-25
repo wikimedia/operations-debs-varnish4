@@ -413,6 +413,10 @@ LostHeader - Failed attempt to set HTTP header
 	
 
 
+Notice - Informational messages about request handling
+	Informational log messages on events occured during request handling. Lines are prefixed with either [core] or [<VMOD name>]. See the NOTICE MESSAGES section below or the individual VMOD manual pages for detailed information of notice messages.
+
+
 ObjHeader - Object  header
 	HTTP header contents.
 	

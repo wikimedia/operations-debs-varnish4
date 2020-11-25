@@ -1510,6 +1510,42 @@ Minimum: 0
 .UNINDENT
 .sp
 Upper limit on how many times a backend fetch can retry.
+.SS max_vcl
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Default: 100
+.IP \(bu 2
+Minimum: 0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Threshold of loaded VCL programs.  (VCL labels are not counted.)  Parameter max_vcl_handling determines behaviour.
+.SS max_vcl_handling
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+Default: 1
+.IP \(bu 2
+Minimum: 0
+.IP \(bu 2
+Maximum: 2
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Behaviour when attempting to exceed max_vcl loaded VCL.
+.INDENT 0.0
+.IP \(bu 2
+0 \- Ignore max_vcl parameter.
+.IP \(bu 2
+1 \- Issue warning.
+.IP \(bu 2
+2 \- Refuse loading VCLs.
+.UNINDENT
 .SS nuke_limit
 .INDENT 0.0
 .INDENT 3.5

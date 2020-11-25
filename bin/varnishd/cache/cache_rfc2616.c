@@ -62,17 +62,22 @@
  *
  */
 
-static inline int
+static inline unsigned
 rfc2616_time(const char *p)
 {
 	char *ep;
-	int val;
+	unsigned long val;
 	if (*p == '-')
 		return (0);
 	val = strtoul(p, &ep, 10);
-	for (; *ep != '\0' && vct_issp(*ep); ep++)
-		continue;
-	if (*ep == '\0' || *ep == ',')
+	if (val > UINT_MAX)
+		return (UINT_MAX);
+	while (vct_issp(*ep))
+		ep++;
+	/* We accept ',' as an end character because we may be parsing a
+	 * multi-element Cache-Control part. We accept '.' to be future
+	 * compatble with fractional seconds. */
+	if (*ep == '\0' || *ep == ',' || *ep == '.')
 		return (val);
 	return (0);
 }
@@ -87,6 +92,7 @@ RFC2616_Ttl(struct busyobj *bo, vtim_real now, vtim_real *t_origin,
 	const struct http *hp;
 
 	CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
+	CHECK_OBJ_NOTNULL(bo->fetch_objcore, OBJCORE_MAGIC);
 	assert(now != 0.0 && !isnan(now));
 	AN(t_origin);
 	AN(ttl);
@@ -110,13 +116,21 @@ RFC2616_Ttl(struct busyobj *bo, vtim_real now, vtim_real *t_origin,
 	 */
 
 	if (http_GetHdr(hp, H_Age, &p)) {
-		/*
-		 * We deliberately run with partial results, rather than
-		 * reject the Age: header outright.  This will be future
-		 * compatible with fractional seconds.
-		 */
-		age = strtoul(p, NULL, 10);
+		age = rfc2616_time(p);
 		*t_origin -= age;
+	}
+
+	if (bo->fetch_objcore->flags & OC_F_PRIVATE) {
+		/* Pass object. Halt the processing here, keeping only the
+		 * parsed value of t_origin, as that will be needed to
+		 * synthesize a correct Age header in delivery. The
+		 * SLT_TTL log tag at the end of this function is
+		 * deliberetaly skipped to avoid confusion when reading
+		 * the log.*/
+		*ttl = -1;
+		*grace = 0;
+		*keep = 0;
+		return;
 	}
 
 	if (http_GetHdr(hp, H_Expires, &p))

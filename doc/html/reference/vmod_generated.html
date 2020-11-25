@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>vmod_std &#8212; Varnish version 6.0.6 documentation</title>
+    <title>vmod_std &#8212; Varnish version 6.0.7 documentation</title>
     <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
@@ -33,7 +33,7 @@
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>  
@@ -765,7 +765,7 @@ SUCH DAMAGE.
 
    <span class="n">VOID</span> <span class="n">xshard</span><span class="o">.</span><span class="n">associate</span><span class="p">(</span><span class="n">BLOB</span> <span class="n">param</span><span class="p">)</span>
 
-   <span class="n">BOOL</span> <span class="n">xshard</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">BACKEND</span> <span class="n">backend</span><span class="p">,</span> <span class="p">[</span><span class="n">STRING</span> <span class="n">ident</span><span class="p">],</span> <span class="p">[</span><span class="n">DURATION</span> <span class="n">rampup</span><span class="p">])</span>
+   <span class="n">BOOL</span> <span class="n">xshard</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span><span class="n">BACKEND</span> <span class="n">backend</span><span class="p">,</span> <span class="p">[</span><span class="n">STRING</span> <span class="n">ident</span><span class="p">],</span> <span class="p">[</span><span class="n">DURATION</span> <span class="n">rampup</span><span class="p">],</span> <span class="p">[</span><span class="n">REAL</span> <span class="n">weight</span><span class="p">])</span>
 
    <span class="n">BOOL</span> <span class="n">xshard</span><span class="o">.</span><span class="n">remove_backend</span><span class="p">([</span><span class="n">BACKEND</span> <span class="n">backend</span><span class="p">],</span> <span class="p">[</span><span class="n">STRING</span> <span class="n">ident</span><span class="p">])</span>
 
@@ -1127,7 +1127,9 @@ structure gets built from the last 32 bits of SHA256 hash values of
 <cite>&lt;ident&gt;</cite><cite>&lt;n&gt;</cite> (default <cite>ident</cite> being the backend name) for each
 backend and for a running number <cite>n</cite> from 1 to <cite>replicas</cite>. Hashing
 creates the seemingly random order for placement of backends on the
-consistent hashing ring.</p>
+consistent hashing ring.  When <code class="docutils literal notranslate"><span class="pre">.add_backend()</span></code> is called with a
+weight argument, replicas is scaled by that weight to add
+proportionally more copies of the that backend on the ring.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">.backend()</span></code> is called, a load balancing key gets generated
 unless provided. The smallest hash value in the circle is looked up
 that is larger than the key (searching clockwise and wrapping around
@@ -1179,7 +1181,8 @@ argument of <a class="reference internal" href="#func-shard-backend">func_shard.
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">BOOL</span> <span class="n">xshard</span><span class="o">.</span><span class="n">add_backend</span><span class="p">(</span>
       <span class="n">BACKEND</span> <span class="n">backend</span><span class="p">,</span>
       <span class="p">[</span><span class="n">STRING</span> <span class="n">ident</span><span class="p">],</span>
-      <span class="p">[</span><span class="n">DURATION</span> <span class="n">rampup</span><span class="p">]</span>
+      <span class="p">[</span><span class="n">DURATION</span> <span class="n">rampup</span><span class="p">],</span>
+      <span class="p">[</span><span class="n">REAL</span> <span class="n">weight</span><span class="p">]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -1192,6 +1195,11 @@ backend name.</p>
 <p><cite>rampup</cite>: Optionally specify a specific rampup time for this
 backend. Otherwise, the per-director rampup time is used (see
 <a class="reference internal" href="#func-shard-set-rampup"><span class="std std-ref">VOID xshard.set_rampup(DURATION duration=0)</span></a>).</p>
+<p><em>weight</em>: Optionally specify a weight to scale the
+<cite>shard.reconfigure()</cite> <em>replicas</em> parameter. <em>weight</em> is limited to
+at least 1. Values above 10 probably do not make much sense. The
+effect of <em>weight</em> is also capped such that the total number of
+replicas does not exceed <cite>UINT32_MAX</cite>.</p>
 <p>NOTE: Backend changes need to be finalized with <cite>shard.reconfigure()</cite>
 and are only supported on one shard director at a time.</p>
 </div>
@@ -1256,9 +1264,10 @@ is _not_ the order given when backends are added.</p>
 <li><p class="first"><cite>by</cite> how to determine the sharding key</p>
 <ul class="simple">
 <li><cite>HASH</cite>:<ul>
-<li>when called in backend context: Use the varnish hash value as
-set by <cite>vcl_hash</cite></li>
-<li>when called in client context: hash <cite>req.url</cite></li>
+<li>when called in backend context and in <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>: Use the
+varnish hash value as set by <code class="docutils literal notranslate"><span class="pre">vcl_hash{}</span></code></li>
+<li>when called in client context other than <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>: hash
+<code class="docutils literal notranslate"><span class="pre">req.url</span></code></li>
 </ul>
 </li>
 <li><cite>URL</cite>: hash req.url / bereq.url</li>
@@ -1331,9 +1340,10 @@ those healthy, the last healthy backend found or none.</p>
 for example as backends for other directors (director layering).</p>
 <p>In <code class="docutils literal notranslate"><span class="pre">vcl_init{}</span></code> and on the client side, <code class="docutils literal notranslate"><span class="pre">LAZY</span></code> mode can not be
 used with any other argument.</p>
-<p>On the backend side, parameters from arguments or an associated
-parameter set affect the shard director instance for the backend
-request irrespective of where it is referenced.</p>
+<p>On the backend side and in <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>, parameters from
+arguments or an associated parameter set affect the shard director
+instance for the backend request irrespective of where it is
+referenced.</p>
 </li>
 </ul>
 </li>
@@ -1380,20 +1390,21 @@ directors).</p>
 <li>per backend request scope</li>
 </ul>
 <p>The per-VCL scope defines defaults for the per backend scope. Any
-changes to a parameter set in backend context only affect the
-respective backend request.</p>
-<p>Parameter sets can not be used in client context.</p>
+changes to a parameter set in backend context and in <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>
+only affect the respective backend request.</p>
+<p>Parameter sets can not be used in client context except for
+<code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>.</p>
 </div>
 <div class="section" id="void-xshard-param-clear">
 <span id="func-shard-param-clear"></span><h4>VOID xshard_param.clear()<a class="headerlink" href="#void-xshard-param-clear" title="Permalink to this headline">¶</a></h4>
 <p>Reset the parameter set to default values as documented for
 <a class="reference internal" href="#func-shard-backend">func_shard.backend</a>.</p>
 <ul class="simple">
-<li>in <code class="docutils literal notranslate"><span class="pre">vcl_init{}</span></code>, resets the parameter set default for this VCL</li>
-<li>in backend context, resets the parameter set for this backend
-request to the VCL defaults</li>
+<li>in <code class="docutils literal notranslate"><span class="pre">vcl_init{}</span></code>, resets the parameter set default for this VCL in</li>
+<li>backend context and in <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>, resets the parameter set for
+this backend request to the VCL defaults</li>
 </ul>
-<p>This method may not be used in client context</p>
+<p>This method may not be used in client context other than <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>.</p>
 </div>
 <div class="section" id="shard-param-set">
 <span id="func-shard-param-set"></span><h4>shard_param.set(…)<a class="headerlink" href="#shard-param-set" title="Permalink to this headline">¶</a></h4>
@@ -1412,11 +1423,11 @@ request to the VCL defaults</li>
 <a class="reference internal" href="#func-shard-backend">func_shard.backend</a>.</p>
 <ul class="simple">
 <li>in <code class="docutils literal notranslate"><span class="pre">vcl_init{}</span></code>, changes the parameter set default for this VCL</li>
-<li>in backend context, changes the parameter set for this backend
-request, keeping the defaults set for this VCL for unspecified
-arguments.</li>
+<li>in backend context and in <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>, changes the parameter set
+for this backend request, keeping the defaults set for this VCL for
+unspecified arguments.</li>
 </ul>
-<p>This method may not be used in client context</p>
+<p>This method may not be used in client context other than <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>.</p>
 </div>
 <div class="section" id="string-xshard-param-get-by">
 <span id="func-shard-param-get-by"></span><h4>STRING xshard_param.get_by()<a class="headerlink" href="#string-xshard-param-get-by" title="Permalink to this headline">¶</a></h4>
@@ -1452,7 +1463,7 @@ shard director using this parameter object would use. See
 </div>
 <div class="section" id="blob-xshard-param-use">
 <span id="func-shard-param-use"></span><h4>BLOB xshard_param.use()<a class="headerlink" href="#blob-xshard-param-use" title="Permalink to this headline">¶</a></h4>
-<p>This method may only be used in backend context.</p>
+<p>This method may only be used in backend context and in <code class="docutils literal notranslate"><span class="pre">vcl_pipe</span> <span class="pre">{}</span></code>.</p>
 <p>For use with the <cite>param</cite> argument of <a class="reference internal" href="#func-shard-backend">func_shard.backend</a> to associate
 this shard parameter set with a shard director.</p>
 </div>
@@ -2972,7 +2983,7 @@ SUCH DAMAGE.
         <li class="right" >
           <a href="vmod.html" title="VMOD - Varnish Modules"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.6 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Varnish version 6.0.7 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="index.html" >The Varnish Reference Manual</a> &#187;</li> 
       </ul>
     </div>

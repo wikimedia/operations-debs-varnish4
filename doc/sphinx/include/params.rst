@@ -704,6 +704,31 @@ max_retries
 
 Upper limit on how many times a backend fetch can retry.
 
+.. _ref_param_max_vcl:
+
+max_vcl
+~~~~~~~
+	* Default: 100
+	* Minimum: 0
+
+Threshold of loaded VCL programs.  (VCL labels are not counted.)  Parameter max_vcl_handling determines behaviour.
+
+.. _ref_param_max_vcl_handling:
+
+max_vcl_handling
+~~~~~~~~~~~~~~~~
+	* Default: 1
+	* Minimum: 0
+	* Maximum: 2
+
+Behaviour when attempting to exceed max_vcl loaded VCL.
+
+*  0 - Ignore max_vcl parameter.
+
+*  1 - Issue warning.
+
+*  2 - Refuse loading VCLs.
+
 .. _ref_param_nuke_limit:
 
 nuke_limit

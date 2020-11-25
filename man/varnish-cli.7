@@ -403,6 +403,14 @@ Show parameters and their values.
 .UNINDENT
 .sp
 The long form with \fB\-l\fP shows additional information, including documentation and minimum, maximum and default values, if defined for the parameter. JSON output is specified with \fB\-j\fP, in which the information for the long form is included; only one of \fB\-l\fP or \fB\-j\fP is permitted. If a parameter is specified with \fB<param>\fP, show only that parameter. If \fBchanged\fP is specified, show only those parameters whose values differ from their defaults.
+.SS pid [\-j]
+.INDENT 0.0
+.INDENT 3.5
+Show the pid of the master process, and the worker if it\(aqs running.
+.sp
+\fB\-j\fP specifies JSON output.
+.UNINDENT
+.UNINDENT
 .SS ping [\-j] [<timestamp>]
 .INDENT 0.0
 .INDENT 3.5
